@@ -13,7 +13,7 @@ without an evidence file behind it.
 | `Probe-RspScope.ps1` | Who reads `Directory.Build.rsp`; do relative log paths follow CWD; does `-noAutoResponse` work | Whether the `.rsp` can be committed | Not run |
 | `Probe-Net60Vstest.ps1` | Is there a net6.0 VSTest config that builds? | Whether the routing table can claim net6.0 | Not run |
 | `updated-input/` | Is `updatedInput` honoured? Does it need `permissionDecision: allow`? Do two rewrites chain? | Whether hook injection can work at all | Not run |
-| `CommandSegmentation.Tests.ps1` | Does the rewriter corrupt real commands? | The rewriter itself | **Run.** 26/26 passing at 24 vectors; 7 vectors added after the hook probe |
+| `CommandSegmentation.Tests.ps1` | Does the rewriter corrupt real commands? | The rewriter itself | **Run.** 34/34 passing at 33 vectors. Promoted to production: module now lives at `shared/denoizinator-core/CommandSegmentation.psm1`, tests at `tests/CommandSegmentation.Tests.ps1` |
 
 ## Run order
 
@@ -28,7 +28,7 @@ load-bearing — which changes what the other probes need to establish.
 ./probes/hook-behavior/Analyze-HookProbe.ps1
 
 # 2. Rewriter correctness -- pure unit test, no .NET needed
-Invoke-Pester ./probes/CommandSegmentation.Tests.ps1
+Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 
 # 3. RSP scope
 ./probes/Probe-RspScope.ps1

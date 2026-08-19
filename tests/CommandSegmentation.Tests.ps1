@@ -3,21 +3,29 @@
     Vectors for CommandSegmentation.psm1.
 
 .DESCRIPTION
-    31 vectors, verified against a reference implementation before the PowerShell
-    port was written. They are the contract.
+    33 vectors. The original 31 were verified against a reference implementation
+    before the PowerShell port was written and are the contract -- none may be
+    removed. 2 more were added when Add-CommandFlag moved from a single
+    -Prefixes/-Flags pair to a -FlagMap, proving build and test each get their
+    own flags in one compound command and inside a subshell.
 
     The env-assignment and subshell vectors were added after the hook-behaviour
     probe (2026-08-19) measured that Claude Code's 'if' filter reaches both cases.
     A rewriter that skipped them would fire the hook and then silently do nothing.
 
 .EXAMPLE
-    Invoke-Pester ./probes/CommandSegmentation.Tests.ps1
+    Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 #>
 
 BeforeAll {
-    Import-Module (Join-Path $PSScriptRoot 'CommandSegmentation.psm1') -Force
-    $script:Prefixes = @('dotnet build','dotnet test','dotnet msbuild','dotnet run','msbuild')
-    $script:Flags    = '-nologo -tl:off'
+    Import-Module (Join-Path $PSScriptRoot '../shared/denoizinator-core/CommandSegmentation.psm1') -Force
+    $script:FlagMap = @{
+        'dotnet build'   = '-nologo -tl:off'
+        'dotnet test'    = '-nologo -tl:off'
+        'dotnet msbuild' = '-nologo -tl:off'
+        'dotnet run'     = '-nologo -tl:off'
+        'msbuild'        = '-nologo -tl:off'
+    }
 }
 
 Describe 'Add-CommandFlag' {
@@ -77,7 +85,27 @@ Describe 'Add-CommandFlag' {
     It 'segments and rewrites <Cmd>' -TestCases $cases {
         param($Cmd, $Segs, $Want)
         (Split-CommandSegment -Command $Cmd).Count | Should -Be $Segs
-        Add-CommandFlag -Command $Cmd -Prefixes $script:Prefixes -Flags $script:Flags | Should -BeExactly $Want
+        Add-CommandFlag -Command $Cmd -FlagMap $script:FlagMap | Should -BeExactly $Want
+    }
+}
+
+Describe 'Add-CommandFlag per-command flags' {
+
+    BeforeAll {
+        $script:DiffFlagMap = @{
+            'dotnet build' = '-nologo -tl:off'
+            'dotnet test'  = '--nologo -v:q'
+        }
+    }
+
+    It 'gives build and test their own flags in one compound command' {
+        Add-CommandFlag -Command 'dotnet build && dotnet test' -FlagMap $script:DiffFlagMap |
+            Should -BeExactly 'dotnet build -nologo -tl:off && dotnet test --nologo -v:q'
+    }
+
+    It 'gives build and test their own flags inside a subshell' {
+        Add-CommandFlag -Command '(dotnet build && dotnet test)' -FlagMap $script:DiffFlagMap |
+            Should -BeExactly '(dotnet build -nologo -tl:off && dotnet test --nologo -v:q)'
     }
 }
 
@@ -85,7 +113,7 @@ Describe 'Known limitations (documented, not bugs)' {
 
     It 'does not reach a build wrapped by another interpreter' {
         $c = 'pwsh -NoProfile -Command dotnet build'
-        Add-CommandFlag -Command $c -Prefixes $script:Prefixes -Flags $script:Flags |
+        Add-CommandFlag -Command $c -FlagMap $script:FlagMap |
             Should -BeExactly $c
     }
 }

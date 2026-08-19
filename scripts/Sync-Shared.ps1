@@ -31,6 +31,10 @@ $map = @{
         'plugins/denoizinator-net/scripts/vendor/Denoizinator.Core.psm1',
         'plugins/denoizinator-java/scripts/vendor/Denoizinator.Core.psm1'
     )
+    'denoizinator-core/CommandSegmentation.psm1' = @(
+        'plugins/denoizinator-net/scripts/vendor/CommandSegmentation.psm1',
+        'plugins/denoizinator-java/scripts/vendor/CommandSegmentation.psm1'
+    )
 }
 
 $drift = @()
