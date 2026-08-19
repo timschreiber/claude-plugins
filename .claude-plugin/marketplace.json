@@ -1,0 +1,59 @@
+{
+  "name": "timschreiber",
+  "description": "Claude Code plugins and skills by Tim Schreiber.",
+  "owner": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "denoizinator-net",
+      "displayName": "Denoizinator for .NET",
+      "source": "denoizinator-net",
+      "description": "Strip the noise. Keep the signal. Keeps low-value MSBuild and test output out of Claude's context so more of the window stays available for work.",
+      "author": {
+        "name": "Tim Schreiber"
+      },
+      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/denoizinator-net",
+      "repository": "https://github.com/timschreiber/claude-plugins",
+      "license": "Apache-2.0",
+      "category": "dev",
+      "tags": ["dotnet", "msbuild", "testing", "token-efficiency"],
+      "keywords": ["dotnet", "csharp", "msbuild", "xunit", "context"]
+    },
+    {
+      "name": "denoizinator-java",
+      "displayName": "Denoizinator for Java",
+      "source": "denoizinator-java",
+      "description": "Strip the noise. Keep the signal. Quiets Maven and Gradle build and test output so more of Claude's context window stays available for work.",
+      "author": {
+        "name": "Tim Schreiber"
+      },
+      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/denoizinator-java",
+      "repository": "https://github.com/timschreiber/claude-plugins",
+      "license": "Apache-2.0",
+      "category": "dev",
+      "tags": ["java", "maven", "gradle", "testing", "token-efficiency"],
+      "keywords": ["java", "maven", "gradle", "junit", "context"]
+    },
+    {
+      "name": "planning",
+      "displayName": "Planning",
+      "source": "planning",
+      "description": "A structured plan-mode protocol with compressed handoff artifacts for execution sessions.",
+      "author": {
+        "name": "Tim Schreiber"
+      },
+      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/planning",
+      "repository": "https://github.com/timschreiber/claude-plugins",
+      "license": "Apache-2.0",
+      "category": "productivity",
+      "tags": ["planning", "workflow"],
+      "keywords": ["plan", "handoff", "opusplan"]
+    }
+  ],
+  "renames": {}
+}

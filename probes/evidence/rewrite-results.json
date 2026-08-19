@@ -1,0 +1,38 @@
+[
+  {
+    "Handler": "plain",
+    "Mode": "plain",
+    "Received": "dotnet --version",
+    "Executed": true,
+    "ToolUseId": "toolu_01BSnviyvBTaAVp2CMzfGyFd",
+    "Token": "plain_865049c7",
+    "Emitted": "echo executed > .dnz-updatedinput/EXEC_plain_865049c7.txt && dotnet --version"
+  },
+  {
+    "Handler": "allow",
+    "Mode": "allow",
+    "Received": "dotnet --list-sdks",
+    "Executed": true,
+    "ToolUseId": "toolu_01MWuBaNRvGk6MbWRwnMQTii",
+    "Token": "allow_450e300a",
+    "Emitted": "echo executed > .dnz-updatedinput/EXEC_allow_450e300a.txt && dotnet --list-sdks"
+  },
+  {
+    "Handler": "chain1",
+    "Mode": "plain",
+    "Received": "dotnet --list-runtimes",
+    "Executed": false,
+    "ToolUseId": "toolu_01RJSfPJrkSz78yKkqntEAzw",
+    "Token": "chain1_e118cd63",
+    "Emitted": "echo executed > .dnz-updatedinput/EXEC_chain1_e118cd63.txt && dotnet --list-runtimes"
+  },
+  {
+    "Handler": "chain2",
+    "Mode": "plain",
+    "Received": "dotnet --list-runtimes",
+    "Executed": true,
+    "ToolUseId": "toolu_01RJSfPJrkSz78yKkqntEAzw",
+    "Token": "chain2_92f8fec3",
+    "Emitted": "echo executed > .dnz-updatedinput/EXEC_chain2_92f8fec3.txt && dotnet --list-runtimes"
+  }
+]

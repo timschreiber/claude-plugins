@@ -1,0 +1,50 @@
+{
+  "_comment": [
+    "Merge into .claude/settings.json of a THROWAWAY test repo, not a real one.",
+    "Each handler carries a distinct DNZ_HOOK_LABEL so the analyzer can tell",
+    "which 'if' filter actually routed the call.",
+    "",
+    "The bare-matcher handler (label 'all-bash') is the control: it fires for",
+    "every Bash call. Any command present in 'all-bash' but absent from the",
+    "filtered labels is a coverage gap in the filter, which is exactly the",
+    "question this probe exists to answer."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label all-bash",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet build:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-dotnet-build",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet test:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-dotnet-test",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet *)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-dotnet-star",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(msbuild:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-msbuild",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

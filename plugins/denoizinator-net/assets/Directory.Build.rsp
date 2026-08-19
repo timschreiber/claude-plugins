@@ -1,0 +1,10 @@
+# Denoizinator for .NET -- MSBuild response file.
+# Read automatically by msbuild.exe, dotnet build, dotnet msbuild, and dotnet run.
+# Place at the repository root. Must be CRLF-terminated.
+
+-nologo
+-tl:off
+-clp:ErrorsOnly;Summary;ShowProjectFile=false
+-flp1:LogFile=.dnz\build.err;ErrorsOnly;Verbosity=quiet
+-flp2:LogFile=.dnz\build.wrn;WarningsOnly;Verbosity=quiet
+-flp3:LogFile=.dnz\build.log;Verbosity=normal

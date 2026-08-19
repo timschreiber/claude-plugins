@@ -1,0 +1,34 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate marketplace
+        run: claude plugin validate .
+
+      - name: Validate each plugin
+        run: |
+          set -e
+          for d in plugins/*/; do
+            echo "== $d"
+            claude plugin validate "$d"
+          done
+
+      - name: Check shared asset drift
+        shell: pwsh
+        run: ./scripts/Sync-Shared.ps1 -Check

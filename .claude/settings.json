@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "timschreiber": {
+      "source": {
+        "source": "github",
+        "repo": "timschreiber/claude-plugins"
+      }
+    }
+  }
+}

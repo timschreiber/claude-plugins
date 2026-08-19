@@ -1,0 +1,13 @@
+{
+  "name": "denoizinator-net",
+  "displayName": "Denoizinator for .NET",
+  "description": "Strip the noise. Keep the signal. Keeps low-value MSBuild and test output out of Claude's context so more of the window stays available for work.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/denoizinator-net",
+  "repository": "https://github.com/timschreiber/claude-plugins",
+  "license": "Apache-2.0",
+  "keywords": ["dotnet", "csharp", "msbuild", "xunit", "context"]
+}

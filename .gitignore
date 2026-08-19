@@ -1,0 +1,13 @@
+.dnz/
+*.user
+.vs/
+.idea/
+node_modules/
+.dnz-hookprobe/
+probes/evidence/*.tmp
+
+# probe scratch and generated analyzer output
+build-out.txt
+.claude/settings.*.bak
+probes/hook-behavior/hook-coverage.json
+probes/updated-input/rewrite-results.json

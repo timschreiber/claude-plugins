@@ -1,0 +1,165 @@
+{
+  "generated": "2026-08-19T15:24:34.7316973-04:00",
+  "probeDir": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\.dnz-hookprobe",
+  "records": 50,
+  "calls": 20,
+  "labels": [
+    "all-bash",
+    "if-dotnet-build",
+    "if-dotnet-star",
+    "if-dotnet-test",
+    "if-msbuild"
+  ],
+  "coverage": [
+    {
+      "command": "(cd src && dotnet build)",
+      "handlers": [
+        "if-dotnet-star",
+        "all-bash",
+        "if-dotnet-build"
+      ]
+    },
+    {
+      "command": "dotnet build 2>&1",
+      "handlers": [
+        "if-dotnet-star",
+        "all-bash",
+        "if-dotnet-build"
+      ]
+    },
+    {
+      "command": "cd src && dotnet build && cd ..",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-build",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "dotnet test",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-test",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "dotnet test -- --report-trx",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-star",
+        "if-dotnet-test"
+      ]
+    },
+    {
+      "command": "pwsh -NoProfile -Command dotnet build",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet run --project src/App",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "dotnet build -c Release",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-build",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "cd src && dotnet build",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-star",
+        "if-dotnet-build"
+      ]
+    },
+    {
+      "command": "dotnet build | Select-String \"error\"",
+      "handlers": [
+        "if-dotnet-star",
+        "all-bash",
+        "if-dotnet-build"
+      ]
+    },
+    {
+      "command": "npm run build",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet build > build-out.txt",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-build",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "dotnet build && dotnet test",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-build",
+        "if-dotnet-test",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "dotnet msbuild /t:Build",
+      "handlers": [
+        "if-dotnet-star",
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet test --filter \"FullyQualifiedName~A && Category=B\"",
+      "handlers": [
+        "if-dotnet-star",
+        "if-dotnet-test",
+        "all-bash"
+      ]
+    },
+    {
+      "command": "msbuild MySolution.sln",
+      "handlers": [
+        "if-msbuild",
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet build",
+      "handlers": [
+        "all-bash",
+        "if-dotnet-star",
+        "if-dotnet-build"
+      ]
+    },
+    {
+      "command": "DOTNET_NOLOGO=1 dotnet build",
+      "handlers": [
+        "if-dotnet-build",
+        "all-bash",
+        "if-dotnet-star"
+      ]
+    },
+    {
+      "command": "git status",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "pwsh -c \"dotnet build\"",
+      "handlers": [
+        "all-bash"
+      ]
+    }
+  ]
+}

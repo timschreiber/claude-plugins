@@ -1,0 +1,50 @@
+{
+  "_comment": [
+    "Merge the 'hooks' key into .claude/settings.json of a THROWAWAY repo.",
+    "",
+    "Three independent tests, each targeting a DIFFERENT dotnet command so the",
+    "handlers cannot interfere with one another:",
+    "",
+    "  dotnet --version       -> one handler, updatedInput with NO decision",
+    "  dotnet --list-sdks     -> one handler, updatedInput WITH permissionDecision allow",
+    "  dotnet --list-runtimes -> TWO handlers, both rewriting (composition test)",
+    "",
+    "The composition pair is the interesting one. The hook-behaviour probe showed",
+    "all matching handlers run, so two rewriters can fire on one command. Whether",
+    "the second sees the first's output, the original, or whether one rewrite is",
+    "discarded, determines if a plugin may ever ship overlapping handlers."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(dotnet --version:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/updated-input/Invoke-RewriteProbe.ps1\" -Mode plain -Label plain",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet --list-sdks:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/updated-input/Invoke-RewriteProbe.ps1\" -Mode allow -Label allow",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet --list-runtimes:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/updated-input/Invoke-RewriteProbe.ps1\" -Mode plain -Label chain1",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet --list-runtimes:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/updated-input/Invoke-RewriteProbe.ps1\" -Mode plain -Label chain2",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
