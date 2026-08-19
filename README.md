@@ -17,11 +17,25 @@ claude plugin marketplace add timschreiber/claude-plugins --sparse .claude-plugi
 
 ## Plugins
 
-| Plugin | Skills namespaced as | What it does |
-|---|---|---|
-| `denoizinator-net` | `/denoizinator-net:*` | Keeps MSBuild and `dotnet test` output out of context |
-| `denoizinator-java` | `/denoizinator-java:*` | Same for Maven and Gradle |
-| `planning` | `/planning:*` | Structured plan mode with compressed handoff artifacts |
+| Plugin | What it does |
+|---|---|
+| `denoizinator-net` | Keeps MSBuild and `dotnet test` output out of context |
+| `denoizinator-java` | Same for Maven and Gradle |
+| `planning` | Structured plan mode with compressed handoff artifacts (`/planning:plan-handoff`) |
+
+### What Denoizinator does not cover
+
+Command rewriting happens in a `PreToolUse` hook, which sees the command string
+Claude Code is about to run. Builds invoked through another interpreter are
+invisible to it and stay verbose:
+
+- `pwsh -c "dotnet build"` and `pwsh -NoProfile -Command dotnet build`
+- `npm run build`, or any package-manager script that shells out
+- Makefiles, `nx`, `cake`, and similar wrappers
+
+Measured, not assumed — see `docs/hook-behavior-findings.md` §5. Nothing is
+written into your repository, so continuous integration and Visual Studio
+builds are unaffected by design rather than by configuration.
 
 ## Layout
 
@@ -51,8 +65,10 @@ claude-plugins/
 └── .github/workflows/validate.yml
 ```
 
-`metadata.pluginRoot` is `./plugins`, so a catalog entry's `source` is just the
-directory name.
+A catalog entry's `source` is a relative path from the marketplace root and must
+start with `./` — for example `./plugins/denoizinator-net`. Paths resolve against
+the repository root, not the `.claude-plugin/` directory. Bare directory names
+fail validation, and `../` is rejected.
 
 ## Development
 
@@ -95,6 +111,8 @@ Claude Code then falls back to the resolved commit SHA, so every push reaches
 users. Declaring a version pins the plugin until the string changes — push a
 hundred commits under `"version": "1.0.0"` and existing users keep the cached copy.
 Never set it in both places: `plugin.json` wins silently and masks the catalog.
+`claude plugin validate` warns about the missing version on every plugin. Those
+warnings are expected and will not go away.
 
 **Nothing reaches outside a plugin directory.** Installed plugins are copied, so
 `../shared-utils` does not exist at runtime. Shared code lives in `shared/`,

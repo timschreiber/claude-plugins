@@ -270,6 +270,11 @@ TEST NONE | 0 tests ran | filter matched nothing
 Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
 `dotnet build`, `dotnet msbuild`, and `dotnet run`.
 
+> **Superseded.** The `.rsp` approach was dropped: it is a committed repository
+> artifact, so it also changes Azure Pipelines output and writes `.dnz/` on build
+> agents. Build quieting moved to `PreToolUse` hook injection. See
+> `hook-behavior-findings.md`.
+
 ---
 
 ## 10. Still open
