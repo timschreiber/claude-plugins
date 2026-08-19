@@ -20,8 +20,6 @@ claude plugin marketplace add timschreiber/claude-plugins --sparse .claude-plugi
 | Plugin | What it does |
 |---|---|
 | `denoizinator-net` | Keeps MSBuild and `dotnet test` output out of context |
-| `denoizinator-java` | Same for Maven and Gradle |
-| `planning` | Structured plan mode with compressed handoff artifacts (`/planning:plan-handoff`) |
 
 ### What Denoizinator does not cover
 
@@ -46,15 +44,13 @@ claude-plugins/
 ├── .claude/
 │   └── settings.json             # dogfooding: this repo knows its own marketplace
 ├── plugins/
-│   ├── denoizinator-net/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── skills/<name>/SKILL.md
-│   │   ├── agents/  commands/  hooks/
-│   │   ├── assets/               # templates shipped to consuming repos
-│   │   └── scripts/
-│   │       └── vendor/           # GENERATED from shared/. Do not edit
-│   ├── denoizinator-java/
-│   └── planning/
+│   └── denoizinator-net/
+│       ├── .claude-plugin/plugin.json
+│       ├── skills/<name>/SKILL.md
+│       ├── agents/  commands/  hooks/
+│       ├── assets/               # templates shipped to consuming repos
+│       └── scripts/
+│           └── vendor/           # GENERATED from shared/. Do not edit
 ├── shared/
 │   └── denoizinator-core/        # source of truth for cross-plugin code
 ├── scripts/

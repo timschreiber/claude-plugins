@@ -308,20 +308,12 @@ for pass, fail, and zero-tests across VSTest and MTP on net8.0 and net10.0.
 
 ---
 
-### Phase 5 — Java
+### Phase 5 — Publication
 
-`Invoke-QuietJava.ps1` is a stub and no Maven or Gradle behaviour has been
-measured. Phase 5 begins with a probe modelled on `Probe-DotnetTest.ps1`, not
-with implementation. Known starting points, unverified: Maven `-B
---no-transfer-progress` removes dependency-download churn while `-q` alone
-suppresses test failures; Gradle `--console=plain` removes progress redraws.
-
-### Phase 6 — Publication
-
-Decide the `planning` plugin: fill it in or remove it from the catalog. It
-currently ships one skill file and is publicly listed. Then run
-`Probe-Net60Vstest.ps1` to determine whether the routing table can claim net6.0,
-and state the supported TFM range in the README.
+The `planning` plugin was removed from the catalog (it shipped one skill file
+and never grew beyond that). Run `Probe-Net60Vstest.ps1` to determine whether
+the routing table can claim net6.0, and state the supported TFM range in the
+README.
 
 ---
 
