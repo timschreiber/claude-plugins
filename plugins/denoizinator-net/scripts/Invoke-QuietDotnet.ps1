@@ -42,14 +42,17 @@ try {
         $data    = $payload | ConvertFrom-Json
         $command = $data.tool_input.command
 
-        if ($command -is [string] -and $command.Length -gt 0) {
+        if ($data.tool_name -eq 'Bash' -and $command -is [string] -and $command.Length -gt 0) {
             # -clp's value is quoted (not the whole flag string) because it contains
             # literal ';' -- unquoted, Bash would read it as three separate commands.
+            #
+            # Bare 'msbuild' (Framework MSBuild.exe, not the dotnet CLI) and
+            # 'vstest.console' are deliberately absent -- no measured evidence
+            # backs the same flags there yet; see docs/denoizinator-net-spec.md §5.3.
             $flagMap = @{
                 'dotnet build'   = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
                 'dotnet msbuild' = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
                 'dotnet run'     = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
-                'msbuild'        = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
                 'dotnet test'    = '--nologo -v:q'
             }
 

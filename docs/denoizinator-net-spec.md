@@ -147,13 +147,21 @@ which is an error rather than a no-op.
 dotnet build     -nologo -tl:off -clp:ErrorsOnly;Summary;ShowProjectFile=false
 dotnet msbuild   (same)
 dotnet run       (same)
-msbuild          (same)
 dotnet test      --nologo -v:q
 ```
 
 `-tl:off` disables the terminal logger, whose redraws are noise in a
 non-interactive capture. `-v:q` is what does the work on the test side; adding a
 console logger on top of it measurably changes nothing.
+
+**Bare `msbuild` (Framework `MSBuild.exe`, not the dotnet CLI) and
+`vstest.console` are deliberately not in the routing table.** `dotnet build`,
+`dotnet msbuild`, and `dotnet run` all shell out through the same SDK MSBuild
+engine, so evidence for one covers the others. Framework `MSBuild.exe` and
+`vstest.console.exe` are different binaries with no measured evidence behind
+them — adding their flags here would be an unverified guess wearing the same
+table as everything else. They wait for Phase 5, which exists specifically to
+produce that evidence.
 
 ---
 
@@ -308,7 +316,85 @@ for pass, fail, and zero-tests across VSTest and MTP on net8.0 and net10.0.
 
 ---
 
-### Phase 5 — Publication
+### Phase 5 — .NET Framework
+
+**Goal.** Produce the evidence that Section 5.3 currently says does not exist,
+for the real estate this plugin does not yet cover: ASP.NET 4.x web
+applications and legacy non-SDK-style `csproj` projects. Neither builds with
+`dotnet build`; both require `MSBuild.exe`, and their test projects require
+`vstest.console.exe`. This is in active use, not a hypothetical, and it is the
+noisiest tier — Framework MSBuild predates the terminal logger and the modern
+`-clp` summary conventions the .NET CLI tier relies on.
+
+**Deliverables.** `probes/Probe-FrameworkBuild.ps1`, not implementation —
+mirroring `Probe-DotnetTest.ps1`'s conventions (six passing and two failing
+tests per project, so any runner reporting a different failure count is
+lying). It scaffolds:
+
+- a legacy non-SDK-style `csproj` targeting net48
+- an SDK-style `csproj` targeting net48
+- an ASP.NET 4.x web application
+- a legacy-format test project, run through `vstest.console.exe`
+
+each with a deliberate build warning, so quiet-flag behaviour toward warnings
+is measured, not assumed.
+
+**Must measure:**
+- Which of `-nologo`, `-tl:off`, and the `-clp`/`/clp` forms Framework
+  `MSBuild.exe` accepts versus rejects. It predates the terminal logger; `-tl:off`
+  may not exist there at all.
+- Output character counts, baseline versus quiet, with stdout and stderr
+  captured **separately** via `Start-Process` redirection — not `2>&1`, per the
+  measurement-discipline rule in `probes/README.md`.
+- `nuget.exe restore` volume for `packages.config` projects — the SDK-style
+  `dotnet restore` path does not apply here.
+- `vstest.console.exe` exit codes for pass, fail, and zero-tests-matched.
+  **Treat the silent-false-pass finding in `dotnet-test-runner-findings.md` §5
+  as a hypothesis to retest, not an established fact** — that finding was
+  measured against VSTest under the `dotnet test` CLI, a different invocation
+  path than `vstest.console.exe` run directly.
+- Solution-level versus per-project invocation, to see whether banners
+  multiply per project.
+- Whether `MSBuild.exe` resolves on `PATH` outside a Developer Command Prompt
+  at all, including what Claude Code's own Bash tool environment actually
+  provides — if it doesn't resolve, nothing else in this phase matters.
+
+**Findings** to `docs/framework-build-findings.md`, evidence to
+`probes/evidence/`, following the same evidence-file discipline as every other
+findings doc in this repo.
+
+**No flag-map entry for `msbuild` or `vstest.console` until this evidence
+exists.** Section 5.3 already states this; this phase is what would earn them
+a place there.
+
+**Acceptance.** The probe runs cleanly against its four scaffolded projects,
+and every one of the six measurement questions above has a corresponding
+evidence file and a findings section that cites it.
+
+**Prompt.**
+
+> Read `docs/denoizinator-net-spec.md` §5.3 and §6 Phase 5, and
+> `docs/dotnet-test-runner-findings.md` §5.
+>
+> Write `probes/Probe-FrameworkBuild.ps1`, modelled on `Probe-DotnetTest.ps1`'s
+> conventions but scaffolding net48 projects instead: a legacy non-SDK-style
+> `csproj`, an SDK-style `csproj`, an ASP.NET 4.x web application, and a
+> legacy-format test project driven through `vstest.console.exe` directly, each
+> with a deliberate build warning and six passing / two failing tests.
+>
+> Measure the six items listed under Phase 5's "Must measure," with stdout and
+> stderr captured separately via `Start-Process`, never `2>&1`. Do not assume
+> the VSTest zero-tests-ran finding from `dotnet-test-runner-findings.md` §5
+> carries over to `vstest.console.exe` run directly — retest it.
+>
+> Write findings to `docs/framework-build-findings.md` and evidence to
+> `probes/evidence/`. Do not add `msbuild` or `vstest.console` to
+> `Invoke-QuietDotnet.ps1`'s flag map in this phase — routing them in is
+> follow-on work, blocked on this phase's evidence existing first.
+
+---
+
+### Phase 6 — Publication
 
 The `planning` plugin was removed from the catalog (it shipped one skill file
 and never grew beyond that). Run `Probe-Net60Vstest.ps1` to determine whether
@@ -324,6 +410,9 @@ README.
 | Handler launch overhead on every Bash call | nothing; informs Phase 3 gate | Phase 3 |
 | Does `if` accept alternation? | would simplify `hooks.json` | Phase 3 |
 | Real MTP quiet numbers with `--progress off` | Phase 4 | `Probe-MtpProgress.ps1` |
+| Which quiet flags Framework `MSBuild.exe` accepts | The Phase 5 routing table | `Probe-FrameworkBuild.ps1` |
+| Does the VSTest zero-tests-ran finding hold for `vstest.console.exe` run directly | The Phase 5 routing table | `Probe-FrameworkBuild.ps1` |
+| Does `MSBuild.exe` resolve on `PATH` in Claude Code's Bash environment at all | Whether Phase 5 is viable without extra setup | `Probe-FrameworkBuild.ps1` |
 | Is there a net6.0 VSTest config that builds? | TFM claims in the README | `Probe-Net60Vstest.ps1` |
 | Behaviour on macOS and Linux | non-Windows support | unscheduled |
 

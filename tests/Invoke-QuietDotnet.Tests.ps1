@@ -42,7 +42,7 @@ Describe 'Invoke-QuietDotnet.ps1' {
     }
 
     It 'rewrites dotnet build && dotnet test with per-segment flags' {
-        $payload = @{ tool_input = @{ command = 'dotnet build && dotnet test' } } | ConvertTo-Json -Compress
+        $payload = @{ tool_name = 'Bash'; tool_input = @{ command = 'dotnet build && dotnet test' } } | ConvertTo-Json -Compress
         $r = Invoke-QuietDotnetProcess -StdinText $payload
 
         $r.ExitCode | Should -Be 0
@@ -87,6 +87,22 @@ Describe 'Invoke-QuietDotnet.ps1' {
 
     It 'emits nothing for empty stdin' {
         $r = Invoke-QuietDotnetProcess -StdinText $null
+        $r.ExitCode | Should -Be 0
+        $r.Stdout   | Should -BeExactly ''
+    }
+
+    It 'emits nothing when tool_name is not Bash' {
+        # tool_input.command still carries a build-ish string so this exercises the
+        # tool_name gate specifically, not the raw-text fast reject.
+        $payload = @{ tool_name = 'Edit'; tool_input = @{ command = 'dotnet build' } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
+        $r.ExitCode | Should -Be 0
+        $r.Stdout   | Should -BeExactly ''
+    }
+
+    It 'does not rewrite bare msbuild -- no evidence backs it yet (spec §5.3)' {
+        $payload = @{ tool_input = @{ command = 'msbuild MySolution.sln' } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
         $r.ExitCode | Should -Be 0
         $r.Stdout   | Should -BeExactly ''
     }
