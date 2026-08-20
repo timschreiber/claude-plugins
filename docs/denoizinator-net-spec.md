@@ -308,11 +308,15 @@ Findings in `docs/hook-behavior-findings.md` §12–13, evidence in
 **Goal.** Replace counts-only test output with a normalised summary carrying
 failure detail.
 
-**Blocked on.** `probes/Probe-MtpProgress.ps1` must run first. The current MTP
-numbers are contaminated: `--no-progress` is deprecated and warns on stderr, and
-PowerShell's `2>&1` wrapped that warning in a `NativeCommandError` record worth
-roughly 500 characters per call, which was nearly written up as runner behaviour.
-`--progress off` is the documented replacement and is unmeasured.
+**Unblocked.** `probes/Probe-MtpProgress.ps1` has run
+(`dotnet-test-runner-findings.md` §12). The clean re-measurement (stdout and
+stderr captured separately, not `2>&1`) found `--progress off` is **not** a
+universal replacement for the deprecated `--no-progress`: it works on
+MSTest-MTP net8.0/net10.0 only, is rejected outright by MSTest-MTP net6.0 and
+NUnit-MTP (exit 5, a ~4× usage-dump cost — worse than doing nothing), and
+rejected differently by xunit.v3-MTP (exit 3), which also rejects
+`--no-progress`. The wrapper below must pick the MTP progress flag per
+runner+TFM, per §9's updated wrapper design — never one flag for all of MTP.
 
 **Design.** The hook rewrites `dotnet test <args>` to invoke a wrapper script
 rather than merely appending flags. The wrapper detects the runner from the
@@ -335,11 +339,22 @@ TEST NONE | 0 tests ran | filter matched nothing
 - `--report-trx` must not be passed to NUnit-MTP or xunit.v3-MTP. It is rejected
   with exit 5 and **zero tests run** — a passing suite becomes a silent no-op
   (dotnet §7).
+- `--progress off` must not be passed to MSTest-MTP on net6.0, NUnit-MTP, or
+  xunit.v3-MTP. Each rejects it, and rejection costs roughly 2–4× the verbose
+  baseline in a usage-dump, not a no-op (dotnet §12). Only MSTest-MTP on
+  net8.0/net10.0 gets `--progress off`; others fall back to `--no-progress`
+  (deprecated but functional) or, for xunit.v3-MTP, neither yet — no known
+  quiet-progress flag exists for it (dotnet §10 item 6).
 - The wrapper must never write `global.json`. That is what allows a repo with
   mixed test projects to work at all.
 
 **Acceptance.** Against the probe's scratch projects: correct normalised output
-for pass, fail, and zero-tests across VSTest and MTP on net8.0 and net10.0.
+for pass, fail, and zero-tests across VSTest and MTP (MSTest, NUnit) on net8.0
+and net10.0. **xunit.v3-MTP is out of scope for this phase** — every
+progress-suppression flag tried so far is rejected (dotnet §12), so there is no
+evidence-backed flag to route it to. It passes through unrewritten, the same
+way `msbuild`/`vstest.console` currently do in §5.3, until a follow-up probe
+(dotnet §10 item 6) resolves it.
 
 ---
 

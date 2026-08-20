@@ -160,7 +160,10 @@ replacement:
 warning: --no-progress is deprecated; use --progress off instead.
 ```
 
-Re-measure with `--progress off` before drawing any conclusion about MTP quiet flags.
+> **Superseded by §12.** `--progress off` has now been measured with stdout and
+> stderr captured separately. It is not a universal replacement — half the MTP
+> variants reject it outright, and rejection is far more expensive than either
+> flag's warning ever was.
 
 ---
 
@@ -243,10 +246,17 @@ VSTest     dotnet test <proj> --nologo -v:q \
            exit 1              -> read TRX for failing names
            exit 0 + summary    -> TEST PASS
 
-MTP        <bin>/<name>.exe --progress off
-           211 chars passing, ~1075 with 2 failures. Failure detail inline.
+MTP        <bin>/<name>.exe <progress-flag, chosen per §12 -- NOT one flag for all>
+           net8.0/net10.0 MSTest-MTP: --progress off (211 chars passing, ~1075
+             with 2 failures). Failure detail inline.
+           net6.0 MSTest-MTP, NUnit-MTP: --progress off is REJECTED (exit 5,
+             ~4200 chars of usage dump -- 3-8x worse than doing nothing). Use
+             --no-progress instead (deprecated but functional, small stderr
+             warning only).
+           xunit.v3-MTP: rejects BOTH flags (exit 3, "unknown option"). No known
+             quiet-progress flag for this runner yet -- §12, §10 item 6.
            0 -> PASS · 2 -> FAIL · 8 -> zero tests · 9 -> below minimum
-           xunit.v3: 1 -> FAIL, and it rejects --progress-family flags entirely
+           xunit.v3: 1 -> FAIL (not 2 -- its own exit-code table, unexplained)
            Do NOT add --report-trx on NUnit-MTP or xunit.v3-MTP (exit 5, zero tests)
            Cap inline failure detail at N.
 
@@ -279,9 +289,8 @@ Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
 
 ## 10. Still open
 
-1. **`--progress off`** — the documented replacement for `--no-progress`. Not yet
-   measured. Re-run the MTP exe cases with it; the current `exe-quiet` numbers are
-   contaminated by the deprecation warning.
+1. ~~`--progress off` — the documented replacement for `--no-progress`.~~
+   **Resolved, §12: it is not a universal replacement.**
 2. **`--minimum-expected-tests 1` as a blanket default** — would fail legitimately
    empty placeholder test projects.
 3. **net6.0 against the real 6.0 runtime** — these results used `RollForward`.
@@ -289,7 +298,12 @@ Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
 4. **net6.0 VSTest** — never built, so it has no row anywhere in this document.
    Needs an older `Test.Sdk` pin or `SuppressTfmSupportBuildErrors`.
 5. **Framework 4.8 / `vstest.console.exe`** — deliberately out of scope for this
-   probe; measured separately.
+   probe; measured separately (Phase 5).
+6. **xunit.v3-MTP rejects every progress-suppression flag tried so far**
+   (`--no-progress`, `--progress off`) **and its baseline exit code (1) doesn't
+   match the other MTP runners' convention (2 for test failures).** Both are
+   unexplained — §12. Needs its own targeted probe before this runner gets any
+   quiet-flag treatment at all.
 
 ---
 
@@ -304,3 +318,48 @@ Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
 - `EnableNUnitRunner` without `NUnit3TestAdapter` → CS5001, no entry point.
 - Latest test packages dropped net6.0, so package versions are pinned per-TFM.
   See §2 — the pin is necessary but not sufficient.
+
+---
+
+## 12. `--progress off` is not a universal MTP replacement
+
+Measured against the same scratch projects `Probe-DotnetTest.ps1` builds, via
+`probes/Probe-MtpProgress.ps1`. Evidence: `probes/evidence/mtp-progress-results.json`
+— 40 records (8 MTP scenarios × 5 flag sets). stdout and stderr captured to
+**separate** files via `Start-Process`, never `2>&1` — this re-measurement exists
+specifically because the earlier `exe-quiet` number (§5) was contaminated by
+`2>&1` wrapping a stderr deprecation warning into a `NativeCommandError`.
+
+| Scenario | Runner | `none` (baseline) | `--no-progress` | `--progress off` |
+|---|---|---|---|---|
+| `mtp_n100` | MSTest-MTP, net10.0 | 1530 | 1076 (67-char stderr warning) | **1076** |
+| `mtp_n80` | MSTest-MTP, net8.0 | 1524 | 1070 (67-char stderr warning) | **1070** |
+| `mtppass_n100` | MSTest-MTP, net10.0, all pass | 665 | 211 (67-char stderr warning) | **211** |
+| `mtppass_n80` | MSTest-MTP, net8.0, all pass | 661 | 207 (67-char stderr warning) | **207** |
+| `mtp_n60` | MSTest-MTP, net6.0 (RollForward) | 1525 | 1071, no warning | **REJECTED, exit 5, 4225 chars** |
+| `mtppass_n60` | MSTest-MTP, net6.0, all pass | 718 | 264, no warning | **REJECTED, exit 5, 4229 chars** |
+| `x_mtp_nunit` | NUnit-MTP | 2140 | 1686, no warning | **REJECTED, exit 5, 3492 chars** |
+| `x_mtp_xunit3` | xunit.v3-MTP | 1259 (exit 1, not 2 — §10 item 6) | **REJECTED, exit 3, 38 chars** | **REJECTED, exit 3, 35 chars** |
+
+**`--progress off` works cleanly on exactly 4 of 8 scenarios** — MSTest-MTP on
+net8.0/net10.0 only. It is rejected outright (exit 5) by MSTest-MTP on net6.0
+and by NUnit-MTP, and rejected differently (exit 3, `unknown option`) by
+xunit.v3-MTP, which rejects `--no-progress` too — the one flag that otherwise
+works everywhere else.
+
+**A rejected flag costs far more than doing nothing.** Rejection doesn't just
+fail to quiet the output — MSTest-MTP dumps a full CLI usage/help block on an
+unrecognized option: 4225 chars for `mtp_n60`, roughly **4× its own 1525-char
+baseline**. NUnit-MTP's rejection dump (3492 chars) is smaller relatively but
+still nearly double its 2140-char baseline. xunit.v3-MTP is the exception —
+its rejection message is a terse one-liner (35–38 chars), cheaper than
+anything else in this table; the risk there isn't cost, it's that nothing
+quiets its output at all yet.
+
+**Consequence for the wrapper (§9):** the MTP invocation cannot be one flag.
+It must select `--progress off` only for MSTest-MTP on net8.0/net10.0,
+`--no-progress` for MSTest-MTP on net6.0 and NUnit-MTP, and something not yet
+found for xunit.v3-MTP — emitting the wrong one is actively worse than the
+verbose baseline it was trying to quiet, not merely a no-op. This is the same
+class of failure `--report-trx` already forced onto NUnit-MTP/xunit.v3-MTP
+(§7): a flag that's safe on one runner and a silent-cost trap on another.
