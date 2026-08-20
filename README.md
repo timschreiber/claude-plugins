@@ -1,8 +1,14 @@
 # claude-plugins
 
-Claude Code plugins and skills by Tim Schreiber.
+Claude Code plugins by Tim Schreiber.
 
-## Install
+## denoizinator-net
+
+Strip the noise. Keep the signal. `denoizinator-net` keeps low-value MSBuild
+and test output out of Claude's context, so more of the context window stays
+available for actual work.
+
+### Install
 
 ```bash
 claude plugin marketplace add timschreiber/claude-plugins
@@ -15,143 +21,106 @@ For a large checkout, limit it to the directories that carry plugin content:
 claude plugin marketplace add timschreiber/claude-plugins --sparse .claude-plugin plugins
 ```
 
-## Plugins
+Nothing further to configure — once installed, it runs automatically on
+every matching command in every session.
 
-| Plugin | What it does |
-|---|---|
-| `denoizinator-net` | Keeps MSBuild and `dotnet test` output out of context |
+### What it does
 
-### Supported target frameworks
+A single hook watches every command Claude is about to run and rewrites
+`dotnet`/`msbuild` invocations in place before they execute, so the rewrite
+is invisible to you, to CI, and to Visual Studio (nothing is ever written
+into your repository — no `.rsp` file, no `global.json`, no config).
 
-Measured against the .NET SDK CLI (`dotnet build`/`dotnet test`/
-`dotnet msbuild`/`dotnet run`):
+**Build commands get quiet flags appended:**
 
-- **net8.0 and net10.0** — both VSTest and MTP (Microsoft.Testing.Platform)
-  runners, fully measured.
+- `dotnet build`, `dotnet msbuild`, `dotnet run`
+- bare `msbuild` / `msbuild.exe` (.NET Framework's own MSBuild, not the
+  `dotnet` CLI)
+
+`-t:Restore`/`/t:Restore` invocations are left alone — restore output isn't
+the noisy part.
+
+**Test commands are dispatched to a wrapper that normalizes the output**
+instead of just quieting it, because a single quiet flag is wrong across
+test runners — VSTest and Microsoft.Testing.Platform (MSTest/NUnit/xunit.v3)
+disagree on flags, exit codes, and output shape. The wrapper picks
+runner-safe flags at runtime and always prints the same shape regardless of
+what actually ran underneath:
+
+```
+TEST PASS | 42 passed | 0 skipped | 0.6s
+TEST FAIL | 37 passed | 5 failed | 0.6s | .dnz\test.trx
+  ProgramTests.DoCopy_CopiesFiles — FileNotFoundException: Newtonsoft.Json 8.0.0.0
+  [+4 more]
+TEST NONE | 0 tests ran | filter matched nothing
+```
+
+Covered: `dotnet test`, and `vstest.console`/`vstest.console.exe` (.NET
+Framework's direct test runner).
+
+### Supported frameworks and runners
+
+Measured, not assumed — every claim below traces to a probe and an evidence
+file in `probes/evidence/`; see `docs/dotnet-test-runner-findings.md` and
+`docs/framework-build-findings.md`.
+
+- **net8.0 and net10.0** — both VSTest and Microsoft.Testing.Platform
+  (MSTest, NUnit, xunit.v3), fully covered.
 - **net6.0** — VSTest works, but only with `Microsoft.NET.Test.Sdk` pinned to
   17.11.1 or older; the latest Test.Sdk major does not build on net6.0 at
   all. MTP projects on net6.0 silently bridge to VSTest rather than running
-  as MTP. See `docs/dotnet-test-runner-findings.md` §6 and §13.
+  as MTP.
 - **net7.0 and net9.0** were not separately measured (both out of support,
   excluded from the probe matrix) — behavior there is unverified.
+- **.NET Framework (net48)** — `MSBuild.exe` and `vstest.console.exe` are
+  routed and quieted. An ASP.NET 4.x Web Application Project fails to build
+  with `MSB4019` regardless of these flags — that's a missing VS workload on
+  the build machine, unrelated to this plugin.
 
-**Framework 4.x (net48) is measured but not yet quieted.** Bare
-`MSBuild.exe` and `vstest.console.exe` invocations — required for ASP.NET
-4.x web apps and legacy non-SDK-style `csproj` projects — are not in the
-hook's routing table yet. See `docs/framework-build-findings.md` for what's
-been measured there; routing that tier into the hook is unstarted follow-on
-work.
+### What it does not do
 
-### What Denoizinator does not cover
+- **Builds run through another interpreter are invisible to it, and stay
+  verbose — permanently, by design.** The hook only ever sees the literal
+  Bash command string Claude is about to run; it can't see through a
+  wrapping shell or script without executing it first:
+  - `pwsh -c "dotnet build"`, `pwsh -NoProfile -Command dotnet build`
+  - `npm run build`, or any package-manager script that shells out
+  - Makefiles, `nx`, `cake`, and similar wrappers
+- **It doesn't make anything build or run faster.** It only reduces how much
+  output volume reaches Claude's context — the `pwsh` launch itself adds
+  roughly 300ms of overhead to every matching Bash call, which this plugin
+  accepts as the cost of quieter output, not something it optimizes away.
+- **Windows only, this version.** Everything here is measured on Windows +
+  PowerShell 7. Non-Windows behavior is unmeasured and unscheduled.
+- No IDE integration, no Roslyn analysis, no persistent background process —
+  it's a stateless per-command rewrite.
 
-Command rewriting happens in a `PreToolUse` hook, which sees the command string
-Claude Code is about to run. Builds invoked through another interpreter are
-invisible to it and stay verbose:
+### Known limitations
 
-- `pwsh -c "dotnet build"` and `pwsh -NoProfile -Command dotnet build`
-- `npm run build`, or any package-manager script that shells out
-- Makefiles, `nx`, `cake`, and similar wrappers
+- **xunit.v3-MTP is quieted only when you don't pass extra `dotnet test`
+  args of your own** (`--filter`, etc.). xunit.v3's own CLI is a different
+  syntax entirely from the generic `dotnet test`/MTP flags every other
+  runner here understands, so a command with extra args falls back to
+  running unmodified rather than risk misinterpreting them.
+- **Requires PowerShell 7+ (`pwsh`) on `PATH`.** The hook shells out to it
+  directly; if it's missing, the hook silently does nothing and the original
+  command runs verbose.
+- **`packages.config` projects can fail to wire up their test adapter
+  silently** (a NuGet restore quirk, not something this plugin causes). The
+  wrapper catches this and reports `TEST NONE` rather than a false pass, but
+  there's no fix for the underlying adapter-wiring gap.
+- **MSBuild's `-tl:off` flag was verified against MSBuild 18.7.8 (Visual
+  Studio 2026)** for the Framework tier; older VS2019/2022-era toolchains
+  were not separately confirmed.
+- **`claude plugin validate` always warns about a missing `version` field.**
+  That's intentional (see `CONTRIBUTING.md`), not a bug.
 
-Measured, not assumed — see `docs/hook-behavior-findings.md` §5. Nothing is
-written into your repository, so continuous integration and Visual Studio
-builds are unaffected by design rather than by configuration.
+Found something not listed here? Please open an issue.
 
-## Layout
+## Contributing
 
-```
-claude-plugins/
-├── .claude-plugin/
-│   └── marketplace.json          # the catalog. Repo root, not inside plugins/
-├── .claude/
-│   └── settings.json             # dogfooding: this repo knows its own marketplace
-├── plugins/
-│   └── denoizinator-net/
-│       ├── .claude-plugin/plugin.json
-│       ├── skills/<name>/SKILL.md
-│       ├── agents/  commands/  hooks/
-│       ├── assets/               # templates shipped to consuming repos
-│       └── scripts/
-│           └── vendor/           # GENERATED from shared/. Do not edit
-├── shared/
-│   └── denoizinator-core/        # source of truth for cross-plugin code
-├── scripts/
-│   ├── Sync-Shared.ps1
-│   ├── Validate-All.ps1
-│   └── New-Plugin.ps1
-├── docs/
-└── .github/workflows/validate.yml
-```
-
-A catalog entry's `source` is a relative path from the marketplace root and must
-start with `./` — for example `./plugins/denoizinator-net`. Paths resolve against
-the repository root, not the `.claude-plugin/` directory. Bare directory names
-fail validation, and `../` is rejected.
-
-## Development
-
-Use `--plugin-dir` to load a plugin directly, without installing:
-
-```bash
-claude --plugin-dir ./plugins/denoizinator-net
-```
-
-Run `/reload-plugins` after each edit to pick up changes without restarting. This
-reloads skills, agents, hooks, and plugin MCP and LSP servers.
-
-Do **not** iterate by installing from a local marketplace. Installed plugins are
-copied into `~/.claude/plugins/cache`, so edits in this repo have no effect on the
-installed copy. Local install is the integration test, not the inner loop:
-
-```bash
-claude plugin marketplace add .
-claude plugin install denoizinator-net@timschreiber
-```
-
-Add a new plugin:
-
-```powershell
-./scripts/New-Plugin.ps1 -Name denoizinator-python `
-                         -DisplayName 'Denoizinator for Python' `
-                         -Description 'Quiets pytest and pip output.'
-```
-
-Validate everything before pushing:
-
-```powershell
-./scripts/Validate-All.ps1
-```
-
-## Rules this repo follows
-
-**No `version` field.** Neither `plugin.json` nor the catalog entry declares one.
-Claude Code then falls back to the resolved commit SHA, so every push reaches
-users. Declaring a version pins the plugin until the string changes — push a
-hundred commits under `"version": "1.0.0"` and existing users keep the cached copy.
-Never set it in both places: `plugin.json` wins silently and masks the catalog.
-`claude plugin validate` warns about the missing version on every plugin. Those
-warnings are expected and will not go away.
-
-**Nothing reaches outside a plugin directory.** Installed plugins are copied, so
-`../shared-utils` does not exist at runtime. Shared code lives in `shared/`,
-`Sync-Shared.ps1` copies it into each consuming plugin's `scripts/vendor/`, the
-copies are committed, and CI fails on drift. Templates a plugin ships to other
-repos live in that plugin's `assets/`.
-
-**`name` is permanent.** It is the install identifier and the skill namespace.
-Renaming breaks every existing install unless a `renames` entry maps the old name
-to the new one — treat that map as append-only history, and keep old entries even
-after everyone has migrated. Change `displayName` freely; it is UI only.
-
-**Kebab-case names.** Lowercase letters, digits, hyphens. Claude Code is more
-permissive, but the claude.ai marketplace sync rejects other forms, and Claude
-Desktop's managed sync silently drops a non-conforming plugin entry while
-accepting the rest of the marketplace.
-
-## Reference
-
-- [Create and distribute a plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces)
-- [Create plugins](https://code.claude.com/docs/en/plugins)
-- [Plugins reference](https://code.claude.com/docs/en/plugins-reference)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, the local dev loop,
+and the marketplace conventions this repo follows.
 
 ## License
 
