@@ -11,11 +11,16 @@
     Every flag choice here traces to docs/dotnet-test-runner-findings.md --
     see docs/denoizinator-net-spec.md §6 Phase 4 before changing any of it.
     In particular: VSTest's quiet console output carries counts only, so
-    failure detail comes from a requested TRX; MTP's console output already
-    carries failure detail inline, so MTP never requests a TRX, and
-    --report-trx must never be added to an MTP invocation (NUnit-MTP and
-    xunit.v3-MTP reject it with exit 5 and zero tests run). The MTP progress
-    flag is chosen per runner+TFM, never one flag for all of MTP -- see the
+    failure detail comes from a requested TRX; MSTest/NUnit-MTP's console
+    output already carries failure detail inline, so those never request a
+    TRX, and the GENERIC --report-trx flag must never be added to an MTP
+    invocation (NUnit-MTP and xunit.v3-MTP reject it with exit 5 and zero
+    tests run). xunit.v3-MTP is the one MTP exception: its OWN single-dash
+    CLI has a distinct -result-trx flag (unrelated to the generic
+    --report-trx above), and its quietest console mode produces no output
+    at all, so it requests its own TRX the way VSTest does, just via a
+    different flag (findings §14). The MTP progress/reporter flag is chosen
+    per runner+TFM+framework, never one flag for all of MTP -- see the
     matrix in Get-DotnetTestInvocationPlan.
 #>
 
@@ -124,9 +129,8 @@ function Get-DotnetTestInvocationPlan {
         caller's own args (--filter, etc.) are always preserved untouched.
 
         Mode = 'Passthrough' means: do not attempt to normalise at all (no
-        known-safe flag exists yet, e.g. xunit.v3-MTP, or the project type
-        wasn't recognised). Mode = 'Normalize' means AdditionalArgs is safe
-        to append.
+        known-safe flag exists yet, or the project type wasn't recognised).
+        Mode = 'Normalize' means AdditionalArgs is safe to append.
     #>
     [CmdletBinding()]
     param(
@@ -136,7 +140,7 @@ function Get-DotnetTestInvocationPlan {
         [Parameter(Mandatory)][string] $DnzDir
     )
 
-    if ($Runner -eq 'Unknown' -or ($Runner -eq 'MTP' -and $Framework -eq 'xunit.v3')) {
+    if ($Runner -eq 'Unknown') {
         return [pscustomobject]@{ Mode = 'Passthrough'; InvokeVia = $null; AdditionalArgs = @(); UsesTrx = $false; TrxPath = $null; OutputShape = $null }
     }
 
@@ -149,9 +153,28 @@ function Get-DotnetTestInvocationPlan {
     if ($Runner -eq 'VSTest') { return $vstestPlan }
 
     if ($Runner -eq 'MTP') {
-        # NEVER --report-trx here: NUnit-MTP and xunit.v3-MTP reject it with
-        # exit 5 and zero tests run (findings §7). MTP's console output
-        # already carries failure detail inline, so it isn't needed anyway.
+        # NEVER --report-trx here: NUnit-MTP and xunit.v3-MTP reject that
+        # GENERIC double-dash flag with exit 5 and zero tests run (findings
+        # §7). MTP's console output already carries failure detail inline
+        # for those runners, so it isn't needed anyway.
+        #
+        # xunit.v3-MTP is the one exception to "no TRX for MTP": it has its
+        # own single-dash CLI (its --help output is an entirely different
+        # surface from the generic Microsoft.Testing.Platform flags every
+        # other MTP framework here understands -- findings §14, which is
+        # also why --no-progress/--progress off are rejected as "unknown
+        # option" rather than silently ignored). Its own -reporter/-result-trx
+        # flags are unrelated to the generic --report-trx rejected above, and
+        # its '-reporter silent' produces EMPTY stdout in every scenario
+        # measured (pass, fail, zero-tests alike) -- there is no summary line
+        # to parse the way $vstestPlan or the generic MTP branch below do, so
+        # counts and failure detail can only come from its own TRX.
+        if ($Framework -eq 'xunit.v3') {
+            $xunit3TrxPath = Join-Path $DnzDir 'xunit3.trx'
+            $xunit3Args    = @('-reporter', 'silent', '-noLogo', '-result-trx', $xunit3TrxPath)
+            return [pscustomobject]@{ Mode = 'Normalize'; InvokeVia = 'Executable'; AdditionalArgs = $xunit3Args; UsesTrx = $true; TrxPath = $xunit3TrxPath; OutputShape = 'XunitV3' }
+        }
+
         $tfmText = if ($Tfm) { $Tfm } else { '' }
         $majorMatch = [regex]::Match($tfmText, '^net(\d+)')
         $major = if ($majorMatch.Success) { [int]$majorMatch.Groups[1].Value } else { 0 }
@@ -277,6 +300,47 @@ function ConvertFrom-VSTestTrx {
         Skipped              = [Math]::Max(0, $total - $passed - $failed)
         Failures             = $shown
         OmittedFailureCount  = [Math]::Max(0, $failures.Count - $shown.Count)
+    }
+}
+
+function Get-XunitV3Outcome {
+    <#
+    .SYNOPSIS
+        Classify an xunit.v3-MTP invocation's TRX into the wrapper's
+        Pass|Fail|None|Unknown vocabulary.
+
+    .DESCRIPTION
+        Unlike Get-VSTestOutcome, this never reads stdout: xunit.v3's own
+        '-reporter silent' produces EMPTY console output in every scenario
+        measured -- pass, fail, and zero-tests alike (dotnet-test-runner-
+        findings.md §14) -- so there is no Passed!/Failed! marker or count
+        line to key off. The TRX's <Counters total=...> is the only signal.
+
+        This also means zero-tests-ran is a direct read (total="0"), not an
+        absence-based inference the way VSTest's zero-tests case is (findings
+        §4) -- xunit.v3's own -result-trx always writes a TRX, with an
+        accurate total, even when nothing ran.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string] $TrxPath,
+        [int] $MaxFailures = 5
+    )
+
+    if (-not (Test-Path -LiteralPath $TrxPath)) {
+        return [pscustomobject]@{ Outcome = 'Unknown'; Passed = 0; Failed = 0; Skipped = 0; Failures = @(); OmittedFailureCount = 0 }
+    }
+
+    $trx = ConvertFrom-VSTestTrx -TrxPath $TrxPath -MaxFailures $MaxFailures
+    $outcome = if ($trx.Total -eq 0) { 'None' } elseif ($trx.Failed -gt 0) { 'Fail' } else { 'Pass' }
+
+    return [pscustomobject]@{
+        Outcome             = $outcome
+        Passed              = $trx.Passed
+        Failed              = $trx.Failed
+        Skipped             = $trx.Skipped
+        Failures            = $trx.Failures
+        OmittedFailureCount = $trx.OmittedFailureCount
     }
 }
 
@@ -471,5 +535,5 @@ function Format-DnzTestSummary {
 Export-ModuleMember -Function Get-DotnetTestRunnerInfo, Resolve-DotnetTestProject,
                               Get-DotnetTestInvocationPlan, Resolve-DotnetTestExecutable,
                               ConvertFrom-VSTestTrx, Get-DotnetTestPassthroughTrigger,
-                              Get-VSTestOutcome, Get-VstestConsolePassthroughTrigger,
+                              Get-VSTestOutcome, Get-XunitV3Outcome, Get-VstestConsolePassthroughTrigger,
                               Format-DnzTestSummary

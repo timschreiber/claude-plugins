@@ -236,11 +236,13 @@ output lines for recoverability; it is not load-bearing there.
 **Passthrough contract.** If the original command already carries test-host
 flags the wrapper would otherwise choose itself (`--logger`,
 `--results-directory`, `--report-trx`, or a bare `--`), or the runner can't be
-confidently normalised (xunit.v3-MTP — out of scope this phase, dotnet §10
-item 6 — or an unresolvable project), the wrapper runs the original invocation
-**unmodified** rather than layering its own flags on top of the user's —
-never risking a self-inflicted version of the `--report-trx`-on-NUnit-MTP
-silent-no-op trap (dotnet §7). This check is made against the
+confidently normalised (an unresolvable project, or xunit.v3-MTP when the
+user supplies any test args of its own — its CLI is a different surface
+entirely from the generic dotnet-test/MTP syntax those args would be written
+in, dotnet §14), the wrapper runs the original invocation **unmodified**
+rather than layering its own flags on top of the user's — never risking a
+self-inflicted version of the `--report-trx`-on-NUnit-MTP silent-no-op trap
+(dotnet §7). This check is made against the
 **already-tokenized argument array** the wrapper receives, not the raw
 command string, so `--filter "Name~logger"` and `--filter "A -- B"` are each
 one array element and never false-positively trigger passthrough via
@@ -444,7 +446,7 @@ and net10.0. **xunit.v3-MTP is out of scope for this phase** — every
 progress-suppression flag tried so far is rejected (dotnet §12), so there is no
 evidence-backed flag to route it to. It passes through unrewritten, the same
 way `msbuild`/`vstest.console` currently do in §5.3, until a follow-up probe
-(dotnet §10 item 6) resolves it.
+(dotnet §10 item 6) resolves it. **Resolved in Phase 8 — dotnet §14.**
 
 ---
 
@@ -660,6 +662,10 @@ silently fail to wire up its test adapter and still exit 0.
 ---
 
 ### Phase 8 — xunit.v3-MTP quiet-progress investigation
+
+**Status: done.** `-reporter silent -noLogo -result-trx <path>` (xunit.v3's
+own CLI, not the generic MTP flags) works; wired into `Invoke-QuietDotnetTest.ps1`
+and `DotnetTestRunner.psm1`. See `dotnet-test-runner-findings.md` §14.
 
 **Goal.** `dotnet test` on xunit.v3-MTP currently passes through unrewritten
 (§5.4's passthrough contract, an explicit scope cut from Phase 4) because

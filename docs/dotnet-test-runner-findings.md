@@ -253,11 +253,14 @@ MTP        <bin>/<name>.exe <progress-flag, chosen per §12 -- NOT one flag for 
              ~4200 chars of usage dump -- 3-8x worse than doing nothing). Use
              --no-progress instead (deprecated but functional, small stderr
              warning only).
-           xunit.v3-MTP: rejects BOTH flags (exit 3, "unknown option"). No known
-             quiet-progress flag for this runner yet -- §12, §10 item 6.
+           xunit.v3-MTP: rejects BOTH flags (exit 3, "unknown option") -- its own
+             CLI is a different surface entirely. Use -reporter silent -noLogo
+             -result-trx <path> instead (0 chars, counts/detail from the TRX) -- §14.
            0 -> PASS · 2 -> FAIL · 8 -> zero tests · 9 -> below minimum
-           xunit.v3: 1 -> FAIL (not 2 -- its own exit-code table, unexplained)
-           Do NOT add --report-trx on NUnit-MTP or xunit.v3-MTP (exit 5, zero tests)
+           xunit.v3 (direct-exe invocation only): 0 -> PASS/zero-tests, 1 -> FAIL
+             (not 2 -- stable per-invocation-path property, not an anomaly -- §14)
+           Do NOT add the GENERIC --report-trx on NUnit-MTP or xunit.v3-MTP (exit 5,
+             zero tests); xunit.v3's OWN -result-trx is a different flag and is fine
            Cap inline failure detail at N.
 
 Framework  vstest.console.exe <dll> /logger:"console;verbosity=quiet" \
@@ -301,11 +304,18 @@ Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
    failure just moves it to test-execution time instead.**
 5. **Framework 4.8 / `vstest.console.exe`** — deliberately out of scope for this
    probe; measured separately (Phase 5).
-6. **xunit.v3-MTP rejects every progress-suppression flag tried so far**
-   (`--no-progress`, `--progress off`) **and its baseline exit code (1) doesn't
-   match the other MTP runners' convention (2 for test failures).** Both are
+6. ~~xunit.v3-MTP rejects every progress-suppression flag tried so far
+   (`--no-progress`, `--progress off`) and its baseline exit code (1) doesn't
+   match the other MTP runners' convention (2 for test failures). Both are
    unexplained — §12. Needs its own targeted probe before this runner gets any
-   quiet-flag treatment at all.
+   quiet-flag treatment at all.~~
+   **Resolved, §14: `-reporter silent -noLogo -result-trx <path>` (xunit.v3's
+   own CLI, unrelated to the rejected generic MTP flags) gives 0 console
+   chars in every scenario with full detail from its TRX. The exit-1 baseline
+   is a stable property of direct-exe invocation, not an anomaly — routed
+   through `dotnet test` via global.json instead, the same fixture returns
+   the standard MTP convention (2), but that path was never usable anyway
+   since the wrapper never writes global.json.**
 
 ---
 
@@ -430,3 +440,142 @@ assume "net6.0 + VSTest" always works, since the newest `Test.Sdk` major on
 that TFM does not build at all, suppression switch or not.
 
 Resolves §10 item 4.
+
+---
+
+## 14. xunit.v3-MTP: `-reporter silent -noLogo -result-trx <path>` works; the exit-1 baseline is invocation-path-dependent
+
+Measured via `probes/Probe-Xunit3MtpProgress.ps1` against the `x_mtp_xunit3`
+project `Probe-DotnetTest.ps1` builds (6 passing, 2 failing `[Fact]`s).
+Evidence: `probes/evidence/xunit3-mtp-progress-results.json` — 16 records
+(1 `--help` capture, 6 candidate rows against the failing fixture, 3
+explicit not-applicable rows, 6 invocation-path × scenario rows). stdout and
+stderr captured to **separate** streams throughout — the exe via
+`Start-Process`, `dotnet test` the same way — never `2>&1`.
+
+### `--no-progress`/`--progress off` are the wrong flag syntax, not merely unsupported
+
+`x_mtp_xunit3.exe --help` (full text in the evidence file) shows xunit.v3's
+own "In-Process Runner" has an entirely different CLI surface from the
+generic `Microsoft.Testing.Platform` flags every other MTP framework in this
+repo (MSTest-MTP, NUnit-MTP) understands: single-dash (`-reporter`, `-noLogo`,
+`-filter`, `-method`, ...), not double-dash. `--no-progress`/`--progress off`
+were never almost-right — they are simply not this runner's syntax, which is
+why they fail with `error: unknown option: ...` (exit 3) rather than being
+silently ignored or producing a usage dump the way MSTest-MTP/NUnit-MTP
+reject an unsupported flag (§12).
+
+### Candidate matrix (against the failing fixture, direct exe invocation)
+
+| Candidate | Args | Exit | stdout | stderr |
+|---|---|---|---|---|
+| `none` (baseline) | — | 1 | 1259 | 0 |
+| `no-progress` | `--no-progress --no-ansi` | **REJECTED, exit 3** | 38 | 0 |
+| `progress-off` | `--progress off --no-ansi` | **REJECTED, exit 3** | 35 | 0 |
+| `reporter-quiet` | `-reporter quiet -noLogo` | 1 | 879 | 0 |
+| `reporter-silent` | `-reporter silent -noLogo` | 1 | **0** | 0 |
+| `reporter-silent-trx` (winner) | `-reporter silent -noLogo -result-trx <path>` | 1 | **0** | 0 |
+
+`-reporter quiet` ("only show failure messages" per `--help`) already cuts
+1259→879 chars by dropping the discovery/start/finish progress lines, but
+still prints full stack traces per failure **and drops the summary line
+entirely** — there is no `Total:`/`Failed:` count left to parse at all in
+quiet mode, and `-reporter silent` ("do not show any messages") goes further:
+**0 stdout chars in every scenario measured, including the failing one** —
+it suppresses even failure detail, so on its own it cannot recover counts or
+failure names.
+
+**`-result-trx <path>` (xunit.v3's own result-file flag, unrelated to the
+generic `--report-trx` §7 already documents as rejected by this runner)
+solves this.** It writes a TRX using the exact same schema and
+`<ResultSummary><Counters total=... passed=... failed=.../>` shape VSTest's
+own TRX uses (confirmed: `DotnetTestRunner.psm1`'s existing
+`ConvertFrom-VSTestTrx` parses it with no changes — each `<UnitTestResult>`
+carries a `testName` attribute directly, so the function's `TestDefinitions`
+fallback path already handles it). Combined with `-reporter silent`, console
+output stays at 0 chars in every scenario while the TRX carries full counts
+and per-failure detail:
+
+| Scenario | stdout | TRX total/passed/failed |
+|---|---|---|
+| fail (2 failing) | 0 | 8 / 6 / 2 |
+| pass (filtered to passing only) | 0 | 6 / 6 / 0 |
+| zero (filter matches nothing) | 0 | 0 / 0 / 0 |
+
+**This also resolves the zero-tests-ran ambiguity for free.** VSTest's
+zero-tests-ran case must be inferred from an *absent* summary line (§4) —
+there's nothing else to key off. xunit.v3's `-result-trx` always writes a
+TRX with an accurate `total`, including `total="0"`, so zero-tests-ran is a
+direct read of the same file that already carries pass/fail counts, not a
+separate absence-based heuristic.
+
+### Other candidate kinds: not applicable
+
+- **Environment variables** — `--help`'s full text (in the evidence file)
+  documents no environment variable for progress or reporter selection.
+- **`.runsettings`** — `--help` shows no `-settings`/`--settings` flag;
+  `.runsettings` is a VSTest-adapter concept the in-process runner does not
+  read.
+- **MSBuild `-p:` properties** — reporter/result-file selection is an
+  in-process-runner CLI concern evaluated at test-run time, not an
+  MSBuild-evaluated property; no relevant `-p:` switch exists for it.
+
+These are recorded as explicit not-applicable rows in the evidence file
+rather than silently skipped, since the CLI surface alone already yields a
+complete, correct solution — the wider search was not abandoned, it
+terminated because the first candidate kind checked (xunit.v3's own CLI)
+fully solved the problem.
+
+### The exit-1-vs-2 anomaly: invocation-path-dependent, not a runner property
+
+| Invocation path | fail | pass | zero |
+|---|---|---|---|
+| `exe-direct` (direct exe — what the wrapper actually uses) | **1** | 0 | 0 |
+| `gj-dotnet-test` (`dotnet test --project` under a temporary `global.json`) | **2** | 0 | 8 |
+
+Direct exe invocation is stable at exit 1 for a failing run across the
+scenarios measured — not the anomaly `x_mtp_xunit3`'s single Phase-4
+data point looked like; it is simply what this invocation path always
+returns. Routed through `dotnet test`'s "new test experience" instead
+(global.json naming the MTP runner), the same fixture returns the
+standard MTP convention (0/2/8) and switches to the generic
+`total:/failed:/succeeded:/skipped:` summary shape (1543 chars for the
+failing case) — a completely different code path from the in-process
+runner's own reporter, which explains both the exit-code and the
+output-shape divergence in one stroke.
+
+This is moot for the wrapper's own design, not merely academic: **the
+wrapper never writes `global.json`** (denoizinator-net-spec.md §5.4), so
+`gj-dotnet-test` was never a usable implementation path regardless of its
+exit codes — direct exe invocation is the only one the "genuine MTP, no
+global.json" recipe (§9) permits, and that path's exit code is 1-for-fail,
+stable.
+
+### Consequence for the wrapper
+
+`Get-DotnetTestInvocationPlan` (`DotnetTestRunner.psm1`) now returns a
+dedicated `OutputShape = 'XunitV3'` plan for xunit.v3-MTP:
+`InvokeVia = 'Executable'`, `AdditionalArgs = @('-reporter', 'silent',
+'-noLogo', '-result-trx', <DnzDir>/xunit3.trx)`, `UsesTrx = $true`. A new
+`Get-XunitV3Outcome` classifies Pass/Fail/None purely from the TRX's
+`total`/`failed` counters (never stdout, which is always empty) and is
+guarded two ways against a stale TRX at that deterministic path being
+mistaken for the current run: `Invoke-QuietDotnetTest.ps1` deletes any
+pre-existing file there before invoking, and only trusts the TRX when the
+exe's own exit code is 0 or 1 — anything else (e.g. exit 3, "unknown
+option", from a testArgs combination this runner's CLI can't accept)
+classifies straight to `TEST UNKNOWN` without reading the TRX at all.
+
+**One narrower carve-out replaces the old blanket one.** xunit.v3's own CLI
+cannot accept the generic dotnet-test/`Microsoft.Testing.Platform` double-dash
+syntax any user-supplied `testArgs` would be written in — confirmed by hand
+that even a well-formed `--filter "..."` is rejected outright (exit 3), not
+silently ignored, which would otherwise have looked like "0 passed / 0
+failed" against a stale or absent TRX. So `Invoke-QuietDotnetTest.ps1` now
+normalises xunit.v3-MTP **only when the user supplies no extra test-host
+args**; if they do, it falls back to passthrough (`TEST RAW`), the same
+"can't confidently normalise" contract §5.4 already applies to `--logger`/
+`--results-directory`/`--report-trx`/bare `--`, just scoped to this one
+runner instead of applying to it unconditionally.
+
+Resolves §10 item 6.

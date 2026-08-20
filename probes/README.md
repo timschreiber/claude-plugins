@@ -10,6 +10,7 @@ without an evidence file behind it.
 | `Probe-DotnetTest.ps1` | Runner behavior, exit codes, TRX, zero-test detection across TFMs | The routing table | **Run.** `evidence/probe-results.json`, 207 records |
 | `hook-behavior/` | Does an `if` filter decompose compound commands? What does the hook actually receive? | Whether hook injection can replace the `.rsp` at all | **Run.** `hook-behavior/hook-coverage.json`, 50 records / 20 calls. See `docs/hook-behavior-findings.md` |
 | `Probe-MtpProgress.ps1` | Real MTP quiet numbers with stderr separated; is `--progress off` the replacement? | The MTP invocation line | **Run.** `evidence/mtp-progress-results.json`, 40 records. See `docs/dotnet-test-runner-findings.md` §12 |
+| `Probe-Xunit3MtpProgress.ps1` | Does xunit.v3-MTP have a working quiet-progress flag; is its exit-1 baseline stable across invocation paths? | xunit.v3-MTP's invocation line (Phase 8) | **Run.** `evidence/xunit3-mtp-progress-results.json`, 16 records. Working flag found. See `docs/dotnet-test-runner-findings.md` §14 |
 | `Probe-RspScope.ps1` | Who reads `Directory.Build.rsp`; do relative log paths follow CWD; does `-noAutoResponse` work | Whether the `.rsp` can be committed | Not run |
 | `Probe-Net60Vstest.ps1` | Is there a net6.0 VSTest config that builds? | Whether the routing table can claim net6.0 | **Run.** `evidence/net60-vstest-results.json`, 10 records. See `docs/dotnet-test-runner-findings.md` §13 |
 | `updated-input/` | Is `updatedInput` honoured? Does it need `permissionDecision: allow`? Do two rewrites chain? | Whether hook injection can work at all | Not run |
@@ -39,6 +40,7 @@ Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 # 4. Reuses the projects Probe-DotnetTest.ps1 builds, so run that first with -KeepArtifacts
 ./probes/Probe-DotnetTest.ps1 -KeepArtifacts
 ./probes/Probe-MtpProgress.ps1
+./probes/Probe-Xunit3MtpProgress.ps1
 
 # 5. net6.0 gap
 ./probes/Probe-Net60Vstest.ps1

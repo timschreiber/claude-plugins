@@ -175,8 +175,18 @@ try {
         $runnerInfo = Get-DotnetTestRunnerInfo -ProjectPath $projectPath
         if ($runnerInfo.Runner -eq 'Unknown') {
             $mode = 'Passthrough'; $reason = 'unrecognized project type'
-        } elseif ($runnerInfo.Runner -eq 'MTP' -and $runnerInfo.Framework -eq 'xunit.v3') {
-            $mode = 'Passthrough'; $reason = 'xunit.v3-MTP not yet supported'
+        } elseif ($runnerInfo.Runner -eq 'MTP' -and $runnerInfo.Framework -eq 'xunit.v3' -and $testArgs.Count -gt 0) {
+            # xunit.v3's own in-process runner has an entirely different CLI
+            # (single-dash: -reporter, -method, -filter "query", ...) from
+            # the generic dotnet-test/Microsoft.Testing.Platform double-dash
+            # surface every user-supplied testArg would be written in
+            # (docs/dotnet-test-runner-findings.md §14) -- confirmed by hand
+            # that even a well-formed '--filter "..."' is REJECTED outright
+            # (exit 3, "unknown option"), not silently ignored. With no
+            # testArgs at all this is moot (AdditionalArgs alone is safe,
+            # see Get-DotnetTestInvocationPlan), so only force passthrough
+            # when the user actually supplied something.
+            $mode = 'Passthrough'; $reason = 'xunit.v3-MTP: user-supplied test args use dotnet-test/MTP syntax, incompatible with its own CLI'
         } else {
             $mode = 'Normalize'
         }
@@ -238,6 +248,15 @@ try {
             exit $r.ExitCode
         }
 
+        if ($plan.OutputShape -eq 'XunitV3' -and $plan.TrxPath -and (Test-Path -LiteralPath $plan.TrxPath)) {
+            # A TRX from a prior run at this same deterministic path must
+            # never be mistaken for this run's result -- xunit.v3's TRX is
+            # the ONLY source of counts/outcome for this shape (unlike
+            # VSTest, where stdout alone already establishes the outcome and
+            # a stale TRX would at worst mislabel a failure's name).
+            Remove-Item -LiteralPath $plan.TrxPath -Force -ErrorAction SilentlyContinue
+        }
+
         $r = Invoke-CapturedProcess -Exe $exePath -ProcArgs ($testArgs + $plan.AdditionalArgs) -WorkingDirectory $cwd
     } else {
         $finalArgs = @('test') + $testArgs + $plan.AdditionalArgs
@@ -260,6 +279,33 @@ try {
         $omitted    = $vout.OmittedFailureCount
         $noneReason = $vout.NoneReason
         $trxPathForOutput = $vout.TrxPath
+    } elseif ($plan.OutputShape -eq 'XunitV3') {
+        # xunit.v3-MTP's '-reporter silent' console output is always empty
+        # (dotnet-test-runner-findings.md §14) -- its own TRX (requested via
+        # -result-trx, not the generic --report-trx) is the only source of
+        # counts and failure detail, including zero-tests-ran, which it
+        # reports as a genuine total="0" rather than an absent summary line.
+        #
+        # Only exit 0 (pass/zero) and 1 (fail) are the confirmed, stable
+        # meanings for THIS invocation path (direct exe -- findings §14;
+        # note this differs from exit 2/8 when routed through 'dotnet test'
+        # via global.json, a path the wrapper never takes). Any other exit
+        # code means the run didn't complete the way it's expected to (e.g.
+        # exit 3, "unknown option", if some future testArgs combination
+        # slips past the passthrough guard above) -- never trust the TRX at
+        # that deterministic path in that case, since it could be a stale
+        # file left over from this project's PREVIOUS invocation.
+        if ($r.ExitCode -eq 0 -or $r.ExitCode -eq 1) {
+            $xout = Get-XunitV3Outcome -TrxPath $plan.TrxPath -MaxFailures 5
+            $outcome    = $xout.Outcome
+            $counts     = @{ Passed = $xout.Passed; Failed = $xout.Failed; Skipped = $xout.Skipped }
+            $failures   = $xout.Failures
+            $omitted    = $xout.OmittedFailureCount
+            $noneReason = if ($outcome -eq 'None') { 'filter matched nothing' } else { $null }
+            $trxPathForOutput = if ($outcome -eq 'Fail') { $plan.TrxPath } else { $null }
+        } else {
+            $outcome = 'Unknown'
+        }
     } else {
         # MTP-shaped output (MSTest-MTP net8.0/net10.0, NUnit-MTP)
         if ($r.Stdout -match '(?s)total:\s*(\d+).*?failed:\s*(\d+).*?succeeded:\s*(\d+).*?skipped:\s*(\d+)') {

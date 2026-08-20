@@ -265,7 +265,10 @@ Describe 'Get-DotnetTestInvocationPlan' {
         @{ Runner='MTP';    Framework='MSTest';   Tfm='net6.0';  ExpectMode='Normalize';   ExpectArgs=@('--nologo','-v:q') }
         @{ Runner='MTP';    Framework='NUnit';    Tfm='net10.0'; ExpectMode='Normalize';   ExpectArgs=@('--no-progress','--no-ansi') }
         @{ Runner='MTP';    Framework='NUnit';    Tfm='net8.0';  ExpectMode='Normalize';   ExpectArgs=@('--no-progress','--no-ansi') }
-        @{ Runner='MTP';    Framework='xunit.v3'; Tfm='net10.0'; ExpectMode='Passthrough'; ExpectArgs=@() }
+        # xunit.v3's own single-dash CLI is unrelated to the generic MTP
+        # progress flags above; it gets its own reporter+TRX flags instead
+        # (dotnet-test-runner-findings.md §14).
+        @{ Runner='MTP';    Framework='xunit.v3'; Tfm='net10.0'; ExpectMode='Normalize';   ExpectArgs=@('-reporter','silent','-noLogo') }
         @{ Runner='Unknown';Framework=$null;      Tfm=$null;     ExpectMode='Passthrough'; ExpectArgs=@() }
     )
 
@@ -506,10 +509,21 @@ Describe 'Full acceptance: real dotnet test against probe scratch projects' -Tag
         $r.Stdout | Should -Match 'TEST FAIL \|'
     }
 
-    It 'xunit.v3-MTP: passes through, out of scope this phase' -Skip:(-not $script:HaveFixtures) {
+    It 'xunit.v3-MTP: reports TEST FAIL from its own TRX (dotnet-test-runner-findings.md §14)' -Skip:(-not $script:HaveFixtures) {
         $dir = Join-Path $script:ProbeRoot 'x_mtp_xunit3'
         if (-not (Test-Path -LiteralPath $dir)) { Set-ItResult -Skipped -Because 'x_mtp_xunit3 fixture not present'; return }
         $r = Invoke-WrapperAgainst -ProjectDir $dir
-        $r.Stdout | Should -Match 'TEST RAW \| xunit\.v3-MTP not yet supported \|'
+        # Its own exit-1-for-fail baseline (not the generic MTP exit-2) is a
+        # stable property of the direct-exe invocation path the wrapper
+        # actually uses -- §14 confirms this holds across pass/fail/zero.
+        $r.ExitCode | Should -Be 1
+        $r.Stdout | Should -Match 'TEST FAIL \| 6 passed \| 2 failed \|'
+    }
+
+    It 'xunit.v3-MTP: passes through when the user supplies test args, its own CLI cannot accept dotnet-test syntax' -Skip:(-not $script:HaveFixtures) {
+        $dir = Join-Path $script:ProbeRoot 'x_mtp_xunit3'
+        if (-not (Test-Path -LiteralPath $dir)) { Set-ItResult -Skipped -Because 'x_mtp_xunit3 fixture not present'; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir -ExtraArgs @('--filter', 'FullyQualifiedName~Pass')
+        $r.Stdout | Should -Match 'TEST RAW \|'
     }
 }
