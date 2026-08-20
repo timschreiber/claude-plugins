@@ -1,6 +1,7 @@
 # Denoizinator for .NET — build specification
 
-Status: ready to build. All architectural questions are resolved by measurement.
+Status: all 8 build phases done. See §6 for per-phase status and §7 for what
+remains (non-Windows support, unscheduled and out of scope this version).
 
 This spec is written for agentic execution. Each phase states its goal, its
 acceptance criteria, and a prompt to hand to Claude Code. Decisions already made
@@ -732,8 +733,12 @@ via `Start-Process`, per the measurement-discipline rule.
 
 | Question | Blocks | Where |
 |---|---|---|
-| Does xunit.v3-MTP have any working quiet-progress flag at all? | Phase 8 | `Probe-Xunit3MtpProgress.ps1` |
+| ~~Does xunit.v3-MTP have any working quiet-progress flag at all?~~ | ~~Phase 8~~ | **Resolved, Phase 8: yes — `-reporter silent -noLogo -result-trx <path>`. `Probe-Xunit3MtpProgress.ps1`, dotnet §14.** |
 | Behaviour on macOS and Linux | non-Windows support (out of scope this version, §2) | unscheduled |
+
+No question currently blocks a scheduled phase — every phase 1–8 is done. The
+macOS/Linux row is the only remaining entry, and it is out of scope for this
+version by design (§2), not a gap in the current build.
 
 ## 8. Rules for execution sessions
 
