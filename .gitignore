@@ -12,3 +12,4 @@ build-out.txt
 probes/hook-behavior/hook-coverage.json
 probes/updated-input/rewrite-results.json
 probes/hook-alternation/alternation-coverage.json
+probes/.tools/

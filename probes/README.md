@@ -16,6 +16,7 @@ without an evidence file behind it.
 | `CommandSegmentation.Tests.ps1` | Does the rewriter corrupt real commands? | The rewriter itself | **Run.** 34/34 passing at 33 vectors. Promoted to production: module now lives at `shared/denoizinator-core/CommandSegmentation.psm1`, tests at `tests/CommandSegmentation.Tests.ps1` |
 | `Probe-HandlerOverhead.ps1` | What does a `pwsh` launch cost on the unfiltered handler's fast-reject path? | The Phase 3 decision gate | **Run.** `evidence/handler-overhead.json`, 50 iterations/scenario. See `docs/hook-behavior-findings.md` §12 |
 | `hook-alternation/` | Does `if` accept `\|` alternation, e.g. `"Bash(dotnet *)\|Bash(msbuild:*)"`? | Whether one filtered handler can replace the unfiltered one | **Run.** `hook-alternation/alternation-coverage.json`, 12 records/11 calls. See `docs/hook-behavior-findings.md` §13 |
+| `Probe-FrameworkBuild.ps1` | MSBuild.exe/vstest.console.exe/nuget.exe tool resolution, quiet-flag acceptance, restore vs build volume, vstest exit codes, solution vs per-project banners | Whether `msbuild`/`vstest.console` can be added to the routing table | **Run.** `evidence/framework-build-results.json`, 100 records. See `docs/framework-build-findings.md` |
 
 ## Run order
 
@@ -50,6 +51,12 @@ Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 #    is merged in. Do not edit hooks into an already-running session; see
 #    docs/hook-behavior-findings.md section 13's caution.
 ./probes/hook-alternation/Analyze-AlternationProbe.ps1
+
+# 8. Framework tier -- independent of the others. Needs Visual Studio (or the
+#    Build Tools workload including the ASP.NET/web workload for the web-app
+#    scenario) installed locally; resolves MSBuild.exe/vstest.console.exe via
+#    vswhere.exe and downloads nuget.exe on first run if not already cached.
+./probes/Probe-FrameworkBuild.ps1 -KeepArtifacts
 ```
 
 ## What none of these can tell you
