@@ -109,6 +109,53 @@ Describe 'Add-CommandFlag per-command flags' {
     }
 }
 
+Describe 'Add-CommandDispatch' {
+    <#
+    Phase 4 (docs/denoizinator-net-spec.md §6): 'dotnet test' is no longer
+    given flags directly -- it's dispatched to a wrapper script that picks
+    safe flags per runner+TFM at runtime. Add-CommandDispatch prepends a
+    replacement command HEAD immediately before a matched segment's own head,
+    leaving everything else in the segment (args, redirects, a trailing bare
+    '--') byte-for-byte untouched as the tail of the new head's own argv.
+    This is deliberately a sibling to Add-CommandFlag, not a modification of
+    it -- Add-CommandFlag's insert-at-index contract is unrelated and unchanged.
+    #>
+
+    BeforeAll {
+        $script:DispatchMap = @{
+            'dotnet test' = 'pwsh -NoProfile -File "W" --'
+        }
+    }
+
+    $cases = @(
+        @{ Cmd='dotnet test';                        Want='pwsh -NoProfile -File "W" -- dotnet test' }
+        @{ Cmd='dotnet test --filter X';              Want='pwsh -NoProfile -File "W" -- dotnet test --filter X' }
+        @{ Cmd='dotnet test > out.txt';               Want='pwsh -NoProfile -File "W" -- dotnet test > out.txt' }
+        @{ Cmd='dotnet test -- --report-trx';         Want='pwsh -NoProfile -File "W" -- dotnet test -- --report-trx' }
+        @{ Cmd='(dotnet test)';                       Want='(pwsh -NoProfile -File "W" -- dotnet test)' }
+        @{ Cmd='DOTNET_NOLOGO=1 dotnet test';         Want='DOTNET_NOLOGO=1 pwsh -NoProfile -File "W" -- dotnet test' }
+
+        # --- must NOT match
+        @{ Cmd='dotnet testx';                        Want='dotnet testx' }
+        @{ Cmd='mydotnet test';                       Want='mydotnet test' }
+        @{ Cmd='pwsh -c "dotnet test"';                Want='pwsh -c "dotnet test"' }
+    )
+
+    It 'dispatches <Cmd>' -TestCases $cases {
+        param($Cmd, $Want)
+        Add-CommandDispatch -Command $Cmd -DispatchMap $script:DispatchMap | Should -BeExactly $Want
+    }
+
+    It 'composes with Add-CommandFlag: build gets flags, test gets dispatched, independently' {
+        $afterFlags = Add-CommandFlag -Command 'dotnet build && dotnet test' `
+            -FlagMap @{ 'dotnet build' = '-nologo -tl:off' }
+        $afterFlags | Should -BeExactly 'dotnet build -nologo -tl:off && dotnet test'
+
+        $afterDispatch = Add-CommandDispatch -Command $afterFlags -DispatchMap $script:DispatchMap
+        $afterDispatch | Should -BeExactly 'dotnet build -nologo -tl:off && pwsh -NoProfile -File "W" -- dotnet test'
+    }
+}
+
 Describe 'Known limitations (documented, not bugs)' {
 
     It 'does not reach a build wrapped by another interpreter' {

@@ -155,19 +155,18 @@ which is an error rather than a no-op.
 dotnet build     -nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"
 dotnet msbuild   (same)
 dotnet run       (same)
-dotnet test      --nologo -v:q
+dotnet test      dispatched to a wrapper (see §5.4) -- a single flag string is
+                 wrong across runners (dotnet-test-runner-findings.md §12)
 ```
 
 `-tl:off` disables the terminal logger, whose redraws are noise in a
-non-interactive capture. `-v:q` is what does the work on the test side; adding a
-console logger on top of it measurably changes nothing.
+non-interactive capture.
 
 **The `-clp` value is quoted because it contains literal `;`, and the emitted
 rewrite is executed by a shell** — see §8's rule on quoting flag values
-containing shell metacharacters. Phase 4's normalised-output design (§6 Phase 4)
-will hit the same rule again: `--logger "trx;LogFileName=test.trx"` and
-`/logger:"console;verbosity=quiet"` both carry unescaped `;` and both must stay
-quoted in whatever the Phase 4 wrapper emits, for the identical reason.
+containing shell metacharacters. The Phase 4 wrapper (§5.4) hits the same rule
+again internally: `--logger "trx;LogFileName=test.trx"` carries an unescaped
+`;` and must stay quoted wherever it's constructed, for the identical reason.
 
 **Bare `msbuild` (Framework `MSBuild.exe`, not the dotnet CLI) and
 `vstest.console` are deliberately not in the routing table.** `dotnet build`,
@@ -177,6 +176,55 @@ engine, so evidence for one covers the others. Framework `MSBuild.exe` and
 them — adding their flags here would be an unverified guess wearing the same
 table as everything else. They wait for Phase 5, which exists specifically to
 produce that evidence.
+
+### 5.4 `dotnet test` dispatch: exit-code and passthrough contracts
+
+Since Phase 4, `dotnet test <args>` is not given flags directly — it's
+dispatched to `Invoke-QuietDotnetTest.ps1` (`Add-CommandDispatch`, the sibling
+of `Add-CommandFlag` that prepends a replacement command head rather than
+inserting flags), which picks the runner+TFM-safe flags at runtime and emits a
+normalised `TEST PASS|FAIL|NONE|RAW|UNKNOWN` summary. Two contracts govern its
+behaviour, decided during Phase 4 and binding on any future change to it:
+
+**Exit-code contract.** The wrapper never mirrors the raw runner's exit code
+in its normal (non-passthrough) path — VSTest-fail=1 and MTP-fail=2 already
+diverge from each other, and absorbing that divergence is the point of the
+wrapper. It normalises to a fixed vocabulary instead:
+
+| Code | Meaning |
+|---|---|
+| 0 | `TEST PASS` — tests ran, none failed |
+| 1 | `TEST FAIL` — tests ran, at least one failed |
+| 2 | `TEST NONE` — no tests ran (the zero-tests-ran silent-false-pass case, dotnet §5) |
+| 3 | `TEST UNKNOWN` — the wrapper could not establish the outcome (unparsable TRX, no recognisable summary, unrecognised runner state) — never guessed, never 0 |
+
+The raw runner exit code is still included in the `TEST UNKNOWN`/`TEST RAW`
+output lines for recoverability; it is not load-bearing there.
+
+**Passthrough contract.** If the original command already carries test-host
+flags the wrapper would otherwise choose itself (`--logger`,
+`--results-directory`, `--report-trx`, or a bare `--`), or the runner can't be
+confidently normalised (xunit.v3-MTP — out of scope this phase, dotnet §10
+item 6 — or an unresolvable project), the wrapper runs the original invocation
+**unmodified** rather than layering its own flags on top of the user's —
+never risking a self-inflicted version of the `--report-trx`-on-NUnit-MTP
+silent-no-op trap (dotnet §7). This check is made against the
+**already-tokenized argument array** the wrapper receives, not the raw
+command string, so `--filter "Name~logger"` and `--filter "A -- B"` are each
+one array element and never false-positively trigger passthrough via
+substring matching. Passthrough is not silent: it emits one line,
+`TEST RAW | <reason> | runner exit <N>`, and — the one documented exception to
+the exit-code contract above — the wrapper's own exit code mirrors the raw
+runner's in this case, since it isn't claiming to have normalised anything. If
+`--report-trx` is present and the detected runner is NUnit-MTP or xunit.v3-MTP,
+the wrapper additionally writes one stderr line warning that the runner
+rejects that flag and no tests will run.
+
+The wrapper never writes `global.json`; runner detection is read-only
+(`global.json` walked up from the project directory, `.csproj` text regex —
+the same static approach as `probes/Probe-DotnetTest.ps1`'s
+`Get-DetectedRunner`), which is what lets a repo with mixed VSTest/MTP test
+projects keep working.
 
 ---
 

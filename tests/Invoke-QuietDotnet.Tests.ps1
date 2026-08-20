@@ -70,15 +70,18 @@ Describe 'Invoke-QuietDotnet.ps1' {
         function Invoke-BashRoundTrip {
             # Runs $Command through a REAL Git Bash shell -- the same
             # mechanism Claude Code uses to execute a rewritten command -- with
-            # 'dotnet' shadowed by a shell function that dumps its argv, one
-            # entry per line. This is the only way to prove a flag value
-            # survives shell re-parsing; asserting against our own segmenter's
-            # output would just test our own understanding of shell quoting,
-            # not the shell's.
-            param([Parameter(Mandatory)][string] $Command)
+            # 'dotnet' (or, via -Shadow, another head command) shadowed by a
+            # shell function that dumps its argv, one entry per line. This is
+            # the only way to prove a flag value survives shell re-parsing;
+            # asserting against our own segmenter's output would just test
+            # our own understanding of shell quoting, not the shell's.
+            param(
+                [Parameter(Mandatory)][string] $Command,
+                [string] $Shadow = 'dotnet() { for a in "$@"; do printf "%s\n" "$a"; done; }; '
+            )
 
             $bashExe = Resolve-GitBashPath
-            $shadow  = 'dotnet() { for a in "$@"; do printf "%s\n" "$a"; done; }; '
+            $shadow  = $Shadow
 
             $psi = [System.Diagnostics.ProcessStartInfo]::new()
             $psi.FileName = $bashExe
@@ -100,7 +103,9 @@ Describe 'Invoke-QuietDotnet.ps1' {
         }
     }
 
-    It 'rewrites dotnet build && dotnet test with per-segment flags' {
+    It 'rewrites dotnet build && dotnet test: build gets flags, test is dispatched to the wrapper' {
+        $wrapperPath = (Resolve-Path (Join-Path $PSScriptRoot '../plugins/denoizinator-net/scripts/Invoke-QuietDotnetTest.ps1')).Path
+
         $payload = @{ tool_name = 'Bash'; tool_input = @{ command = 'dotnet build && dotnet test' } } | ConvertTo-Json -Compress
         $r = Invoke-QuietDotnetProcess -StdinText $payload
 
@@ -110,9 +115,32 @@ Describe 'Invoke-QuietDotnet.ps1' {
         $parsed = $r.Stdout | ConvertFrom-Json
         $parsed.hookSpecificOutput.hookEventName | Should -Be 'PreToolUse'
         $parsed.hookSpecificOutput.updatedInput.command |
-            Should -BeExactly 'dotnet build -nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false" && dotnet test --nologo -v:q'
+            Should -BeExactly ('dotnet build -nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false" && ' +
+                                "pwsh -NoProfile -File `"$wrapperPath`" -- dotnet test")
         $parsed.hookSpecificOutput.PSObject.Properties.Name |
             Should -Not -Contain 'permissionDecision'
+    }
+
+    It 'the dispatched pwsh invocation survives a real Bash round-trip with dotnet test''s argv intact' {
+        # Phase 4 introduces an extra hop that Phases 1-3 never had: Bash ->
+        # pwsh.exe's own argv -> the wrapper's $args. Each hop re-quotes
+        # independently, so this needs its own dedicated round-trip test
+        # rather than assuming the existing quoting discipline transfers.
+        $payload = @{ tool_name = 'Bash'; tool_input = @{ command = 'dotnet test --logger "trx;LogFileName=x.trx"' } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
+        $rewritten = ($r.Stdout | ConvertFrom-Json).hookSpecificOutput.updatedInput.command
+
+        $rewritten | Should -Match '^pwsh -NoProfile -File "[^"]+Invoke-QuietDotnetTest\.ps1" -- dotnet test --logger "trx;LogFileName=x\.trx"$'
+
+        $pwshShadow = 'pwsh() { for a in "$@"; do printf "%s\n" "$a"; done; }; '
+        $result = Invoke-BashRoundTrip -Command $rewritten -Shadow $pwshShadow
+
+        $result.Stderr | Should -Not -Match 'command not found'
+        $result.Argv | Should -Contain '--'
+        $result.Argv | Should -Contain 'dotnet'
+        $result.Argv | Should -Contain 'test'
+        $result.Argv | Should -Contain '--logger'
+        $result.Argv | Should -Contain 'trx;LogFileName=x.trx'
     }
 
     It 'emits nothing for git status' {

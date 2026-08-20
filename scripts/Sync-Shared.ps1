@@ -33,6 +33,9 @@ $map = @{
     'denoizinator-core/CommandSegmentation.psm1' = @(
         'plugins/denoizinator-net/scripts/vendor/CommandSegmentation.psm1'
     )
+    'denoizinator-core/DotnetTestRunner.psm1' = @(
+        'plugins/denoizinator-net/scripts/vendor/DotnetTestRunner.psm1'
+    )
 }
 
 $drift = @()

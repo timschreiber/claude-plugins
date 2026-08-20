@@ -257,6 +257,14 @@ New-TestProject "$Root\x_mtp_nunit" nunit -Tfm $newest -Packages @('NUnit|4.*','
 New-TestProject "$Root\x_mtp_xunit3" xunit -Tfm $newest -Packages @('xunit.v3|*') -Props @{ OutputType='Exe' }
 Write-Note "x_* (xunit/nunit, VSTest + MTP)                          [$newest]"
 
+# denoizinator-net Phase 4 acceptance needs NUnit-MTP on net8.0 too, not just
+# the newest TFM -- see docs/denoizinator-net-spec.md §6 Phase 4.
+if ($Tfms -contains 'net8.0' -and $newest -ne 'net8.0') {
+    New-TestProject "$Root\x_mtp_nunit_n80" nunit -Tfm 'net8.0' -Packages @('NUnit|4.*','NUnit3TestAdapter|*') `
+        -Props @{ EnableNUnitRunner='true'; OutputType='Exe' }
+    Write-Note "x_mtp_nunit_n80       MTP NUnit, 2 failing            [net8.0]"
+}
+
 $tdir = "$Root\x_template_mstest"
 & dotnet new mstest -o $tdir 2>&1 | Out-Null
 if (Test-Path $tdir) {

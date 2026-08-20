@@ -49,14 +49,21 @@ try {
             # Bare 'msbuild' (Framework MSBuild.exe, not the dotnet CLI) and
             # 'vstest.console' are deliberately absent -- no measured evidence
             # backs the same flags there yet; see docs/denoizinator-net-spec.md §5.3.
+            #
+            # 'dotnet test' is NOT in this map -- a single quiet-flag string is
+            # wrong across runners (docs/dotnet-test-runner-findings.md §12), so
+            # it's dispatched to a wrapper that picks safe flags at runtime
+            # instead (Phase 4, spec §6).
             $flagMap = @{
                 'dotnet build'   = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
                 'dotnet msbuild' = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
                 'dotnet run'     = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
-                'dotnet test'    = '--nologo -v:q'
             }
+            $wrapperPath = Join-Path $PSScriptRoot 'Invoke-QuietDotnetTest.ps1'
+            $dispatchMap = @{ 'dotnet test' = "pwsh -NoProfile -File `"$wrapperPath`" --" }
 
             $rewritten = Add-CommandFlag -Command $command -FlagMap $flagMap
+            $rewritten = Add-CommandDispatch -Command $rewritten -DispatchMap $dispatchMap
 
             if (-not [string]::Equals($rewritten, $command, [StringComparison]::Ordinal)) {
                 $out = @{

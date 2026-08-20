@@ -248,6 +248,93 @@ function Add-CommandFlag {
     return $result
 }
 
+function Get-DispatchEdit {
+    <#
+    .SYNOPSIS
+        Dispatch edits for one span, recursing into subshells like
+        Get-SegmentEdit does. Instead of an insertion point before a redirect,
+        this returns the index where the segment's own command HEAD begins --
+        i.e. after any leading whitespace and any VAR=value assignments -- so
+        a caller can prepend a replacement head there and leave the matched
+        command, its args, and any trailing redirect untouched as the tail.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]   $Command,
+        [Parameter(Mandatory)][object]   $Span,
+        [Parameter(Mandatory)][string[]] $Prefixes,
+        [int] $Depth = 0
+    )
+
+    $text = $Command.Substring($Span.Start, $Span.End - $Span.Start)
+
+    if ($Depth -lt 4 -and $text.StartsWith('(') -and $text.EndsWith(')')) {
+        $innerStart = $Span.Start + 1
+        $innerEnd   = $Span.End - 1
+        $inner      = $Command.Substring($innerStart, $innerEnd - $innerStart)
+        $out = [System.Collections.Generic.List[object]]::new()
+        foreach ($sub in (Split-CommandSegment -Command $inner)) {
+            $shifted = [pscustomobject]@{ Start = $innerStart + $sub.Start; End = $innerStart + $sub.End }
+            foreach ($edit in (Get-DispatchEdit -Command $Command -Span $shifted -Prefixes $Prefixes -Depth ($Depth + 1))) {
+                $out.Add($edit)
+            }
+        }
+        return $out
+    }
+
+    $matched = Test-SegmentPrefix -Command $Command -Span $Span -Prefixes $Prefixes
+    if ($matched) {
+        $raw        = $Command.Substring($Span.Start, $Span.End - $Span.Start)
+        $leadingWs  = $raw.Length - $raw.TrimStart().Length
+        $trimmed    = $raw.TrimStart()
+        $withoutEnv = Remove-EnvPrefix -Text $trimmed
+        $envLen     = $trimmed.Length - $withoutEnv.Length
+        $idx        = $Span.Start + $leadingWs + $envLen
+        return @([pscustomobject]@{ Index = $idx; Prefix = $matched })
+    }
+    return @()
+}
+
+function Add-CommandDispatch {
+    <#
+    .SYNOPSIS
+        Prepend a replacement command HEAD before every top-level segment
+        invoking one of -DispatchMap's keys. Unlike Add-CommandFlag (which
+        inserts a flag string before a redirect), this leaves the matched
+        segment's original text -- the command, its args, any redirect, a
+        trailing bare '--' -- completely untouched; it becomes the tail of
+        the new head by construction.
+
+    .EXAMPLE
+        Add-CommandDispatch -Command 'dotnet build && dotnet test' `
+                            -DispatchMap @{ 'dotnet test' = 'pwsh -File wrapper.ps1 --' }
+        # -> 'dotnet build && pwsh -File wrapper.ps1 -- dotnet test'
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string] $Command,
+        [Parameter(Mandatory)][hashtable] $DispatchMap
+    )
+
+    # Longest-first: a more specific prefix must be tested before a shorter one.
+    $prefixes = @($DispatchMap.Keys | Sort-Object -Property Length -Descending)
+
+    $edits = [System.Collections.Generic.List[object]]::new()
+    foreach ($span in (Split-CommandSegment -Command $Command)) {
+        foreach ($edit in (Get-DispatchEdit -Command $Command -Span $span -Prefixes $prefixes -Depth 0)) {
+            $edits.Add($edit)
+        }
+    }
+
+    $result = $Command
+    foreach ($edit in ($edits | Sort-Object -Property Index -Descending)) {
+        $head   = $DispatchMap[$edit.Prefix]
+        $result = $result.Substring(0, $edit.Index) + $head + ' ' + $result.Substring($edit.Index)
+    }
+    return $result
+}
+
 Export-ModuleMember -Function Split-CommandSegment, Get-InsertionPoint,
                               Test-SegmentPrefix, Remove-EnvPrefix,
-                              Get-SegmentEdit, Add-CommandFlag
+                              Get-SegmentEdit, Add-CommandFlag,
+                              Get-DispatchEdit, Add-CommandDispatch
