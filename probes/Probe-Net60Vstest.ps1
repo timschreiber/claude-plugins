@@ -53,7 +53,7 @@ $suppressLine
     <PackageReference Include="MSTest.TestFramework" Version="3.*" />
   </ItemGroup>
 </Project>
-"@ | Set-Content (Join-Path $Dir (Split-Path $Dir -Leaf) + '.csproj') -Encoding utf8
+"@ | Set-Content (Join-Path $Dir ((Split-Path $Dir -Leaf) + '.csproj')) -Encoding utf8
 
 @'
 using Microsoft.VisualStudio.TestTools.UnitTesting;

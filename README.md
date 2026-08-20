@@ -21,6 +21,27 @@ claude plugin marketplace add timschreiber/claude-plugins --sparse .claude-plugi
 |---|---|
 | `denoizinator-net` | Keeps MSBuild and `dotnet test` output out of context |
 
+### Supported target frameworks
+
+Measured against the .NET SDK CLI (`dotnet build`/`dotnet test`/
+`dotnet msbuild`/`dotnet run`):
+
+- **net8.0 and net10.0** — both VSTest and MTP (Microsoft.Testing.Platform)
+  runners, fully measured.
+- **net6.0** — VSTest works, but only with `Microsoft.NET.Test.Sdk` pinned to
+  17.11.1 or older; the latest Test.Sdk major does not build on net6.0 at
+  all. MTP projects on net6.0 silently bridge to VSTest rather than running
+  as MTP. See `docs/dotnet-test-runner-findings.md` §6 and §13.
+- **net7.0 and net9.0** were not separately measured (both out of support,
+  excluded from the probe matrix) — behavior there is unverified.
+
+**Framework 4.x (net48) is measured but not yet quieted.** Bare
+`MSBuild.exe` and `vstest.console.exe` invocations — required for ASP.NET
+4.x web apps and legacy non-SDK-style `csproj` projects — are not in the
+hook's routing table yet. See `docs/framework-build-findings.md` for what's
+been measured there; routing that tier into the hook is unstarted follow-on
+work.
+
 ### What Denoizinator does not cover
 
 Command rewriting happens in a `PreToolUse` hook, which sees the command string

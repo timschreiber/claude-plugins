@@ -1,0 +1,122 @@
+[
+  {
+    "SdkVersion": "17.14.1",
+    "Suppress": false,
+    "Built": false,
+    "BuildError": "C:\\Users\\timsc\\.nuget\\packages\\microsoft.net.test.sdk\\17.14.1\\build\\netcoreapp2.0\\Microsoft.NET.Test.Sdk.targets(4,5): error : Microsoft.NET.Test.Sdk doesn't support net6.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildErrors>true</SuppressTfmSupportBuildErrors> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17141\\sdk17141.csproj]",
+    "TestExit": null,
+    "TestChars": 0,
+    "Counts": null,
+    "CountsCorrect": false,
+    "BuildLog": "C:\\Users\\timsc\\.nuget\\packages\\microsoft.net.test.sdk\\17.14.1\\build\\netcoreapp2.0\\Microsoft.NET.Test.Sdk.targets(4,5): error : Microsoft.NET.Test.Sdk doesn't support net6.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildErrors>true</SuppressTfmSupportBuildErrors> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17141\\sdk17141.csproj]\r\n\r\nBuild FAILED.\r\n\r\nC:\\Users\\timsc\\.nuget\\packages\\microsoft.net.test.sdk\\17.14.1\\build\\netcoreapp2.0\\Microsoft.NET.Test.Sdk.targets(4,5): error : Microsoft.NET.Test.Sdk doesn't support net6.0 and has not been tested with it. Consider upgrading your TargetFramework to net8.0 or later. You may also set <SuppressTfmSupportBuildErrors>true</SuppressTfmSupportBuildErrors> in the project file to ignore this warning and attempt to run in this unsupported configuration at your own risk. [C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17141\\sdk17141.csproj]\r\n    0 Warning(s)\r\n    1 Error(s)\r\n\r\nTime Elapsed 00:00:01.52\r\n",
+    "TestOutput": ""
+  },
+  {
+    "SdkVersion": "17.11.1",
+    "Suppress": false,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 298,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.95\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17111\\bin\\Debug\\net6.0\\sdk17111.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 39 ms - sdk17111.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.9.0",
+    "Suppress": false,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 295,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:02.67\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk1790\\bin\\Debug\\net6.0\\sdk1790.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 39 ms - sdk1790.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.6.3",
+    "Suppress": false,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 295,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:02.73\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk1763\\bin\\Debug\\net6.0\\sdk1763.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 40 ms - sdk1763.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.3.2",
+    "Suppress": false,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 295,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:03.72\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk1732\\bin\\Debug\\net6.0\\sdk1732.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 41 ms - sdk1732.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.14.1",
+    "Suppress": true,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 1369,
+    "Counts": null,
+    "CountsCorrect": false,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.05\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17141-suppress\\bin\\Debug\\net6.0\\sdk17141-suppress.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\nTesthost process for source(s) 'C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17141-suppress\\bin\\Debug\\net6.0\\sdk17141-suppress.dll' exited with error: You must install or update .NET to run this application.\r\nApp: C:\\Program Files\\dotnet\\sdk\\10.0.301\\testhost.dll\r\nArchitecture: x64\r\nFramework: 'Microsoft.NETCore.App', version '6.0.0-preview.0' (x64)\r\n.NET location: C:\\Program Files\\dotnet\\\r\nThe following frameworks were found:\r\n  8.0.11 at [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]\r\n  10.0.9 at [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]\r\nThe following frameworks for other architectures were found:\r\n  x86\r\n    8.0.11 at [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]\r\n    10.0.9 at [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]\r\n    10.0.9 at [C:\\Program Files (x86)\\dotnet\\shared\\Microsoft.NETCore.App]\r\nLearn more:\r\nhttps://aka.ms/dotnet/app-launch-failed\r\nTo install missing framework, download:\r\nhttps://aka.ms/dotnet-core-applaunch?framework=Microsoft.NETCore.App&framework_version=6.0.0-preview.0&arch=x64&rid=win-x64&os=win10\r\n. Please check the diagnostic logs for more information.\r\n\r\nTest Run Aborted.\r\n"
+  },
+  {
+    "SdkVersion": "17.11.1",
+    "Suppress": true,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 325,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.18\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk17111-suppress\\bin\\Debug\\net6.0\\sdk17111-suppress.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 44 ms - sdk17111-suppress.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.9.0",
+    "Suppress": true,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 322,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.14\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk1790-suppress\\bin\\Debug\\net6.0\\sdk1790-suppress.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 39 ms - sdk1790-suppress.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.6.3",
+    "Suppress": true,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 322,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.12\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk1763-suppress\\bin\\Debug\\net6.0\\sdk1763-suppress.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 39 ms - sdk1763-suppress.dll (net6.0)\r\n"
+  },
+  {
+    "SdkVersion": "17.3.2",
+    "Suppress": true,
+    "Built": true,
+    "BuildError": null,
+    "TestExit": 1,
+    "TestChars": 322,
+    "Counts": "P=6 F=2 S=0 T=8",
+    "CountsCorrect": true,
+    "BuildLog": "\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.28\r\n",
+    "TestOutput": "Test run for C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-n60-probe\\sdk1732-suppress\\bin\\Debug\\net6.0\\sdk1732-suppress.dll (.NETCoreApp,Version=v6.0)\r\nA total of 1 test files matched the specified pattern.\r\n\r\nFailed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 39 ms - sdk1732-suppress.dll (net6.0)\r\n"
+  }
+]

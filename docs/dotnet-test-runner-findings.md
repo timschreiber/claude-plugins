@@ -295,8 +295,10 @@ Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
    empty placeholder test projects.
 3. **net6.0 against the real 6.0 runtime** — these results used `RollForward`.
    Whether the bridge behavior survives on the genuine runtime is untested.
-4. **net6.0 VSTest** — never built, so it has no row anywhere in this document.
-   Needs an older `Test.Sdk` pin or `SuppressTfmSupportBuildErrors`.
+4. ~~net6.0 VSTest — never built, so it has no row anywhere in this document.~~
+   **Resolved, §13: `Test.Sdk` 17.11.1 or older builds and runs correctly
+   without suppression; 17.14.1 fails to build outright, and suppressing that
+   failure just moves it to test-execution time instead.**
 5. **Framework 4.8 / `vstest.console.exe`** — deliberately out of scope for this
    probe; measured separately (Phase 5).
 6. **xunit.v3-MTP rejects every progress-suppression flag tried so far**
@@ -318,6 +320,13 @@ Build side is already solved by `Directory.Build.rsp`, covering `msbuild.exe`,
 - `EnableNUnitRunner` without `NUnit3TestAdapter` → CS5001, no entry point.
 - Latest test packages dropped net6.0, so package versions are pinned per-TFM.
   See §2 — the pin is necessary but not sufficient.
+- `Probe-Net60Vstest.ps1`'s `Join-Path $Dir (Split-Path $Dir -Leaf) + '.csproj'`
+  — `+` after a command name parses as a literal string argument, not string
+  concatenation, so this was really a 4-argument `Join-Path` call producing
+  `...\sdk17111\+\.csproj` and a `Could not find a part of the path` error on
+  every run. This is why the probe had never successfully executed (§13).
+  Fixed by parenthesizing the concatenation:
+  `Join-Path $Dir ((Split-Path $Dir -Leaf) + '.csproj')`.
 
 ---
 
@@ -363,3 +372,61 @@ found for xunit.v3-MTP — emitting the wrong one is actively worse than the
 verbose baseline it was trying to quiet, not merely a no-op. This is the same
 class of failure `--report-trx` already forced onto NUnit-MTP/xunit.v3-MTP
 (§7): a flag that's safe on one runner and a silent-cost trap on another.
+
+---
+
+## 13. net6.0 VSTest: which `Test.Sdk` version builds
+
+Measured via `probes/Probe-Net60Vstest.ps1`. Evidence:
+`probes/evidence/net60-vstest-results.json` — 10 records (5
+`Microsoft.NET.Test.Sdk` versions × with/without
+`SuppressTfmSupportBuildErrors`). No real .NET 6 runtime is installed on the
+measuring machine; every row below relies on `RollForward=LatestMajor`
+rolling forward to the installed 8.0.11/10.0.9 runtimes — a probe
+accommodation (§3 item 3), not evidence about the genuine .NET 6 runtime.
+
+| Test.Sdk | Suppress switch | Builds | Test counts |
+|---|---|---|---|
+| 17.14.1 | no | **FAILED** — `Microsoft.NET.Test.Sdk doesn't support net6.0` | — |
+| 17.11.1 | no | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.9.0 | no | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.6.3 | no | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.3.2 | no | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.14.1 | yes | yes | **test run aborted** (see below) |
+| 17.11.1 | yes | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.9.0 | yes | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.6.3 | yes | yes | `P=6 F=2 S=0 T=8` (correct) |
+| 17.3.2 | yes | yes | `P=6 F=2 S=0 T=8` (correct) |
+
+**`Test.Sdk` 17.11.1 (and every older version tested, down to 17.3.2) builds
+and runs correctly on net6.0 without `SuppressTfmSupportBuildErrors`.** Only
+the newest version tested, 17.14.1, fails — its own build error names the
+ceiling explicitly: `Microsoft.NET.Test.Sdk doesn't support net6.0 and has
+not been tested with it.` net6.0 VSTest is buildable and correctly
+countable, but **only with an older, explicitly-pinned `Test.Sdk`** — a
+project left on the latest major will not build on net6.0 at all.
+
+**The suppression switch is not a safe substitute for pinning.**
+`SuppressTfmSupportBuildErrors=true` makes 17.14.1 *build*, but the test run
+then aborts at execution time instead:
+
+```
+Testhost process for source(s) '...\sdk17141-suppress.dll' exited with error:
+You must install or update .NET to run this application.
+Framework: 'Microsoft.NETCore.App', version '6.0.0-preview.0' (x64)
+```
+
+The 17.14.1 testhost resolves against `Microsoft.NETCore.App` version
+`6.0.0-preview.0` specifically, and `RollForward=LatestMajor` does not roll
+forward from a *preview* version identifier the way it does from the older
+`Test.Sdk` versions' plain `6.0.0` target — those all built and ran with
+correct counts under the identical rollforward setup. Suppressing the build
+error trades a loud, correct failure for a silent, later one.
+
+**Consequence for the routing table:** net6.0 VSTest can be claimed as
+supported, but only conditionally — the project must pin
+`Microsoft.NET.Test.Sdk` to 17.11.1 or older. The routing table cannot
+assume "net6.0 + VSTest" always works, since the newest `Test.Sdk` major on
+that TFM does not build at all, suppression switch or not.
+
+Resolves §10 item 4.
