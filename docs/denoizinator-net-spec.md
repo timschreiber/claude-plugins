@@ -144,7 +144,7 @@ Per-command, because a single flag string would put `-clp` on a test command,
 which is an error rather than a no-op.
 
 ```
-dotnet build     -nologo -tl:off -clp:ErrorsOnly;Summary;ShowProjectFile=false
+dotnet build     -nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"
 dotnet msbuild   (same)
 dotnet run       (same)
 dotnet test      --nologo -v:q
@@ -153,6 +153,13 @@ dotnet test      --nologo -v:q
 `-tl:off` disables the terminal logger, whose redraws are noise in a
 non-interactive capture. `-v:q` is what does the work on the test side; adding a
 console logger on top of it measurably changes nothing.
+
+**The `-clp` value is quoted because it contains literal `;`, and the emitted
+rewrite is executed by a shell** — see §8's rule on quoting flag values
+containing shell metacharacters. Phase 4's normalised-output design (§6 Phase 4)
+will hit the same rule again: `--logger "trx;LogFileName=test.trx"` and
+`/logger:"console;verbosity=quiet"` both carry unescaped `;` and both must stay
+quoted in whatever the Phase 4 wrapper emits, for the identical reason.
 
 **Bare `msbuild` (Framework `MSBuild.exe`, not the dotnet CLI) and
 `vstest.console` are deliberately not in the routing table.** `dotnet build`,
@@ -329,9 +336,13 @@ noisiest tier — Framework MSBuild predates the terminal logger and the modern
 **Deliverables.** `probes/Probe-FrameworkBuild.ps1`, not implementation —
 mirroring `Probe-DotnetTest.ps1`'s conventions (six passing and two failing
 tests per project, so any runner reporting a different failure count is
-lying). It scaffolds:
+lying). It scaffolds five projects, because both restore paths are in real use
+and are architecturally distinct, not just a config-file variant of each other:
 
-- a legacy non-SDK-style `csproj` targeting net48
+- a legacy non-SDK-style `csproj` targeting net48, using `packages.config`,
+  restored via `nuget.exe restore`
+- the same legacy non-SDK-style `csproj` migrated to `PackageReference`,
+  restored via `msbuild -t:Restore`
 - an SDK-style `csproj` targeting net48
 - an ASP.NET 4.x web application
 - a legacy-format test project, run through `vstest.console.exe`
@@ -346,8 +357,13 @@ is measured, not assumed.
 - Output character counts, baseline versus quiet, with stdout and stderr
   captured **separately** via `Start-Process` redirection — not `2>&1`, per the
   measurement-discipline rule in `probes/README.md`.
-- `nuget.exe restore` volume for `packages.config` projects — the SDK-style
-  `dotnet restore` path does not apply here.
+- **Restore output volume, measured separately from build output volume, for
+  both restore paths** (`nuget.exe restore` against `packages.config`, and
+  `msbuild -t:Restore` against `PackageReference`) — not folded into the build
+  number. Restore noise may exceed build noise on a cold cache, and it is a
+  distinct stream the build quiet-flags above do not touch. If so, that is its
+  own finding, and possibly its own rewrite target, not a footnote on the build
+  numbers.
 - `vstest.console.exe` exit codes for pass, fail, and zero-tests-matched.
   **Treat the silent-false-pass finding in `dotnet-test-runner-findings.md` §5
   as a hypothesis to retest, not an established fact** — that finding was
@@ -367,9 +383,10 @@ findings doc in this repo.
 exists.** Section 5.3 already states this; this phase is what would earn them
 a place there.
 
-**Acceptance.** The probe runs cleanly against its four scaffolded projects,
+**Acceptance.** The probe runs cleanly against its five scaffolded projects,
 and every one of the six measurement questions above has a corresponding
-evidence file and a findings section that cites it.
+evidence file and a findings section that cites it — including restore volume
+reported separately from build volume for both restore paths.
 
 **Prompt.**
 
@@ -377,15 +394,19 @@ evidence file and a findings section that cites it.
 > `docs/dotnet-test-runner-findings.md` §5.
 >
 > Write `probes/Probe-FrameworkBuild.ps1`, modelled on `Probe-DotnetTest.ps1`'s
-> conventions but scaffolding net48 projects instead: a legacy non-SDK-style
-> `csproj`, an SDK-style `csproj`, an ASP.NET 4.x web application, and a
-> legacy-format test project driven through `vstest.console.exe` directly, each
-> with a deliberate build warning and six passing / two failing tests.
+> conventions but scaffolding five net48 projects instead: a legacy non-SDK-style
+> `csproj` using `packages.config` (restored via `nuget.exe restore`), the same
+> project migrated to `PackageReference` (restored via `msbuild -t:Restore`),
+> an SDK-style `csproj`, an ASP.NET 4.x web application, and a legacy-format
+> test project driven through `vstest.console.exe` directly — each with a
+> deliberate build warning and six passing / two failing tests.
 >
 > Measure the six items listed under Phase 5's "Must measure," with stdout and
-> stderr captured separately via `Start-Process`, never `2>&1`. Do not assume
-> the VSTest zero-tests-ran finding from `dotnet-test-runner-findings.md` §5
-> carries over to `vstest.console.exe` run directly — retest it.
+> stderr captured separately via `Start-Process`, never `2>&1`. Report restore
+> output volume separately from build output volume for both restore paths —
+> do not fold restore into the build number. Do not assume the VSTest
+> zero-tests-ran finding from `dotnet-test-runner-findings.md` §5 carries over
+> to `vstest.console.exe` run directly — retest it.
 >
 > Write findings to `docs/framework-build-findings.md` and evidence to
 > `probes/evidence/`. Do not add `msbuild` or `vstest.console` to
@@ -429,3 +450,14 @@ README.
 - **Do not change the segmentation algorithm without adding a vector first.**
 - **A failing rewrite is worse than no rewrite.** An invalid command costs a
   failed tool call plus a retry.
+- **Any flag value containing `;`, `|`, `&`, or `<`/`>` must be quoted in the
+  emitted rewrite**, because the rewritten string is executed by a shell —
+  confirmed by hand: `-clp:ErrorsOnly;Summary;ShowProjectFile=false` emitted
+  unquoted gets split by Bash at the first `;`, truncating the flag and
+  spawning `Summary` as a separate, failing command. `.rsp` files and
+  PowerShell argument arrays do **not** need this — each line or array element
+  is one token by construction, with no shell re-parsing the string — which is
+  why a measurement taken through those paths does not transfer to a rewrite
+  emitted here. See `tests/Invoke-QuietDotnet.Tests.ps1`'s Bash round-trip
+  test, which drives the real emitted string through a real shell rather than
+  asserting against the segmenter's own understanding of itself.
