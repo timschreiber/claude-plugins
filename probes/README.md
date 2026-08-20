@@ -14,6 +14,8 @@ without an evidence file behind it.
 | `Probe-Net60Vstest.ps1` | Is there a net6.0 VSTest config that builds? | Whether the routing table can claim net6.0 | Not run |
 | `updated-input/` | Is `updatedInput` honoured? Does it need `permissionDecision: allow`? Do two rewrites chain? | Whether hook injection can work at all | Not run |
 | `CommandSegmentation.Tests.ps1` | Does the rewriter corrupt real commands? | The rewriter itself | **Run.** 34/34 passing at 33 vectors. Promoted to production: module now lives at `shared/denoizinator-core/CommandSegmentation.psm1`, tests at `tests/CommandSegmentation.Tests.ps1` |
+| `Probe-HandlerOverhead.ps1` | What does a `pwsh` launch cost on the unfiltered handler's fast-reject path? | The Phase 3 decision gate | **Run.** `evidence/handler-overhead.json`, 50 iterations/scenario. See `docs/hook-behavior-findings.md` §12 |
+| `hook-alternation/` | Does `if` accept `\|` alternation, e.g. `"Bash(dotnet *)\|Bash(msbuild:*)"`? | Whether one filtered handler can replace the unfiltered one | **Run.** `hook-alternation/alternation-coverage.json`, 12 records/11 calls. See `docs/hook-behavior-findings.md` §13 |
 
 ## Run order
 
@@ -39,6 +41,15 @@ Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 
 # 5. net6.0 gap
 ./probes/Probe-Net60Vstest.ps1
+
+# 6. Handler overhead -- pure timing, no Claude Code needed
+./probes/Probe-HandlerOverhead.ps1
+
+# 7. if alternation -- needs a FRESH Claude Code session (headless `claude -p`
+#    or a session restart), started after hook-alternation/settings.probe.json
+#    is merged in. Do not edit hooks into an already-running session; see
+#    docs/hook-behavior-findings.md section 13's caution.
+./probes/hook-alternation/Analyze-AlternationProbe.ps1
 ```
 
 ## What none of these can tell you

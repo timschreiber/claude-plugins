@@ -205,10 +205,92 @@ This matters most for parallel agent sessions against separate worktrees, where
 build output volume is multiplied across concurrent agents. Those calls are
 covered.
 
+## 12. Handler launch overhead: `pwsh` startup dominates, and it is not small
+
+Measured 2026-08-19, Windows, pwsh 7.6.5, 50 iterations per scenario after 5
+warmup. Evidence: `probes/evidence/handler-overhead.json`.
+
+| Scenario | What it measures | Median | p95 |
+|---|---|---|---|
+| `baseline` | `pwsh -NoProfile -Command exit`, no script | 290 ms | 313 ms |
+| `fast-reject` | `Invoke-QuietDotnet.ps1` fed a non-matching payload (`git status`) | 351 ms | 380 ms |
+| `match-rewrite` | same script fed a matching payload (`dotnet build`) | 531 ms | 576 ms |
+
+Two numbers matter here, and they point the same direction:
+
+- The **isolated fast-reject-logic cost** (`fast-reject` minus `baseline`) is
+  ~62 ms — the raw-text `IndexOf` check plus process-launch jitter on top of a
+  bare `pwsh` launch.
+- The **total added latency per Bash call**, which is what a session actually
+  pays with the unfiltered handler installed, is the `fast-reject` number
+  itself: **~290–350 ms, on every single Bash tool call in the session**, not
+  only build commands. `pwsh` process-launch cost, not the script's own logic,
+  is the dominant term.
+
+Confounds ruled out: WarmupIterations absorbed first-run disk-cache effects
+(identical median across two independent runs, 61.25 ms and 67.43 ms isolated,
+61.69 ms on the run recorded as evidence); stdout/stderr were captured to
+separate files via `Start-Process` redirection, not `2>&1`, per the
+measurement-discipline rule in `probes/README.md`.
+
+### Consequence: this number does not gate the design
+
+A non-matching hook invocation emits nothing, and an empty `PreToolUse`
+response costs zero tokens (§10) — nothing reaches Claude's context whether
+the handler takes 5 ms or 500 ms. This plugin optimizes token/context volume
+(`docs/denoizinator-net-spec.md` §1), not wall-clock time, and §2 now states
+that explicitly. The unfiltered handler stays regardless of this number; it's
+recorded for the historical record, not as a threshold to clear.
+
+## 13. `if` does not support `|` alternation
+
+Measured 2026-08-19. Evidence: `probes/evidence/alternation-coverage.json` —
+12 records across 11 calls, from a fresh headless `claude -p` session (started
+after the probe's `settings.local.json` was in place, so hooks were loaded at
+session start, not hot-reloaded mid-session — see the caution below).
+
+Method: four handlers on one `matcher: "Bash"` group — `all-bash` (unfiltered
+control), `if-single-known-good` (`"Bash(dotnet build:*)"`, a **confound
+control**: a plain, non-alternated clause already proven to work in finding 1),
+`if-alt-broad` (`"Bash(dotnet *)|Bash(msbuild:*)"`, the exact string from the
+spec's open question), and `if-alt-narrow`
+(`"Bash(dotnet build:*)|Bash(dotnet test:*)|Bash(msbuild:*)"`).
+
+| Command | `all-bash` | `if-single-known-good` | `if-alt-broad` | `if-alt-narrow` |
+|---|---|---|---|---|
+| `dotnet build` | fires | **fires** | does not fire | does not fire |
+| `dotnet test` | fires | — | does not fire | does not fire |
+| `dotnet --version` | fires | — | does not fire | does not fire |
+| `dotnet msbuild /t:Build` | fires | — | does not fire | does not fire |
+| `msbuild MySolution.sln` | fires | — | does not fire | does not fire |
+| `git status` | fires | — | does not fire (correct) | does not fire (correct) |
+| `pwsh -c "dotnet build"` | fires | — | does not fire (correct) | does not fire (correct) |
+
+**`if` alternation does not work.** `dotnet build` matches
+`if-single-known-good`'s clause exactly — the same text is the first clause of
+both `if-alt-broad` and `if-alt-narrow` — yet neither alternated handler fired
+on it or on anything else. The confound control rules out "`if` filtering is
+broken in this session generally": `if-single-known-good` fired correctly, so
+the machinery works — it is specifically the `|` syntax that is not
+decomposed into independent clauses. Consequence: one filtered handler cannot
+cover both `dotnet` and `msbuild` via alternation; per the spec's decision
+gate, alternation is not an available option.
+
+### Caution: mid-session settings edits and `if` filtering
+
+Not a finding to build on, but worth recording so it is not rediscovered the
+hard way: editing `.claude/settings.local.json` in an **already-running**
+interactive session and then issuing Bash calls in that same session produced,
+a few calls later, every handler firing on every command regardless of its
+`if` field — including on commands with no relation to any filter's pattern.
+A brand-new hook (verified separately, a single unconditional handler) did
+**not** fire on the very next Bash call after being added, so hooks are not
+re-read per call either. The safe protocol, and the one this probe actually
+used: put the settings file in place, then start a **new** session (headless
+`claude -p ...` or a session restart) — never edit hooks into a session that
+is already running and expect either "not yet active" or "correctly filtered"
+to hold.
+
 ## Still not measured
 
-- **Handler launch overhead** on an unfiltered `matcher: "Bash"` handler, which
-  now fires on every Bash call rather than only build commands.
-- **`if` alternation syntax**, e.g. `"Bash(dotnet *)|Bash(msbuild:*)"`. If
-  supported, one filtered handler could replace the unfiltered one.
 - **Non-Windows.** All findings are Windows + pwsh 7.6.5.

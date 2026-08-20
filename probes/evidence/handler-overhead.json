@@ -1,0 +1,36 @@
+{
+  "generated": "2026-08-19T18:55:34.5520823-04:00",
+  "scriptPath": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\denoizinator-net\\scripts\\Invoke-QuietDotnet.ps1",
+  "iterations": 50,
+  "warmupIterations": 5,
+  "scenarios": {
+    "baseline": {
+      "scenario": "baseline",
+      "iterations": 50,
+      "minMs": 270.61,
+      "medianMs": 289.71,
+      "meanMs": 290.29,
+      "p95Ms": 313.4,
+      "maxMs": 362.75
+    },
+    "fast-reject": {
+      "scenario": "fast-reject",
+      "iterations": 50,
+      "minMs": 330.21,
+      "medianMs": 351.4,
+      "meanMs": 352.39,
+      "p95Ms": 379.5,
+      "maxMs": 384.29
+    },
+    "match-rewrite": {
+      "scenario": "match-rewrite",
+      "iterations": 50,
+      "minMs": 504.36,
+      "medianMs": 531.33,
+      "meanMs": 533.32,
+      "p95Ms": 575.83,
+      "maxMs": 588.21
+    }
+  },
+  "isolatedFastRejectMs": 61.69
+}

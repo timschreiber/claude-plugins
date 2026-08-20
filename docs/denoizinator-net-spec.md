@@ -36,6 +36,14 @@ them. Measured: `hook-behavior-findings.md` §5. Document, do not engineer aroun
 **Out of scope, this version.** Roslyn-based analysis, IDE integration, non-Windows
 support, and anything requiring a persistent process.
 
+**Out of scope, permanently: the hook's own wall-clock latency.** This plugin
+optimizes token/context volume (§1), not speed. A `pwsh` launch on a
+non-matching Bash call is real time on the clock, but a non-matching hook
+invocation emits nothing, and an empty `PreToolUse` response costs zero
+tokens — nothing reaches Claude's context either way (`hook-behavior-findings.md`
+§10). Measured overhead is worth recording for the historical record, but it
+is never, by itself, a reason to change the design.
+
 ## 3. Constraints
 
 These are not negotiable and are not to be revisited during execution.
@@ -262,24 +270,36 @@ emits `updatedInput`.
 
 ### Phase 3 — Overhead and filter alternation
 
+**Status: resolved. Keep the unfiltered handler.**
+
 **Goal.** Establish what the unfiltered handler costs, and whether it can be
 narrowed.
 
-**Two questions.**
-1. What does a pwsh launch add to every Bash tool call? Measure the fast-reject
-   path specifically — that is what most calls hit.
-2. Does `if` accept alternation, e.g. `"Bash(dotnet *)|Bash(msbuild:*)"`? If it
-   does, one filtered handler replaces the unfiltered one, C4 is still satisfied,
-   and question 1 stops mattering.
+**Two questions, both measured** (`hook-behavior-findings.md` §12, §13):
+1. What does a `pwsh` launch add to every Bash tool call? **~290–350 ms
+   median**, dominated by `pwsh` process-launch cost, not the script's own
+   fast-reject logic (~62 ms of that total). Real, and recorded for the
+   historical record — but see §2: this plugin optimizes tokens, not
+   wall-clock time, and a non-matching hook invocation costs zero tokens
+   regardless of how long it takes. This number does not gate the decision.
+2. Does `if` accept alternation, e.g. `"Bash(dotnet *)|Bash(msbuild:*)"`? **No.**
+   Confirmed with a confound control (a plain, non-alternated clause fired
+   correctly in the same session; the identical clause joined with `|` did
+   not fire at all) — this isn't "filtering is broken here," specifically the
+   `|` syntax doesn't decompose into independent clauses.
 
-**Deliverables.** `probes/Probe-HandlerOverhead.ps1` and a short probe for
-alternation following the pattern in `probes/hook-behavior/`. Findings appended
-to `docs/hook-behavior-findings.md` with evidence in `probes/evidence/`.
+**Decision.** Alternation isn't available, so it can't replace the unfiltered
+handler. That would ordinarily leave latency as the tiebreaker, but latency
+isn't a goal here (§2) — a `pwsh` launch on a non-matching call is real
+clock time and zero tokens, so there is nothing left to weigh. **The
+unfiltered handler stays, permanently, independent of any future overhead
+number.** No code change resulted from this phase.
 
-**Decision gate.** If alternation works, change `hooks.json` to a single
-alternating `if` and note it. If overhead is under roughly 50 ms and alternation
-does not work, keep the unfiltered handler and record the number. If overhead is
-material and alternation does not work, escalate — the design needs revisiting.
+**Deliverables (done).** `probes/Probe-HandlerOverhead.ps1` and
+`probes/hook-alternation/`, following the pattern in `probes/hook-behavior/`.
+Findings in `docs/hook-behavior-findings.md` §12–13, evidence in
+`probes/evidence/handler-overhead.json` and
+`probes/evidence/alternation-coverage.json`.
 
 ---
 
@@ -428,8 +448,6 @@ README.
 
 | Question | Blocks | Where |
 |---|---|---|
-| Handler launch overhead on every Bash call | nothing; informs Phase 3 gate | Phase 3 |
-| Does `if` accept alternation? | would simplify `hooks.json` | Phase 3 |
 | Real MTP quiet numbers with `--progress off` | Phase 4 | `Probe-MtpProgress.ps1` |
 | Which quiet flags Framework `MSBuild.exe` accepts | The Phase 5 routing table | `Probe-FrameworkBuild.ps1` |
 | Does the VSTest zero-tests-ran finding hold for `vstest.console.exe` run directly | The Phase 5 routing table | `Probe-FrameworkBuild.ps1` |

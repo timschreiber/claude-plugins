@@ -1,0 +1,106 @@
+{
+  "generated": "2026-08-19T19:04:03.8270991-04:00",
+  "probeDir": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\.dnz-hookprobe",
+  "records": 12,
+  "calls": 11,
+  "labels": [
+    "all-bash",
+    "if-single-known-good"
+  ],
+  "coverage": [
+    {
+      "command": "msbuild MySolution.sln",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "git status",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet test",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet msbuild /t:Build",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "cd \"C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\" && claude -p \"Run each of the following as a separate Bash tool call, in order, exactly as written. Do not combine them, do not fix them, do not comment on failures or explain what you are doing. Several are expected to fail with non-zero exit; that is expected and not a problem. After running all of them, just reply with the single word done.\n\ndotnet build\ndotnet test\ndotnet --version\ndotnet msbuild /t:Build\nmsbuild MySolution.sln\ngit status\npwsh -c \\\"dotnet build\\\"\n\" --allowedTools \"Bash\" --permission-mode acceptEdits 2>&1 | tail -10",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "cd \"C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\" && pwsh -NoProfile -File ./probes/hook-alternation/Analyze-AlternationProbe.ps1 2>&1",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet build",
+      "handlers": [
+        "all-bash",
+        "if-single-known-good"
+      ]
+    },
+    {
+      "command": "cd \"C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\" && pwsh -NoProfile -Command \"\n\\$probe = Get-Content probes/hook-alternation/settings.probe.json -Raw | ConvertFrom-Json\n\\$out = [ordered]@{ hooks = \\$probe.hooks }\n\\$out | ConvertTo-Json -Depth 10 | Set-Content .claude/settings.local.json -Encoding utf8\nGet-Content .claude/settings.local.json\n\"",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "dotnet --version",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "pwsh -c \"dotnet build\"",
+      "handlers": [
+        "all-bash"
+      ]
+    },
+    {
+      "command": "cd \"C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\" && pwsh -NoProfile -File ./probes/hook-alternation/Analyze-AlternationProbe.ps1 2>&1",
+      "handlers": [
+        "all-bash"
+      ]
+    }
+  ],
+  "controlWorks": true,
+  "verdicts": [
+    {
+      "Label": "if-alt-broad",
+      "Works": false,
+      "Misses": [
+        "msbuild MySolution.sln",
+        "dotnet test",
+        "dotnet msbuild /t:Build",
+        "dotnet build",
+        "dotnet --version"
+      ],
+      "Overreach": []
+    },
+    {
+      "Label": "if-alt-narrow",
+      "Works": false,
+      "Misses": [
+        "msbuild MySolution.sln",
+        "dotnet test",
+        "dotnet msbuild /t:Build",
+        "dotnet build",
+        "dotnet --version"
+      ],
+      "Overreach": []
+    }
+  ]
+}

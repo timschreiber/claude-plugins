@@ -1,0 +1,59 @@
+{
+  "_comment": [
+    "Merge into .claude/settings.json (or settings.local.json) of a THROWAWAY",
+    "test repo, not a real one. Answers: does the 'if' field accept alternation,",
+    "e.g. 'Bash(dotnet *)|Bash(msbuild:*)'? If so, one filtered handler can",
+    "replace denoizinator-net's unfiltered handler without violating C4 (one",
+    "handler per plugin) and without paying a pwsh launch on every Bash call.",
+    "",
+    "Reuses probes/hook-behavior/hook-logger.ps1 unmodified -- it is generic,",
+    "keyed only by -Label, one JSON file per invocation (no shared-file",
+    "contention).",
+    "",
+    "'all-bash' is the unfiltered control, same role as in hook-behavior/. Any",
+    "command present in 'all-bash' but absent from an alternation label that",
+    "should have matched it is a coverage gap -- alternation does not work.",
+    "'if-alt-broad' tests the exact string from the spec's open question.",
+    "'if-alt-narrow' tests a three-way alternation, to rule out alternation",
+    "working only for the single-wildcard case.",
+    "",
+    "'if-single-known-good' is a CONFOUND CONTROL, not a question this probe",
+    "exists to answer: it carries the exact first clause of if-alt-narrow with",
+    "no '|' in it, known-good from docs/hook-behavior-findings.md section 1.",
+    "If it doesn't fire on 'dotnet build', 'if' filtering itself is broken in",
+    "whatever session ran the probe (e.g. headless -p mode, or a mid-session",
+    "settings reload) and the alternation result cannot be trusted."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label all-bash",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet build:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-single-known-good",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet *)|Bash(msbuild:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-alt-broad",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "if": "Bash(dotnet build:*)|Bash(dotnet test:*)|Bash(msbuild:*)",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PROJECT_DIR}/probes/hook-behavior/hook-logger.ps1\" -Label if-alt-narrow",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
