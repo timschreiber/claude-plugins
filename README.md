@@ -4,6 +4,8 @@ Claude Code plugins by Tim Schreiber.
 
 ## denoizinator-net
 
+![denoizinator-net](docs/images/denoizinator-net-logo.webp)
+
 Strip the noise. Keep the signal. `denoizinator-net` keeps low-value MSBuild
 and test output out of Claude's context, so more of the context window stays
 available for actual work.
