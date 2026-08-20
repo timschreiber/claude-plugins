@@ -500,10 +500,181 @@ reported separately from build volume for both restore paths.
 
 ### Phase 6 — Publication
 
-The `planning` plugin was removed from the catalog (it shipped one skill file
-and never grew beyond that). Run `Probe-Net60Vstest.ps1` to determine whether
-the routing table can claim net6.0, and state the supported TFM range in the
-README.
+**Status: done.** The `planning` plugin was removed from the catalog (it
+shipped one skill file and never grew beyond that). `Probe-Net60Vstest.ps1`
+has run — `Microsoft.NET.Test.Sdk` 17.11.1 or older builds and runs net6.0
+VSTest correctly without `SuppressTfmSupportBuildErrors`; 17.14.1 fails to
+build outright, and the suppression switch just moves that failure to
+test-execution time instead of fixing it
+(`dotnet-test-runner-findings.md` §13). The supported TFM range is now
+stated in the top-level `README.md`: net8.0/net10.0 fully covered, net6.0
+conditional on the `Test.Sdk` pin, net7.0/net9.0 unverified, Framework 4.x
+measured (Phase 5) but not yet routed into the hook — that gap is Phase 7.
+
+---
+
+### Phase 7 — Route the Framework tier into the routing table
+
+**Goal.** Give `msbuild.exe` and `vstest.console.exe` invocations the same
+quiet treatment `dotnet build`/`dotnet test` already get, using the evidence
+Phase 5 produced. Framework MSBuild accepted every quiet-flag candidate
+tested with zero rejections, both `-` and `/` forms
+(`framework-build-findings.md` §2), so the build-side rewrite is a
+straightforward flag-map entry. `vstest.console.exe` needs a wrapper
+mirroring the Phase 4 `dotnet test` dispatch, because its exit-code and
+zero-tests-ran behaviour — confirmed directly against `vstest.console.exe`,
+not inferred from the CLI tier (§5) — matches the contract §5.4 already
+implements, except for one new wrinkle: a packages.config project can
+silently fail to wire up its test adapter and still exit 0.
+
+**Design.**
+- `msbuild`/`msbuild.exe` join `CommandSegmentation`'s flag map with
+  `-nologo -tl:off -v:q -clp:"ErrorsOnly;Summary;ShowProjectFile=false"`
+  (quoted per §8). These are bare command names, not `dotnet <verb>`
+  subcommands — confirm the segmenter's prefix matching handles a top-level
+  command correctly before assuming it does. Standardise on the `-` flag
+  form in the emitted rewrite; do not attempt to detect and preserve the
+  caller's `-`/`/` style, even though Phase 5 confirmed MSBuild accepts both.
+- `vstest.console`/`vstest.console.exe` dispatch (via `Add-CommandDispatch`,
+  the same mechanism Phase 4 used for `dotnet test`) to a new
+  `Invoke-QuietVstestConsole.ps1`, reusing §5.4's `TEST PASS|FAIL|NONE|UNKNOWN`
+  exit-code contract unchanged.
+- **The wrapper's zero-tests-ran detection must catch a third signal.**
+  Beyond "exit 0 with no summary line" (the standard case), a
+  packages.config test project can return exit 0 with `No test is
+  available ... Make sure that test discoverer & executors are registered`
+  (`framework-build-findings.md` §5) — restore fetched the packages but
+  never wired the MSTest adapter the way `PackageReference` restore does.
+  Both signatures mean zero tests ran despite exit 0 and must both
+  normalise to `TEST NONE`.
+- **Do not resolve `msbuild.exe`/`vstest.console.exe` via `vswhere.exe`
+  inside the hook.** That is how this repo's own probes locate the binaries
+  to measure them; the rewrite only edits the command string the user's
+  shell will run. If `msbuild`/`vstest.console` doesn't resolve on the
+  user's `PATH`, that is equally true with or without the rewrite
+  (`framework-build-findings.md` §1) — not something the hook can or should
+  fix.
+- Do not pass `-PackagesDirectory` or any other restore-specific flag into
+  the build/test rewrite. Restore is a separate invocation the hook does
+  not orchestrate; §4's restore-volume findings inform documentation, not
+  the rewrite contract.
+
+**Must not do:**
+- Must not claim ASP.NET 4.x Web Application Projects build cleanly —
+  `proj4_web` failed with `MSB4019` in every scenario Phase 5 measured
+  (`framework-build-findings.md` §3), because the resolved MSBuild lacks the
+  web workload's targets. Adding quiet flags to a command that already
+  fails for an unrelated reason is not a bug, but the flag-map entry should
+  carry a one-line comment saying so, so a future reader doesn't mistake it
+  for this plugin's own limitation.
+
+**Acceptance.**
+- New `CommandSegmentation.Tests.ps1` vectors: bare `msbuild foo.sln`,
+  `msbuild.exe foo.sln -t:Restore` (must **not** receive build flags — restore
+  is a distinct verb, the same way `dotnet build` and `dotnet test` already
+  diverge), `vstest.console.exe foo.dll` dispatching to the new wrapper, and
+  at least one compound command mixing a `dotnet build` segment with a bare
+  `msbuild` segment.
+- A new (or extended) Pester suite for the vstest.console wrapper covering
+  pass, fail, zero-match-by-filter, and the packages.config
+  no-adapter-registered case, each asserting the correct normalised
+  `TEST *` line.
+- §5.3's flag table gains `msbuild`/`vstest.console` rows; the "deliberately
+  not in the routing table" paragraph is removed or rewritten to say they
+  are now routed.
+- `./scripts/Sync-Shared.ps1 -Check` — in sync.
+
+**Prompt.**
+
+> Read `docs/denoizinator-net-spec.md` §5.3, §5.4, and §6 Phase 7, and
+> `docs/framework-build-findings.md` in full.
+>
+> Add `msbuild`/`msbuild.exe` to `CommandSegmentation`'s flag map with
+> `-nologo -tl:off -v:q -clp:"ErrorsOnly;Summary;ShowProjectFile=false"`
+> (quoted per spec §8). Add `vstest.console`/`vstest.console.exe` as a
+> dispatch entry (`Add-CommandDispatch`, same mechanism Phase 4 used for
+> `dotnet test`) pointing at a new `Invoke-QuietVstestConsole.ps1`, reusing
+> §5.4's `TEST PASS|FAIL|NONE|UNKNOWN` exit-code contract.
+>
+> The wrapper's zero-tests-ran detection must catch two distinct signals,
+> not just one: absence of a `Total tests:` summary line (the standard
+> case), and the packages.config "No test is available ... discoverer &
+> executors are registered" message (`framework-build-findings.md` §5) —
+> both mean zero tests ran despite exit 0, and both must normalise to
+> `TEST NONE`.
+>
+> Write new test vectors in `tests/CommandSegmentation.Tests.ps1` for bare
+> `msbuild`/`msbuild.exe` invocations, and a new or extended Pester suite for
+> the vstest.console wrapper covering pass, fail, zero-match, and the
+> packages.config adapter-missing case. Update §5.3 to reflect that
+> `msbuild`/`vstest.console` are now routed, and run `Sync-Shared.ps1`.
+>
+> Do not attempt to resolve `msbuild.exe`/`vstest.console.exe` via
+> `vswhere.exe` inside the hook — that's a probe-only concern, not the
+> rewrite's job (`framework-build-findings.md` §1).
+
+---
+
+### Phase 8 — xunit.v3-MTP quiet-progress investigation
+
+**Goal.** `dotnet test` on xunit.v3-MTP currently passes through unrewritten
+(§5.4's passthrough contract, an explicit scope cut from Phase 4) because
+every progress-suppression flag measured so far is rejected (`--no-progress`,
+`--progress off` — `dotnet-test-runner-findings.md` §12) and its own baseline
+exit code (1) doesn't match the other MTP runners' convention (2 for
+failures) — both unexplained. This phase either finds a flag that works or
+documents definitively that none currently exists, so the gap stops being an
+open question and becomes a recorded limitation.
+
+**Deliverables.** `probes/Probe-Xunit3MtpProgress.ps1`, scaffolding (or
+reusing, via `Probe-DotnetTest.ps1 -KeepArtifacts`) an `x_mtp_xunit3`
+project, testing a wider candidate set than the two MTP-wide flags already
+known to fail: xunit.v3's own CLI surface, environment variables its console
+runner documents, `.runsettings`-based suppression, and MSBuild `-p:`
+properties. Every candidate measured with stdout/stderr captured separately
+via `Start-Process`, per the measurement-discipline rule.
+
+**Must measure:**
+- Whether any candidate flag suppresses xunit.v3-MTP's progress output
+  without being rejected (its known rejection signature is exit 3, "unknown
+  option").
+- The exit-code mismatch itself: confirm whether xunit.v3-MTP's exit-1
+  baseline (instead of the other MTP runners' exit-2) holds across pass,
+  fail, and zero-tests scenarios, or was specific to the one case measured
+  in Phase 4 — and if stable, document the mapping the wrapper needs.
+
+**Acceptance.**
+- If a working flag is found: `docs/dotnet-test-runner-findings.md` gains a
+  section documenting it, `Invoke-QuietDotnetTest.ps1` picks it for
+  xunit.v3-MTP instead of falling through to passthrough, and §5.4's
+  xunit.v3-MTP passthrough carve-out is removed.
+- If no working flag exists: the findings section documents every candidate
+  tried and why each failed, §5.4's passthrough carve-out stays but its
+  comment is updated to cite this phase's evidence instead of leaving the
+  gap unexplained, and the exit-code mismatch is at least characterised even
+  if not resolved.
+- Evidence to `probes/evidence/`, following the existing discipline.
+
+**Prompt.**
+
+> Read `docs/denoizinator-net-spec.md` §5.4 and §6 Phase 8, and
+> `docs/dotnet-test-runner-findings.md` §10 item 6 and §12.
+>
+> Write `probes/Probe-Xunit3MtpProgress.ps1`. Reuse `x_mtp_xunit3` from
+> `Probe-DotnetTest.ps1 -KeepArtifacts` if present, scaffold it fresh
+> otherwise. Try a wider candidate set than `--no-progress`/`--progress off`
+> (both already confirmed rejected) — xunit.v3's own CLI flags, environment
+> variables, `.runsettings`, and MSBuild `-p:` properties. Also re-measure
+> baseline pass/fail/zero-tests exit codes to confirm or correct the
+> exit-1-not-2 anomaly noted in §10 item 6.
+>
+> Capture stdout/stderr separately via `Start-Process`, never `2>&1`.
+>
+> If a working quiet flag is found, wire it into
+> `Invoke-QuietDotnetTest.ps1`'s runner+TFM flag selection and remove
+> xunit.v3-MTP's passthrough carve-out in §5.4. If none is found, document
+> every candidate and its failure mode, and update §5.4's comment to cite
+> this phase instead of leaving it as an open unknown.
 
 ---
 
@@ -511,12 +682,8 @@ README.
 
 | Question | Blocks | Where |
 |---|---|---|
-| Real MTP quiet numbers with `--progress off` | Phase 4 | `Probe-MtpProgress.ps1` |
-| Which quiet flags Framework `MSBuild.exe` accepts | The Phase 5 routing table | `Probe-FrameworkBuild.ps1` |
-| Does the VSTest zero-tests-ran finding hold for `vstest.console.exe` run directly | The Phase 5 routing table | `Probe-FrameworkBuild.ps1` |
-| Does `MSBuild.exe` resolve on `PATH` in Claude Code's Bash environment at all | Whether Phase 5 is viable without extra setup | `Probe-FrameworkBuild.ps1` |
-| Is there a net6.0 VSTest config that builds? | TFM claims in the README | `Probe-Net60Vstest.ps1` |
-| Behaviour on macOS and Linux | non-Windows support | unscheduled |
+| Does xunit.v3-MTP have any working quiet-progress flag at all? | Phase 8 | `Probe-Xunit3MtpProgress.ps1` |
+| Behaviour on macOS and Linux | non-Windows support (out of scope this version, §2) | unscheduled |
 
 ## 8. Rules for execution sessions
 
