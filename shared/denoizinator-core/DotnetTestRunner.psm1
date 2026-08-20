@@ -280,6 +280,116 @@ function ConvertFrom-VSTestTrx {
     }
 }
 
+function Get-VSTestOutcome {
+    <#
+    .SYNOPSIS
+        Classify a VSTest-engine invocation's captured output into the
+        wrapper's Pass|Fail|None|Unknown vocabulary. Shared by
+        Invoke-QuietDotnetTest.ps1 (dotnet test's VSTest path) and
+        Invoke-QuietVstestConsole.ps1 (Framework vstest.console.exe) --
+        confirmed against probes/evidence/framework-build-results.json that
+        both produce byte-identical VSTest summary-line shapes under their
+        respective quiet flags, so one parser correctly serves both.
+
+    .DESCRIPTION
+        Zero-tests-ran is detected by absence of a 'Passed!'/'Failed!'
+        summary line, never by exit code -- every VSTest configuration
+        returns exit 0 in that case (docs/dotnet-test-runner-findings.md §4).
+
+        Two distinct zero-tests-ran signatures both normalise to 'None', but
+        are classified into a NoneReason for wrapper diagnostics
+        (docs/framework-build-findings.md §5):
+          - 'Additionally, path to test adapters ...' / 'No test is
+            available in ...' -- a packages.config project whose restore
+            never wired the test adapter (nuget.exe restore doesn't do what
+            PackageReference restore does). The 'Additionally, path to test
+            adapters' trailer survives /logger:"console;verbosity=quiet" even
+            though the message's own leading sentence is suppressed by it.
+          - anything else with no summary line -- default assumed to be a
+            filter matching nothing, the Phase 4 default.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string] $Stdout,
+        [Parameter(Mandatory)][int] $ExitCode,
+        [string] $TrxPath,
+        [int] $MaxFailures = 5
+    )
+
+    $result = [pscustomobject]@{
+        Outcome              = $null   # Pass | Fail | None | Unknown
+        Passed               = 0
+        Failed               = 0
+        Skipped              = 0
+        NoneReason           = $null
+        Failures             = @()
+        OmittedFailureCount  = 0
+        TrxPath              = $null
+    }
+
+    $hasSummary = $Stdout -match '(Passed!|Failed!)'
+    if ($ExitCode -eq 0 -and -not $hasSummary) {
+        $result.Outcome = 'None'
+        if ($Stdout -match 'Additionally, path to test adapters' -or $Stdout -match 'No test is available in') {
+            $result.NoneReason = 'test adapter not registered'
+        } else {
+            $result.NoneReason = 'filter matched nothing'
+        }
+        return $result
+    }
+
+    if ($Stdout -match 'Failed:\s*(\d+),\s*Passed:\s*(\d+),\s*Skipped:\s*(\d+),\s*Total:\s*(\d+)') {
+        $result.Failed  = [int]$Matches[1]
+        $result.Passed  = [int]$Matches[2]
+        $result.Skipped = [int]$Matches[3]
+        if ($result.Failed -gt 0) {
+            $result.Outcome = 'Fail'
+            if ($TrxPath -and (Test-Path -LiteralPath $TrxPath)) {
+                $trx = ConvertFrom-VSTestTrx -TrxPath $TrxPath -MaxFailures $MaxFailures
+                $result.Failures            = $trx.Failures
+                $result.OmittedFailureCount = $trx.OmittedFailureCount
+                $result.TrxPath             = $TrxPath
+            }
+        } else {
+            $result.Outcome = 'Pass'
+        }
+    } else {
+        $result.Outcome = 'Unknown'
+    }
+
+    return $result
+}
+
+function Get-VstestConsolePassthroughTrigger {
+    <#
+    .SYNOPSIS
+        vstest.console.exe's own flag syntax is '/Name:value' -- a single,
+        colon-attached token -- not '--name value' (separate array elements)
+        like dotnet test. Get-DotnetTestPassthroughTrigger's exact-element
+        match doesn't apply; this checks a case-insensitive PREFIX of each
+        whole token instead, so '/TestCaseFilter:...~logger' or
+        '/TestAdapterPath:C:\logger' never false-positively match via
+        substring search the way a naive check on raw text would.
+
+        Only two trigger prefixes are needed (fewer than dotnet test's four):
+        vstest.console.exe has no '--'-passthrough convention (that's
+        specific to the dotnet CLI's outer/inner argv split) and no separate
+        TRX-request flag -- '/logger:trx;...' is already covered by
+        '/logger:'.
+    #>
+    [CmdletBinding()]
+    param([string[]] $TestArgs = @())
+
+    foreach ($tok in $TestArgs) {
+        foreach ($p in @('/logger:', '/resultsdirectory:')) {
+            if ($tok.StartsWith($p, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $p.TrimEnd(':')
+            }
+        }
+    }
+    return $null
+}
+
 function Get-DotnetTestPassthroughTrigger {
     <#
     .SYNOPSIS
@@ -344,7 +454,8 @@ function Format-DnzTestSummary {
             }
         }
         'None' {
-            $lines.Add('TEST NONE | 0 tests ran | filter matched nothing')
+            $noneReason = if ($Reason) { $Reason } else { 'filter matched nothing' }
+            $lines.Add("TEST NONE | 0 tests ran | $noneReason")
         }
         'Unknown' {
             $lines.Add("TEST UNKNOWN | could not determine outcome | runner exit $RawExitCode")
@@ -360,4 +471,5 @@ function Format-DnzTestSummary {
 Export-ModuleMember -Function Get-DotnetTestRunnerInfo, Resolve-DotnetTestProject,
                               Get-DotnetTestInvocationPlan, Resolve-DotnetTestExecutable,
                               ConvertFrom-VSTestTrx, Get-DotnetTestPassthroughTrigger,
+                              Get-VSTestOutcome, Get-VstestConsolePassthroughTrigger,
                               Format-DnzTestSummary

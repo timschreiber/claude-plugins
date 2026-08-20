@@ -152,11 +152,17 @@ Per-command, because a single flag string would put `-clp` on a test command,
 which is an error rather than a no-op.
 
 ```
-dotnet build     -nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"
-dotnet msbuild   (same)
-dotnet run       (same)
-dotnet test      dispatched to a wrapper (see §5.4) -- a single flag string is
-                 wrong across runners (dotnet-test-runner-findings.md §12)
+dotnet build          -nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"
+dotnet msbuild        (same)
+dotnet run            (same)
+dotnet test           dispatched to a wrapper (see §5.4) -- a single flag string is
+                      wrong across runners (dotnet-test-runner-findings.md §12)
+msbuild(.exe)         -nologo -tl:off -v:q -clp:"ErrorsOnly;Summary;ShowProjectFile=false"
+                      (Framework MSBuild.exe; skipped entirely when the segment
+                      carries a -t:Restore/-t:"...;Restore;..." target -- see
+                      the SkipMap paragraph below)
+vstest.console(.exe)  dispatched to Invoke-QuietVstestConsole.ps1 (see §5.4;
+                      Framework's direct test runner)
 ```
 
 `-tl:off` disables the terminal logger, whose redraws are noise in a
@@ -168,14 +174,40 @@ containing shell metacharacters. The Phase 4 wrapper (§5.4) hits the same rule
 again internally: `--logger "trx;LogFileName=test.trx"` carries an unescaped
 `;` and must stay quoted wherever it's constructed, for the identical reason.
 
-**Bare `msbuild` (Framework `MSBuild.exe`, not the dotnet CLI) and
-`vstest.console` are deliberately not in the routing table.** `dotnet build`,
-`dotnet msbuild`, and `dotnet run` all shell out through the same SDK MSBuild
-engine, so evidence for one covers the others. Framework `MSBuild.exe` and
-`vstest.console.exe` are different binaries with no measured evidence behind
-them — adding their flags here would be an unverified guess wearing the same
-table as everything else. They wait for Phase 5, which exists specifically to
-produce that evidence.
+**`msbuild`/`msbuild.exe` and `vstest.console`/`vstest.console.exe` are
+routed as of Phase 7**, using the evidence `framework-build-findings.md`
+produced: Framework MSBuild accepted every quiet-flag candidate tested with
+zero rejections, in both `-` and `/` forms (`framework-build-findings.md`
+§2) — the emitted rewrite standardises on the `-` form regardless of which
+form the caller used. `vstest.console.exe` run directly matches the same
+exit-code/zero-tests-ran contract §5.4 already implements for `dotnet test`'s
+VSTest path (`framework-build-findings.md` §5).
+
+An ASP.NET 4.x Web Application Project (`proj4_web`) fails to build
+regardless of these flags with `MSB4019` — the resolved MSBuild lacks the web
+workload's targets (`framework-build-findings.md` §3), an unrelated
+VS-workload gap, not a limitation of this rewrite.
+
+**Restore is a distinct verb from build, the same way `dotnet build` and
+`dotnet test` already diverge — but MSBuild expresses it as a flag
+(`-t:Restore`/`/t:Restore`, possibly inside a `;`-delimited target list)
+rather than as part of the command head**, so it can't be a distinct FlagMap
+key the way `dotnet build`/`dotnet test` are. `Add-CommandFlag` gained an
+optional `-SkipMap` parameter for this: a prefix → `[regex]` map, tested
+against a matched segment's **full text** (not just the head); a match means
+no edit for that segment, identical to a non-matching prefix. `msbuild`,
+`msbuild.exe`, and `dotnet msbuild` all carry the same skip regex.
+
+**Do not resolve `msbuild.exe`/`vstest.console.exe` via `vswhere.exe` inside
+the hook.** The rewrite only edits the command string the user's shell will
+run; if `msbuild`/`vstest.console` doesn't resolve on the user's `PATH`,
+that's equally true with or without the rewrite (`framework-build-findings.md`
+§1).
+
+**Caveat:** `-tl:off` acceptance was confirmed only against MSBuild 18.7.8
+(VS 2026) — `framework-build-findings.md`'s "still open" section notes this
+should not be generalised to older Framework MSBuild (VS2019/2022-era)
+without separate evidence.
 
 ### 5.4 `dotnet test` dispatch: exit-code and passthrough contracts
 
@@ -225,6 +257,16 @@ The wrapper never writes `global.json`; runner detection is read-only
 the same static approach as `probes/Probe-DotnetTest.ps1`'s
 `Get-DetectedRunner`), which is what lets a repo with mixed VSTest/MTP test
 projects keep working.
+
+**Since Phase 7**, the VSTest-output classification logic (`Get-VSTestOutcome`
+in `DotnetTestRunner.psm1`) is shared between this wrapper's VSTest path and
+`Invoke-QuietVstestConsole.ps1` — both invoke the same underlying VSTest
+engine and produce byte-identical summary-line shapes under their respective
+quiet flags (confirmed against `probes/evidence/framework-build-results.json`).
+`TEST NONE`'s reason text is now one of two values, not always the Phase-4
+default: `filter matched nothing`, or `test adapter not registered` (a
+`packages.config` project whose restore never wired the test adapter —
+`framework-build-findings.md` §5).
 
 ---
 
@@ -514,6 +556,8 @@ measured (Phase 5) but not yet routed into the hook — that gap is Phase 7.
 ---
 
 ### Phase 7 — Route the Framework tier into the routing table
+
+**Status: done.**
 
 **Goal.** Give `msbuild.exe` and `vstest.console.exe` invocations the same
 quiet treatment `dotnet build`/`dotnet test` already get, using the evidence

@@ -119,11 +119,17 @@ Describe 'Add-CommandDispatch' {
     '--') byte-for-byte untouched as the tail of the new head's own argv.
     This is deliberately a sibling to Add-CommandFlag, not a modification of
     it -- Add-CommandFlag's insert-at-index contract is unrelated and unchanged.
+
+    Phase 7 (docs/denoizinator-net-spec.md §6): 'vstest.console'/
+    'vstest.console.exe' (Framework's direct test runner) joins the same
+    DispatchMap, pointing at Invoke-QuietVstestConsole.ps1.
     #>
 
     BeforeAll {
         $script:DispatchMap = @{
-            'dotnet test' = 'pwsh -NoProfile -File "W" --'
+            'dotnet test'        = 'pwsh -NoProfile -File "W" --'
+            'vstest.console'     = 'pwsh -NoProfile -File "V" --'
+            'vstest.console.exe' = 'pwsh -NoProfile -File "V" --'
         }
     }
 
@@ -139,6 +145,13 @@ Describe 'Add-CommandDispatch' {
         @{ Cmd='dotnet testx';                        Want='dotnet testx' }
         @{ Cmd='mydotnet test';                       Want='mydotnet test' }
         @{ Cmd='pwsh -c "dotnet test"';                Want='pwsh -c "dotnet test"' }
+
+        # --- vstest.console / vstest.console.exe (Phase 7)
+        @{ Cmd='vstest.console.exe foo.dll';                    Want='pwsh -NoProfile -File "V" -- vstest.console.exe foo.dll' }
+        @{ Cmd='vstest.console foo.dll';                        Want='pwsh -NoProfile -File "V" -- vstest.console foo.dll' }
+        @{ Cmd='vstest.console.exe foo.dll /TestCaseFilter:X';  Want='pwsh -NoProfile -File "V" -- vstest.console.exe foo.dll /TestCaseFilter:X' }
+        @{ Cmd='myvstest.console.exe foo.dll';                  Want='myvstest.console.exe foo.dll' }
+        @{ Cmd='vstest.console.exefoo';                         Want='vstest.console.exefoo' }
     )
 
     It 'dispatches <Cmd>' -TestCases $cases {
@@ -153,6 +166,70 @@ Describe 'Add-CommandDispatch' {
 
         $afterDispatch = Add-CommandDispatch -Command $afterFlags -DispatchMap $script:DispatchMap
         $afterDispatch | Should -BeExactly 'dotnet build -nologo -tl:off && pwsh -NoProfile -File "W" -- dotnet test'
+    }
+}
+
+Describe 'Add-CommandFlag with SkipMap (restore-verb exclusion)' {
+    <#
+    Phase 7 (docs/denoizinator-net-spec.md §6): MSBuild's restore verb is
+    expressed as a FLAG ('-t:Restore'/'/t:Restore', possibly inside a
+    ';'-delimited target list) rather than as part of the command head, so
+    unlike 'dotnet build' vs 'dotnet test' it can't be a distinct FlagMap
+    key. -SkipMap excludes a matched segment from receiving flags at all
+    when its regex matches anywhere in the segment's full text.
+    #>
+
+    BeforeAll {
+        $script:RestoreRegex = [regex]'(?i)(?:^|\s)[-/]t:["'']?(?:[\w.]+;)*Restore(?:;[\w.]+)*["'']?(?:\s|$)'
+        $script:MsbuildFlagMap = @{
+            'msbuild'        = '-nologo -tl:off -v:q'
+            'msbuild.exe'    = '-nologo -tl:off -v:q'
+            'dotnet msbuild' = '-nologo -tl:off -v:q'
+        }
+        $script:MsbuildSkipMap = @{
+            'msbuild'        = $script:RestoreRegex
+            'msbuild.exe'    = $script:RestoreRegex
+            'dotnet msbuild' = $script:RestoreRegex
+        }
+    }
+
+    $cases = @(
+        @{ Cmd='msbuild foo.sln';                          Want='msbuild foo.sln -nologo -tl:off -v:q' }
+        @{ Cmd='msbuild.exe foo.sln';                       Want='msbuild.exe foo.sln -nologo -tl:off -v:q' }
+        @{ Cmd='msbuild.exe foo.sln -t:Restore';            Want='msbuild.exe foo.sln -t:Restore' }
+        @{ Cmd='msbuild foo.sln /t:Restore';                Want='msbuild foo.sln /t:Restore' }
+        # ';' is itself a top-level command separator (Split-CommandSegment),
+        # so a real multi-target list must be quoted to survive the Bash
+        # tool as one token -- these vectors reflect that realistic usage.
+        @{ Cmd='msbuild foo.sln -t:"Restore;Build"';        Want='msbuild foo.sln -t:"Restore;Build"' }
+        @{ Cmd='msbuild foo.sln -t:"Build;Restore"';        Want='msbuild foo.sln -t:"Build;Restore"' }
+        @{ Cmd='msbuild foo.sln -t:RestoreCache';           Want='msbuild foo.sln -t:RestoreCache -nologo -tl:off -v:q' }
+        # negative control: an unrelated flag's VALUE containing "Restore" must not trigger exclusion
+        @{ Cmd='msbuild foo.sln -p:Foo=Restore';            Want='msbuild foo.sln -p:Foo=Restore -nologo -tl:off -v:q' }
+        @{ Cmd='dotnet msbuild foo.sln -t:Restore';         Want='dotnet msbuild foo.sln -t:Restore' }
+    )
+
+    It 'applies SkipMap to <Cmd>' -TestCases $cases {
+        param($Cmd, $Want)
+        Add-CommandFlag -Command $Cmd -FlagMap $script:MsbuildFlagMap -SkipMap $script:MsbuildSkipMap |
+            Should -BeExactly $Want
+    }
+
+    It 'gives each segment its own flags in a compound command, restore segment excluded' {
+        Add-CommandFlag -Command 'dotnet build && msbuild foo.sln' `
+            -FlagMap (@{ 'dotnet build' = '-nologo -tl:off' } + $script:MsbuildFlagMap) `
+            -SkipMap $script:MsbuildSkipMap |
+            Should -BeExactly 'dotnet build -nologo -tl:off && msbuild foo.sln -nologo -tl:off -v:q'
+
+        Add-CommandFlag -Command 'dotnet build && msbuild foo.sln -t:Restore' `
+            -FlagMap (@{ 'dotnet build' = '-nologo -tl:off' } + $script:MsbuildFlagMap) `
+            -SkipMap $script:MsbuildSkipMap |
+            Should -BeExactly 'dotnet build -nologo -tl:off && msbuild foo.sln -t:Restore'
+    }
+
+    It 'is backward compatible: omitting -SkipMap behaves exactly as before' {
+        Add-CommandFlag -Command 'msbuild.exe foo.sln -t:Restore' -FlagMap $script:MsbuildFlagMap |
+            Should -BeExactly 'msbuild.exe foo.sln -t:Restore -nologo -tl:off -v:q'
     }
 }
 

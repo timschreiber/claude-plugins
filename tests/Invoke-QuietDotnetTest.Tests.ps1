@@ -234,6 +234,11 @@ Describe 'Format-DnzTestSummary' {
         Format-DnzTestSummary -Status None | Should -BeExactly @('TEST NONE | 0 tests ran | filter matched nothing')
     }
 
+    It 'formats TEST NONE with an overridden reason (Phase 7: packages.config adapter case)' {
+        Format-DnzTestSummary -Status None -Reason 'test adapter not registered' |
+            Should -BeExactly @('TEST NONE | 0 tests ran | test adapter not registered')
+    }
+
     It 'formats TEST RAW with a reason and the raw runner exit code' {
         $lines = Format-DnzTestSummary -Status Raw -Reason 'user-specified test-host flag (--logger)' -RawExitCode 1
         $lines | Should -BeExactly @('TEST RAW | user-specified test-host flag (--logger) | runner exit 1')

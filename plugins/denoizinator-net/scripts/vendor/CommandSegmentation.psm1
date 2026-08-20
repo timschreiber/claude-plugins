@@ -181,12 +181,20 @@ function Get-SegmentEdit {
         carries the insertion Index and the matched Prefix, so the caller can
         look up that command's own flags.
         Measured: the 'if' filter reaches inside "( ... )", so the rewriter must too.
+
+        -SkipMap is an optional prefix -> [regex] map, tested against the
+        segment's FULL text (not just the head) once a prefix matches -- this
+        is how a verb expressed as a later flag rather than part of the head
+        (e.g. MSBuild's '-t:Restore') can still exclude a segment from
+        matching. A regex hit means "no edit for this segment", identical to
+        a non-matching prefix.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]   $Command,
         [Parameter(Mandatory)][object]   $Span,
         [Parameter(Mandatory)][string[]] $Prefixes,
+        [hashtable] $SkipMap = @{},
         [int] $Depth = 0
     )
 
@@ -199,7 +207,7 @@ function Get-SegmentEdit {
         $out = [System.Collections.Generic.List[object]]::new()
         foreach ($sub in (Split-CommandSegment -Command $inner)) {
             $shifted = [pscustomobject]@{ Start = $innerStart + $sub.Start; End = $innerStart + $sub.End }
-            foreach ($edit in (Get-SegmentEdit -Command $Command -Span $shifted -Prefixes $Prefixes -Depth ($Depth + 1))) {
+            foreach ($edit in (Get-SegmentEdit -Command $Command -Span $shifted -Prefixes $Prefixes -SkipMap $SkipMap -Depth ($Depth + 1))) {
                 $out.Add($edit)
             }
         }
@@ -208,6 +216,9 @@ function Get-SegmentEdit {
 
     $matched = Test-SegmentPrefix -Command $Command -Span $Span -Prefixes $Prefixes
     if ($matched) {
+        if ($SkipMap.ContainsKey($matched) -and $SkipMap[$matched].IsMatch($text)) {
+            return @()
+        }
         $idx = Get-InsertionPoint -Command $Command -Span $Span
         return @([pscustomobject]@{ Index = $idx; Prefix = $matched })
     }
@@ -223,11 +234,18 @@ function Add-CommandFlag {
         Add-CommandFlag -Command 'cd src && dotnet build' `
                         -FlagMap @{ 'dotnet build' = '-nologo -tl:off' }
         # -> 'cd src && dotnet build -nologo -tl:off'
+
+    .EXAMPLE
+        Add-CommandFlag -Command 'msbuild foo.sln -t:Restore' `
+                        -FlagMap @{ 'msbuild' = '-nologo -tl:off' } `
+                        -SkipMap @{ 'msbuild' = [regex]'(?i)(?:^|\s)[-/]t:["'']?(?:[\w.]+;)*Restore(?:;[\w.]+)*["'']?(?:\s|$)' }
+        # -> 'msbuild foo.sln -t:Restore'   (unchanged -- restore is a distinct verb)
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string] $Command,
-        [Parameter(Mandatory)][hashtable] $FlagMap
+        [Parameter(Mandatory)][hashtable] $FlagMap,
+        [hashtable] $SkipMap = @{}
     )
 
     # Longest-first: 'dotnet msbuild' must be tested before 'dotnet'.
@@ -235,7 +253,7 @@ function Add-CommandFlag {
 
     $edits = [System.Collections.Generic.List[object]]::new()
     foreach ($span in (Split-CommandSegment -Command $Command)) {
-        foreach ($edit in (Get-SegmentEdit -Command $Command -Span $span -Prefixes $prefixes -Depth 0)) {
+        foreach ($edit in (Get-SegmentEdit -Command $Command -Span $span -Prefixes $prefixes -SkipMap $SkipMap -Depth 0)) {
             $edits.Add($edit)
         }
     }

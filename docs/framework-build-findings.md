@@ -256,6 +256,25 @@ case (different message, different cause — a broken environment rather than
 an over-narrow filter) but an identical exit-code signature, reinforcing
 that exit code alone is never sufficient for this tier either.
 
+**The adapter-missing message's trailer survives `/logger:"console;verbosity=quiet"`,
+even though its leading sentence doesn't** — load-bearing for Phase 7's
+`Invoke-QuietVstestConsole.ps1`, which adds that quiet logger unconditionally.
+`proj1_pkgconfig`'s `fail-default-quiet` record (same scenario as above, run
+with the quiet console logger) suppresses `No test is available in ...` but
+still emits:
+
+```
+Additionally, path to test adapters can be specified using /TestAdapterPath
+command. Example  /TestAdapterPath:<pathToCustomAdapters>.
+```
+
+This trailer never appears in the `zero-match` (filter) scenario, since a
+working adapter has no reason to print a `/TestAdapterPath` hint — so its
+presence alone is a reliable, quiet-logger-safe tell for classifying which of
+the two zero-tests-ran causes applies, without needing a separate un-quieted
+probe run. (`zero-match` itself was only ever measured at default verbosity
+in this probe run — see "Still open" below.)
+
 ---
 
 ## 6. Solution-level vs per-project invocation
@@ -305,13 +324,17 @@ measured — see §7.
   order** (see the caveat there) and should be re-run with a genuinely fresh
   scratch tree, building the `.sln` *first*, if a clean cold-build
   comparison is wanted.
-- **No entry was added to `Invoke-QuietDotnet.ps1`'s flag map.** Per
-  `denoizinator-net-spec.md` §5.3, routing `msbuild`/`vstest.console`
-  through the hook — including resolving them via `vswhere.exe` at
-  hook-invocation time, which has its own cost/complexity the unfiltered
-  fast-reject path (`hook-behavior-findings.md` §12) doesn't currently pay —
-  is follow-on work this phase's evidence unblocks but does not itself
-  perform.
+- ~~No entry was added to `Invoke-QuietDotnet.ps1`'s flag map.~~ **Done,
+  spec §6 Phase 7:** `msbuild`/`msbuild.exe`/`vstest.console`/`vstest.console.exe`
+  are now routed. The hook does **not** resolve them via `vswhere.exe` at
+  invocation time — Phase 7 deliberately rejected that (spec §5.3, this
+  doc's §1): the rewrite only edits the command string, and PATH resolution
+  failures are equally the user's problem with or without the rewrite.
+- **`zero-match` (a filter matching nothing) was only ever measured at
+  default verbosity, never re-run with `/logger:"console;verbosity=quiet"`.**
+  §5's addendum infers that its message would still be absent-of-summary
+  under the quiet logger (consistent with every other zero-tests-ran case
+  measured), but this specific combination wasn't directly probed.
 - **`packages.config` restore's missing adapter wiring (§4, §5) has no
   measured workaround** in this probe (e.g. explicitly importing the
   adapter package's own `.props`/`.targets`, or running `nuget.exe restore`

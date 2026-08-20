@@ -244,34 +244,22 @@ try {
         $r = Invoke-CapturedProcess -Exe 'dotnet' -ProcArgs $finalArgs -WorkingDirectory $cwd
     }
 
-    $outcome  = $null   # Pass | Fail | None | Unknown
-    $counts   = @{ Passed = 0; Failed = 0; Skipped = 0 }
-    $failures = @()
-    $omitted  = 0
+    $outcome    = $null   # Pass | Fail | None | Unknown
+    $counts     = @{ Passed = 0; Failed = 0; Skipped = 0 }
+    $failures   = @()
+    $omitted    = 0
+    $noneReason = $null
     $trxPathForOutput = $null
 
     if ($plan.OutputShape -eq 'VSTest') {
-        $hasSummary = $r.Stdout -match '(Passed!|Failed!)'
-        if ($r.ExitCode -eq 0 -and -not $hasSummary) {
-            $outcome = 'None'
-        } elseif ($r.Stdout -match 'Failed:\s*(\d+),\s*Passed:\s*(\d+),\s*Skipped:\s*(\d+),\s*Total:\s*(\d+)') {
-            $counts.Failed  = [int]$Matches[1]
-            $counts.Passed  = [int]$Matches[2]
-            $counts.Skipped = [int]$Matches[3]
-            if ($counts.Failed -gt 0) {
-                $outcome = 'Fail'
-                if ($plan.UsesTrx -and $plan.TrxPath -and (Test-Path -LiteralPath $plan.TrxPath)) {
-                    $trx = ConvertFrom-VSTestTrx -TrxPath $plan.TrxPath -MaxFailures 5
-                    $failures = $trx.Failures
-                    $omitted  = $trx.OmittedFailureCount
-                    $trxPathForOutput = $plan.TrxPath
-                }
-            } else {
-                $outcome = 'Pass'
-            }
-        } else {
-            $outcome = 'Unknown'
-        }
+        $trxForOutcome = if ($plan.UsesTrx) { $plan.TrxPath } else { $null }
+        $vout = Get-VSTestOutcome -Stdout $r.Stdout -ExitCode $r.ExitCode -TrxPath $trxForOutcome -MaxFailures 5
+        $outcome    = $vout.Outcome
+        $counts     = @{ Passed = $vout.Passed; Failed = $vout.Failed; Skipped = $vout.Skipped }
+        $failures   = $vout.Failures
+        $omitted    = $vout.OmittedFailureCount
+        $noneReason = $vout.NoneReason
+        $trxPathForOutput = $vout.TrxPath
     } else {
         # MTP-shaped output (MSTest-MTP net8.0/net10.0, NUnit-MTP)
         if ($r.Stdout -match '(?s)total:\s*(\d+).*?failed:\s*(\d+).*?succeeded:\s*(\d+).*?skipped:\s*(\d+)') {
@@ -308,7 +296,7 @@ try {
             exit 1
         }
         'None' {
-            foreach ($line in (Format-DnzTestSummary -Status None)) { Write-Output $line }
+            foreach ($line in (Format-DnzTestSummary -Status None -Reason $noneReason)) { Write-Output $line }
             exit 2
         }
         default {
