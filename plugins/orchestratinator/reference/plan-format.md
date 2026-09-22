@@ -13,7 +13,7 @@ All state lives in these files, never in anyone's context. That is what lets a r
 
 ```text
 plans/<plan-slug>/
-├── plan.md                # index: header, settings, milestones, decisions, open questions
+├── plan.md                # index: header, settings, milestones, coverage, decisions, open questions
 ├── sources/               # verbatim copies of any input that isn't already a file in the repo
 │   └── prompt.md
 ├── notes/                 # investigate-task findings (<task-id>.md) and scout surveys (<milestone-id>-survey*.md)
@@ -45,6 +45,12 @@ Default location is `plans/<plan-slug>/` at the repository root.
 |---|---|---|---|
 | M01 | <title> | ready | M01-<slug>.md |
 | M02 | <title> | outline | M02-<slug>.md |
+
+## Coverage
+
+- `docs/spec.md` §3: <requirement, briefly> → M01
+- `docs/spec.md` §4: <requirement, briefly> → M01, M02
+- `docs/spec.md` §5: <requirement, briefly> → out of scope (D01)
 
 ## Decisions
 
@@ -102,6 +108,12 @@ Every worker reads this section before its task. Keep it short.>
 
 Waves: <count> (widths <w1>, <w2>, ...)
 
+## Coverage
+
+<Only once the milestone is detailed: one row per requirement it implements, mapped to the task IDs that implement it.>
+
+- `docs/spec.md` §4.2: <requirement, briefly> → M02-T01, M02-T03
+
 ## Outline
 
 <Only while Status is outline: bullet list of intended scope, for the planner.
@@ -149,6 +161,19 @@ Removed when the milestone is detailed.>
 ### Format
 
 A milestone file whose header has the line `- Format: 2`, directly after its Status line, is a format 2 milestone. A milestone file without a Format line is format 1. `plan` always writes format 2, in every milestone file it writes, detailed or outlined. The planner always writes format 2 when it details a milestone, even in a plan created under format 1. Validation applies the checklist items marked *(format 2)* only to format 2 milestones, and format 1 milestones validate as before, so plans already in progress keep running.
+
+### Coverage
+
+Coverage maps every requirement to the work that implements it, at two levels, so a requirement can't fall between tasks unnoticed:
+
+- **plan.md**, `## Coverage`, between Milestones and Decisions: one row per section of every source (heading or numbered item), mapped to the milestone ID(s) that implement it, or `out of scope` with the Decision that says so.
+- **Milestone file**, `## Coverage`, directly after Context and its Waves line *(format 2)*: every detailed milestone has one, with one row per requirement the milestone implements, mapped to the task ID(s) that implement it. An `outline` milestone has none.
+
+A requirement is any normative statement: must, shall, should, a numbered acceptance criterion, or an explicit behavior. Trivially related statements may share a row.
+
+Each row is one line: `- <source> <location>: <requirement, briefly> → <task IDs | milestone ID | out of scope (D<nn>)>`. A row is mapped when its target is one or more task IDs (milestone level), one or more milestone IDs (plan level), or `out of scope (D<nn>)` citing the Decision that says so. Any other row is unmapped.
+
+`plan` builds both levels. The planner builds a milestone's Coverage when it details the milestone, from the plan-level rows that point at it. In a plan created under format 1, plan.md may have no rows for that milestone, or no Coverage section at all: the planner adds the plan-level rows for its own milestone, creating the section if needed. So a plan-level row for every section of every source is required only once every milestone in the plan is format 2.
 
 ### Task fields
 
@@ -245,5 +270,8 @@ run refuses to execute a milestone, and plan and planner must not finish one, un
 - [ ] Every Interfaces entry is an exact signature or exact name, and every Consumes names its source: a task ID, or `existing` with a `path:line`. *(format 2)*
 - [ ] Every Consumes that cites a task matches that task's Produces character for character, and the consuming task lists that task in Depends on. *(format 2)*
 - [ ] No symbol is produced by two tasks with different signatures. *(format 2)*
+- [ ] plan.md's Coverage: when every milestone in the plan is format 2, plan.md has a `## Coverage` section with a row for every section of every source; otherwise, every format 2 milestone has at least one row in plan.md's `## Coverage` mapped to it. Either way, no row is unmapped.
+- [ ] A detailed milestone has a `## Coverage` section, directly after Context, with one row per requirement it implements and no unmapped row. *(format 2)*
+- [ ] Every task ID in a Coverage row exists. *(format 2)*
 
 Items marked *(format 2)* apply only to format 2 milestones (see [Format](#format)). Format 1 milestones skip them and validate as before.

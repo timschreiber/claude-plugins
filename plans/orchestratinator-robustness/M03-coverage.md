@@ -21,12 +21,13 @@ Waves: 2 (widths 4, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/reference/plan-format.md`
 - Verify: `grep -qF "milestones, coverage, decisions, open questions" plugins/orchestratinator/reference/plan-format.md && grep -qF "out of scope (D01)" plugins/orchestratinator/reference/plan-format.md && grep -qF "<Only once the milestone is detailed:" plugins/orchestratinator/reference/plan-format.md && grep -qF "### Coverage" plugins/orchestratinator/reference/plan-format.md && grep -qF "Either way, no row is unmapped." plugins/orchestratinator/reference/plan-format.md && grep -qF "Every task ID in a Coverage row exists. *(format 2)*" plugins/orchestratinator/reference/plan-format.md`
 - Commit: `feat(orchestratinator): define Coverage in the plan format`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
