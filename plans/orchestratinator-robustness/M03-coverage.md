@@ -1,6 +1,6 @@
 # M03: Change 2: Spec coverage check (spec §4)
 
-- Status: ready
+- Status: in-progress
 - Goal: plan.md and every detailed format 2 milestone carry a Coverage section that maps requirements to milestones and tasks. The plan format defines both levels, the row format, and the checklist items. `plan` builds both levels in a new step. The planner builds the milestone level, and adds plan-level rows in format 1 plans. The README describes it.
 - Depends on: M02
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
