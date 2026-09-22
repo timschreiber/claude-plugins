@@ -196,7 +196,7 @@ The planner builds the detailed milestone's Coverage section from the plan-level
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
