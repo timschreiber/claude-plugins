@@ -18,7 +18,7 @@
 | M01 | Format versioning (spec §13) | done | M01-format-versioning.md |
 | M02 | Change 1: Interfaces per task (spec §3) | done | M02-interfaces.md |
 | M03 | Change 2: Spec coverage check (spec §4) | done | M03-coverage.md |
-| M04 | Change 3: Fails first (spec §5, §12) | ready | M04-fails-first.md |
+| M04 | Change 3: Fails first (spec §5, §12) | in-progress | M04-fails-first.md |
 | M05 | Change 4: Review Focus (spec §6) | outline | M05-review-focus.md |
 | M06 | Change 5: Milestone quality review (spec §7) | outline | M06-milestone-review.md |
 | M07 | Change 6: Fresh-eyes plan review (spec §8) | outline | M07-plan-review.md |
