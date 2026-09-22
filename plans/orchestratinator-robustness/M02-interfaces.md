@@ -219,12 +219,13 @@ The per-task reviewer's Check list includes matching the code against every Prod
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
 - Verify: `grep -qF -e "- **Interfaces.** Every" plugins/orchestratinator/README.md`
 - Commit: `docs(orchestratinator): describe task Interfaces in the README`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
