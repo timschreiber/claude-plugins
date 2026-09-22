@@ -1,6 +1,6 @@
 # M06: Change 5: Milestone quality review (spec §7)
 
-- Status: ready
+- Status: in-progress
 - Goal: A new `milestone-reviewer` agent reviews each finished milestone's diff. `run` 3f dispatches it after Milestone verify and before marking the milestone done, with one fix round by the planner in `Fix findings:` mode and one re-review. The plan format documents `- Origin: review` and the review notes files. The README cast table and "How a run behaves" describe it.
 - Depends on: M05
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
