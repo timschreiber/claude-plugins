@@ -20,7 +20,7 @@
 | M03 | Change 2: Spec coverage check (spec §4) | done | M03-coverage.md |
 | M04 | Change 3: Fails first (spec §5, §12) | done | M04-fails-first.md |
 | M05 | Change 4: Review Focus (spec §6) | done | M05-review-focus.md |
-| M06 | Change 5: Milestone quality review (spec §7) | in-progress | M06-milestone-review.md |
+| M06 | Change 5: Milestone quality review (spec §7) | done | M06-milestone-review.md |
 | M07 | Change 6: Fresh-eyes plan review (spec §8) | outline | M07-plan-review.md |
 | M08 | Change 7: Tier calibration (spec §9) | outline | M08-tier-calibration.md |
 | M09 | Change 8: Batching (spec §10) | outline | M09-batching.md |
