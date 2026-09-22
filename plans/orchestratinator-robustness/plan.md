@@ -19,7 +19,7 @@
 | M02 | Change 1: Interfaces per task (spec §3) | done | M02-interfaces.md |
 | M03 | Change 2: Spec coverage check (spec §4) | done | M03-coverage.md |
 | M04 | Change 3: Fails first (spec §5, §12) | done | M04-fails-first.md |
-| M05 | Change 4: Review Focus (spec §6) | outline | M05-review-focus.md |
+| M05 | Change 4: Review Focus (spec §6) | ready | M05-review-focus.md |
 | M06 | Change 5: Milestone quality review (spec §7) | outline | M06-milestone-review.md |
 | M07 | Change 6: Fresh-eyes plan review (spec §8) | outline | M07-plan-review.md |
 | M08 | Change 7: Tier calibration (spec §9) | outline | M08-tier-calibration.md |
@@ -72,5 +72,7 @@
 - D29: The four worker agents' Report blocks become spec §12's block verbatim, placeholder text included (`FILES: <comma-separated paths changed or created>`, `NOTE: <one line. For GAP, the exact question.>`). (source: spec §12, "workers reply with exactly"; M04 outline)
 - D30: Spec §5's "GAP handling, with the new block reason `VACUOUS`" is `run`'s Block with GAP handling in full (never retried or escalated, the task blocked, an Open question added tagged with the task ID, then Stop), with `- Blocked: VACUOUS — <worker's NOTE>` in place of `- Blocked: GAP — <question>`; the Open question is `Verify passed before implementation: <worker's NOTE>`. (source: spec §5; spec §17 item 4, "stops the run as `VACUOUS`, rather than being retried")
 - D31: `run` checks RED only for a task with `- Fails first: yes`, before reading STATUS: `RED: PASSED-EARLY` (any STATUS) → `VACUOUS` (D30); `DONE` with the RED line missing or `N/A` → Retry (D20); anything else goes on to STATUS as today, so a `BLOCKED` / `GAP` report with RED `N/A` is still a GAP and is never retried. Workers report `RED: N/A` for `Fails first: no`, for a task with no Fails first line, and when they stop before running Verify. (source: spec §1 ground rule 3 and `run`'s "Never retry or escalate a GAP"; spec §5; M04 Context, format 1 tasks handled as `no`)
+- D32: `plan` builds a milestone's Review Focus at the end of step 6 (Write the tasks as prompts), once its tasks are drafted and before step 7 sequences them, so the owning tasks' test-writing Steps and test files are in place before waves are assigned; there is no new step and no renumbering. The planner does the same in a new `## Build the Review Focus` section directly before `## Sequence and find the parallelism`. Step 11 writes the section after each detailed milestone's Coverage section. The size check (step 10) is unchanged: a job done directly runs the drafted tasks, test-writing Steps included, and writes no plan directory. (source: spec §6, which, unlike §4's "New step after the self-check", adds no step; M05 Outline, "when detailing a milestone, build its Review Focus"; D08 placement)
+- D33: Review Focus details (source: spec §6 and §14; plan-format Fails first rule): an unsourced expected behavior is asked in `plan` as an ambiguity question (step 5's Ambiguity heading) and written by the planner as an Open question tagged `[ambiguous]`; a section with nothing qualifying is the single line `None found: <what was checked>`; the task that owns a Review Focus test adds tests, so it is `Fails first: yes`; the README bullet goes between Coverage and Fails first, in §14's order.
 
 ## Open questions
