@@ -147,7 +147,12 @@ For each task in the wave set, in order:
    ```
    plus the retry lines on a retry (see **Retry**). Never paraphrase the task: the worker reads it from the plan. Record `git rev-parse HEAD` before dispatching.
 2. **Check for stray commits and branch changes.** Before dispatching, you recorded HEAD. Now run `git log --oneline <recorded HEAD>..HEAD` and `git branch --show-current`. If the branch is not the plan's Branch, go to **Stop** with reason STRAY. If commits appear: for each, `git branch -r --contains <sha>` must print nothing; if any prints something, go to **Stop** with reason PUSHED. Otherwise run `git reset --soft <recorded HEAD>`, add `- Process: worker committed on its own; reset and recommitted` under the task, and continue.
-3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `NOTE`):
+3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `NOTE`). For a task with `- Fails first: yes`, check RED first:
+   - `RED: PASSED-EARLY` → **Block with GAP** (see below), with block reason `VACUOUS`.
+   - `DONE` with the RED line missing or `N/A` → **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
+   - Otherwise (`RED: CONFIRMED <first failing line>`, or a `BLOCKED` report with RED missing or `N/A`) → go on to STATUS.
+
+   A task without `- Fails first: yes` (Fails first `no`, or no Fails first line, as in format 1 milestones and `investigate` tasks) skips the RED check. Then, for every task, read STATUS:
    - `BLOCKED` / `GAP` → **Block with GAP** (see below).
    - `BLOCKED` / `STUCK` → **Retry**.
    - `DONE` → continue.
@@ -170,9 +175,11 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
    plus the retry lines on a retry.
 3. **For each report**, in task ID order, working inside that task's worktree:
    - First, in that worktree, apply the same stray-commit and branch check as in 3d, using BASE as the recorded HEAD and the task branch as the expected branch.
-   - `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
+   - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record it for **Block with GAP**, with block reason `VACUOUS`. Leave its worktree for inspection.
+   - `DONE` on a task with `- Fails first: yes`, with the RED line missing or `N/A` → queue a **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
+   - Any other `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
    - `BLOCKED` / `STUCK` → queue a **Retry**.
-   - `DONE` → check scope with `git -C "<worktree>" status --porcelain` against the task's Files; anything else → record a SCOPE block and leave the worktree. Otherwise verify in the worktree (command, `review`, or both; the reviewer also gets the `Worktree:` line). Failure → queue a **Retry**. Success → commit the task in the worktree.
+   - Any other `DONE` → check scope with `git -C "<worktree>" status --porcelain` against the task's Files; anything else → record a SCOPE block and leave the worktree. Otherwise verify in the worktree (command, `review`, or both; the reviewer also gets the `Worktree:` line). Failure → queue a **Retry**. Success → commit the task in the worktree.
 4. **Guard the main checkout.** `git status --porcelain` in MAIN must still be empty. If a worker wrote outside its worktree, stop everything: go to **Stop** with reason STRAY, listing the paths. Leave all worktrees.
 5. **Retries.** Run every queued retry as its own batch, the same way, in fresh worktrees from BASE (remove the failed attempt's worktree and branch first). Each task still gets only one retry.
 
@@ -207,7 +214,7 @@ Each task gets at most one retry, one tier up: `worker-light` → `worker` → `
 - Otherwise, discard the attempt: in serial mode, `git reset --hard HEAD` and `git clean -fd` in MAIN (the tree was clean when the task began); in parallel mode, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, and dispatch again to the next tier with these lines appended:
   ```
   Retry: previous attempt by <tier> failed. You are starting from a clean state.
-  Reason: <worker's NOTE, reviewer's REASONS, or "Verify failed">
+  Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", or "RED not confirmed (Fails first: yes)">
   Verify tail:
   <last 40 lines of the verify log, if a command failed>
   ```
@@ -215,6 +222,8 @@ Each task gets at most one retry, one tier up: `worker-light` → `worker` → `
 ## Block with GAP
 
 The plan left a decision open. **Never retry or escalate a GAP**: a higher tier would just make the decision. Mark the task `blocked` with `- Blocked: GAP — <question>`, and add the question to plan.md's Open questions tagged with the task ID. In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (step 6 onward), then **Stop**.
+
+A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same handling, with block reason `VACUOUS` instead of `GAP`: the test passed before any implementation existed, so either it can't fail or the behavior already exists, and both mean the plan is wrong. Never retry or escalate it. Mark the task `blocked` with `- Blocked: VACUOUS — <worker's NOTE>`, add `Verify passed before implementation: <worker's NOTE>` to plan.md's Open questions tagged with the task ID, and stop exactly as for a GAP.
 
 ## Pause
 
@@ -228,5 +237,5 @@ A clean, intentional stop: gates, `--milestone`, `--max-tasks`.
 A problem the user must resolve.
 
 1. Plan-file changes (blocked statuses, open questions) are committed on their own: `git add <plan dir>` and `git commit -m "chore(plan): blocked at <where>"`. In serial mode, if task code is in the main working tree, leave all of it uncommitted, plan files included, for the user to inspect.
-2. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, MERGE, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP, quote the question exactly.
+2. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, VACUOUS, MERGE, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP or VACUOUS, quote the question exactly.
 3. Stop. Don't continue with anything else.
