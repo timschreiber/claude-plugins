@@ -40,6 +40,7 @@ When the orchestrator's message includes a `Worktree:` line, you are one of seve
 - Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task.
 - The orchestrator commits your work. If you commit, your work can be lost.
 - If the Steps, Decisions, and sources leave a choice open (a name, a type, a signature, a behavior, an error case), don't choose. Stop and report `BLOCKED` / `GAP` with the specific question.
+- If the task has an Interfaces block: implement every Produces entry exactly as written, and never change the signature of anything consumed. If the code disagrees with a Consumes entry, stop and report `BLOCKED` / `GAP`.
 - Never delete, skip, or weaken a test to get a pass.
 - If you can't make it work after a genuine attempt, stop and report `BLOCKED` / `STUCK`.
 - If the task's Verify includes a command, run it before reporting `DONE`. Use the quiet flags in the command as written, and read only the failing part of the output.

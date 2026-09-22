@@ -76,7 +76,7 @@ Waves: 1 (widths 6)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/worker-light.md`, `plugins/orchestratinator/agents/worker.md`, `plugins/orchestratinator/agents/worker-heavy.md`, `plugins/orchestratinator/agents/specialist.md`
