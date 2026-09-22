@@ -148,7 +148,7 @@ The `plan` skill's Self-check step includes an interface-consistency pass across
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`

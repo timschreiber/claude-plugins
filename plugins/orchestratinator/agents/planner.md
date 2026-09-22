@@ -17,7 +17,7 @@ The orchestrator sends you a plan directory and a milestone ID. Read these now, 
 3. `plan.md`: the whole file, including Decisions and Open questions.
 4. Every source plan.md lists, at least the sections that govern this milestone. Sources under `sources/` are the user's own words; treat them as requirements.
 5. The milestone file: Goal, Depends on, Context, and Outline.
-6. The `done` milestones this one depends on: their Goals, Context, and task titles, and every `notes/` file their investigate tasks wrote.
+6. The `done` milestones this one depends on: their Goals, Context, and task titles, and every `notes/` file their investigate tasks wrote. For each of their tasks that has an Interfaces block, also read its Produces lines.
 7. The survey notes for this milestone, `notes/<milestone ID>-survey*.md`. A scout wrote them from the code as it exists now, so they reflect what earlier milestones actually built. Plan against them, not against what the outline assumed.
 
 You can't delegate: you have no Explore or scout of your own, so every file you read yourself is read on the most expensive model in the run. Read code only to confirm an exact value a task will depend on, or where the survey is ambiguous or conflicts with a source. If the survey is missing things you need, don't go read the codebase yourself: report `SCOUT` with specific questions (see Report), and run will have a scout answer them into another survey note and call you again. You get one such round; after that, read what you still need yourself.
@@ -54,7 +54,7 @@ Set Depends on for every task, then assign Waves: wave 1 is every task with no u
 
 ## Self-check
 
-For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, plan.md's Decisions, this milestone's Context, and this task with its Read first list, complete it without asking anything and without making a single choice?* If not, split it or add the specifics. Then run the validation checklist for this milestone and fix every failure.
+For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, plan.md's Decisions, this milestone's Context, and this task with its Read first list, complete it without asking anything and without making a single choice?* If not, split it or add the specifics. Run an interface-consistency pass across all tasks in this milestone and against the Produces of `done` milestones: every Interfaces entry is an exact signature or exact name; every Consumes names its source, a task ID or `existing` with a `path:line`; every Consumes that cites a task matches that task's Produces character for character, and that task is in the consuming task's Depends on; and no symbol is produced by two tasks, in this milestone or a `done` one, with different signatures. Fix every mismatch in this milestone's tasks. Then run the validation checklist for this milestone and fix every failure.
 
 ## Write
 
