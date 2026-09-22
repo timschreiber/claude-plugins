@@ -63,12 +63,13 @@ Waves: 1 (widths 3)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
 - Verify: `grep -qF "Every milestone file, detailed or outlined, gets the line" plugins/orchestratinator/skills/plan/SKILL.md`
 - Commit: `feat(orchestratinator): plan writes format 2 milestones`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
