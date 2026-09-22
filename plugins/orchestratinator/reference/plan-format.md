@@ -130,6 +130,7 @@ Removed when the milestone is detailed.>
 - Depends on: none
 - Files: `path/to/Thing.java`, `path/to/ThingTest.java`
 - Verify: `<targeted, quiet command>`
+- Fails first: yes
 - Commit: `<type>(<scope>): <message>`
 
 **Objective**
@@ -188,6 +189,7 @@ Each row is one line: `- <source> <location>: <requirement, briefly> → <task I
 | Depends on | `none`, or earlier task IDs (any milestone). Never a later task. |
 | Files | Every path the task may create or modify, including tests and, for investigate tasks, its note. Nothing else may change. |
 | Verify | A command, `review`, or both (`<command>` + review). A command must be runnable from the repo root, targeted, quiet, and must fail when the task isn't done. `review` sends the diff to the reviewer agent to check against Objective, Steps, and Done when. Use `review` alone only when no command can check the result (docs, investigate tasks, config with no test). |
+| Fails first | Format 2 milestones only. Required in every `change` task, directly after Verify; `investigate` tasks omit it. `yes` for any task that adds or changes tests: its Steps put the test-writing steps first, then the step "Run Verify and confirm it fails", then the implementation steps. The worker runs Verify after writing the tests and confirms it fails before writing any implementation code. If Verify passes early, either the test can't fail or the behavior already exists, and both mean the plan is wrong: the worker stops, and run blocks the task as `VACUOUS`. `no` for a task with no test that can fail beforehand (docs, config, pure renames, refactors covered by passing tests), always with a one-line reason: `- Fails first: no (<reason>)`. A task whose Verify is `review` alone is always `no`. A task in a format 1 milestone has no Fails first field and is handled as `no`. |
 | Commit | Conventional-commit message, used verbatim. run adds the trailer `Orchestratinator-Task: <task ID>` to the commit, so progress can be recovered from git history. |
 | Objective | One sentence. |
 | Read first | Everything the worker must read beyond CLAUDE.md / AGENTS.md, plan.md's Decisions, and the milestone's Context: the exact source sections the task implements, patterns to copy, and notes it depends on. Name sections, not whole documents. At most about five entries. |
@@ -198,7 +200,7 @@ Each row is one line: `- <source> <location>: <requirement, briefly> → <task I
 run appends these lines under a task when they apply:
 
 - `- Escalated: <from> → <to> (<one-line reason>)`
-- `- Blocked: GAP | STUCK | SCOPE | VERIFY | REVIEW — <one line>`
+- `- Blocked: GAP | STUCK | SCOPE | VERIFY | REVIEW | VACUOUS — <one line>`
 
 ## Tasks are prompts
 
@@ -273,5 +275,7 @@ run refuses to execute a milestone, and plan and planner must not finish one, un
 - [ ] plan.md's Coverage: when every milestone in the plan is format 2, plan.md has a `## Coverage` section with a row for every section of every source; otherwise, every format 2 milestone has at least one row in plan.md's `## Coverage` mapped to it. Either way, no row is unmapped.
 - [ ] A detailed milestone has a `## Coverage` section, directly after Context, with one row per requirement it implements and no unmapped row. *(format 2)*
 - [ ] Every task ID in a Coverage row exists. *(format 2)*
+- [ ] Every `change` task has a Fails first line directly after Verify, either `yes` or `no (<reason>)` with a one-line reason, and no `investigate` task has one. *(format 2)*
+- [ ] Every task that adds or changes tests has `Fails first: yes`, with its test-writing Steps first, then the step "Run Verify and confirm it fails", then its implementation Steps; every task whose Verify is `review` alone has `no`. *(format 2)*
 
 Items marked *(format 2)* apply only to format 2 milestones (see [Format](#format)). Format 1 milestones skip them and validate as before.
