@@ -10,13 +10,13 @@ model: opus
 
 Arguments: `$ARGUMENTS`. These name the sources (file paths, sections, or instructions) and optionally the plan directory. The request may also be the conversation itself: a long prompt the user pasted or built up in chat.
 
-You write a plan. You do **not** implement anything and you do not commit, with one exception: a job small enough that delegating it would cost more than doing it, which you do yourself (step 9).
+You write a plan. You do **not** implement anything and you do not commit, with one exception: a job small enough that delegating it would cost more than doing it, which you do yourself (step 10).
 
 Options in the arguments:
 
 - `--direct-max <N>`: the largest job, in tasks, that you do directly instead of planning. Default 5.
 - `--always-plan`: always write a plan, however small the job.
-- `--yes`: approval given in advance for doing a small job directly (step 9). Without it, you always ask first.
+- `--yes`: approval given in advance for doing a small job directly (step 10). Without it, you always ask first.
 
 ## 1. Re-read the ground truth
 
@@ -47,7 +47,7 @@ Anything the plan depends on that isn't already a file in the repository must be
 - Save inline input from the conversation verbatim to `plans/<slug>/sources/prompt.md`. Verbatim means the user's words, not your summary. If the substance is spread across several messages, save each in order under a heading.
 - List every source, in the repo or under `sources/`, in plan.md's Sources line.
 
-Write these files when you write the plan directory in step 10. If the job turns out small enough to do directly (step 9), there is no plan directory and nothing to save.
+Write these files when you write the plan directory in step 11. If the job turns out small enough to do directly (step 10), there is no plan directory and nothing to save.
 
 ## 3. Find the structure
 
@@ -121,7 +121,18 @@ Run an interface-consistency pass across all tasks of every milestone you detail
 
 Then run the validation checklist from the plan format and fix every failure.
 
-## 9. Size check: do small jobs directly
+## 9. Check spec coverage
+
+A requirement that falls between tasks is the failure a plan is least likely to catch any other way. Build both coverage levels the plan format defines in its Coverage section, in your draft:
+
+- **plan.md:** one row per section of every source (heading or numbered item), mapped to the milestone(s) that implement it, or `out of scope (D<nn>)` citing the Decision that says so.
+- **Every detailed milestone:** one row per requirement it implements, mapped to the task IDs that implement it.
+
+A requirement with no task or milestone gets one added; sequence and self-check what you add as in steps 7 and 8. If a requirement seems deliberately out of scope, that is a question for the user, asked as in step 5, never a silent drop: mark it `out of scope` only once the user's answer is recorded as a Decision, and cite that Decision in the row.
+
+Then check the Coverage items of the validation checklist and fix every failure. Step 11 writes both levels into the plan.
+
+## 10. Size check: do small jobs directly
 
 Orchestration has fixed costs: this plan, a fresh context for every worker, and independent verification of every task. For a small job, those cost more than they save.
 
@@ -136,7 +147,7 @@ To do it directly:
 1. **Ask for approval first.** Tell the user the job is `<N>` tasks, small enough to do directly instead of delegating. Then show what you'll do, one entry per task in execution order: the task's title, its Files, and its Verify. Say whether you'll commit (see item 5), and that they can reply "plan it" for a full plan instead. Ask `Proceed?` and wait.
    - Continue only on a clear yes.
    - If they ask for changes, revise the tasks, show them again, and ask again.
-   - If they say "plan it", skip the rest of this step and write the plan (step 10).
+   - If they say "plan it", skip the rest of this step and write the plan (step 11).
    - Anything else, including no answer, means don't touch anything.
    - If `--yes` was given, the user approved in advance: show the list and continue without asking.
 2. Note whether `git status --porcelain` is empty before you change anything. (Check this before asking in item 1, so you can tell the user whether you'll commit.)
@@ -147,7 +158,7 @@ To do it directly:
 
 Otherwise, write the plan.
 
-## 10. Write and hand off
+## 11. Write and hand off
 
 Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line.
 

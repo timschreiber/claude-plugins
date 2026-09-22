@@ -100,12 +100,13 @@ Waves: 2 (widths 4, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
 - Verify: `grep -qF "## 9. Check spec coverage" plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "## 10. Size check: do small jobs directly" plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "## 11. Write and hand off" plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "which you do yourself (step 10)." plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "a small job directly (step 10). Without it" plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "write the plan directory in step 11. If the job turns out small enough to do directly (step 10)," plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "write the plan (step 11)." plugins/orchestratinator/skills/plan/SKILL.md`
 - Commit: `feat(orchestratinator): plan checks spec coverage`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
