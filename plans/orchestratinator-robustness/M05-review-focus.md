@@ -126,7 +126,7 @@ The `plan` skill's step 6 builds each detailed milestone's Review Focus once its
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`

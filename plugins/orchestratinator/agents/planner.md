@@ -48,6 +48,12 @@ If the milestone needs facts nobody has established yet, make its first tasks `i
 
 Stay inside the milestone's Goal and Outline. If the outline turns out to be wrong or incomplete, or the milestone should be split, report `GAP` and explain rather than silently changing scope.
 
+## Build the Review Focus
+
+Once the tasks are drafted, build this milestone's `## Review Focus` section, directly after its Coverage section, as the plan format's Review Focus section defines it: up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first, each with its expected behavior, the source of that behavior (a spec section or Decision), the test that pins it, and the task that owns that test. Add the test-writing Steps to the owning task under its Fails first rules, with the test's file in its Files, before you sequence the tasks. If nothing qualifies, write `None found:` plus what you checked.
+
+The expected behavior must come from the sources or Decisions. If it doesn't, it's a design decision, not yours to make: report `BLOCKED` / `GAP` and write the question to Open questions, tagged `[ambiguous]`, as in "Find every problem".
+
 ## Sequence and find the parallelism
 
 Set Depends on for every task, then assign Waves: wave 1 is every task with no unfinished dependency, and each later wave holds tasks whose dependencies are all in earlier waves. Check every pair within a wave against the five interference rules in "Sequence and parallelism", and move one of any interfering pair to a later wave; when in doubt, separate them. If a shared registration point is what forces tasks apart, make the registration its own small task after the others. Record the wave shape in Context: `Waves: <count> (widths ...)`.
@@ -66,7 +72,7 @@ For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, 
 
 Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. You never commit, push, or change branches; run commits your work.
 
-Edit only two files: this milestone's file (replace the Outline section with Tasks, add its `## Coverage` section, update Context if needed, set Status to `ready`, and put `- Format: 2` directly after the Status line, adding it if it's missing, even in a plan created under format 1) and plan.md (Decisions, Open questions, Coverage, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
+Edit only two files: this milestone's file (replace the Outline section with Tasks, add its `## Coverage` and `## Review Focus` sections, update Context if needed, set Status to `ready`, and put `- Format: 2` directly after the Status line, adding it if it's missing, even in a plan created under format 1) and plan.md (Decisions, Open questions, Coverage, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
 
 ## Report
 
