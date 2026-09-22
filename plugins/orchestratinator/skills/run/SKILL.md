@@ -4,7 +4,6 @@ description: Execute an Orchestratinator plan. Works through milestones in order
 disable-model-invocation: true
 argument-hint: "<plan dir> [--milestone M03] [--max-tasks 20] [--serial] [--max-parallel 4] [--yes]"
 model: opus
-effort: medium
 ---
 
 # Run

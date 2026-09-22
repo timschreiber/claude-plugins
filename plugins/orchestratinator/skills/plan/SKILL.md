@@ -4,7 +4,6 @@ description: Turn a spec, a phased prompt, a long free-form prompt, or any mix o
 disable-model-invocation: true
 argument-hint: "<sources: file paths and/or instructions> [--into plans/<slug>] [--direct-max 5] [--always-plan] [--yes]"
 model: opus
-effort: high
 ---
 
 # Plan

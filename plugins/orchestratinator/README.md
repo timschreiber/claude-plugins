@@ -58,8 +58,8 @@ For unattended or non-interactive runs, `--yes` gives approval in advance.
 
 | Who | Model / effort | Job |
 |---|---|---|
-| `plan` (skill) | Opus / high | Builds the plan directory, or does a small job itself. |
-| `run` (skill) | Opus / medium | Orchestrates: dispatch, verify, integrate, commit, record. Never writes code. |
+| `plan` (skill) | Opus / session effort | Builds the plan directory, or does a small job itself. |
+| `run` (skill) | Opus / session effort | Orchestrates: dispatch, verify, integrate, commit, record. Never writes code. |
 | `status` (skill) | Haiku | Read-only progress summary. |
 | `planner` | Opus / high | Details an outlined milestone when the run reaches it, working from a scout's survey. |
 | Explore (built in) | Haiku | Used eagerly by `plan` for every discovery question about the codebase. |
@@ -122,11 +122,12 @@ The full plan format, including the tier rubric and sizing rules, is in [`refere
 - **Verification is only as good as each task's Verify.** Tasks checked by a command are checked by that command alone. Tasks that no command can check go to the read-only `reviewer`, which is a model's judgment, not a test.
 - **Parallel tasks compete for your machine.** Each concurrent task runs its own builds and tests. Start at the default Max parallel of 3 and adjust.
 - **On Windows, worktree removal can fail** when a process holds a file lock. The run leaves that worktree, says so, and continues. Remove it yourself later.
-- **Don't set `CLAUDE_CODE_EFFORT_LEVEL`** while using this plugin. It overrides the effort in skill and agent frontmatter and flattens every tier to one level.
+- **Don't set `CLAUDE_CODE_EFFORT_LEVEL`** while using this plugin. It overrides the effort in every agent's frontmatter, flattening all the tiers to one level. Use `/effort` or `--effort` to choose the effort for `plan` and `run` instead.
 - **Model aliases float.** The `opus`, `sonnet`, and `haiku` aliases resolve to the newest models for your provider. Opus 5.5 needs Claude Code v2.1.280 or later.
 
 ## Configuration notes
 
+- **`plan` and `run` use your session's effort level**, like OpusPlan: set it with `/effort` or `--effort` before you start. Opus 5.5 defaults to `medium`, so set `/effort high` before planning unless you want a lighter plan. The agents keep their own effort, so the tiers stay distinct whatever the session uses.
 - **Retune the ladder** by editing `model` and `effort` in `agents/*.md`. Haiku doesn't take an effort setting, so `worker-light` has none.
 - **Keep build output quiet.** Every task runs its Verify command, so a long plan runs the build many times. Write quiet flags into Verify commands, and pair this with an output-quieting plugin such as [`denoizinator-net`](https://github.com/timschreiber/claude-plugins/tree/main/plugins/denoizinator-net).
 
