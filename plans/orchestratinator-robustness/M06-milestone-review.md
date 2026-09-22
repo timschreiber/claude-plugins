@@ -327,12 +327,13 @@ In Fix findings mode, edit only what that section allows.
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
 - Verify: `grep -qF "Read-only except its report: reviews each finished milestone's whole diff" plugins/orchestratinator/README.md && grep -qF "working from a scout's survey. Writes fix tasks when a milestone review finds blocking problems." plugins/orchestratinator/README.md && grep -qF -e "- **Every milestone is reviewed as a whole.** " plugins/orchestratinator/README.md && grep -qF "for a GAP the planner hit while detailing a milestone" plugins/orchestratinator/README.md`
 - Commit: `docs(orchestratinator): describe the milestone review in the README`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

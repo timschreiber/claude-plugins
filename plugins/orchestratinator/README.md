@@ -49,7 +49,7 @@ For unattended or non-interactive runs, `--yes` gives approval in advance.
 
 1. Resolve it: answer the question under `plan.md` Decisions, fix the environment, or split the task.
 2. Commit or discard any leftover working-tree changes, and remove any worktrees the run left for inspection (`git worktree remove <path>`, then delete its `orchestratinator/...` branch). `status` lists them.
-3. Set the blocked task or milestone back to `todo` / `ready` (or `outline` for a planner GAP), set the plan's Status back to `in-progress`, and commit.
+3. Set the blocked task or milestone back to `todo` / `ready` (or `outline` for a GAP the planner hit while detailing a milestone), set the plan's Status back to `in-progress`, and commit.
 4. Rerun `/orchestratinator:run plans/<slug>`.
 
 ## What it does
@@ -61,11 +61,12 @@ For unattended or non-interactive runs, `--yes` gives approval in advance.
 | `plan` (skill) | Opus / session effort | Builds the plan directory, or does a small job itself. |
 | `run` (skill) | Opus / session effort | Orchestrates: dispatch, verify, integrate, commit, record. Never writes code. |
 | `status` (skill) | Haiku | Read-only progress summary. |
-| `planner` | Opus / high | Details an outlined milestone when the run reaches it, working from a scout's survey. |
+| `planner` | Opus / high | Details an outlined milestone when the run reaches it, working from a scout's survey. Writes fix tasks when a milestone review finds blocking problems. |
 | Explore (built in) | Haiku | Used eagerly by `plan` for every discovery question about the codebase. |
 | `scout` | Sonnet / medium | Read-only: exact signatures, behavior, and test layout with `path:line`; milestone surveys; library docs. |
 | `scout-heavy` | Sonnet / high | Read-only: traces logic across many files (control flow, state, concurrency). |
 | `reviewer` | Sonnet / high | Read-only check for tasks no command can verify. |
+| `milestone-reviewer` | Opus / high | Read-only except its report: reviews each finished milestone's whole diff before the milestone is marked done. |
 | `worker-light` | Haiku | No-logic edits. |
 | `worker` | Sonnet / medium | The default: fully specified work. |
 | `worker-heavy` | Sonnet / high | Fully specified but intricate work. |
@@ -106,6 +107,7 @@ The full plan format, including the tier rubric and sizing rules, is in [`refere
 - **Verify, don't trust.** The orchestrator runs each task's Verify command itself, or sends the diff to the read-only reviewer when no command can check it. A worker saying "tests pass" is not evidence.
 - **Scope check.** A changed file not listed in the task's Files blocks the task instead of being committed.
 - **Commit per task.** The code and the plan's status update land in one commit.
+- **Every milestone is reviewed as a whole.** Per-task checks can't see problems between tasks, so once a milestone's tasks are done and its Milestone verify passes, the Opus `milestone-reviewer` reviews the milestone's whole diff: every Coverage requirement implemented, the code matching every task's Interfaces, every Review Focus test present and asserting its behavior, nothing contradicting the Decisions, the milestone's Context, or CLAUDE.md / AGENTS.md, and code quality (error handling, duplication, dead code, and tests that assert something meaningful and run without warnings). It writes its findings to `notes/<ID>-review.md`, each citing a `path:line`, as blocking or advisory. Advisory findings don't hold the milestone up. Blocking findings get one fix round: the planner writes fix tasks, which run without pausing at the `detail` gate, then Milestone verify runs again and a re-review checks the fixes. If anything is still blocking, the run stops with `REVIEW`, and a fix that needs a design decision stops it with a question. Format 1 milestones are reviewed too, without the checks for sections they don't have.
 - **One retry, one tier up.** A failed verify, failed review, or stuck worker gets a clean start and one retry at the next tier. A second failure stops the run and leaves that task's changes (in the tree or its worktree) for you to inspect. In a parallel wave, the other tasks still finish and integrate first.
 - **GAPs stop, they don't escalate.** When a worker or the planner hits a decision the plan left open, the run stops and quotes the question. A bigger model would just make the decision, which is exactly what the plan exists to prevent.
 - **Project instructions don't govern git.** Whatever CLAUDE.md or AGENTS.md say about committing or pushing, workers never commit, the orchestrator never pushes, and a worker's stray commit is caught and redone properly. Workers read project instructions as files (`omitClaudeMd: true`) instead of receiving them as system instructions.
