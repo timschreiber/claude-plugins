@@ -88,6 +88,7 @@ Open questions are tagged with the milestone or task they block. `rolling` plans
 # M02: <title>
 
 - Status: outline
+- Format: 2
 - Goal: <what this milestone delivers, observably>
 - Depends on: M01
 - Milestone verify: `<command>` | none
@@ -137,6 +138,10 @@ Removed when the milestone is detailed.>
 
 - <Observable criterion.>
 ```
+
+### Format
+
+A milestone file whose header has the line `- Format: 2`, directly after its Status line, is a format 2 milestone. A milestone file without a Format line is format 1. `plan` always writes format 2, in every milestone file it writes, detailed or outlined. The planner always writes format 2 when it details a milestone, even in a plan created under format 1. Validation applies the checklist items marked *(format 2)* only to format 2 milestones, and format 1 milestones validate as before, so plans already in progress keep running.
 
 ### Task fields
 
@@ -228,3 +233,5 @@ run refuses to execute a milestone, and plan and planner must not finish one, un
 - [ ] Every dependency of a task is in an earlier wave or an earlier milestone.
 - [ ] No two tasks in the same wave interfere, by the five rules above.
 - [ ] Every investigate task's Files is exactly its own note, `plans/<plan-slug>/notes/<task-id>.md`.
+
+Items marked *(format 2)* apply only to format 2 milestones (see [Format](#format)). Format 1 milestones skip them and validate as before.

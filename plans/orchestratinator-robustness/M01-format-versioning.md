@@ -21,7 +21,7 @@ Waves: 1 (widths 3)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/reference/plan-format.md`
