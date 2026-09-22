@@ -84,12 +84,13 @@ Waves: 1 (widths 4)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
 - Verify: `grep -qF "Once a milestone's tasks are drafted, build its Review Focus" plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "an ambiguity question for the user, asked as in step 5, never a behavior you choose." plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "Every detailed milestone file also gets its Review Focus section from step 6, directly after its Coverage section." plugins/orchestratinator/skills/plan/SKILL.md`
 - Commit: `feat(orchestratinator): plan builds Review Focus`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

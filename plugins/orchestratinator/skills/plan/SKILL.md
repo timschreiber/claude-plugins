@@ -101,6 +101,10 @@ For each milestone you detail, write a task list in which **every task is small,
 
 Assign each task a tier from the rubric. Default to `worker`; justify every `worker-heavy` and `specialist` with a Why this tier line.
 
+Once a milestone's tasks are drafted, build its Review Focus, as the plan format's Review Focus section defines it: up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first, each with its expected behavior, the source of that behavior (a spec section or Decision), the test that pins it, and the task that owns that test. Add the test-writing Steps to the owning task under its Fails first rules, with the test's file in its Files, before you sequence the tasks in step 7. If nothing qualifies, write `None found:` plus what you checked.
+
+The expected behavior must come from the sources or Decisions. If it doesn't, it's a design decision: an ambiguity question for the user, asked as in step 5, never a behavior you choose. Add the item only once the user's answer is recorded as a Decision, and cite that Decision as its source.
+
 ## 7. Sequence the tasks and find the parallelism
 
 For each detailed milestone:
@@ -161,7 +165,7 @@ Otherwise, write the plan.
 
 ## 11. Write and hand off
 
-Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line. plan.md gets the Coverage section from step 9, between its Milestones and Decisions sections, and every detailed milestone file gets its own Coverage section, directly after its Context and Waves line.
+Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line. plan.md gets the Coverage section from step 9, between its Milestones and Decisions sections, and every detailed milestone file gets its own Coverage section, directly after its Context and Waves line. Every detailed milestone file also gets its Review Focus section from step 6, directly after its Coverage section.
 
 Reply to the user with only:
 
