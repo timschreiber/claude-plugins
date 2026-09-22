@@ -115,12 +115,13 @@ The anchor, identical in every file, is the Rules bullet that begins `- If the S
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
 - Verify: `grep -qF "Run an interface-consistency pass across all tasks of every milestone you detailed" plugins/orchestratinator/skills/plan/SKILL.md`
 - Commit: `feat(orchestratinator): plan checks interface consistency`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

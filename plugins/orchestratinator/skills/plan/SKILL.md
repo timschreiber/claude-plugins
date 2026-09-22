@@ -117,6 +117,8 @@ For every task, apply this test: *could a Sonnet agent that has read only CLAUDE
 
 For every outlined milestone, check that its Goal, Context, and Outline give the planner enough to detail it later without asking what the user meant.
 
+Run an interface-consistency pass across all tasks of every milestone you detailed, including Consumes that cite a task in another milestone: every Interfaces entry is an exact signature or exact name; every Consumes names its source, a task ID or `existing` with a `path:line`; every Consumes that cites a task matches that task's Produces character for character, and that task is in the consuming task's Depends on; and no symbol is produced by two tasks with different signatures. Fix every mismatch.
+
 Then run the validation checklist from the plan format and fix every failure.
 
 ## 9. Size check: do small jobs directly
