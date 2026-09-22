@@ -141,6 +141,7 @@ Do the job directly, instead of writing a plan, when **all** of these hold:
 - The whole job came out at `--direct-max` tasks or fewer (default 5), in a single milestone.
 - `--always-plan` wasn't given, and the user didn't ask for a plan in so many words.
 - Every question from step 5 has been answered. The size check never skips the questions.
+- Every requirement maps to a drafted task (step 9). The size check never skips the coverage check, but a job done directly writes no Coverage anywhere.
 
 To do it directly:
 
@@ -160,7 +161,7 @@ Otherwise, write the plan.
 
 ## 11. Write and hand off
 
-Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line.
+Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line. plan.md gets the Coverage section from step 9, between its Milestones and Decisions sections, and every detailed milestone file gets its own Coverage section, directly after its Context and Waves line.
 
 Reply to the user with only:
 

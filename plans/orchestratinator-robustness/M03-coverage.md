@@ -228,7 +228,7 @@ The README's "What a plan contains" list has a Coverage bullet.
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M03-T02
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
