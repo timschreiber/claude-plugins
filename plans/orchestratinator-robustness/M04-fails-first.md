@@ -159,12 +159,13 @@ Waves: 1 (widths 7)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/worker-heavy.md`
 - Verify: `grep -qF "and confirm it fails, before you write any implementation code." plugins/orchestratinator/agents/worker-heavy.md && grep -qF "or stopping before you ran Verify), report" plugins/orchestratinator/agents/worker-heavy.md && grep -qF "RED: CONFIRMED <first failing line> | PASSED-EARLY | N/A" plugins/orchestratinator/agents/worker-heavy.md && ! grep -qF "the exact question that needs an answer" plugins/orchestratinator/agents/worker-heavy.md`
 - Commit: `feat(orchestratinator): worker-heavy confirms the test fails first`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
