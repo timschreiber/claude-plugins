@@ -150,12 +150,13 @@ The `plan` skill has a new step 9 that builds both coverage levels, directly aft
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`
 - Verify: `grep -qF "## Build the Coverage" plugins/orchestratinator/agents/planner.md && grep -qF "A row you can't map to this milestone's tasks is a GAP" plugins/orchestratinator/agents/planner.md && grep -qF "replace the Outline section with Tasks, add its" plugins/orchestratinator/agents/planner.md && grep -qF "(Decisions, Open questions, Coverage, and this milestone's table row" plugins/orchestratinator/agents/planner.md`
 - Commit: `feat(orchestratinator): planner builds Coverage`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

@@ -52,6 +52,12 @@ Stay inside the milestone's Goal and Outline. If the outline turns out to be wro
 
 Set Depends on for every task, then assign Waves: wave 1 is every task with no unfinished dependency, and each later wave holds tasks whose dependencies are all in earlier waves. Check every pair within a wave against the five interference rules in "Sequence and parallelism", and move one of any interfering pair to a later wave; when in doubt, separate them. If a shared registration point is what forces tasks apart, make the registration its own small task after the others. Record the wave shape in Context: `Waves: <count> (widths ...)`.
 
+## Build the Coverage
+
+If this milestone's file has no `- Format: 2` line when you start, the plan was created under format 1, and plan.md may have no Coverage rows for this milestone, or no `## Coverage` section at all. Add one plan-level row for each source section this milestone implements, mapped to this milestone's ID, in the row format from the plan format's Coverage section. If plan.md has no `## Coverage` section, create it between `## Milestones` and `## Decisions`.
+
+Then build this milestone's `## Coverage` section, directly after Context and its Waves line, from the plan-level rows that point at this milestone: one row per requirement this milestone implements from the source sections those rows name, mapped to the task IDs that implement it. Write a task for any such requirement that no task implements yet. A row you can't map to this milestone's tasks is a GAP: report `BLOCKED` / `GAP` and write the question to Open questions, as in "Find every problem".
+
 ## Self-check
 
 For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, plan.md's Decisions, this milestone's Context, and this task with its Read first list, complete it without asking anything and without making a single choice?* If not, split it or add the specifics. Run an interface-consistency pass across all tasks in this milestone and against the Produces of `done` milestones: every Interfaces entry is an exact signature or exact name; every Consumes names its source, a task ID or `existing` with a `path:line`; every Consumes that cites a task matches that task's Produces character for character, and that task is in the consuming task's Depends on; and no symbol is produced by two tasks, in this milestone or a `done` one, with different signatures. Fix every mismatch in this milestone's tasks. Then run the validation checklist for this milestone and fix every failure.
@@ -60,7 +66,7 @@ For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, 
 
 Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. You never commit, push, or change branches; run commits your work.
 
-Edit only two files: this milestone's file (replace the Outline section with Tasks, update Context if needed, set Status to `ready`, and put `- Format: 2` directly after the Status line, adding it if it's missing, even in a plan created under format 1) and plan.md (Decisions, Open questions, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
+Edit only two files: this milestone's file (replace the Outline section with Tasks, add its `## Coverage` section, update Context if needed, set Status to `ready`, and put `- Format: 2` directly after the Status line, adding it if it's missing, even in a plan created under format 1) and plan.md (Decisions, Open questions, Coverage, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
 
 ## Report
 
