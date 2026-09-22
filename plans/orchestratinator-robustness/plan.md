@@ -18,7 +18,7 @@
 | M01 | Format versioning (spec §13) | done | M01-format-versioning.md |
 | M02 | Change 1: Interfaces per task (spec §3) | done | M02-interfaces.md |
 | M03 | Change 2: Spec coverage check (spec §4) | done | M03-coverage.md |
-| M04 | Change 3: Fails first (spec §5, §12) | outline | M04-fails-first.md |
+| M04 | Change 3: Fails first (spec §5, §12) | ready | M04-fails-first.md |
 | M05 | Change 4: Review Focus (spec §6) | outline | M05-review-focus.md |
 | M06 | Change 5: Milestone quality review (spec §7) | outline | M06-milestone-review.md |
 | M07 | Change 6: Fresh-eyes plan review (spec §8) | outline | M07-plan-review.md |
@@ -69,5 +69,8 @@
 - D26: The planner's reading list ("Before anything else" item 6) also reads the Produces lines of the `done` milestones' tasks that have an Interfaces block, because its self-check checks against them. (source: spec §3, "against the Produces of `done` milestones when detailing later ones"; M02 survey)
 - D27: D04's "each format 2 milestone has its plan-level rows and that they are mapped" is checked as: every format 2 milestone has at least one row in plan.md's `## Coverage` mapped to it, and no row there is unmapped. A row is mapped when its target is one or more task IDs (milestone level), one or more milestone IDs (plan level), or `out of scope (D<nn>)` citing the Decision that says so. The plan-level checklist item carries its own condition, not the per-milestone *(format 2)* mark. (source: D04; spec §4 row format)
 - D28: The planner recognizes a plan created under format 1 by the milestone it is detailing having no `- Format: 2` line when it starts, because `plan` writes that line into every milestone file, outlined ones included. (source: spec §13, "`plan` always writes format 2"; `reference/plan-format.md` ### Format)
+- D29: The four worker agents' Report blocks become spec §12's block verbatim, placeholder text included (`FILES: <comma-separated paths changed or created>`, `NOTE: <one line. For GAP, the exact question.>`). (source: spec §12, "workers reply with exactly"; M04 outline)
+- D30: Spec §5's "GAP handling, with the new block reason `VACUOUS`" is `run`'s Block with GAP handling in full (never retried or escalated, the task blocked, an Open question added tagged with the task ID, then Stop), with `- Blocked: VACUOUS — <worker's NOTE>` in place of `- Blocked: GAP — <question>`; the Open question is `Verify passed before implementation: <worker's NOTE>`. (source: spec §5; spec §17 item 4, "stops the run as `VACUOUS`, rather than being retried")
+- D31: `run` checks RED only for a task with `- Fails first: yes`, before reading STATUS: `RED: PASSED-EARLY` (any STATUS) → `VACUOUS` (D30); `DONE` with the RED line missing or `N/A` → Retry (D20); anything else goes on to STATUS as today, so a `BLOCKED` / `GAP` report with RED `N/A` is still a GAP and is never retried. Workers report `RED: N/A` for `Fails first: no`, for a task with no Fails first line, and when they stop before running Verify. (source: spec §1 ground rule 3 and `run`'s "Never retry or escalate a GAP"; spec §5; M04 Context, format 1 tasks handled as `no`)
 
 ## Open questions
