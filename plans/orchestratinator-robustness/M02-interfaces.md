@@ -1,6 +1,6 @@
 # M02: Change 1: Interfaces per task (spec §3)
 
-- Status: ready
+- Status: in-progress
 - Goal: Every format 2 `change` task carries an Interfaces block that names what it consumes and produces. The plan format defines the block, its rules, and its checklist items. Workers implement Produces exactly and stop with GAP on a Consumes mismatch. `plan` and the planner run an interface-consistency pass. The per-task reviewer checks the code against Produces. The README describes it.
 - Depends on: M01
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
