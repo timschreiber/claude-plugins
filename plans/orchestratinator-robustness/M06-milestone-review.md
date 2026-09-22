@@ -23,7 +23,7 @@ Waves: 1 (widths 5)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/milestone-reviewer.md`
