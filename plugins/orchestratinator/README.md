@@ -104,6 +104,7 @@ The full plan format, including the tier rubric and sizing rules, is in [`refere
 - **Commit per task.** The code and the plan's status update land in one commit.
 - **One retry, one tier up.** A failed verify, failed review, or stuck worker gets a clean start and one retry at the next tier. A second failure stops the run and leaves that task's changes (in the tree or its worktree) for you to inspect. In a parallel wave, the other tasks still finish and integrate first.
 - **GAPs stop, they don't escalate.** When a worker or the planner hits a decision the plan left open, the run stops and quotes the question. A bigger model would just make the decision, which is exactly what the plan exists to prevent.
+- **Project instructions don't govern git.** Whatever CLAUDE.md or AGENTS.md say about committing or pushing, workers never commit, the orchestrator never pushes, and a worker's stray commit is caught and redone properly. Workers read project instructions as files (`omitClaudeMd: true`) instead of receiving them as system instructions.
 
 ## What it does not do
 

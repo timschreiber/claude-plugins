@@ -22,7 +22,7 @@ Options in the arguments:
 
 Read these now, in full, even if you think you remember them:
 
-1. `CLAUDE.md` and `AGENTS.md` at the repository root, plus any in directories the work will touch.
+1. `CLAUDE.md` and `AGENTS.md` at the repository root, plus any in directories the work will touch. If one is a symlink to the other, or they have identical content, read it once.
 2. The plan format: `${CLAUDE_PLUGIN_ROOT}/reference/plan-format.md`. Follow it exactly; run and every agent parse it.
 3. Every source the user named, in full. For a large spec, read all of it: later sections constrain earlier ones.
 
@@ -140,7 +140,7 @@ To do it directly:
 2. Note whether `git status --porcelain` is empty before you change anything. (Check this before asking in item 1, so you can tell the user whether you'll commit.)
 3. Do the tasks you drafted in step 6, in the order from step 7, exactly as drafted. The decisions are already made; don't make new ones. If you hit one you missed, stop and ask the user.
 4. After each task, run its Verify command. For `review` tasks, check the result against the task's Done-when criteria yourself. If a check fails, fix it within the task's Files. If you can't get it passing, stop and report what failed.
-5. Commit only if the working tree was clean in item 2: one commit per task, with the task's Commit message. If the tree already had uncommitted changes, leave your work uncommitted so it doesn't get mixed into someone else's commit, and say so.
+5. Commit only if the working tree was clean in item 2: one commit per task, with the task's Commit message. If the tree already had uncommitted changes, leave your work uncommitted so it doesn't get mixed into someone else's commit, and say so. Never push. Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task.
 6. Don't write a plan directory. Reply with only: what you did (one line per task), the verify results, and the commits you made, or that the changes are uncommitted.
 
 Otherwise, write the plan.

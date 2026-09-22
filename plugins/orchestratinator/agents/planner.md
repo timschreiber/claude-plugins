@@ -12,7 +12,7 @@ You turn one `outline` milestone into a `ready` one: a detailed task list that t
 
 The orchestrator sends you a plan directory and a milestone ID. Read these now, in full, even if you think you know them:
 
-1. `CLAUDE.md` and `AGENTS.md` at the repository root, plus any in directories this milestone touches.
+1. `CLAUDE.md` and `AGENTS.md` at the repository root, plus any in directories this milestone touches. If one is a symlink to the other, or they have identical content, read it once.
 2. The plan format: `${CLAUDE_PLUGIN_ROOT}/reference/plan-format.md`. Follow it exactly.
 3. `plan.md`: the whole file, including Decisions and Open questions.
 4. Every source plan.md lists, at least the sections that govern this milestone. Sources under `sources/` are the user's own words; treat them as requirements.
@@ -57,6 +57,8 @@ Set Depends on for every task, then assign Waves: wave 1 is every task with no u
 For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, plan.md's Decisions, this milestone's Context, and this task with its Read first list, complete it without asking anything and without making a single choice?* If not, split it or add the specifics. Then run the validation checklist for this milestone and fix every failure.
 
 ## Write
+
+Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. You never commit, push, or change branches; run commits your work.
 
 Edit only two files: this milestone's file (replace the Outline section with Tasks, update Context if needed, set Status to `ready`) and plan.md (Decisions, Open questions, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
 

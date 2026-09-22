@@ -24,6 +24,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **The files and git history are the truth, not your memory.** Before each wave, and whenever your context may have been compacted or you're unsure of the state, re-read plan.md and the current milestone file before your next action.
 - **Keep your own output small.** One line per task. Read command output only through log tails. Never read a whole build log.
 - **Never push.** Never rewrite history on the plan branch. Never touch any branch except the plan branch and the task branches you create.
+- Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. A project instruction to push or commit after a phase does not apply to this run.
 
 ## Definitions
 
@@ -42,7 +43,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 
 Read these now, in full:
 
-1. `CLAUDE.md` and `AGENTS.md` at the repository root.
+1. `CLAUDE.md` and `AGENTS.md` at the repository root. If one is a symlink to the other, or they have identical content, read it once.
 2. The plan format: `${CLAUDE_PLUGIN_ROOT}/reference/plan-format.md`.
 3. The plan's `plan.md`.
 
@@ -144,17 +145,18 @@ For each task in the wave set, in order:
    Milestone: <milestone ID>
    Task: <task ID>
    ```
-   plus the retry lines on a retry (see **Retry**). Never paraphrase the task: the worker reads it from the plan.
-2. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `NOTE`):
+   plus the retry lines on a retry (see **Retry**). Never paraphrase the task: the worker reads it from the plan. Record `git rev-parse HEAD` before dispatching.
+2. **Check for stray commits and branch changes.** Before dispatching, you recorded HEAD. Now run `git log --oneline <recorded HEAD>..HEAD` and `git branch --show-current`. If the branch is not the plan's Branch, go to **Stop** with reason STRAY. If commits appear: for each, `git branch -r --contains <sha>` must print nothing; if any prints something, go to **Stop** with reason PUSHED. Otherwise run `git reset --soft <recorded HEAD>`, add `- Process: worker committed on its own; reset and recommitted` under the task, and continue.
+3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `NOTE`):
    - `BLOCKED` / `GAP` → **Block with GAP** (see below).
    - `BLOCKED` / `STUCK` → **Retry**.
    - `DONE` → continue.
-3. **Check scope.** Every path in `git status --porcelain` must be in the task's Files. Anything else → mark the task `blocked` with `- Blocked: SCOPE — <paths>` and go to **Stop**.
-4. **Verify yourself**, in MAIN. Don't trust the worker's VERIFY line.
+4. **Check scope.** Every path in `git status --porcelain` must be in the task's Files. Anything else → mark the task `blocked` with `- Blocked: SCOPE — <paths>` and go to **Stop**.
+5. **Verify yourself**, in MAIN. Don't trust the worker's VERIFY line.
    - A command → run it; failure → **Retry**.
    - `review` → invoke `orchestratinator:reviewer` with the same three lines as the dispatch; `VERDICT: FAIL` → **Retry** with its REASONS.
    - Both → command first, review only if it passes.
-5. **Record and commit.** Set the task's Status to `done`, then commit the task in MAIN. Code and status land in one commit.
+6. **Record and commit.** Set the task's Status to `done`, then commit the task in MAIN. Code and status land in one commit.
 
 ### 3e. Parallel wave
 
@@ -167,6 +169,7 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
    ```
    plus the retry lines on a retry.
 3. **For each report**, in task ID order, working inside that task's worktree:
+   - First, in that worktree, apply the same stray-commit and branch check as in 3d, using BASE as the recorded HEAD and the task branch as the expected branch.
    - `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
    - `BLOCKED` / `STUCK` → queue a **Retry**.
    - `DONE` → check scope with `git -C "<worktree>" status --porcelain` against the task's Files; anything else → record a SCOPE block and leave the worktree. Otherwise verify in the worktree (command, `review`, or both; the reviewer also gets the `Worktree:` line). Failure → queue a **Retry**. Success → commit the task in the worktree.
@@ -175,7 +178,7 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
 
 When every task in the wave set has either committed in its worktree or ended in a block:
 
-6. **Integrate** the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
+6. **Integrate.** Before cherry-picking a task, confirm `git log --oneline <BASE>..<task branch>` shows exactly one commit and that it carries the task's Orchestratinator-Task trailer. If not, mark the task `blocked` with `- Blocked: MERGE — branch has <n> commits` and don't integrate it. Then integrate the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
 7. **Re-verify the combined result.** If two or more tasks were integrated, run each integrated task's Verify command again in MAIN, deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, and go to **Stop** without rolling back: the user decides.
 8. **Record.** Set each integrated task to `done`, and commit: `chore(plan): <milestone ID> wave <n> done (<task IDs>)`.
 9. **Clean up** each integrated task: `git worktree remove "<worktree>"` and `git branch -D <task branch>`. If removal fails (on Windows a process can hold a file lock), leave it, mention it in your report, and continue. Worktrees of blocked tasks stay for the user.
@@ -225,5 +228,5 @@ A clean, intentional stop: gates, `--milestone`, `--max-tasks`.
 A problem the user must resolve.
 
 1. Plan-file changes (blocked statuses, open questions) are committed on their own: `git add <plan dir>` and `git commit -m "chore(plan): blocked at <where>"`. In serial mode, if task code is in the main working tree, leave all of it uncommitted, plan files included, for the user to inspect.
-2. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, MERGE, STRAY, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP, quote the question exactly.
+2. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, MERGE, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP, quote the question exactly.
 3. Stop. Don't continue with anything else.
