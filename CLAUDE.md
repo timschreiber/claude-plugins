@@ -159,6 +159,9 @@ means different things per runner:
 .claude/settings.json             # this repo dogfoods its own marketplace
 plugins/<name>/
   .claude-plugin/plugin.json
+  README.md                       # user-facing: install, usage, limitations.
+                                  # root README.md only lists plugins; link
+                                  # outside the plugin dir with absolute URLs
   scripts/vendor/                 # generated from shared/ -- do not hand-edit
   assets/                         # templates shipped TO consuming repos
 shared/denoizinator-core/         # source of truth for cross-plugin code

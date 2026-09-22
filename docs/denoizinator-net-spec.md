@@ -552,7 +552,7 @@ VSTest correctly without `SuppressTfmSupportBuildErrors`; 17.14.1 fails to
 build outright, and the suppression switch just moves that failure to
 test-execution time instead of fixing it
 (`dotnet-test-runner-findings.md` §13). The supported TFM range is now
-stated in the top-level `README.md`: net8.0/net10.0 fully covered, net6.0
+stated in `plugins/denoizinator-net/README.md`: net8.0/net10.0 fully covered, net6.0
 conditional on the `Test.Sdk` pin, net7.0/net9.0 unverified, Framework 4.x
 measured (Phase 5) but not yet routed into the hook — that gap is Phase 7.
 
