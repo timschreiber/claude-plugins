@@ -22,12 +22,13 @@ Waves: 1 (widths 4)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/reference/plan-format.md`
 - Verify: `grep -qxF "## Review Focus" plugins/orchestratinator/reference/plan-format.md && grep -qxF "### Review Focus" plugins/orchestratinator/reference/plan-format.md && grep -qF "or D<nn>>). Test:" plugins/orchestratinator/reference/plan-format.md && grep -qF "None found: <what was checked>" plugins/orchestratinator/reference/plan-format.md && grep -qF "the planner reports it as a GAP" plugins/orchestratinator/reference/plan-format.md && grep -qF "that is never blank: at most five lines in the Review Focus line format" plugins/orchestratinator/reference/plan-format.md`
 - Commit: `feat(orchestratinator): define Review Focus in the plan format`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

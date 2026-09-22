@@ -114,6 +114,12 @@ Waves: <count> (widths <w1>, <w2>, ...)
 
 - `docs/spec.md` §4.2: <requirement, briefly> → M02-T01, M02-T03
 
+## Review Focus
+
+<Only once the milestone is detailed: up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first, or one `None found:` line.>
+
+- <input or condition> → <expected behavior> (source: <§ or D<nn>>). Test: `<test name>` in <task ID>.
+
 ## Outline
 
 <Only while Status is outline: bullet list of intended scope, for the planner.
@@ -175,6 +181,18 @@ A requirement is any normative statement: must, shall, should, a numbered accept
 Each row is one line: `- <source> <location>: <requirement, briefly> → <task IDs | milestone ID | out of scope (D<nn>)>`. A row is mapped when its target is one or more task IDs (milestone level), one or more milestone IDs (plan level), or `out of scope (D<nn>)` citing the Decision that says so. Any other row is unmapped.
 
 `plan` builds both levels. The planner builds a milestone's Coverage when it details the milestone, from the plan-level rows that point at it. In a plan created under format 1, plan.md may have no rows for that milestone, or no Coverage section at all: the planner adds the plan-level rows for its own milestone, creating the section if needed. So a plan-level row for every section of every source is required only once every milestone in the plan is format 2.
+
+### Review Focus
+
+Specs describe what software must do, not every input it will meet, and silence on an input is not permission for that input to break the program. Every detailed milestone has a `## Review Focus` section, directly after its Coverage section *(format 2)*: up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first. An `outline` milestone has none.
+
+Each item is one line: ``- <input or condition> → <expected behavior> (source: <§ or D<nn>>). Test: `<test name>` in <task ID>.`` The source is the spec section or Decision the expected behavior comes from. The task named is the one that owns the test, and that task's Steps include writing it, so that task adds tests and is `Fails first: yes`.
+
+If nothing qualifies, the section is one line, `None found: <what was checked>`. The section is never blank.
+
+The expected behavior must come from the sources or Decisions. If it doesn't, it's a design decision, not a Review Focus item: `plan` asks the user about it as an ambiguity question, and the planner reports it as a GAP. This is what keeps Review Focus from becoming a back door for decisions.
+
+`plan` builds the Review Focus of every milestone it details, and the planner builds it when it details a milestone, in both cases once the milestone's tasks are drafted and before they are sequenced, so the owning task's test-writing Steps and test file are in place before waves are assigned.
 
 ### Task fields
 
@@ -277,5 +295,6 @@ run refuses to execute a milestone, and plan and planner must not finish one, un
 - [ ] Every task ID in a Coverage row exists. *(format 2)*
 - [ ] Every `change` task has a Fails first line directly after Verify, either `yes` or `no (<reason>)` with a one-line reason, and no `investigate` task has one. *(format 2)*
 - [ ] Every task that adds or changes tests has `Fails first: yes`, with its test-writing Steps first, then the step "Run Verify and confirm it fails", then its implementation Steps; every task whose Verify is `review` alone has `no`. *(format 2)*
+- [ ] A detailed milestone has a `## Review Focus` section, directly after its Coverage section, that is never blank: at most five lines in the Review Focus line format, each citing a source and an existing task whose Steps write the named test, or one `None found:` line saying what was checked. *(format 2)*
 
 Items marked *(format 2)* apply only to format 2 milestones (see [Format](#format)). Format 1 milestones skip them and validate as before.
