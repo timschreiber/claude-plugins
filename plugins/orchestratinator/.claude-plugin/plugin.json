@@ -1,0 +1,13 @@
+{
+  "name": "orchestratinator",
+  "displayName": "Orchestratinator",
+  "description": "Big asks. Small tasks. Right-sized models. Turns any spec or prompt into small, mechanical tasks tagged with the cheapest model and effort that can do each one, then runs them through tiered worker subagents, in parallel wherever it's safe, verifying and committing every task.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator",
+  "repository": "https://github.com/timschreiber/claude-plugins",
+  "license": "Apache-2.0",
+  "keywords": ["planning", "orchestration", "subagents", "parallel", "token-efficiency"]
+}

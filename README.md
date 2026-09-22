@@ -119,6 +119,28 @@ file in `probes/evidence/`; see `docs/dotnet-test-runner-findings.md` and
 
 Found something not listed here? Please open an issue.
 
+## orchestratinator
+
+Big asks. Small tasks. Right-sized models. `orchestratinator` turns a spec or
+a long prompt into small, mechanical tasks, each tagged with the cheapest
+model and effort that can do it, then runs them through tiered worker
+subagents (Haiku up to Opus), in parallel git worktrees where it's safe,
+verifying and committing every task.
+
+```bash
+claude plugin marketplace add timschreiber/claude-plugins
+claude plugin install orchestratinator@timschreiber
+```
+
+```text
+/orchestratinator:plan docs/spec.md phases 3-5
+/orchestratinator:run plans/<slug>
+/orchestratinator:status plans/<slug>
+```
+
+See [plugins/orchestratinator/README.md](plugins/orchestratinator/README.md)
+for how plans, waves, gates, and resuming work.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, the local dev loop,
