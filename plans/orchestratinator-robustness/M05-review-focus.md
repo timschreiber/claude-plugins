@@ -1,6 +1,6 @@
 # M05: Change 4: Review Focus (spec §6)
 
-- Status: ready
+- Status: in-progress
 - Goal: Every detailed format 2 milestone has a `## Review Focus` section listing up to five unexercised inputs or failure modes, each with a sourced expected behavior and an owning test and task, or `None found:` plus what was checked. `plan` and the planner build it under the sourcing rule, which turns an unsourced behavior into a question or a GAP. The README describes it.
 - Depends on: M04
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
