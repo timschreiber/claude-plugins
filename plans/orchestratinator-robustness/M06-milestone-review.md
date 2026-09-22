@@ -263,12 +263,13 @@ ADVISORY: <count>
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`
 - Verify: `grep -qxF "## Fix findings mode" plugins/orchestratinator/agents/planner.md && grep -qF "and writes fix tasks when a milestone review finds blocking problems. Dispatched by" plugins/orchestratinator/agents/planner.md && grep -qF "There is no scout round in this mode" plugins/orchestratinator/agents/planner.md && grep -qF "Give each the line" plugins/orchestratinator/agents/planner.md && grep -qF "In Fix findings mode, edit only what that section allows." plugins/orchestratinator/agents/planner.md`
 - Commit: `feat(orchestratinator): planner writes fix tasks for review findings`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
