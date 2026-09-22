@@ -1,6 +1,6 @@
 # M01: Format versioning (spec §13)
 
-- Status: in-progress
+- Status: done
 - Goal: The plan format defines format 2 milestones (`- Format: 2` directly after Status; no Format line means format 1) and marks where format-2-only checklist items apply; `plan` writes `- Format: 2` in every milestone file, and the planner adds it to every milestone it details.
 - Depends on: none
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
