@@ -194,9 +194,36 @@ When every task in the wave set has either committed in its worktree or ended in
 ### 3f. Finish the milestone
 
 1. Run the Milestone verify command in MAIN, if any. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
-2. Set the milestone to `done` in its file and in the plan.md table. Commit: `chore(plan): complete <ID>`.
-3. If `--milestone` was given, go to **Pause**. If Gates includes `milestone`, go to **Pause**, telling the user to review and rerun.
-4. Otherwise continue with the next milestone.
+2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base**: `git log --format=%H --grep="^chore(plan): start <ID>$"`, taking the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orchestratinator:milestone-reviewer` with exactly:
+   ```
+   Plan: <plan dir>
+   Milestone: <ID>
+   Base: <Base>
+   Output: <plan dir>/notes/<ID>-review.md
+   ```
+   Don't read the report yourself: it's for the planner. If `git status --porcelain` prints nothing, the report is unchanged from an earlier, interrupted attempt: skip the commit. Otherwise check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): review <ID>"`.
+3. If it reports `APPROVED`, or `FINDINGS` with `BLOCKING: 0`, go to item 7. Advisory findings don't hold the milestone up.
+4. **Fix round.** For blocking findings, invoke the agent `orchestratinator:planner` with exactly:
+   ```
+   Plan: <plan dir>
+   Milestone: <ID>
+   Fix findings: <plan dir>/notes/<ID>-review.md
+   ```
+   - `BLOCKED` / `GAP`: handle it as in 3a item 4.
+   - `DONE`: check scope (`git status --porcelain` may show only plan.md and this milestone's file; anything else → **Stop**), then commit: `git add -A` and `git commit -m "chore(plan): fix tasks <ID>"`. Run the validation checklist on the milestone; any failure → mark it `blocked` with the failures and go to **Stop**. Run the fix tasks through the wave loop (**3c**), then go on to item 5. The `detail` gate doesn't pause for fix tasks.
+5. **Re-review.** Run the Milestone verify command in MAIN again, if any, handling a failure as in item 1. Then invoke `orchestratinator:milestone-reviewer` with the same Base and exactly:
+   ```
+   Plan: <plan dir>
+   Milestone: <ID>
+   Base: <Base>
+   Output: <plan dir>/notes/<ID>-review-2.md
+   Re-review: fixes only
+   ```
+   Don't read the report yourself. Skip the commit, or check scope and commit, as in item 2, with `git commit -m "chore(plan): re-review <ID>"`.
+6. If the re-review reports `BLOCKING` above 0, mark the milestone `blocked` and go to **Stop** with reason `REVIEW`. There is only one fix round per milestone.
+7. Set the milestone to `done` in its file and in the plan.md table. Commit: `chore(plan): complete <ID>`.
+8. If `--milestone` was given, go to **Pause**. If Gates includes `milestone`, go to **Pause**, telling the user to review and rerun.
+9. Otherwise continue with the next milestone.
 
 ## 4. Finish the plan
 

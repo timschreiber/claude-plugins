@@ -195,12 +195,13 @@ ADVISORY: <count>
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/run/SKILL.md`
 - Verify: `grep -qF "taking the oldest match (the last line printed)" plugins/orchestratinator/skills/run/SKILL.md && grep -qF "Fix findings: <plan dir>/notes/<ID>-review.md" plugins/orchestratinator/skills/run/SKILL.md && grep -qF "Output: <plan dir>/notes/<ID>-review-2.md" plugins/orchestratinator/skills/run/SKILL.md && grep -qF "has already used its one fix round" plugins/orchestratinator/skills/run/SKILL.md && grep -qF "chore(plan): fix tasks <ID>" plugins/orchestratinator/skills/run/SKILL.md && grep -qF "chore(plan): re-review <ID>" plugins/orchestratinator/skills/run/SKILL.md && grep -qF "9. Otherwise continue with the next milestone." plugins/orchestratinator/skills/run/SKILL.md`
 - Commit: `feat(orchestratinator): run reviews each milestone before marking it done`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
