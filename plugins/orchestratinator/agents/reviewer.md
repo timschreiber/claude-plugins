@@ -28,6 +28,7 @@ Judge only against what the task asks. Not your own preferences, not improvement
 - The Objective is met, and every Step was done as written.
 - Every Done-when criterion holds.
 - Nothing contradicts Decisions, the milestone's Context, or CLAUDE.md / AGENTS.md.
+- For a task with an Interfaces block: the code matches every Produces entry exactly as written (names, parameter and return types, constant values). A task without an Interfaces block (a format 1 task) skips this check.
 - For an `investigate` task: the note answers every question the Steps ask, backs its facts with `path:line` references, and marks what it couldn't confirm. Spot-check at least two references.
 
 A task that does everything asked passes, even if you would have done it differently.

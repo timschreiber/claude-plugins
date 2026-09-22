@@ -186,12 +186,13 @@ The planner reads the Produces lines of the `done` milestones it depends on, and
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/reviewer.md`
 - Verify: `grep -qF "For a task with an Interfaces block: the code matches every Produces entry exactly as written" plugins/orchestratinator/agents/reviewer.md`
 - Commit: `feat(orchestratinator): reviewer checks task Produces`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
