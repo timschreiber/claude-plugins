@@ -169,12 +169,13 @@ The planner builds the detailed milestone's Review Focus once its tasks are draf
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
 - Verify: `grep -qF -e "- **Review Focus.** " plugins/orchestratinator/README.md`
 - Commit: `docs(orchestratinator): describe Review Focus in the README`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
