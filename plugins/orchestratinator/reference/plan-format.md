@@ -129,6 +129,13 @@ Removed when the milestone is detailed.>
 - `docs/spec.md` §4.2 (the requirement this task implements)
 - `path/to/ExistingPattern.java` (pattern to copy)
 
+**Interfaces**
+
+- Consumes: `CandidateSelector.select(PDDocument doc): List<Candidate>` (M01-T03)
+- Consumes: `WcagThresholds.LARGE_TEXT_PT` (existing, `core/.../WcagThresholds.java:14`)
+- Produces: `FigureWithAlternateText implements CandidateSelector`
+- Produces: `static boolean isLargeText(float fontSizePt, boolean bold)`
+
 **Steps**
 
 1. <One concrete action: exact names, signatures, types, values, behavior, error cases.>
@@ -159,6 +166,7 @@ A milestone file whose header has the line `- Format: 2`, directly after its Sta
 | Commit | Conventional-commit message, used verbatim. run adds the trailer `Orchestratinator-Task: <task ID>` to the commit, so progress can be recovered from git history. |
 | Objective | One sentence. |
 | Read first | Everything the worker must read beyond CLAUDE.md / AGENTS.md, plan.md's Decisions, and the milestone's Context: the exact source sections the task implements, patterns to copy, and notes it depends on. Name sections, not whole documents. At most about five entries. |
+| Interfaces | Format 2 milestones only. Required in every `change` task, directly after Read first; `investigate` tasks omit it. One entry per line, `- Consumes: <entry> (<source>)` or `- Produces: <entry>`, with at least one Consumes line and at least one Produces line; `none` is allowed for either (`- Consumes: none`, `- Produces: none`). Each entry is an exact signature or exact name: method signatures with parameter and return types, class and interface names, constants with their values, JSON or file shapes, CLI flags, config keys. Each Consumes names its source: a task ID, or `existing` with a `path:line`, as in the template. A symbol produced by a format 1 task, which has no Produces, is cited as `existing` with a `path:line`. Every Consumes that cites a task matches that task's Produces character for character, and the consuming task lists that task in Depends on, so it runs in a later wave. No symbol is produced by two tasks with different signatures. |
 | Steps | Numbered. Each step is one concrete action. At most about seven steps. |
 | Done when | Observable criteria that Verify or the reviewer can check. |
 
@@ -233,5 +241,9 @@ run refuses to execute a milestone, and plan and planner must not finish one, un
 - [ ] Every dependency of a task is in an earlier wave or an earlier milestone.
 - [ ] No two tasks in the same wave interfere, by the five rules above.
 - [ ] Every investigate task's Files is exactly its own note, `plans/<plan-slug>/notes/<task-id>.md`.
+- [ ] Every `change` task has an Interfaces block directly after Read first, with at least one Consumes line and one Produces line (`none` allowed for either), and no `investigate` task has one. *(format 2)*
+- [ ] Every Interfaces entry is an exact signature or exact name, and every Consumes names its source: a task ID, or `existing` with a `path:line`. *(format 2)*
+- [ ] Every Consumes that cites a task matches that task's Produces character for character, and the consuming task lists that task in Depends on. *(format 2)*
+- [ ] No symbol is produced by two tasks with different signatures. *(format 2)*
 
 Items marked *(format 2)* apply only to format 2 milestones (see [Format](#format)). Format 1 milestones skip them and validate as before.

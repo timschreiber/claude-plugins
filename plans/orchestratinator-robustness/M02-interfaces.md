@@ -21,12 +21,13 @@ Waves: 1 (widths 6)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/reference/plan-format.md`
 - Verify: `grep -qF "static boolean isLargeText(float fontSizePt, boolean bold)" plugins/orchestratinator/reference/plan-format.md && grep -qF "| Interfaces | Format 2 milestones only." plugins/orchestratinator/reference/plan-format.md && grep -qF "No symbol is produced by two tasks with different signatures. *(format 2)*" plugins/orchestratinator/reference/plan-format.md`
 - Commit: `feat(orchestratinator): define task Interfaces in the plan format`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
