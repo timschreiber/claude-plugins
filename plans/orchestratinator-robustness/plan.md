@@ -16,7 +16,7 @@
 | ID | Title | Status | File |
 |---|---|---|---|
 | M01 | Format versioning (spec §13) | done | M01-format-versioning.md |
-| M02 | Change 1: Interfaces per task (spec §3) | outline | M02-interfaces.md |
+| M02 | Change 1: Interfaces per task (spec §3) | ready | M02-interfaces.md |
 | M03 | Change 2: Spec coverage check (spec §4) | outline | M03-coverage.md |
 | M04 | Change 3: Fails first (spec §5, §12) | outline | M04-fails-first.md |
 | M05 | Change 4: Review Focus (spec §6) | outline | M05-review-focus.md |
@@ -65,5 +65,7 @@
 - D22: `run` finds a milestone's review Base with `git log --format=%H --grep="^chore(plan): start <ID>$"`, taking the oldest match. (source: user)
 - D23: When the planner assigns a kind of task one tier higher because of escalations (spec §9), it writes this line in the milestone's Context: `- Tier adjustment: <kind of task> → <tier> (<tier> escalated <n> times in <milestone IDs>)`. (source: user)
 - D24: Beyond spec §14: M10 updates the README's "How to use" item 1 and its "Questions answered first" bullet to the four question categories; M06 and M07 add `milestone-reviewer` and `plan-reviewer`, respectively, to the reader list at the top of `plan-format.md`. (source: user)
+- D25: An Interfaces block always has at least one `- Consumes:` line and at least one `- Produces:` line; an empty side is written `- Consumes: none` or `- Produces: none`. (source: spec §3 rule 5, "`none` is allowed for either line")
+- D26: The planner's reading list ("Before anything else" item 6) also reads the Produces lines of the `done` milestones' tasks that have an Interfaces block, because its self-check checks against them. (source: spec §3, "against the Produces of `done` milestones when detailing later ones"; M02 survey)
 
 ## Open questions
