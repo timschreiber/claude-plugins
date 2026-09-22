@@ -60,7 +60,7 @@ For every task: *could a Sonnet agent that has read only CLAUDE.md / AGENTS.md, 
 
 Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. You never commit, push, or change branches; run commits your work.
 
-Edit only two files: this milestone's file (replace the Outline section with Tasks, update Context if needed, set Status to `ready`) and plan.md (Decisions, Open questions, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
+Edit only two files: this milestone's file (replace the Outline section with Tasks, update Context if needed, set Status to `ready`, and put `- Format: 2` directly after the Status line, adding it if it's missing, even in a plan created under format 1) and plan.md (Decisions, Open questions, and this milestone's table row set to `ready`). On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`. On a SCOUT, edit nothing. Don't commit.
 
 ## Report
 
