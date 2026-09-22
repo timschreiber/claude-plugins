@@ -319,12 +319,13 @@ Waves: 1 (widths 7)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
 - Verify: `grep -qF -e "- **Fails first.** " plugins/orchestratinator/README.md`
 - Commit: `docs(orchestratinator): describe Fails first in the README`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
