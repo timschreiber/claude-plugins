@@ -5,6 +5,7 @@ A plan is a directory. It is the contract between:
 - **plan** (skill), which creates it,
 - **run** (skill), which executes it and records progress in it,
 - **planner** (agent), which details outlined milestones during a run,
+- **milestone-reviewer** (agent), which reviews each finished milestone against it,
 - **workers** and **reviewer** (agents), which read their task from it.
 
 All state lives in these files, never in anyone's context. That is what lets a run survive context compaction, interruption, and multi-day execution: anyone can pick up from the files alone.
@@ -16,7 +17,7 @@ plans/<plan-slug>/
 ├── plan.md                # index: header, settings, milestones, coverage, decisions, open questions
 ├── sources/               # verbatim copies of any input that isn't already a file in the repo
 │   └── prompt.md
-├── notes/                 # investigate-task findings (<task-id>.md) and scout surveys (<milestone-id>-survey*.md)
+├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), and milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md)
 ├── M01-<slug>.md          # one file per milestone
 └── M02-<slug>.md
 ```
@@ -138,6 +139,7 @@ Removed when the milestone is detailed.>
 - Verify: `<targeted, quiet command>`
 - Fails first: yes
 - Commit: `<type>(<scope>): <message>`
+- Origin: review
 
 **Objective**
 
@@ -209,6 +211,7 @@ The expected behavior must come from the sources or Decisions. If it doesn't, it
 | Verify | A command, `review`, or both (`<command>` + review). A command must be runnable from the repo root, targeted, quiet, and must fail when the task isn't done. `review` sends the diff to the reviewer agent to check against Objective, Steps, and Done when. Use `review` alone only when no command can check the result (docs, investigate tasks, config with no test). |
 | Fails first | Format 2 milestones only. Required in every `change` task, directly after Verify; `investigate` tasks omit it. `yes` for any task that adds or changes tests: its Steps put the test-writing steps first, then the step "Run Verify and confirm it fails", then the implementation steps. The worker runs Verify after writing the tests and confirms it fails before writing any implementation code. If Verify passes early, either the test can't fail or the behavior already exists, and both mean the plan is wrong: the worker stops, and run blocks the task as `VACUOUS`. `no` for a task with no test that can fail beforehand (docs, config, pure renames, refactors covered by passing tests), always with a one-line reason: `- Fails first: no (<reason>)`. A task whose Verify is `review` alone is always `no`. A task in a format 1 milestone has no Fails first field and is handled as `no`. |
 | Commit | Conventional-commit message, used verbatim. run adds the trailer `Orchestratinator-Task: <task ID>` to the commit, so progress can be recovered from git history. |
+| Origin | Only on a fix task: every task the planner appends to a milestone after a milestone review finds blocking problems has the line `- Origin: review`, directly after Commit. No other task has an Origin line. A milestone with any `- Origin: review` task has used its one fix round, so run goes straight to the re-review. |
 | Objective | One sentence. |
 | Read first | Everything the worker must read beyond CLAUDE.md / AGENTS.md, plan.md's Decisions, and the milestone's Context: the exact source sections the task implements, patterns to copy, and notes it depends on. Name sections, not whole documents. At most about five entries. |
 | Interfaces | Format 2 milestones only. Required in every `change` task, directly after Read first; `investigate` tasks omit it. One entry per line, `- Consumes: <entry> (<source>)` or `- Produces: <entry>`, with at least one Consumes line and at least one Produces line; `none` is allowed for either (`- Consumes: none`, `- Produces: none`). Each entry is an exact signature or exact name: method signatures with parameter and return types, class and interface names, constants with their values, JSON or file shapes, CLI flags, config keys. Each Consumes names its source: a task ID, or `existing` with a `path:line`, as in the template. A symbol produced by a format 1 task, which has no Produces, is cited as `existing` with a `path:line`. Every Consumes that cites a task matches that task's Produces character for character, and the consuming task lists that task in Depends on, so it runs in a later wave. No symbol is produced by two tasks with different signatures. |
