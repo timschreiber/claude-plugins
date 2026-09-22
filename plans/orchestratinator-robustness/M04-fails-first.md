@@ -1,6 +1,6 @@
 # M04: Change 3: Fails first (spec §5, §12)
 
-- Status: in-progress
+- Status: done
 - Goal: Format 2 tasks carry `- Fails first: yes | no`. Workers write tests first and confirm Verify fails before implementing, and report a RED line in the combined report format. `run` handles `RED: CONFIRMED`, `PASSED-EARLY` (block reason `VACUOUS`), and missing or `N/A` (Retry). The README describes it.
 - Depends on: M03
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
