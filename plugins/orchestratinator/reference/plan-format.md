@@ -90,6 +90,20 @@ Decisions are the only place a design decision may come from besides the sources
 
 Open questions are tagged with the milestone or task they block. `rolling` plans may carry open questions for outlined milestones; `upfront` plans may not have any.
 
+#### Assumptions
+
+**Definition.** An assumption is any choice or conclusion the plan depends on that isn't stated in the sources, a Decision, or CLAUDE.md / AGENTS.md, and isn't a fact read directly from code or docs with a citation. Typical forms:
+
+- a default filled in where the sources are silent (a branch, a location, a name, a threshold, a tag);
+- a convention extrapolated from existing code to new code;
+- an algorithm or format detail the sources don't specify;
+- a factual conclusion drawn from evidence rather than stated anywhere, such as "these fixtures were licensed under X on date Y". The evidence is attached, but the conclusion still needs the user's confirmation;
+- a structural choice not dictated by the sources, such as splitting one source phase into several milestones.
+
+**Not assumptions:** the plugin's own documented defaults for plan settings (Detailing, Gates, Parallel, Max parallel), and facts a scout or Explore reported with a `path:line` or URL citation.
+
+An assumption is asked as a question, like the other three kinds of problem: insufficient information, ambiguity, and contradiction. In Open questions, it is tagged `[assumption]`.
+
 ## Milestone file
 
 ```markdown
