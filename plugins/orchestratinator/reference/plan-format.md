@@ -247,6 +247,7 @@ Every task has a **Wave**. Waves define both the order of execution and which ta
   4. Both depend on the same external state they could change: a database, a port, a service, a shared temp or output path outside the repo.
   5. One task's Verify exercises code the other task changes.
 - When in doubt, put the tasks in different waves. With `Parallel: auto`, same-wave tasks really do run at the same time: a wrongly parallel pair causes merge conflicts or broken builds, while a wrongly serial pair only costs time.
+- Waves still apply to a batch task (`- Batch: yes`). A batch touching many files interferes with more tasks, so check it against every other task in its wave by the five rules above, and move one of any interfering pair to a later wave.
 - Within a wave, task ID order is the execution order for serial runs, and the order in which parallel results are merged.
 - Keep waves as wide as the rules allow. A milestone whose waves are all one task wide is often a sign of tasks that are too big or registration points that should be their own task.
 
@@ -272,8 +273,8 @@ A milestone's Context can hold `- Tier adjustment:` lines, which the planner wri
 A task is correctly sized when:
 
 1. It is one commit.
-2. It touches at most about three production files, plus their tests.
-3. It has at most about seven Steps and five Read first entries.
+2. It touches at most about three production files, plus their tests. A batch task (`- Batch: yes`) may touch about ten files.
+3. It has at most about seven Steps and five Read first entries. A batch task has one Step per file in its Files, each with the literal edit for that file, instead of at most about seven Steps.
 4. It needs **no new reasoning or design decisions**. Steps state names, signatures, types, exact behavior, and error handling. Tests are named, with their cases listed.
 5. Steps contain none of: "decide", "choose", "figure out", "as appropriate", "if needed", "etc.", "and so on", "similar", "per the spec".
 6. Verify fails when the task is incomplete.
@@ -306,5 +307,6 @@ run refuses to execute a milestone, and plan and planner must not finish one, un
 - [ ] Every `change` task has a Fails first line directly after Verify, either `yes` or `no (<reason>)` with a one-line reason, and no `investigate` task has one. *(format 2)*
 - [ ] Every task that adds or changes tests has `Fails first: yes`, with its test-writing Steps first, then the step "Run Verify and confirm it fails", then its implementation Steps; every task whose Verify is `review` alone has `no`. *(format 2)*
 - [ ] A detailed milestone has a `## Review Focus` section, directly after its Coverage section, that is never blank: at most five lines in the Review Focus line format, each citing a source and an existing task whose Steps write the named test, or one `None found:` line saying what was checked. *(format 2)*
+- [ ] Every task with `- Batch: yes` has one Step per file in its Files, each with the literal edit for that file. *(format 2)*
 
 Items marked *(format 2)* apply only to format 2 milestones (see [Format](#format)). Format 1 milestones skip them and validate as before.

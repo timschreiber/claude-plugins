@@ -71,7 +71,7 @@ The plan format's task template shows `- Batch: yes` directly after Tier, its Ta
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M09-T01
 - Files: `plugins/orchestratinator/reference/plan-format.md`
