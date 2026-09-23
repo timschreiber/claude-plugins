@@ -68,18 +68,20 @@ Determine the milestones:
 
 ## 5. Find every problem and ask about it
 
-Before writing any task, audit the sources, CLAUDE.md / AGENTS.md, and the existing code for three kinds of problem:
+Before writing any task, audit the sources, CLAUDE.md / AGENTS.md, and the existing code for four kinds of problem:
 
 - **Insufficient information.** Something the work needs isn't stated anywhere: a name, a type, a value, a behavior, an error case, an acceptance criterion, a dependency, an environment detail.
 - **Ambiguity.** A passage can reasonably be read two or more ways that would produce different code or behavior.
 - **Contradiction.** Two passages conflict: within one source, between sources, or between a source and CLAUDE.md / AGENTS.md or the existing code.
+- **Assumption.** A choice or conclusion the plan depends on that the plan format defines as an assumption, in the Assumptions subsection of its "Decisions and open questions" section. Ask about it instead of filling it in yourself.
 
 Answer what you can from the sources, CLAUDE.md / AGENTS.md, or existing code (send Explore or a scout to find out what the code does rather than asking the user something the code can answer), and record each non-obvious answer under Decisions with its source. Everything else is a question for the user.
 
-**Ask before you write the plan.** Put all your questions in one message, grouped under those three headings and numbered. For each question:
+**Ask before you write the plan.** Put all your questions in one message, grouped under those four headings and numbered. For each question:
 
 - Quote or cite the passage(s) involved, with their location. For a contradiction, quote both sides.
 - For an ambiguity, state each reading.
+- For an assumption, state what you would assume, why the plan needs it, and your recommended value, plus the evidence for a factual conclusion.
 - Give the options you see, and your recommendation if one is clearly better, with a one-line reason.
 
 Then wait. Do not write the plan, or any part of it, until the user answers. If their answers raise new questions, ask again. Record every answer under Decisions with source `user`.
@@ -178,6 +180,8 @@ Output: <plan dir>/notes/<ID>-plan-review.md
 
 Each reviewer writes its issues to its Output file and replies `APPROVED` or `ISSUES`, with a count. For each milestone whose reviewer replied `ISSUES`, read its report and fix every issue it lists yourself, once, under the same rules you wrote the milestone by in steps 6 to 9. An issue whose fix needs a design decision is a question for the user: ask it as in step 5, and record the answer as a Decision before you make the fix. There is no re-review. After this one fix pass, run the validation checklist again on every milestone you changed, and fix every failure. A job done directly (step 10) writes no plan directory, so it gets no plan review.
 
+Before you hand off, check the finished plan (plan.md and every milestone file, detailed or outlined) for assumptions, as the plan format's Assumptions subsection defines them. If you find any, don't hand off yet: ask them as one more round of questions, as in step 5, and record every answer under Decisions with source `user`. Then update every part of the plan an answer changes, under the same rules you wrote it by in steps 6 to 9, run the validation checklist again on every milestone you changed, and fix every failure. Then hand off.
+
 Reply to the user with only:
 
 - The plan directory.
@@ -185,5 +189,5 @@ Reply to the user with only:
 - For each detailed milestone: task count by tier, and its wave shape.
 - Plan review: issues found and issues fixed, as totals across all detailed milestones.
 - Detailing, Gates, Parallel, Max parallel, and Worktree setup, in one line.
-- Any assumption you made that the user didn't state. There should be none; if there are, say so plainly.
+- `Assumptions: none`, on its own line.
 - Next steps: review the plan, commit it, then run `/orchestratinator:run plans/<slug>`. run requires a clean working tree, so the plan must be committed first.

@@ -70,7 +70,7 @@ An assumption is asked as a question, like the other three kinds of problem: ins
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
