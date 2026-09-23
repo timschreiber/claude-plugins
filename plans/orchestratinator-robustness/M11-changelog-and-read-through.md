@@ -379,7 +379,7 @@ Every `change` task in a format 2 milestone states its Fails first line, as the 
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M11-T07
 - Files: `plugins/orchestratinator/skills/run/SKILL.md`

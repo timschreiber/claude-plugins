@@ -253,7 +253,7 @@ When every milestone is `done`:
 
 Each task gets at most one retry, one tier up: `worker-light` → `worker` → `worker-heavy` → `specialist`.
 
-- If the task has already been retried in this run, or its tier is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`. Leave its changes for the user to inspect (the working tree in serial mode, its worktree in parallel mode). In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (step 6 onward), then **Stop**.
+- If the task has already been retried in this run, or its tier is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`. Leave its changes for the user to inspect (the working tree in serial mode, its worktree in parallel mode). In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
 - Otherwise, discard the attempt: in serial mode, `git reset --hard HEAD` and `git clean -fd` in MAIN (the tree was clean when the task began); in parallel mode, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, and dispatch again to the next tier with these lines appended:
   ```
   Retry: previous attempt by <tier> failed. You are starting from a clean state.
@@ -264,7 +264,7 @@ Each task gets at most one retry, one tier up: `worker-light` → `worker` → `
 
 ## Block with GAP
 
-The plan left a decision open. **Never retry or escalate a GAP**: a higher tier would just make the decision. Mark the task `blocked` with `- Blocked: GAP — <question>`, and add the question to plan.md's Open questions tagged with the task ID. In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (step 6 onward), then **Stop**.
+The plan left a decision open. **Never retry or escalate a GAP**: a higher tier would just make the decision. Mark the task `blocked` with `- Blocked: GAP — <question>`, and add the question to plan.md's Open questions tagged with the task ID. In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
 
 A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same handling, with block reason `VACUOUS` instead of `GAP`: the test passed before any implementation existed, so either it can't fail or the behavior already exists, and both mean the plan is wrong. Never retry or escalate it. Mark the task `blocked` with `- Blocked: VACUOUS — <worker's NOTE>`, add `Verify passed before implementation: <worker's NOTE>` to plan.md's Open questions tagged with the task ID, and stop exactly as for a GAP.
 
