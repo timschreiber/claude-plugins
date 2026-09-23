@@ -244,7 +244,7 @@ The plan-review report is committed here too, with no commit of its own.
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`
