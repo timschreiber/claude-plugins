@@ -1,6 +1,6 @@
 # M08: Change 7: Tier calibration (spec §9)
 
-- Status: in-progress
+- Status: done
 - Goal: The tier rubric restricts `worker-light` to tasks whose Steps contain the literal final content, with the turn-count rationale under the rubric. The planner raises a kind of task one tier after repeated escalations, and records that in Context.
 - Depends on: M07
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
