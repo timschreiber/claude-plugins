@@ -110,9 +110,25 @@ If Status is `outline`:
    ```
 3. If it reports `SCOUT`, and this milestone hasn't had a follow-up scout round yet in this run: invoke `orchestratinator:scout` (or `scout-heavy`, if the planner asked for it) with the planner's QUESTIONS as a numbered brief, followed by the line `Output: <plan dir>/notes/<ID>-survey-2.md`. Then invoke the planner again, exactly as in item 2. If it reports `SCOUT` a second time, invoke it once more with the extra line `No more scout rounds: read what you still need yourself.`
 4. If it reports `BLOCKED` / `GAP`: it has written its questions (insufficient information, ambiguity, or contradiction) to plan.md's Open questions. Set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.
-5. If it reports `DONE`: run the validation checklist on the milestone. Any failure → mark it `blocked` with the failures and go to **Stop**.
-6. Check scope: `git status --porcelain` may show only plan.md, this milestone's file, and this milestone's survey notes. Anything else → **Stop**.
-7. Commit: `git add -A` and `git commit -m "chore(plan): detail <ID>"`. Survey notes stay in the plan as a record of what the planner worked from.
+5. If it reports `DONE`: **Plan review.** Invoke the agent `orchestratinator:plan-reviewer` with exactly:
+   ```
+   Plan: <plan dir>
+   Milestone: <ID>
+   Output: <plan dir>/notes/<ID>-plan-review.md
+   ```
+   Don't read the report yourself: it's for the planner. If it reports `ISSUES`, invoke the agent `orchestratinator:planner` once more, with exactly:
+   ```
+   Plan: <plan dir>
+   Milestone: <ID>
+   Plan review: <plan dir>/notes/<ID>-plan-review.md
+   ```
+   There is one fix pass and no second review.
+   - `BLOCKED` / `GAP`: discard the detailed milestone file, restoring its committed outline: `git checkout -- "<milestone file path>"`. Then handle it as in item 4. The plan-review report stays, and the Stop commits it.
+   - `DONE`: go on.
+
+   Once the plan review reports `APPROVED`, or the fix pass reports `DONE`, run the validation checklist on the milestone. Any failure → mark it `blocked` with the failures and go to **Stop**.
+6. Check scope: `git status --porcelain` may show only plan.md, this milestone's file, this milestone's survey notes, and its plan-review report, `notes/<ID>-plan-review.md`. Anything else → **Stop**.
+7. Commit: `git add -A` and `git commit -m "chore(plan): detail <ID>"`. Survey notes stay in the plan as a record of what the planner worked from. The plan-review report is committed here too, with no commit of its own.
 8. If Gates includes `detail`: go to **Pause**, telling the user to review the milestone file and rerun.
 
 ### 3b. Validate and start

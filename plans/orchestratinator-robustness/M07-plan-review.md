@@ -182,7 +182,7 @@ Each reviewer writes its issues to its Output file and replies `APPROVED` or `IS
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/run/SKILL.md`
