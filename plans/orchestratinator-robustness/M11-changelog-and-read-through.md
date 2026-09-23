@@ -191,7 +191,7 @@ The repo-root `CHANGELOG.md` has the D13 bullet as the last bullet under `## [Un
 
 - Kind: investigate
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orchestratinator-robustness/notes/M11-T04.md`
