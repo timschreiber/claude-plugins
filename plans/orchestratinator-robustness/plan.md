@@ -25,7 +25,7 @@
 | M08 | Change 7: Tier calibration (spec §9) | done | M08-tier-calibration.md |
 | M09 | Change 8: Batching (spec §10) | done | M09-batching.md |
 | M10 | Change 9: Assumptions are questions (spec §11) | done | M10-assumptions.md |
-| M11 | CHANGELOG and read-through (spec §14, §16) | ready | M11-changelog-and-read-through.md |
+| M11 | CHANGELOG and read-through (spec §14, §16) | in-progress | M11-changelog-and-read-through.md |
 
 ## Decisions
 
