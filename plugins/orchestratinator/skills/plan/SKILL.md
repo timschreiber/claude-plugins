@@ -167,11 +167,22 @@ Otherwise, write the plan.
 
 Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line. plan.md gets the Coverage section from step 9, between its Milestones and Decisions sections, and every detailed milestone file gets its own Coverage section, directly after its Context and Waves line. Every detailed milestone file also gets its Review Focus section from step 6, directly after its Coverage section.
 
+Then have every detailed milestone reviewed with fresh eyes. Invoke the agent `orchestratinator:plan-reviewer` once for each detailed milestone, all in one message so they run at the same time, each with exactly:
+
+```
+Plan: <plan dir>
+Milestone: <ID>
+Output: <plan dir>/notes/<ID>-plan-review.md
+```
+
+Each reviewer writes its issues to its Output file and replies `APPROVED` or `ISSUES`, with a count. For each milestone whose reviewer replied `ISSUES`, read its report and fix every issue it lists yourself, once, under the same rules you wrote the milestone by in steps 6 to 9. An issue whose fix needs a design decision is a question for the user: ask it as in step 5, and record the answer as a Decision before you make the fix. There is no re-review. After this one fix pass, run the validation checklist again on every milestone you changed, and fix every failure. A job done directly (step 10) writes no plan directory, so it gets no plan review.
+
 Reply to the user with only:
 
 - The plan directory.
 - Milestones: count, and how many are detailed vs outlined.
 - For each detailed milestone: task count by tier, and its wave shape.
+- Plan review: issues found and issues fixed, as totals across all detailed milestones.
 - Detailing, Gates, Parallel, Max parallel, and Worktree setup, in one line.
 - Any assumption you made that the user didn't state. There should be none; if there are, say so plainly.
 - Next steps: review the plan, commit it, then run `/orchestratinator:run plans/<slug>`. run requires a clean working tree, so the plan must be committed first.
