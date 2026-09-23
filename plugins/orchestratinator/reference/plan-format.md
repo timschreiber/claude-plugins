@@ -254,12 +254,16 @@ The milestone's Context records its wave shape on one line, for example `Waves: 
 
 | Tier | Model / effort | Use for |
 |---|---|---|
-| `worker-light` | Haiku | No logic: renames, constants, config edits, doc comments, boilerplate copied from a named file. |
+| `worker-light` | Haiku | Only tasks whose Steps contain the **literal final content** to write: complete lines of code or config, exact file text. The work is transcription plus verification. If any step requires composing code from a prose description, the floor is `worker`. |
 | `worker` | Sonnet / medium | **The default.** Fully specified work: names, signatures, behavior, and test cases all given in Steps. Most investigate tasks. |
 | `worker-heavy` | Sonnet / high | Fully specified but intricate: numeric or geometric code, parsers, state machines, concurrency, many edge cases. |
 | `specialist` | Opus / high | No design decisions, but the implementation needs judgment the plan can't pin down: unfamiliar library internals, debugging a known failure, poorly documented APIs. |
 
+The cheapest models often take two to three times as many turns on multi-step work described in prose, which can cost more overall.
+
 If more than about one task in ten is `specialist`, the milestone is under-specified: split or specify those tasks instead.
+
+A milestone's Context can hold `- Tier adjustment:` lines, which the planner writes when the same tier escalated two or more times on the same kind of task in `done` milestones. Tasks of that kind in that milestone take the tier the line names, one tier above the one that escalated.
 
 ## Sizing rules
 

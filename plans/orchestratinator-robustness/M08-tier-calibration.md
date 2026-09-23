@@ -24,12 +24,13 @@ Waves: 1 (widths 3)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/reference/plan-format.md`
 - Verify: `grep -qF "| Haiku | Only tasks whose Steps contain the **literal final content** to write: complete lines of code or config, exact file text. The work is transcription plus verification." plugins/orchestratinator/reference/plan-format.md && grep -qxF "The cheapest models often take two to three times as many turns on multi-step work described in prose, which can cost more overall." plugins/orchestratinator/reference/plan-format.md && grep -qF "Tasks of that kind in that milestone take the tier the line names, one tier above the one that escalated." plugins/orchestratinator/reference/plan-format.md && ! grep -qF "boilerplate copied from a named file" plugins/orchestratinator/reference/plan-format.md`
 - Commit: `feat(orchestratinator): narrow worker-light in the tier rubric`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
