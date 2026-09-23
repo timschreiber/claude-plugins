@@ -22,7 +22,7 @@
 | M05 | Change 4: Review Focus (spec §6) | done | M05-review-focus.md |
 | M06 | Change 5: Milestone quality review (spec §7) | done | M06-milestone-review.md |
 | M07 | Change 6: Fresh-eyes plan review (spec §8) | done | M07-plan-review.md |
-| M08 | Change 7: Tier calibration (spec §9) | outline | M08-tier-calibration.md |
+| M08 | Change 7: Tier calibration (spec §9) | ready | M08-tier-calibration.md |
 | M09 | Change 8: Batching (spec §10) | outline | M09-batching.md |
 | M10 | Change 9: Assumptions are questions (spec §11) | outline | M10-assumptions.md |
 | M11 | CHANGELOG and read-through (spec §14, §16) | outline | M11-changelog-and-read-through.md |
@@ -83,6 +83,10 @@
 - D40: `run` commits the plan-review report together with the detailed milestone, in the existing `chore(plan): detail <ID>` commit: 3a's scope check allows `notes/<ID>-plan-review.md`, and the report gets no commit of its own. (source: M07 outline, "The 3a scope check also allows that notes file")
 - D41: In `plan`, an issue whose fix needs a design decision is asked as in step 5 and the answer is recorded as a Decision before the fix. After its one fix pass, `plan` runs the validation checklist again on every milestone it changed. The handoff line gives totals across all detailed milestones: issues found and issues fixed. (source: `skills/plan/SKILL.md` step 5, "Never resolve a contradiction or an ambiguity yourself"; plan-format validation checklist, "plan and planner must not finish one unless all of these hold"; spec §8, "Mention in the handoff how many issues were found and fixed")
 - D42: In run 3a, if the planner's plan-review fix pass reports BLOCKED / GAP, run discards the uncommitted detailed milestone file (restoring the committed outline) and handles the GAP as usual. To resume, the user answers the question as a Decision, sets the milestone back to outline, and reruns; the planner details it again and a fresh plan review follows. The README's resume steps are unchanged. (source: user, answering the M07 open question)
+- D43: The planner reads the `- Escalated:` lines in every `done` milestone of the plan, not only the ones the milestone it details depends on. A new item 8 in its "Before anything else" list says so; item 6 is unchanged. (source: spec §9, "read the `- Escalated:` lines in `done` milestones", unqualified; D23's `<milestone IDs>`; M08 survey Conflicts)
+- D44: Escalation feedback details (source: spec §9 and §14, which add no field for it; D06; `skills/run/SKILL.md` retry ladder): "kind of task" is the planner's judgment from each escalated task's title, Objective, and escalation reason, and the plan format gains no field for it. A raise is to the next tier after the one that escalated (the Escalated line's `<from>`), on run's ladder `worker-light` → `worker` → `worker-heavy` → `specialist`. It applies when the planner details a milestone, not in Fix findings mode. A task raised to `worker-heavy` or `specialist` this way gives the adjustment as its Why this tier line.
+- D45: `reference/plan-format.md`'s Tier rubric gets spec §9's rationale sentence directly under its table, before the existing `specialist` note, and after that note a one-line note that a `- Tier adjustment:` line in a milestone's Context raises that kind of task one tier for that milestone, so `plan-reviewer`'s tier-fit check (which reads "the notes under its table") and the planner's Plan review mode accept raised tiers instead of reverting them. (source: spec §1 ground rule 1; D01; `agents/plan-reviewer.md` check 8)
+- D46: The rubric's `worker-light` row is replaced whole by spec §9's first bullet, which drops "boilerplate copied from a named file". `agents/worker-light.md`'s frontmatter description listed that use, contradicting the new rubric, so it is reworded to match. The README cast row `No-logic edits.` doesn't contradict the rubric and stays. (source: spec §9; M08 Context)
 
 ## Open questions
 
