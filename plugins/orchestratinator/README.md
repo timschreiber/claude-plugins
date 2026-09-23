@@ -66,6 +66,7 @@ For unattended or non-interactive runs, `--yes` gives approval in advance.
 | `scout` | Sonnet / medium | Read-only: exact signatures, behavior, and test layout with `path:line`; milestone surveys; library docs. |
 | `scout-heavy` | Sonnet / high | Read-only: traces logic across many files (control flow, state, concurrency). |
 | `reviewer` | Sonnet / high | Read-only check for tasks no command can verify. |
+| `plan-reviewer` | Sonnet / high | Read-only except its report: checks each newly detailed milestone against the plan format before it runs, for `plan` and `run`. |
 | `milestone-reviewer` | Opus / high | Read-only except its report: reviews each finished milestone's whole diff before the milestone is marked done. |
 | `worker-light` | Haiku | No-logic edits. |
 | `worker` | Sonnet / medium | The default: fully specified work. |
