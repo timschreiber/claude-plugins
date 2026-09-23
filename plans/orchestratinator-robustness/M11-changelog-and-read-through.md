@@ -42,7 +42,7 @@ Waves: 2 (widths 6, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `CHANGELOG.md`
