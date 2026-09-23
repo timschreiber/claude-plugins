@@ -9,7 +9,7 @@
 - Parallel: auto
 - Max parallel: 3
 - Worktree setup: none
-- Status: in-progress
+- Status: blocked
 
 ## Milestones
 
@@ -21,7 +21,7 @@
 | M04 | Change 3: Fails first (spec §5, §12) | done | M04-fails-first.md |
 | M05 | Change 4: Review Focus (spec §6) | done | M05-review-focus.md |
 | M06 | Change 5: Milestone quality review (spec §7) | done | M06-milestone-review.md |
-| M07 | Change 6: Fresh-eyes plan review (spec §8) | outline | M07-plan-review.md |
+| M07 | Change 6: Fresh-eyes plan review (spec §8) | blocked | M07-plan-review.md |
 | M08 | Change 7: Tier calibration (spec §9) | outline | M08-tier-calibration.md |
 | M09 | Change 8: Batching (spec §10) | outline | M09-batching.md |
 | M10 | Change 9: Assumptions are questions (spec §11) | outline | M10-assumptions.md |
@@ -79,5 +79,12 @@
 - D36: A re-review that still has blocking findings marks the milestone `blocked` before the `REVIEW` stop, as a Milestone verify failure in 3f item 1 does. The README's resume step 3 names `outline` only for a GAP the planner hit while detailing a milestone; a milestone blocked in 3f (including a fix-mode GAP) goes back to `ready`, so the next run re-enters 3f, and D10a sends it to the re-review once the fix round is used. (source: `skills/run/SKILL.md` 3f item 1 and 3a item 4; D01; D22's oldest match covers the repeated start commit)
 - D37: The milestone-reviewer sees test output for spec §7 check 5 ("test output should be free of warnings") by running each distinct Verify command of the milestone's tasks that runs tests, once, from the repository root. Running a command is not an edit, so it stays read-only except its Output file. (source: spec §7 check 5)
 - D38: The milestone-reviewer carries spec §10's reviewer rule: for a task with `- Batch: yes`, every file in its Files has its edit, and a listed file with no change is a blocking finding. M06's outline puts it there and M09's outline updates only `agents/reviewer.md`; until M09 defines the field, no task has the line. (source: M06 outline; spec §10 "Reviewers")
+- D39: In `Plan review: <path>` mode the planner fixes every issue listed under the report's `## Issues`, under all the usual rules (tasks are prompts, sizing, tier rubric, sequencing, self-check, validation). The milestone is still being detailed and is uncommitted, so it edits the same files detailing allows: the milestone file, and plan.md's Decisions, Open questions, Coverage, and this milestone's table row. It never reports `SCOUT`, and reads any code it needs itself. It reports as usual, with TASKS and WAVES counting the whole milestone. (source: spec §8, "the planner fixes the issues and reports as usual", with no scout round in its `run` steps, as D34 reads §7; M07 outline, "under the usual rules and report as usual")
+- D40: `run` commits the plan-review report together with the detailed milestone, in the existing `chore(plan): detail <ID>` commit: 3a's scope check allows `notes/<ID>-plan-review.md`, and the report gets no commit of its own. (source: M07 outline, "The 3a scope check also allows that notes file")
+- D41: In `plan`, an issue whose fix needs a design decision is asked as in step 5 and the answer is recorded as a Decision before the fix. After its one fix pass, `plan` runs the validation checklist again on every milestone it changed. The handoff line gives totals across all detailed milestones: issues found and issues fixed. (source: `skills/plan/SKILL.md` step 5, "Never resolve a contradiction or an ambiguity yourself"; plan-format validation checklist, "plan and planner must not finish one unless all of these hold"; spec §8, "Mention in the handoff how many issues were found and fixed")
 
 ## Open questions
+
+- (M07) [insufficient] In `run` 3a, when the planner's plan-review fix pass (`Plan review: <path>`) reports `BLOCKED` / `GAP` because a fix needs a design decision, what happens to the milestone file its first pass already detailed (uncommitted, Status `ready`), and how does the user resume?
+  Where: spec §8 ("the planner fixes the issues and reports as usual"); `plugins/orchestratinator/agents/planner.md` `## Write` ("On a GAP, edit only plan.md's Decisions and Open questions and leave the milestone as `outline`", which can't hold once the first pass has detailed the file); `plugins/orchestratinator/skills/run/SKILL.md` 3a item 4 and **Stop** item 1 (`git add <plan dir>` would commit the detailed file as `blocked`); `plugins/orchestratinator/README.md` "Resuming after a stop" step 3 ("or `outline` for a GAP the planner hit while detailing a milestone"); D36.
+  Options: (a) `run` restores the milestone file to its committed outline (`git checkout -- <milestone file>`), then handles the GAP as in 3a item 4; the user answers and sets the milestone back to `outline`, as README step 3 already says, and the planner details it again, followed by a fresh plan review. (b) `run` handles it as in 3a item 4 and **Stop** commits the detailed milestone as `blocked`; the user applies the answer to the tasks by hand and sets the milestone to `ready`, so it runs without a second plan review, and README step 3 gains that case. Recommended: (a), because the resume path and the README stay as they are, and the tasks are re-detailed from the answer and reviewed again instead of hand-edited and unreviewed.

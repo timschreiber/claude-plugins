@@ -1,6 +1,6 @@
 # M07: Change 6: Fresh-eyes plan review (spec §8)
 
-- Status: outline
+- Status: blocked
 - Goal: A new `plan-reviewer` agent checks detailed milestones against the plan format. `plan` dispatches it once per detailed milestone after writing the plan directory, fixes each issue once, and reports the count in the handoff. `run` 3a dispatches it after the planner reports DONE, with one planner fix pass. The README cast table and plan-format reader list include it.
 - Depends on: M06
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
