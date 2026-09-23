@@ -271,12 +271,13 @@ grep -rnoE '`- [A-Z][A-Za-z ]+:' plugins/orchestratinator
 
 - Kind: investigate
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orchestratinator-robustness/notes/M11-T06.md`
 - Verify: `test -s plans/orchestratinator-robustness/notes/M11-T06.md && grep -qx "## Change 0" plans/orchestratinator-robustness/notes/M11-T06.md && grep -qx "## Frontmatter" plans/orchestratinator-robustness/notes/M11-T06.md && grep -qx "## Problems" plans/orchestratinator-robustness/notes/M11-T06.md` + review
 - Commit: `chore(plan): M11 check of Change 0 and frontmatter quoting`
+- Escalated: worker → worker-heavy (review FAIL: note cited wrong line numbers for the Change 0 paragraph in three agents)
 
 **Objective**
 
