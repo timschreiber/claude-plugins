@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: "Reviews one detailed Orchestratinator milestone with fresh eyes before any of it runs, checking its tasks against the plan format: banned phrases and placeholders, choices left to the worker, Coverage, Interfaces, wave interference, Verify commands, Fails first, tier fit, and Read first. Read-only except its report file. Dispatched by /orchestratinator:plan and /orchestratinator:run."
+description: "Reviews one detailed Orchestratinator milestone with fresh eyes before any of it runs, checking its tasks against the plan format: banned phrases and placeholders, choices left to the worker, Coverage, Interfaces, wave interference, Verify commands, Fails first, tier fit, unsourced assumptions, and Read first. Read-only except its report file. Dispatched by /orchestratinator:plan and /orchestratinator:run."
 model: sonnet
 effort: high
 maxTurns: 40
@@ -44,11 +44,12 @@ A milestone file without a `- Format: 2` line is format 1: it has no Coverage se
 6. **Verify.** Every Verify command runs from the repository root, is targeted at what its task changes, is quiet, and would fail if the task were not done. A command that already passes on the code as it is, or that checks nothing the task changes, is an issue. `review` alone is used only where no command could check the result.
 7. **Fails first.** Every `change` task has a Fails first line directly after Verify, and no `investigate` task has one. Every task that adds or changes tests is `yes`, with its test-writing Steps first, then the step "Run Verify and confirm it fails", then its implementation Steps. Every `no` gives a one-line reason, and the task really has no test that could fail beforehand. A task whose Verify is `review` alone is `no`.
 8. **Tier fit.** Each task's Tier fits the tier rubric in the plan format, including the notes under its table: fully specified work is `worker`, and any other tier matches what the rubric says that tier is for. Every `worker-heavy` and `specialist` task has a Why this tier line that fits the rubric, and no more than about one task in ten is `specialist`.
-9. **Read first.** Every entry names a section, a Decision, a note, or a pattern file to copy, not a whole document, and a task has at most about five entries. A spec or other long document named without a section is an issue.
+9. **Unsourced assumptions.** Any value or choice in a task that no source, Decision, or cited fact supports is an issue; report each one found as its own issue. What is and isn't an assumption is defined in the Assumptions subsection of the plan format's "Decisions and open questions" section.
+10. **Read first.** Every entry names a section, a Decision, a note, or a pattern file to copy, not a whole document, and a task has at most about five entries. A spec or other long document named without a section is an issue.
 
 ## Calibration
 
-Approve unless there are real gaps. An issue is something that would leave a worker asking or choosing, let a task pass Verify without its work being done, make two tasks collide, or break a rule of the plan format. Style preferences, and wording you would have written differently, are not issues. Judge against the plan format, the sources, and the Decisions, not against how you would have planned the milestone.
+Approve unless there are real gaps. An issue is something that would leave a worker asking or choosing, let a task pass Verify without its work being done, make two tasks collide, rest on an unsourced assumption, or break a rule of the plan format. Style preferences, and wording you would have written differently, are not issues. Judge against the plan format, the sources, and the Decisions, not against how you would have planned the milestone.
 
 ## Report
 
