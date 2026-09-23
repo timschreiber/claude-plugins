@@ -158,7 +158,7 @@ Step 6 of the `plan` skill tells it to prefer one batch task over several tiny s
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`
