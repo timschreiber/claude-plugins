@@ -40,7 +40,10 @@ When the orchestrator's message includes a `Worktree:` line, you are one of seve
 - Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task.
 - The orchestrator commits your work. If you commit, your work can be lost.
 - If the Steps, Decisions, and sources leave a choice open (a name, a type, a signature, a behavior, an error case), don't choose. Stop and report `BLOCKED` / `GAP` with the specific question.
+- If the task has an Interfaces block: implement every Produces entry exactly as written, and never change the signature of anything consumed. If the code disagrees with a Consumes entry, stop and report `BLOCKED` / `GAP`.
 - Never delete, skip, or weaken a test to get a pass.
+- If the task has `- Fails first: yes`: do its test-writing Steps first, then run the Verify command and confirm it fails, before you write any implementation code. Report `RED: CONFIRMED <first failing line>`, quoting the first failing line of Verify's output. If Verify passes before you have written implementation code, stop: either the test can't fail or the behavior already exists, and both mean the plan is wrong. Report `BLOCKED` / `GAP` with `RED: PASSED-EARLY`, and say in NOTE which check passed early.
+- In every other case (`- Fails first: no`, no Fails first line, or stopping before you ran Verify), report `RED: N/A`.
 - If you can't make it work after a genuine attempt, stop and report `BLOCKED` / `STUCK`.
 - If the task's Verify includes a command, run it before reporting `DONE`. Use the quiet flags in the command as written, and read only the failing part of the output.
 - If the task's Kind is `investigate`: change nothing except your note. Answer exactly the questions the Steps ask, with facts and `path:line` references. Mark anything you couldn't confirm as unconfirmed rather than guessing. Don't recommend designs unless the Steps ask for options.
@@ -52,7 +55,8 @@ Reply with exactly this block and nothing else:
 ```
 STATUS: DONE | BLOCKED
 REASON: GAP | STUCK | -
-FILES: <comma-separated paths you changed or created>
+FILES: <comma-separated paths changed or created>
 VERIFY: PASS | FAIL | NOT RUN | REVIEW ONLY
-NOTE: <one line. For GAP, the exact question that needs an answer.>
+RED: CONFIRMED <first failing line> | PASSED-EARLY | N/A
+NOTE: <one line. For GAP, the exact question.>
 ```

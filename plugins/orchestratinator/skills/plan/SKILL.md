@@ -10,13 +10,13 @@ model: opus
 
 Arguments: `$ARGUMENTS`. These name the sources (file paths, sections, or instructions) and optionally the plan directory. The request may also be the conversation itself: a long prompt the user pasted or built up in chat.
 
-You write a plan. You do **not** implement anything and you do not commit, with one exception: a job small enough that delegating it would cost more than doing it, which you do yourself (step 9).
+You write a plan. You do **not** implement anything and you do not commit, with one exception: a job small enough that delegating it would cost more than doing it, which you do yourself (step 10).
 
 Options in the arguments:
 
 - `--direct-max <N>`: the largest job, in tasks, that you do directly instead of planning. Default 5.
 - `--always-plan`: always write a plan, however small the job.
-- `--yes`: approval given in advance for doing a small job directly (step 9). Without it, you always ask first.
+- `--yes`: approval given in advance for doing a small job directly (step 10). Without it, you always ask first.
 
 ## 1. Re-read the ground truth
 
@@ -47,7 +47,7 @@ Anything the plan depends on that isn't already a file in the repository must be
 - Save inline input from the conversation verbatim to `plans/<slug>/sources/prompt.md`. Verbatim means the user's words, not your summary. If the substance is spread across several messages, save each in order under a heading.
 - List every source, in the repo or under `sources/`, in plan.md's Sources line.
 
-Write these files when you write the plan directory in step 10. If the job turns out small enough to do directly (step 9), there is no plan directory and nothing to save.
+Write these files when you write the plan directory in step 11. If the job turns out small enough to do directly (step 10), there is no plan directory and nothing to save.
 
 ## 3. Find the structure
 
@@ -68,18 +68,20 @@ Determine the milestones:
 
 ## 5. Find every problem and ask about it
 
-Before writing any task, audit the sources, CLAUDE.md / AGENTS.md, and the existing code for three kinds of problem:
+Before writing any task, audit the sources, CLAUDE.md / AGENTS.md, and the existing code for four kinds of problem:
 
 - **Insufficient information.** Something the work needs isn't stated anywhere: a name, a type, a value, a behavior, an error case, an acceptance criterion, a dependency, an environment detail.
 - **Ambiguity.** A passage can reasonably be read two or more ways that would produce different code or behavior.
 - **Contradiction.** Two passages conflict: within one source, between sources, or between a source and CLAUDE.md / AGENTS.md or the existing code.
+- **Assumption.** A choice or conclusion the plan depends on that the plan format defines as an assumption, in the Assumptions subsection of its "Decisions and open questions" section. Ask about it instead of filling it in yourself.
 
 Answer what you can from the sources, CLAUDE.md / AGENTS.md, or existing code (send Explore or a scout to find out what the code does rather than asking the user something the code can answer), and record each non-obvious answer under Decisions with its source. Everything else is a question for the user.
 
-**Ask before you write the plan.** Put all your questions in one message, grouped under those three headings and numbered. For each question:
+**Ask before you write the plan.** Put all your questions in one message, grouped under those four headings and numbered. For each question:
 
 - Quote or cite the passage(s) involved, with their location. For a contradiction, quote both sides.
 - For an ambiguity, state each reading.
+- For an assumption, state what you would assume, why the plan needs it, and your recommended value, plus the evidence for a factual conclusion.
 - Give the options you see, and your recommendation if one is clearly better, with a one-line reason.
 
 Then wait. Do not write the plan, or any part of it, until the user answers. If their answers raise new questions, ask again. Record every answer under Decisions with source `user`.
@@ -97,9 +99,16 @@ For each milestone you detail, write a task list in which **every task is small,
 - Translate the sources into concrete steps. Don't forward prose for the worker to interpret.
 - Write down every value: names, signatures, types, constants, messages, paths, test names, test cases.
 - One action per step, at most about seven steps, at most about three production files.
+- Prefer one batch task (`- Batch: yes`) over several tiny same-shape tasks. Edits of the same kind with no logic, such as the same constant change, field addition, import fix, or rename across files, go in one batch task of up to about ten files, with one Step per file giving the literal edit for that file, usually on `worker-light`, as the plan format's Batch field defines it. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly in step 7.
 - Read first names the exact source sections and pattern files the task needs, not whole documents.
 
 Assign each task a tier from the rubric. Default to `worker`; justify every `worker-heavy` and `specialist` with a Why this tier line.
+
+Every `change` task in a format 2 milestone states its Fails first line, as the plan format's Fails first field defines it: `- Fails first: yes` when the task adds or changes tests, with its test-writing Steps first, then the Step "Run Verify and confirm it fails", then the implementation Steps; otherwise `- Fails first: no (<reason>)`. A task whose Verify is `review` alone is always `no`, and a task that owns a Review Focus test adds tests, so it is `yes`. `investigate` tasks and tasks in a format 1 milestone have no Fails first line.
+
+Once a milestone's tasks are drafted, build its Review Focus, as the plan format's Review Focus section defines it: up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first, each with its expected behavior, the source of that behavior (a spec section or Decision), the test that pins it, and the task that owns that test. Add the test-writing Steps to the owning task under its Fails first rules, with the test's file in its Files, before you sequence the tasks in step 7. If nothing qualifies, write `None found:` plus what you checked.
+
+The expected behavior must come from the sources or Decisions. If it doesn't, it's a design decision: an ambiguity question for the user, asked as in step 5, never a behavior you choose. Add the item only once the user's answer is recorded as a Decision, and cite that Decision as its source.
 
 ## 7. Sequence the tasks and find the parallelism
 
@@ -117,9 +126,22 @@ For every task, apply this test: *could a Sonnet agent that has read only CLAUDE
 
 For every outlined milestone, check that its Goal, Context, and Outline give the planner enough to detail it later without asking what the user meant.
 
+Run an interface-consistency pass across all tasks of every milestone you detailed, including Consumes that cite a task in another milestone: every Interfaces entry is an exact signature or exact name; every Consumes names its source, a task ID or `existing` with a `path:line`; every Consumes that cites a task matches that task's Produces character for character, and that task is in the consuming task's Depends on; and no symbol is produced by two tasks with different signatures. Fix every mismatch.
+
 Then run the validation checklist from the plan format and fix every failure.
 
-## 9. Size check: do small jobs directly
+## 9. Check spec coverage
+
+A requirement that falls between tasks is the failure a plan is least likely to catch any other way. Build both coverage levels the plan format defines in its Coverage section, in your draft:
+
+- **plan.md:** one row per section of every source (heading or numbered item), mapped to the milestone(s) that implement it, or `out of scope (D<nn>)` citing the Decision that says so.
+- **Every detailed milestone:** one row per requirement it implements, mapped to the task IDs that implement it.
+
+A requirement with no task or milestone gets one added; sequence and self-check what you add as in steps 7 and 8. If a requirement seems deliberately out of scope, that is a question for the user, asked as in step 5, never a silent drop: mark it `out of scope` only once the user's answer is recorded as a Decision, and cite that Decision in the row.
+
+Then check the Coverage items of the validation checklist and fix every failure. Step 11 writes both levels into the plan.
+
+## 10. Size check: do small jobs directly
 
 Orchestration has fixed costs: this plan, a fresh context for every worker, and independent verification of every task. For a small job, those cost more than they save.
 
@@ -128,13 +150,14 @@ Do the job directly, instead of writing a plan, when **all** of these hold:
 - The whole job came out at `--direct-max` tasks or fewer (default 5), in a single milestone.
 - `--always-plan` wasn't given, and the user didn't ask for a plan in so many words.
 - Every question from step 5 has been answered. The size check never skips the questions.
+- Every requirement maps to a drafted task (step 9). The size check never skips the coverage check, but a job done directly writes no Coverage anywhere.
 
 To do it directly:
 
 1. **Ask for approval first.** Tell the user the job is `<N>` tasks, small enough to do directly instead of delegating. Then show what you'll do, one entry per task in execution order: the task's title, its Files, and its Verify. Say whether you'll commit (see item 5), and that they can reply "plan it" for a full plan instead. Ask `Proceed?` and wait.
    - Continue only on a clear yes.
    - If they ask for changes, revise the tasks, show them again, and ask again.
-   - If they say "plan it", skip the rest of this step and write the plan (step 10).
+   - If they say "plan it", skip the rest of this step and write the plan (step 11).
    - Anything else, including no answer, means don't touch anything.
    - If `--yes` was given, the user approved in advance: show the list and continue without asking.
 2. Note whether `git status --porcelain` is empty before you change anything. (Check this before asking in item 1, so you can tell the user whether you'll commit.)
@@ -145,15 +168,28 @@ To do it directly:
 
 Otherwise, write the plan.
 
-## 10. Write and hand off
+## 11. Write and hand off
 
-Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`.
+Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line. plan.md gets the Coverage section from step 9, between its Milestones and Decisions sections, and every detailed milestone file gets its own Coverage section, directly after its Context and Waves line. Every detailed milestone file also gets its Review Focus section from step 6, directly after its Coverage section.
+
+Then have every detailed milestone reviewed with fresh eyes. Invoke the agent `orchestratinator:plan-reviewer` once for each detailed milestone, all in one message so they run at the same time, each with exactly:
+
+```
+Plan: <plan dir>
+Milestone: <ID>
+Output: <plan dir>/notes/<ID>-plan-review.md
+```
+
+Each reviewer writes its issues to its Output file and replies `APPROVED` or `ISSUES`, with a count. For each milestone whose reviewer replied `ISSUES`, read its report and fix every issue it lists yourself, once, under the same rules you wrote the milestone by in steps 6 to 9. An issue whose fix needs a design decision is a question for the user: ask it as in step 5, and record the answer as a Decision before you make the fix. There is no re-review. After this one fix pass, run the validation checklist again on every milestone you changed, and fix every failure. A job done directly (step 10) writes no plan directory, so it gets no plan review.
+
+Before you hand off, check the finished plan (plan.md and every milestone file, detailed or outlined) for assumptions, as the plan format's Assumptions subsection defines them. If you find any, don't hand off yet: ask them as one more round of questions, as in step 5, and record every answer under Decisions with source `user`. Then update every part of the plan an answer changes, under the same rules you wrote it by in steps 6 to 9, run the validation checklist again on every milestone you changed, and fix every failure. Then hand off.
 
 Reply to the user with only:
 
 - The plan directory.
 - Milestones: count, and how many are detailed vs outlined.
 - For each detailed milestone: task count by tier, and its wave shape.
+- Plan review: issues found and issues fixed, as totals across all detailed milestones.
 - Detailing, Gates, Parallel, Max parallel, and Worktree setup, in one line.
-- Any assumption you made that the user didn't state. There should be none; if there are, say so plainly.
+- `Assumptions: none`, on its own line.
 - Next steps: review the plan, commit it, then run `/orchestratinator:run plans/<slug>`. run requires a clean working tree, so the plan must be committed first.
