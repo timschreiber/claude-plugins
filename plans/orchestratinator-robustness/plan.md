@@ -23,7 +23,7 @@
 | M06 | Change 5: Milestone quality review (spec §7) | done | M06-milestone-review.md |
 | M07 | Change 6: Fresh-eyes plan review (spec §8) | done | M07-plan-review.md |
 | M08 | Change 7: Tier calibration (spec §9) | done | M08-tier-calibration.md |
-| M09 | Change 8: Batching (spec §10) | outline | M09-batching.md |
+| M09 | Change 8: Batching (spec §10) | ready | M09-batching.md |
 | M10 | Change 9: Assumptions are questions (spec §11) | outline | M10-assumptions.md |
 | M11 | CHANGELOG and read-through (spec §14, §16) | outline | M11-changelog-and-read-through.md |
 
@@ -87,6 +87,8 @@
 - D44: Escalation feedback details (source: spec §9 and §14, which add no field for it; D06; `skills/run/SKILL.md` retry ladder): "kind of task" is the planner's judgment from each escalated task's title, Objective, and escalation reason, and the plan format gains no field for it. A raise is to the next tier after the one that escalated (the Escalated line's `<from>`), on run's ladder `worker-light` → `worker` → `worker-heavy` → `specialist`. It applies when the planner details a milestone, not in Fix findings mode. A task raised to `worker-heavy` or `specialist` this way gives the adjustment as its Why this tier line.
 - D45: `reference/plan-format.md`'s Tier rubric gets spec §9's rationale sentence directly under its table, before the existing `specialist` note, and after that note a one-line note that a `- Tier adjustment:` line in a milestone's Context raises that kind of task one tier for that milestone, so `plan-reviewer`'s tier-fit check (which reads "the notes under its table") and the planner's Plan review mode accept raised tiers instead of reverting them. (source: spec §1 ground rule 1; D01; `agents/plan-reviewer.md` check 8)
 - D46: The rubric's `worker-light` row is replaced whole by spec §9's first bullet, which drops "boilerplate copied from a named file". `agents/worker-light.md`'s frontmatter description listed that use, contradicting the new rubric, so it is reworded to match. The README cast row `No-logic edits.` doesn't contradict the rubric and stays. (source: spec §9; M08 Context)
+- D47: `- Batch: yes` is a format 2 field. Its Task fields row in `reference/plan-format.md` says "Format 2 milestones only", as the Fails first and Interfaces rows do; a task in a format 1 milestone, including a format 1 fix task (D10c), has no Batch line and keeps the unrelaxed sizing limits. A task that isn't a batch has no Batch line at all (never `- Batch: no`). (source: spec §13, which lists Batch among the new checklist items that apply only to format 2 milestones; D10c; D16)
+- D48: Batch placements (source: D08; D02; spec §13's and §14's item order): in `reference/plan-format.md`, the Batch row goes directly after the Tier row in Task fields, the Steps row and Sizing rules 2 and 3 each gain the batch exception, the waves note is a bullet directly after the "When in doubt" bullet in Sequence and parallelism, and the checklist item is the last *(format 2)* item, after Review Focus. The README's Batching bullet goes directly after its Fails first bullet. `agents/plan-reviewer.md` is unchanged: its Sonnet test already checks each task against the plan format's sizing rules, which carry the batch exception.
 
 ## Open questions
 
