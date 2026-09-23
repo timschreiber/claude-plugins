@@ -224,7 +224,7 @@ The per-task `reviewer` checks a task with `- Batch: yes` file by file and fails
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
