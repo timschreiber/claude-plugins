@@ -104,6 +104,8 @@ For each milestone you detail, write a task list in which **every task is small,
 
 Assign each task a tier from the rubric. Default to `worker`; justify every `worker-heavy` and `specialist` with a Why this tier line.
 
+Every `change` task in a format 2 milestone states its Fails first line, as the plan format's Fails first field defines it: `- Fails first: yes` when the task adds or changes tests, with its test-writing Steps first, then the Step "Run Verify and confirm it fails", then the implementation Steps; otherwise `- Fails first: no (<reason>)`. A task whose Verify is `review` alone is always `no`, and a task that owns a Review Focus test adds tests, so it is `yes`. `investigate` tasks and tasks in a format 1 milestone have no Fails first line.
+
 Once a milestone's tasks are drafted, build its Review Focus, as the plan format's Review Focus section defines it: up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first, each with its expected behavior, the source of that behavior (a spec section or Decision), the test that pins it, and the task that owns that test. Add the test-writing Steps to the owning task under its Fails first rules, with the test's file in its Files, before you sequence the tasks in step 7. If nothing qualifies, write `None found:` plus what you checked.
 
 The expected behavior must come from the sources or Decisions. If it doesn't, it's a design decision: an ambiguity question for the user, asked as in step 5, never a behavior you choose. Add the item only once the user's answer is recorded as a Decision, and cite that Decision as its source.

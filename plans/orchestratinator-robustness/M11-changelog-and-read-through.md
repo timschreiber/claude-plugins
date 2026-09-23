@@ -340,12 +340,13 @@ grep -rnoE '`- [A-Z][A-Za-z ]+:' plugins/orchestratinator
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M11-T07
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`, `plugins/orchestratinator/agents/planner.md`
 - Verify: `test "$(grep -cF "states its Fails first line, as the plan format" plugins/orchestratinator/skills/plan/SKILL.md)" -eq 1 && test "$(grep -cF "states its Fails first line, as the plan format" plugins/orchestratinator/agents/planner.md)" -eq 1 && test "$(grep -F "states its Fails first line, as the plan format" plugins/orchestratinator/skills/plan/SKILL.md)" = "$(grep -F "states its Fails first line, as the plan format" plugins/orchestratinator/agents/planner.md)"`
 - Commit: `fix(orchestratinator): plan and planner state every task's Fails first line`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
