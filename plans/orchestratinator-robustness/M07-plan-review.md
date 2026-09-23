@@ -25,12 +25,13 @@ Waves: 1 (widths 6)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/plan-reviewer.md`
 - Verify: `grep -qxF "name: plan-reviewer" plugins/orchestratinator/agents/plan-reviewer.md && grep -qxF "model: sonnet" plugins/orchestratinator/agents/plan-reviewer.md && grep -qxF "effort: high" plugins/orchestratinator/agents/plan-reviewer.md && grep -qxF "maxTurns: 40" plugins/orchestratinator/agents/plan-reviewer.md && grep -qxF "disallowedTools: Edit" plugins/orchestratinator/agents/plan-reviewer.md && grep -qF "They do not govern git." plugins/orchestratinator/agents/plan-reviewer.md && grep -qF "or they have identical content, read it once." plugins/orchestratinator/agents/plan-reviewer.md && grep -qF "Approve unless there are real gaps." plugins/orchestratinator/agents/plan-reviewer.md && grep -qxF "STATUS: APPROVED | ISSUES" plugins/orchestratinator/agents/plan-reviewer.md && grep -qxF "ISSUES: <count>" plugins/orchestratinator/agents/plan-reviewer.md`
 - Commit: `feat(orchestratinator): add the plan-reviewer agent`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
