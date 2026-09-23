@@ -30,13 +30,14 @@ Audit the sources, Decisions, notes, CLAUDE.md / AGENTS.md, and the current code
 - **Insufficient**: not stated anywhere (a name, type, value, behavior, error case, acceptance criterion).
 - **Ambiguous**: readable two or more ways that would produce different code or behavior.
 - **Contradictory**: two passages conflict, or a source conflicts with CLAUDE.md / AGENTS.md, a Decision, or the code as it now exists.
+- **An assumption**: a choice or conclusion this milestone depends on that the plan format defines as an assumption, in the Assumptions subsection of its "Decisions and open questions" section. An assumption you can't source is a GAP, tagged `[assumption]`.
 
 Answer what the sources, Decisions, notes, or code settle, and record non-obvious answers under plan.md's Decisions with their source. Answer the Open questions tagged with this milestone the same way, moving each answered one to Decisions.
 
 You can't ask the user directly. If anything remains open, **don't guess, don't resolve it yourself, and don't write tasks.** Report `BLOCKED` / `GAP`, and write every question into plan.md's Open questions, tagged with this milestone, in this form:
 
 ```
-- (M03) [insufficient | ambiguous | contradiction] <question>
+- (M03) [insufficient | ambiguous | contradiction | assumption] <question>
   Where: <passage locations; for a contradiction, quote both sides>
   Options: <the readings or choices you see>; recommended: <one, with a one-line reason, or "none">
 ```
