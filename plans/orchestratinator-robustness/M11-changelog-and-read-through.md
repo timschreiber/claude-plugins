@@ -229,12 +229,13 @@ The repo-root `CHANGELOG.md` has the D13 bullet as the last bullet under `## [Un
 
 - Kind: investigate
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orchestratinator-robustness/notes/M11-T05.md`
 - Verify: `test -s plans/orchestratinator-robustness/notes/M11-T05.md && grep -qx "## Step and item references" plans/orchestratinator-robustness/notes/M11-T05.md && grep -qx "## Field references" plans/orchestratinator-robustness/notes/M11-T05.md && grep -qx "## Problems" plans/orchestratinator-robustness/notes/M11-T05.md` + review
 - Commit: `chore(plan): M11 check of the plugin's cross-references`
+- Escalated: worker → worker-heavy (review FAIL: note misattributed plan SKILL.md line 107/162 step citations)
 
 **Objective**
 
