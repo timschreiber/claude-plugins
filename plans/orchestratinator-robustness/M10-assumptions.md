@@ -1,6 +1,6 @@
 # M10: Change 9: Assumptions are questions (spec §11)
 
-- Status: ready
+- Status: in-progress
 - Goal: The plan format defines assumptions in an "Assumptions" subsection with the `[assumption]` tag. `plan` audits four categories, and replaces the handoff's assumptions line with a pre-handoff assumption check that ends in `Assumptions: none`. The planner treats an unsourceable assumption as a GAP tagged `[assumption]`. `plan-reviewer` checks for unsourced assumptions. The README describes four question categories.
 - Depends on: M09
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
