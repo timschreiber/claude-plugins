@@ -10,7 +10,7 @@
 - Governing source: `docs/orchestratinator-robustness-spec.md` §14 (the CHANGELOG row and the reader map) and §16 (Verification), plus D12, D13, D16, D17, D54, and D55 in plan.md.
 - The §16 smoke test is not part of this plan (D12). This milestone file gets no Coverage or Review Focus section (D16).
 - Change 0 intact means (spec §16, D54): the precedence rule ("They do not govern git") appears in the 10 skills and agents that had it plus `milestone-reviewer` and `plan-reviewer`, and `omitClaudeMd: true` is still set on the four workers (`worker-light`, `worker`, `worker-heavy`, `specialist`). `skills/status/SKILL.md` never had the precedence rule and isn't expected to (D54).
-- M11-T01 is the only `change` task. M11-T02 to M11-T07 are `investigate` tasks: each writes only its own note, `plans/orchestratinator-robustness/notes/<task ID>.md`, and changes nothing else. Don't fix anything you find; record it (D55).
+- M11-T01, M11-T08, and M11-T09 are the `change` tasks; M11-T08 and M11-T09 are the fix tasks D56 adds for the problems in `notes/M11-T07.md`. M11-T02 to M11-T07 are `investigate` tasks: each writes only its own note, `plans/orchestratinator-robustness/notes/<task ID>.md`, and changes nothing else. Don't fix anything you find; record it (D55).
 - Inside the investigate tasks' Steps, a path with no leading directory named in the Steps (for example `agents/planner.md`, `skills/run/SKILL.md`, `README.md`, `reference/plan-format.md`) is under `plugins/orchestratinator/`.
 - Every investigate note has this layout. One `## ` section per check group, with the exact headings the task's last Step lists, then `## Problems` as the last section:
 
@@ -32,9 +32,9 @@
 - `plans/orchestratinator-robustness/notes/M11-survey.md` is a scout's map with `path:line` starting points. Use it to find passages; confirm each one yourself by reading it, and cite the line numbers you read, not the survey's.
 - Verify commands are `grep` or `test` checks run from the repo root, with no backticks inside the command.
 - Don't run `git commit` or any other git command that changes history or branches: run commits each task for you.
-- T01 to T06 each write a different file and read no other task's file, so they all run in wave 1. T07 reads the notes of T02 to T06, so it runs in wave 2.
+- T01 to T06 each write a different file and read no other task's file, so they all run in wave 1. T07 reads the notes of T02 to T06, so it runs in wave 2. T08 and T09 depend on T07's result and change different files that neither reads from the other, so they both run in wave 3.
 
-Waves: 2 (widths 6, 1)
+Waves: 3 (widths 6, 1, 2)
 
 ## Tasks
 
@@ -307,7 +307,7 @@ grep -rnoE '`- [A-Z][A-Za-z ]+:' plugins/orchestratinator
 
 - Kind: investigate
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M11-T02, M11-T03, M11-T04, M11-T05, M11-T06
 - Files: `plans/orchestratinator-robustness/notes/M11-T07.md`
@@ -335,3 +335,74 @@ grep -rnoE '`- [A-Z][A-Za-z ]+:' plugins/orchestratinator
 - The note has `## Sources` with five lines and `## Problems` with every item from the five notes, or `None.`
 - The report is `DONE` exactly when `## Problems` is `None.`, and `BLOCKED` / `GAP` otherwise.
 - No file other than the note changed.
+
+### M11-T08: Add the Fails first authoring rule to plan step 6 and the planner
+
+- Kind: change
+- Tier: worker-light
+- Status: todo
+- Wave: 3
+- Depends on: M11-T07
+- Files: `plugins/orchestratinator/skills/plan/SKILL.md`, `plugins/orchestratinator/agents/planner.md`
+- Verify: `test "$(grep -cF "states its Fails first line, as the plan format" plugins/orchestratinator/skills/plan/SKILL.md)" -eq 1 && test "$(grep -cF "states its Fails first line, as the plan format" plugins/orchestratinator/agents/planner.md)" -eq 1 && test "$(grep -F "states its Fails first line, as the plan format" plugins/orchestratinator/skills/plan/SKILL.md)" = "$(grep -F "states its Fails first line, as the plan format" plugins/orchestratinator/agents/planner.md)"`
+- Commit: `fix(orchestratinator): plan and planner state every task's Fails first line`
+
+**Objective**
+
+`skills/plan/SKILL.md` step 6 and `agents/planner.md` "Write the tasks as prompts" each carry the same one-paragraph rule for setting every task's Fails first line (D56; problem 1 in `notes/M11-T07.md`).
+
+**Read first**
+
+- plan.md Decision D56
+- `plans/orchestratinator-robustness/notes/M11-T07.md` `## Problems` item 1
+- `plugins/orchestratinator/reference/plan-format.md` Task fields, the Fails first row (the rule this paragraph points to)
+
+**Steps**
+
+1. In `plugins/orchestratinator/skills/plan/SKILL.md`, section `## 6. Write the tasks as prompts`, insert the paragraph below as a new paragraph directly after the paragraph that begins `Assign each task a tier from the rubric.` and directly before the paragraph that begins `Once a milestone's tasks are drafted, build its Review Focus`, with one blank line before it and one after it.
+2. In `plugins/orchestratinator/agents/planner.md`, section `## Write the tasks as prompts`, insert the same paragraph as a new paragraph directly after the paragraph that begins `Prefer one batch task (` and directly before the paragraph that begins `When you detail a milestone, calibrate tiers`, with one blank line before it and one after it.
+3. The paragraph for both Steps is exactly this one line, identical in both files, with the files' existing CRLF line endings:
+
+```
+Every `change` task in a format 2 milestone states its Fails first line, as the plan format's Fails first field defines it: `- Fails first: yes` when the task adds or changes tests, with its test-writing Steps first, then the Step "Run Verify and confirm it fails", then the implementation Steps; otherwise `- Fails first: no (<reason>)`. A task whose Verify is `review` alone is always `no`, and a task that owns a Review Focus test adds tests, so it is `yes`. `investigate` tasks and tasks in a format 1 milestone have no Fails first line.
+```
+
+4. Change nothing else in either file: the existing Review Focus paragraphs, with their "under its Fails first rules" wording, stay as they are.
+
+**Done when**
+
+- Each of the two files contains the Step 3 line exactly once, at the place Step 1 or Step 2 names, and the two lines are byte-for-byte identical.
+- `git diff` shows only the added line and its one added blank line in each file.
+
+### M11-T09: Fix the "(step 6 onward)" references in run
+
+- Kind: change
+- Tier: worker-light
+- Status: todo
+- Wave: 3
+- Depends on: M11-T07
+- Files: `plugins/orchestratinator/skills/run/SKILL.md`
+- Verify: `test "$(grep -cF "step 6 onward" plugins/orchestratinator/skills/run/SKILL.md)" -eq 0 && test "$(grep -cF "(item 6 of 3e, Integrate, onward)" plugins/orchestratinator/skills/run/SKILL.md)" -eq 2`
+- Commit: `fix(orchestratinator): run names 3e item 6 instead of a missing step 6`
+
+**Objective**
+
+`skills/run/SKILL.md`'s **Retry** and **Block with GAP** sections point to item 6 of "3e. Parallel wave" by name, instead of a "step 6" that doesn't exist (D56; problem 2 in `notes/M11-T07.md`).
+
+**Read first**
+
+- plan.md Decision D56
+- `plans/orchestratinator-robustness/notes/M11-T07.md` `## Problems` item 2
+- `plugins/orchestratinator/skills/run/SKILL.md` section `### 3e. Parallel wave` (item 6), section `## Retry`, section `## Block with GAP`
+
+**Steps**
+
+1. In `plugins/orchestratinator/skills/run/SKILL.md`, read section `### 3e. Parallel wave` (currently line 182) and confirm that its numbered item 6 begins `6. **Integrate.**` (currently line 204). If item 6 is anything else, change no file and report `STATUS: BLOCKED`, `REASON: GAP`, `NOTE: Item 6 of 3e in skills/run/SKILL.md is not Integrate; it begins: <the first ten words of item 6>`.
+2. In the `## Retry` section's bullet that begins `- If the task has already been retried in this run` (currently line 256), replace the text `(step 6 onward)` with `(item 6 of 3e, Integrate, onward)`.
+3. In the `## Block with GAP` section's paragraph (currently line 267), replace the text `(step 6 onward)` with `(item 6 of 3e, Integrate, onward)`.
+4. Change nothing else in the file.
+
+**Done when**
+
+- The file has no `step 6 onward` and has `(item 6 of 3e, Integrate, onward)` exactly twice, at the two places Steps 2 and 3 name.
+- `git diff` shows only those two lines changed, each only inside its parentheses.
