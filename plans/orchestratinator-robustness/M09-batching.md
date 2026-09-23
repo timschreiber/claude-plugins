@@ -1,6 +1,6 @@
 # M09: Change 8: Batching tiny, same-shape tasks (spec §10)
 
-- Status: in-progress
+- Status: done
 - Goal: The plan format has an optional `- Batch: yes` task field with its rules and relaxed sizing limits. `plan` and the planner prefer one batch task over several tiny same-shape tasks. The per-task reviewer checks a batch file by file. The README describes batching.
 - Depends on: M08
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
