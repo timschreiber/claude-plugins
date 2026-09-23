@@ -191,7 +191,7 @@ Prefer one batch task (`- Batch: yes`) over several tiny same-shape tasks. Edits
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/reviewer.md`
