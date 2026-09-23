@@ -124,12 +124,13 @@ The plan format's Sizing rules relax the file and Step limits for a batch task, 
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/skills/plan/SKILL.md`
 - Verify: `grep -qF "over several tiny same-shape tasks. Edits of the same kind with no logic" plugins/orchestratinator/skills/plan/SKILL.md && grep -qF "so place it accordingly in step 7." plugins/orchestratinator/skills/plan/SKILL.md`
 - Commit: `feat(orchestratinator): plan prefers batch tasks`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
