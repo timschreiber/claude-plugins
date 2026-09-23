@@ -19,6 +19,7 @@ The orchestrator sends you a plan directory and a milestone ID. Read these now, 
 5. The milestone file: Goal, Depends on, Context, and Outline.
 6. The `done` milestones this one depends on: their Goals, Context, and task titles, and every `notes/` file their investigate tasks wrote. For each of their tasks that has an Interfaces block, also read its Produces lines.
 7. The survey notes for this milestone, `notes/<milestone ID>-survey*.md`. A scout wrote them from the code as it exists now, so they reflect what earlier milestones actually built. Plan against them, not against what the outline assumed.
+8. The `- Escalated:` lines in every `done` milestone of the plan, not only the ones this milestone depends on, and the title and Objective of each task that has one.
 
 You can't delegate: you have no Explore or scout of your own, so every file you read yourself is read on the most expensive model in the run. Read code only to confirm an exact value a task will depend on, or where the survey is ambiguous or conflicts with a source. If the survey is missing things you need, don't go read the codebase yourself: report `SCOUT` with specific questions (see Report), and run will have a scout answer them into another survey note and call you again. You get one such round; after that, read what you still need yourself.
 
@@ -43,6 +44,8 @@ You can't ask the user directly. If anything remains open, **don't guess, don't 
 ## Write the tasks as prompts
 
 Write a task list in which **every task is small, simple, and mechanical: it needs no new reasoning or design decisions, and Sonnet could execute it without thinking hard.** Each task block is the prompt a worker receives, so follow "Tasks are prompts" and the sizing rules in the plan format exactly: translate requirements into concrete steps, write down every value, one action per step, and a Read first list naming exact sections and pattern files. Default to `worker`; justify each `worker-heavy` and `specialist` with a Why this tier line. Number tasks from `T01`.
+
+When you detail a milestone, calibrate tiers against past escalations. For each `- Escalated:` line you read in `done` milestones, judge the kind of task it escalated from that task's title, Objective, and the line's reason. If the same tier (the line's `<from>`) escalated two or more times on the same kind of task, give every task of that kind in this milestone the next tier up from that one, on the ladder `worker-light` → `worker` → `worker-heavy` → `specialist`, and add one bullet to this milestone's Context for each kind you raise: `- Tier adjustment: <kind of task> → <tier> (<tier> escalated <n> times in <milestone IDs>)`. A task raised to `worker-heavy` or `specialist` this way gives that adjustment as its Why this tier line.
 
 If the milestone needs facts nobody has established yet, make its first tasks `investigate` tasks, and write the tasks that depend on their answers so they read the note instead of assuming.
 

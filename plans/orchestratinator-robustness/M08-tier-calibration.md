@@ -71,7 +71,7 @@ A milestone's Context can hold `- Tier adjustment:` lines, which the planner wri
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/planner.md`
