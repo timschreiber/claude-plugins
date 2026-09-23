@@ -1,6 +1,6 @@
 # M11: CHANGELOG and read-through (spec §14, §16)
 
-- Status: in-progress
+- Status: done
 - Goal: The repo-root CHANGELOG has the D13 entry. A read-through confirms that every reader of each new field and section was updated, that no reader references a field or section that doesn't exist, and that Change 0 is intact. Any problem the read-through finds is fixed.
 - Depends on: M10
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1`
