@@ -5,6 +5,7 @@ A plan is a directory. It is the contract between:
 - **plan** (skill), which creates it,
 - **run** (skill), which executes it and records progress in it,
 - **planner** (agent), which details outlined milestones during a run,
+- **plan-reviewer** (agent), which checks each detailed milestone against it before it runs,
 - **milestone-reviewer** (agent), which reviews each finished milestone against it,
 - **workers** and **reviewer** (agents), which read their task from it.
 
@@ -17,7 +18,7 @@ plans/<plan-slug>/
 ├── plan.md                # index: header, settings, milestones, coverage, decisions, open questions
 ├── sources/               # verbatim copies of any input that isn't already a file in the repo
 │   └── prompt.md
-├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), and milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md)
+├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), and plan reviews (<milestone-id>-plan-review.md)
 ├── M01-<slug>.md          # one file per milestone
 └── M02-<slug>.md
 ```

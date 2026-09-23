@@ -300,7 +300,7 @@ In Plan review mode, edit only what that section allows.
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/reference/plan-format.md`
