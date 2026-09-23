@@ -25,7 +25,7 @@
 | M08 | Change 7: Tier calibration (spec §9) | done | M08-tier-calibration.md |
 | M09 | Change 8: Batching (spec §10) | done | M09-batching.md |
 | M10 | Change 9: Assumptions are questions (spec §11) | done | M10-assumptions.md |
-| M11 | CHANGELOG and read-through (spec §14, §16) | outline | M11-changelog-and-read-through.md |
+| M11 | CHANGELOG and read-through (spec §14, §16) | ready | M11-changelog-and-read-through.md |
 
 ## Decisions
 
@@ -94,6 +94,8 @@
 - D51: The handoff assumption check is a paragraph in step 11, after the plan-review fix pass and directly before "Reply to the user with only:", because spec §11 checks the "finished plan". With any assumptions found, `plan` asks them as in step 5 (answers recorded as Decisions with source `user`), updates what the answers change under the rules of steps 6 to 9, runs the validation checklist again on every milestone it changed, and then hands off. The reply list's assumption line becomes `` `Assumptions: none` ``. Step 10 (a job done directly) has no handoff and is unchanged; step 5's four-category audit already covers it. (source: spec §11 "`plan` skill, handoff"; spec §8, plan review before the handoff reply; D41 for the revalidation)
 - D52: `plan-reviewer`'s assumption check is check 9, and Read first becomes check 10, following spec §8's list order. It applies to format 1 milestones too, so the format 1 skip line still names checks 3, 4, and 7. The frontmatter description's list of checks and the Calibration's definition of an issue also name unsourced assumptions. (source: spec §8 list order; spec §13, "The milestone review (§7) and the plan review (§8) apply to every milestone, whatever its format"; spec §11, "Each one found is an issue")
 - D53: The README's "Questions answered first" bullet, besides naming the four categories (D24), says what an assumption is, what its question contains, that `plan` checks the finished plan before handing off so the handoff says `Assumptions: none`, and that the planner and `plan-reviewer` catch unsourced ones. (source: spec §11; D24)
+- D54: M11's Change 0 check expects "They do not govern git" and the CLAUDE.md / AGENTS.md symlink sentence in exactly 12 files: the 10 skills and agents that commit `7d43fa8` gave them, plus `milestone-reviewer` and `plan-reviewer`. `skills/status/SKILL.md` never had the precedence rule, and adding it would be Change 0 work, which is out of scope. The one Change 0 line altered since `7d43fa8`, `run`'s Stop reason list, is expected: it gained `VACUOUS` and still lists `PUSHED`. (source: spec §2, "not part of this work", and §15; spec §5 and §14, new Stop reason `VACUOUS`; commit `7d43fa8`; M11 Context, "every skill and agent that had it")
+- D55: M11's read-through is five investigate tasks that each list their problems under `## Problems` in their note, then one investigate task that collects them and reports a GAP if there is any, so the user decides which become fix tasks. Fix tasks can't be written before the problems are known, and the installed `run` can't add tasks to a `ready` milestone. (source: M11 Context, "Any fix it calls for becomes a follow-up task, or a GAP when the fix needs a decision"; D16)
 
 ## Open questions
 
