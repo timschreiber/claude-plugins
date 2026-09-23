@@ -111,7 +111,7 @@ When you detail a milestone, calibrate tiers against past escalations. For each 
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/agents/worker-light.md`

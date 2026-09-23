@@ -1,6 +1,6 @@
 ---
 name: worker-light
-description: Executes one no-logic Orchestratinator task (renames, constants, config edits, boilerplate from a named file). Dispatched by /orchestratinator:run only.
+description: Executes one Orchestratinator task whose Steps contain the literal final content to write (complete lines of code or config, exact file text). Dispatched by /orchestratinator:run only.
 model: haiku
 maxTurns: 20
 omitClaudeMd: true
