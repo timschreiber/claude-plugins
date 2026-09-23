@@ -133,6 +133,7 @@ Removed when the milestone is detailed.>
 
 - Kind: change
 - Tier: worker
+- Batch: yes
 - Status: todo
 - Wave: 1
 - Depends on: none
@@ -204,6 +205,7 @@ The expected behavior must come from the sources or Decisions. If it doesn't, it
 | ID | `M<nn>-T<nn>`, unique across the plan, sequential within the milestone. |
 | Kind | `change` (modifies the codebase or docs) or `investigate` (reads and reports; writes only its note, `plans/<plan-slug>/notes/<task-id>.md`). |
 | Tier | `worker-light`, `worker`, `worker-heavy`, or `specialist`. |
+| Batch | Format 2 milestones only. Optional: a batch task has the line `- Batch: yes`, directly after Tier; any other task has no Batch line. A batch task groups edits of the **same kind with no logic**: the same constant change, field addition, import fix, or rename across files. It relaxes two sizing rules: it may touch about ten files instead of about three production files, and it has one Step per file in its Files, each with the literal edit for that file, instead of at most about seven Steps. It is one commit, like every task, and is usually `worker-light`. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly. |
 | Why this tier | Required line for `worker-heavy` and `specialist` only. One sentence. |
 | Status | `todo`, `done`, or `blocked`. Only run changes it after planning. |
 | Wave | Positive integer. See [Sequence and parallelism](#sequence-and-parallelism). |
@@ -216,7 +218,7 @@ The expected behavior must come from the sources or Decisions. If it doesn't, it
 | Objective | One sentence. |
 | Read first | Everything the worker must read beyond CLAUDE.md / AGENTS.md, plan.md's Decisions, and the milestone's Context: the exact source sections the task implements, patterns to copy, and notes it depends on. Name sections, not whole documents. At most about five entries. |
 | Interfaces | Format 2 milestones only. Required in every `change` task, directly after Read first; `investigate` tasks omit it. One entry per line, `- Consumes: <entry> (<source>)` or `- Produces: <entry>`, with at least one Consumes line and at least one Produces line; `none` is allowed for either (`- Consumes: none`, `- Produces: none`). Each entry is an exact signature or exact name: method signatures with parameter and return types, class and interface names, constants with their values, JSON or file shapes, CLI flags, config keys. Each Consumes names its source: a task ID, or `existing` with a `path:line`, as in the template. A symbol produced by a format 1 task, which has no Produces, is cited as `existing` with a `path:line`. Every Consumes that cites a task matches that task's Produces character for character, and the consuming task lists that task in Depends on, so it runs in a later wave. No symbol is produced by two tasks with different signatures. |
-| Steps | Numbered. Each step is one concrete action. At most about seven steps. |
+| Steps | Numbered. Each step is one concrete action. At most about seven steps, except in a batch task, which has one Step per file in its Files. |
 | Done when | Observable criteria that Verify or the reviewer can check. |
 
 run appends these lines under a task when they apply:
