@@ -210,7 +210,7 @@ Before you hand off, check the finished plan (plan.md and every milestone file, 
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orchestratinator/README.md`
