@@ -9,7 +9,7 @@
 - Parallel: auto
 - Max parallel: 3
 - Worktree setup: none
-- Status: in-progress
+- Status: complete
 
 ## Milestones
 
