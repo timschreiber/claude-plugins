@@ -1052,7 +1052,7 @@ Before every dispatch `run` generates the task's brief with `task-brief`, and a 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M06-T01, M06-T04
 - Files: `plans/orcastrat-execution/notes/dispatch-sizes.md`
