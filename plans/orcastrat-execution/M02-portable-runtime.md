@@ -643,13 +643,14 @@ The run skill's WT_ROOT definition describes the path by intent, with no `$(...)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: none
 - Files: `plugins/orcastrat/reference/plan-format.md`, `plugins/orcastrat/skills/plan/SKILL.md`, `plugins/orcastrat/agents/planner.md`
 - Verify: `grep -qF 'from the repo root on every platform, so it is written in bash syntax' plugins/orcastrat/reference/plan-format.md && grep -qF 'Milestone verify and Final verify follow the same rule' plugins/orcastrat/reference/plan-format.md && grep -qF 'Write every Verify command, Milestone verify, and Final verify in bash syntax' plugins/orcastrat/skills/plan/SKILL.md && grep -qF 'Write every Verify command in bash syntax' plugins/orcastrat/agents/planner.md && test "$(grep -lF 'pwsh -NoProfile -File scripts/verify.ps1' plugins/orcastrat/reference/plan-format.md plugins/orcastrat/skills/plan/SKILL.md plugins/orcastrat/agents/planner.md | wc -l)" -eq 3`
 - Fails first: no (reference, skill and agent text with no tests; the Verify greps fail until the text is added)
 - Commit: `docs(orcastrat): Verify commands run with bash -c on every platform`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

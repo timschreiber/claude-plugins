@@ -98,6 +98,7 @@ For each milestone you detail, write a task list in which **every task is small,
 
 - Translate the sources into concrete steps. Don't forward prose for the worker to interpret.
 - Write down every value: names, signatures, types, constants, messages, paths, test names, test cases.
+- Write every Verify command, Milestone verify, and Final verify in bash syntax: each runs with `bash -c` from the repository root on every platform. A project whose tooling is PowerShell calls it explicitly, for example `pwsh -NoProfile -File scripts/verify.ps1`.
 - One action per step, at most about seven steps, at most about three production files.
 - Prefer one batch task (`- Batch: yes`) over several tiny same-shape tasks. Edits of the same kind with no logic, such as the same constant change, field addition, import fix, or rename across files, go in one batch task of up to about ten files, with one Step per file giving the literal edit for that file, usually on `worker-light`, as the plan format's Batch field defines it. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly in step 7.
 - Read first names the exact source sections and pattern files the task needs, not whole documents.
