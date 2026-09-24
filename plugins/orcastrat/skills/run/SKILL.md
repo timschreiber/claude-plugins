@@ -1,6 +1,6 @@
 ---
 name: run
-description: Execute an Orchestratinator plan. Works through milestones in order, has the planner agent detail outlined milestones, and runs each wave of tasks through the worker for each task's tier, in parallel git worktrees when the wave allows it. Verifies every task itself, commits each one, and records progress in the plan files. Only run when the user explicitly invokes it.
+description: Execute an Orcastrat plan. Works through milestones in order, has the planner agent detail outlined milestones, and runs each wave of tasks through the worker for each task's tier, in parallel git worktrees when the wave allows it. Verifies every task itself, commits each one, and records progress in the plan files. Only run when the user explicitly invokes it.
 disable-model-invocation: true
 argument-hint: "<plan dir> [--milestone M03] [--max-tasks 20] [--serial] [--max-parallel 4] [--yes]"
 model: opus
@@ -29,15 +29,15 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 ## Definitions
 
 - **MAIN**: the absolute path of the main checkout (`git rev-parse --show-toplevel` at startup).
-- **WT_ROOT**: `$(git rev-parse --git-common-dir)/orchestratinator/<plan-slug>`, made absolute. Task worktrees live under it, inside `.git`, so they never show up in the main checkout's status.
-- **Task branch**: `orchestratinator/<plan-slug>/<task-id>`.
+- **WT_ROOT**: `$(git rev-parse --git-common-dir)/orcastrat/<plan-slug>`, made absolute. Task worktrees live under it, inside `.git`, so they never show up in the main checkout's status.
+- **Task branch**: `orcastrat/<plan-slug>/<task-id>`.
 - **Verify a command** in a directory D:
   ```
-  cd "D" && <command> > "D/.orchestratinator-verify.log" 2>&1; echo "exit=$?"
+  cd "D" && <command> > "D/.orcastrat-verify.log" 2>&1; echo "exit=$?"
   ```
-  In the main checkout, write the log to `$(git rev-parse --git-dir)/orchestratinator-verify.log` instead, so it isn't an untracked file. Nonzero exit is a failure: read only the log's last 40 lines. In a worktree, delete the log before committing.
+  In the main checkout, write the log to `$(git rev-parse --git-dir)/orcastrat-verify.log` instead, so it isn't an untracked file. Nonzero exit is a failure: read only the log's last 40 lines. In a worktree, delete the log before committing.
 - **Commit a task** in a directory D: `git -C "D" add -A`, then
-  `git -C "D" commit -m "<task's Commit message>" -m "Orchestratinator-Task: <task ID>"`.
+  `git -C "D" commit -m "<task's Commit message>" -m "Orcastrat-Task: <task ID>"`.
 
 ## 1. Re-read the ground truth
 
@@ -58,7 +58,8 @@ These only read. Stop and report to the user if any fails.
 3. **Open blocks.** If any milestone or task is `blocked`, stop and report it.
 4. **Leftover worktrees.** If WT_ROOT contains worktrees from an earlier run, list them to the user and stop. Don't delete them: they may hold work the user wants to inspect. The user removes them with `git worktree remove` and deletes their branches.
 5. **Branch.** If the plan's Branch exists but isn't checked out, stop and ask.
-6. **Interrupted-run recovery.** If the plan's Branch exists, find every `todo` task whose trailer is already in its history: `git log <branch> --format=%H --grep="^Orchestratinator-Task: <task ID>$"`. Those were integrated before an interruption, but their status wasn't recorded. Note them; you'll mark them `done` in 2c.
+6. **Interrupted-run recovery.** If the plan's Branch exists, find every `todo` task whose trailer is already in its history: `git log <branch> --format=%H -E --grep="^(Orcastrat|Orchestratinator)-Task: <task ID>$"`. Those were integrated before an interruption, but their status wasn't recorded. Note them; you'll mark them `done` in 2c. Both trailers are matched, so plans started before the rename recover.
+7. **Pre-rename leftovers.** If a directory named `orchestratinator/` exists in the directory `git rev-parse --git-dir` prints or in the one `git rev-parse --git-common-dir` prints, run `git worktree prune` (the one write in these checks) and tell the user in one line that the old `orchestratinator/` directory can be deleted. Never delete it yourself. This check never stops the run.
 
 ### 2b. Ask for approval
 
@@ -96,27 +97,27 @@ For the current milestone, read its file, then:
 
 If Status is `outline`:
 
-1. **Survey.** Invoke the agent named by the milestone's Survey (`orchestratinator:scout` or `orchestratinator:scout-heavy`) with exactly:
+1. **Survey.** Invoke the agent named by the milestone's Survey (`orcastrat:scout` or `orcastrat:scout-heavy`) with exactly:
    ```
    Survey milestone: <milestone file path>
    Plan: <plan dir>
    Output: <plan dir>/notes/<ID>-survey.md
    ```
    Skip this if that notes file is already committed from an earlier, interrupted attempt. Don't read the survey yourself: it's for the planner. Check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): survey <ID>"`.
-2. **Plan.** Invoke the agent `orchestratinator:planner` with exactly:
+2. **Plan.** Invoke the agent `orcastrat:planner` with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
    ```
-3. If it reports `SCOUT`, and this milestone hasn't had a follow-up scout round yet in this run: invoke `orchestratinator:scout` (or `scout-heavy`, if the planner asked for it) with the planner's QUESTIONS as a numbered brief, followed by the line `Output: <plan dir>/notes/<ID>-survey-2.md`. Then invoke the planner again, exactly as in item 2. If it reports `SCOUT` a second time, invoke it once more with the extra line `No more scout rounds: read what you still need yourself.`
+3. If it reports `SCOUT`, and this milestone hasn't had a follow-up scout round yet in this run: invoke `orcastrat:scout` (or `scout-heavy`, if the planner asked for it) with the planner's QUESTIONS as a numbered brief, followed by the line `Output: <plan dir>/notes/<ID>-survey-2.md`. Then invoke the planner again, exactly as in item 2. If it reports `SCOUT` a second time, invoke it once more with the extra line `No more scout rounds: read what you still need yourself.`
 4. If it reports `BLOCKED` / `GAP`: it has written its questions (insufficient information, ambiguity, or contradiction) to plan.md's Open questions. Set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.
-5. If it reports `DONE`: **Plan review.** Invoke the agent `orchestratinator:plan-reviewer` with exactly:
+5. If it reports `DONE`: **Plan review.** Invoke the agent `orcastrat:plan-reviewer` with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
    Output: <plan dir>/notes/<ID>-plan-review.md
    ```
-   Don't read the report yourself: it's for the planner. If it reports `ISSUES`, invoke the agent `orchestratinator:planner` once more, with exactly:
+   Don't read the report yourself: it's for the planner. If it reports `ISSUES`, invoke the agent `orcastrat:planner` once more, with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -155,7 +156,7 @@ Then run the wave (**3d** or **3e**), and afterwards:
 
 For each task in the wave set, in order:
 
-1. **Dispatch** to the agent `orchestratinator:<tier>`, sending exactly:
+1. **Dispatch** to the agent `orcastrat:<tier>`, sending exactly:
    ```
    Plan: <plan dir>
    Milestone: <milestone ID>
@@ -175,7 +176,7 @@ For each task in the wave set, in order:
 4. **Check scope.** Every path in `git status --porcelain` must be in the task's Files. Anything else → mark the task `blocked` with `- Blocked: SCOPE — <paths>` and go to **Stop**.
 5. **Verify yourself**, in MAIN. Don't trust the worker's VERIFY line.
    - A command → run it; failure → **Retry**.
-   - `review` → invoke `orchestratinator:reviewer` with the same three lines as the dispatch; `VERDICT: FAIL` → **Retry** with its REASONS.
+   - `review` → invoke `orcastrat:reviewer` with the same three lines as the dispatch; `VERDICT: FAIL` → **Retry** with its REASONS.
    - Both → command first, review only if it passes.
 6. **Record and commit.** Set the task's Status to `done`, then commit the task in MAIN. Code and status land in one commit.
 
@@ -183,7 +184,7 @@ For each task in the wave set, in order:
 
 Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave set in batches of at most Max parallel tasks (or `--max-parallel`), in task ID order. For each batch:
 
-1. **Create worktrees.** For each task: `git worktree add -b <task branch> "<WT_ROOT>/<task ID>" <BASE>`. If Worktree setup isn't `none`, run it there: `cd "<worktree>" && ORCHESTRATINATOR_MAIN="<MAIN>" <setup command>`. A failure here → go to **Stop** with reason SETUP; it's an environment problem, not a task problem.
+1. **Create worktrees.** For each task: `git worktree add -b <task branch> "<WT_ROOT>/<task ID>" <BASE>`. If Worktree setup isn't `none`, run it there: `cd "<worktree>" && ORCASTRAT_MAIN="<MAIN>" ORCHESTRATINATOR_MAIN="<MAIN>" <setup command>`; the old name is set too, for setup commands in plans written before the rename. A failure here → go to **Stop** with reason SETUP; it's an environment problem, not a task problem.
 2. **Dispatch all of the batch's workers at once**: one agent call per task, all in a single message, so they run concurrently. Each gets the three dispatch lines plus:
    ```
    Worktree: <absolute worktree path>
@@ -201,7 +202,7 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
 
 When every task in the wave set has either committed in its worktree or ended in a block:
 
-6. **Integrate.** Before cherry-picking a task, confirm `git log --oneline <BASE>..<task branch>` shows exactly one commit and that it carries the task's Orchestratinator-Task trailer. If not, mark the task `blocked` with `- Blocked: MERGE — branch has <n> commits` and don't integrate it. Then integrate the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
+6. **Integrate.** Before cherry-picking a task, confirm `git log --oneline <BASE>..<task branch>` shows exactly one commit and that it carries the task's Orcastrat-Task trailer. If not, mark the task `blocked` with `- Blocked: MERGE — branch has <n> commits` and don't integrate it. Then integrate the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
 7. **Re-verify the combined result.** If two or more tasks were integrated, run each integrated task's Verify command again in MAIN, deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, and go to **Stop** without rolling back: the user decides.
 8. **Record.** Set each integrated task to `done`, and commit: `chore(plan): <milestone ID> wave <n> done (<task IDs>)`.
 9. **Clean up** each integrated task: `git worktree remove "<worktree>"` and `git branch -D <task branch>`. If removal fails (on Windows a process can hold a file lock), leave it, mention it in your report, and continue. Worktrees of blocked tasks stay for the user.
@@ -210,7 +211,7 @@ When every task in the wave set has either committed in its worktree or ended in
 ### 3f. Finish the milestone
 
 1. Run the Milestone verify command in MAIN, if any. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
-2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base**: `git log --format=%H --grep="^chore(plan): start <ID>$"`, taking the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orchestratinator:milestone-reviewer` with exactly:
+2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base**: `git log --format=%H --grep="^chore(plan): start <ID>$"`, taking the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orcastrat:milestone-reviewer` with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -219,7 +220,7 @@ When every task in the wave set has either committed in its worktree or ended in
    ```
    Don't read the report yourself: it's for the planner. If `git status --porcelain` prints nothing, the report is unchanged from an earlier, interrupted attempt: skip the commit. Otherwise check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): review <ID>"`.
 3. If it reports `APPROVED`, or `FINDINGS` with `BLOCKING: 0`, go to item 7. Advisory findings don't hold the milestone up.
-4. **Fix round.** For blocking findings, invoke the agent `orchestratinator:planner` with exactly:
+4. **Fix round.** For blocking findings, invoke the agent `orcastrat:planner` with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -227,7 +228,7 @@ When every task in the wave set has either committed in its worktree or ended in
    ```
    - `BLOCKED` / `GAP`: handle it as in 3a item 4.
    - `DONE`: check scope (`git status --porcelain` may show only plan.md and this milestone's file; anything else → **Stop**), then commit: `git add -A` and `git commit -m "chore(plan): fix tasks <ID>"`. Run the validation checklist on the milestone; any failure → mark it `blocked` with the failures and go to **Stop**. Run the fix tasks through the wave loop (**3c**), then go on to item 5. The `detail` gate doesn't pause for fix tasks.
-5. **Re-review.** Run the Milestone verify command in MAIN again, if any, handling a failure as in item 1. Then invoke `orchestratinator:milestone-reviewer` with the same Base and exactly:
+5. **Re-review.** Run the Milestone verify command in MAIN again, if any, handling a failure as in item 1. Then invoke `orcastrat:milestone-reviewer` with the same Base and exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -273,7 +274,7 @@ A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same h
 A clean, intentional stop: gates, `--milestone`, `--max-tasks`.
 
 1. Commit any pending plan-file changes: `chore(plan): pause at <where>`. The main checkout must be clean when you finish, and no task worktrees should remain.
-2. Report where the run paused, what happens next, and that rerunning `/orchestratinator:run <plan dir>` continues from there.
+2. Report where the run paused, what happens next, and that rerunning `/orcastrat:run <plan dir>` continues from there.
 
 ## Stop
 

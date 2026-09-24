@@ -173,7 +173,7 @@ No agent file names Orchestratinator, except `milestone-reviewer`'s re-review gr
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M01-T02
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
