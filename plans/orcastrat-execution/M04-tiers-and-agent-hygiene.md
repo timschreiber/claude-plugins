@@ -938,7 +938,7 @@ The planner defaults to `worker-light`, puts batch tasks on `worker-mini` and ra
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M04-T07
 - Files: `plugins/orcastrat/skills/plan/SKILL.md`

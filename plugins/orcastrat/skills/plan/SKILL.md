@@ -18,6 +18,15 @@ Options in the arguments:
 - `--always-plan`: always write a plan, however small the job.
 - `--yes`: approval given in advance for doing a small job directly (step 10). Without it, you always ask first.
 
+## No prototyping or duplicate work
+
+These rules hold while you plan. The one exception is a small job you do directly in step 10: there you implement, verify and commit its tasks as that step says.
+
+- Don't implement. Never write or run trial code, scripts, tests or fixtures, in the repository, the scratchpad or any temp directory. Never create git worktrees, branches or commits. Write nothing except the plan directory. Building and testing is the workers' job, and each task's own tests catch mistakes.
+- Don't redo another agent's work: don't re-survey what the milestone's survey note covers; don't re-run a task's Verify, a Milestone verify or a Final verify; don't re-check facts a Decision or a cited note already records.
+- Settle uncertainty in the plan, not by experiment: a detail only running something would settle becomes an exact Step or Done-when for the worker; an unknown fact becomes an `investigate` task; a design choice is a GAP.
+- Use the shell only for short read-only commands (`git log`, `git show`, `git diff`, `git status`, `grep`, `ls`, `cat`).
+
 ## 1. Re-read the ground truth
 
 Read these now, in full, even if you think you remember them:
@@ -100,10 +109,10 @@ For each milestone you detail, write a task list in which **every task is small,
 - Write down every value: names, signatures, types, constants, messages, paths, test names, test cases.
 - Write every Verify command, Milestone verify, and Final verify in bash syntax: each runs with `bash -c` from the repository root on every platform. A project whose tooling is PowerShell calls it explicitly, for example `pwsh -NoProfile -File scripts/verify.ps1`.
 - One action per step, at most about seven steps, at most about three production files.
-- Prefer one batch task (`- Batch: yes`) over several tiny same-shape tasks. Edits of the same kind with no logic, such as the same constant change, field addition, import fix, or rename across files, go in one batch task of up to about ten files, with one Step per file giving the literal edit for that file, usually on `worker-light`, as the plan format's Batch field defines it. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly in step 7.
+- Prefer one batch task (`- Batch: yes`) over several tiny same-shape tasks. Edits of the same kind with no logic, such as the same constant change, field addition, import fix, or rename across files, go in one batch task of up to about ten files, with one Step per file giving the literal edit for that file, usually on `worker-mini`, as the plan format's Batch field defines it. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly in step 7.
 - Read first names the exact source sections and pattern files the task needs, not whole documents.
 
-Assign each task a tier from the rubric. Default to `worker`; justify every `worker-heavy` and `specialist` with a Why this tier line.
+Assign each task a tier from the rubric. Default to `worker-light`; justify every `worker-heavy` and `specialist` with a Why this tier line.
 
 Every `change` task in a format 2 milestone states its Fails first line, as the plan format's Fails first field defines it: `- Fails first: yes` when the task adds or changes tests, with its test-writing Steps first, then the Step "Run Verify and confirm it fails", then the implementation Steps; otherwise `- Fails first: no (<reason>)`. A task whose Verify is `review` alone is always `no`, and a task that owns a Review Focus test adds tests, so it is `yes`. `investigate` tasks and tasks in a format 1 milestone have no Fails first line.
 
