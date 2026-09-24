@@ -833,7 +833,7 @@ The plan format's Tier field lists five tiers, a batch task is usually `worker-m
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M04-T08
 - Files: `plugins/orcastrat/skills/run/SKILL.md`

@@ -23,6 +23,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 
 - **The files and git history are the truth, not your memory.** Before each wave, and whenever your context may have been compacted or you're unsure of the state, re-read plan.md and the current milestone file before your next action.
 - **Keep your own output small.** One line per task. Read command output only through log tails. Never read a whole build log.
+- **Every-dispatch instructions live in agent files.** A dispatch message carries only the lines that change from one dispatch to the next, exactly as this skill gives them. Anything that applies to every dispatch of an agent belongs in that agent's file, never in a dispatch message. This is a standing rule: a later change that adds an every-dispatch instruction puts it in the agent file.
 - **Never push.** Never rewrite history on the plan branch. Never touch any branch except the plan branch and the task branches you create.
 - Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. A project instruction to push or commit after a phase does not apply to this run.
 
@@ -165,7 +166,7 @@ For each task in the wave set, in order:
    - Run `git branch --show-current`. If it doesn't print the plan's Branch, go to **Stop** with reason STRAY.
    - Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<MAIN>" <recorded HEAD>`. It prints `OK`, or one line per commit since the recorded HEAD that is on a remote, as `<sha> <subject>`. Anything but `OK` → go to **Stop** with reason PUSHED, listing those lines.
    - Run `git log --oneline <recorded HEAD>..HEAD`. If it prints any commit, run `git reset --soft <recorded HEAD>` and remember to add `- Process: worker committed on its own; reset and recommitted` under the task. Don't write that line yet: the scope check in item 4 would flag the milestone file. Add it when you set the task's Status in item 6, or together with the `- Escalated:` or `- Blocked:` line if the task retries or blocks instead.
-3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `NOTE`). For a task with `- Fails first: yes`, check RED first:
+3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `NOTE`). If the worker's reply has no `STATUS:` line, it returned no report (for example, it hit its turn limit): that is a failed attempt, so go to **Retry** with the reason `no report`. For a task with `- Fails first: yes`, check RED first:
    - `RED: PASSED-EARLY` → **Block with GAP** (see below), with block reason `VACUOUS`.
    - `DONE` with the RED line missing or `N/A` → **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
    - Otherwise (`RED: CONFIRMED <first failing line>`, or a `BLOCKED` report with RED missing or `N/A`) → go on to STATUS.
@@ -193,6 +194,7 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
    plus the retry lines on a retry.
 3. **For each report**, in task ID order, working inside that task's worktree:
    - First, apply the checks of 3d item 2 to that worktree, with BASE as the recorded HEAD: `git -C "<worktree>" branch --show-current` must print the task branch (otherwise **Stop** with reason STRAY); run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<worktree>" <BASE>` (anything but `OK` → **Stop** with reason PUSHED); and if `git -C "<worktree>" log --oneline <BASE>..HEAD` prints any commit, run `git -C "<worktree>" reset --soft <BASE>` and remember the `- Process:` line. Add that line when you record the task in item 8, or together with its `- Escalated:` or `- Blocked:` line.
+   - No `STATUS:` line in the reply → the worker returned no report: queue a **Retry**, with the reason `no report`.
    - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record it for **Block with GAP**, with block reason `VACUOUS`. Leave its worktree for inspection.
    - `DONE` on a task with `- Fails first: yes`, with the RED line missing or `N/A` → queue a **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
    - Any other `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
@@ -259,7 +261,7 @@ Each task gets at most one retry, one tier up the ladder: `worker-mini` → `wor
 - Otherwise, discard the attempt: in serial mode, `git reset --hard HEAD` and `git clean -fd` in MAIN (the tree was clean when the task began); in parallel mode, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, plus any `- Process:` line you remembered for this attempt. Commit those lines in MAIN before dispatching again, so the next scope check never sees them: `git add "<milestone file path>"`, then `git commit -m "chore(plan): <task ID> attempt 1 failed"`, with no `Orcastrat-Task:` trailer. Then dispatch again to the worker agent for the next tier (see Definitions) with these lines appended:
   ```
   Retry: previous attempt by <tier> failed. You are starting from a clean state.
-  Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", or "RED not confirmed (Fails first: yes)">
+  Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", "RED not confirmed (Fails first: yes)", or "no report">
   Verify tail:
   <the lines verify printed after its log= line, if a command failed>
   ```
