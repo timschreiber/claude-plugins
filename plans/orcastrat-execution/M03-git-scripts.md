@@ -1724,7 +1724,7 @@ In serial waves, `run` checks pushes with `push-check` and scope with `scope-che
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M03-T02, M03-T03, M03-T06, M03-T07, M03-T08
 - Files: `plugins/orcastrat/skills/run/SKILL.md`

@@ -55,7 +55,7 @@ These only read. Stop and report to the user if any fails.
 3. **Open blocks.** If any milestone or task is `blocked`, stop and report it.
 4. **Leftover worktrees.** If WT_ROOT contains worktrees from an earlier run, list them to the user and stop. Don't delete them: they may hold work the user wants to inspect. The user removes them with `git worktree remove` and deletes their branches.
 5. **Branch.** If the plan's Branch exists but isn't checked out, stop and ask.
-6. **Interrupted-run recovery.** If the plan's Branch exists, find every `todo` task whose trailer is already in its history: `git log <branch> --format=%H -E --grep="^(Orcastrat|Orchestratinator)-Task: <task ID>$"`. Those were integrated before an interruption, but their status wasn't recorded. Note them; you'll mark them `done` in 2c. Both trailers are matched, so plans started before the rename recover.
+6. **Interrupted-run recovery.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/recover" "<plan dir>"`. It prints `OK`, or one line per affected `todo` task. A `done <task ID>` line means the task's trailer, `Orcastrat-Task:` or the pre-rename `Orchestratinator-Task:`, is already in the Branch's history: the task was integrated before an interruption, but its status wasn't recorded. Note those tasks; you'll mark them `done` in 2c. Take no action on `interrupted <task ID>` lines.
 7. **Pre-rename leftovers.** If a directory named `orchestratinator/` exists in the directory `git rev-parse --git-dir` prints or in the one `git rev-parse --git-common-dir` prints, run `git worktree prune` (the one write in these checks) and tell the user in one line that the old `orchestratinator/` directory can be deleted. Never delete it yourself. This check never stops the run.
 
 ### 2b. Ask for approval
@@ -191,12 +191,12 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
    ```
    plus the retry lines on a retry.
 3. **For each report**, in task ID order, working inside that task's worktree:
-   - First, in that worktree, apply the same stray-commit and branch check as in 3d, using BASE as the recorded HEAD and the task branch as the expected branch.
+   - First, apply the checks of 3d item 2 to that worktree, with BASE as the recorded HEAD: `git -C "<worktree>" branch --show-current` must print the task branch (otherwise **Stop** with reason STRAY); run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<worktree>" <BASE>` (anything but `OK` → **Stop** with reason PUSHED); and if `git -C "<worktree>" log --oneline <BASE>..HEAD` prints any commit, run `git -C "<worktree>" reset --soft <BASE>` and remember the `- Process:` line. Add that line when you record the task in item 8, or together with its `- Escalated:` or `- Blocked:` line.
    - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record it for **Block with GAP**, with block reason `VACUOUS`. Leave its worktree for inspection.
    - `DONE` on a task with `- Fails first: yes`, with the RED line missing or `N/A` → queue a **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
    - Any other `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
    - `BLOCKED` / `STUCK` → queue a **Retry**.
-   - Any other `DONE` → check scope with `git -C "<worktree>" status --porcelain` against the task's Files; anything else → record a SCOPE block and leave the worktree. Otherwise verify in the worktree (command, `review`, or both; the reviewer also gets the `Worktree:` line). Failure → queue a **Retry**. Success → commit the task in the worktree.
+   - Any other `DONE` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files as its own double-quoted argument; anything but `OK` → record a SCOPE block with the printed paths and leave the worktree. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory (command, `review`, or both; the reviewer also gets the `Worktree:` line). Failure → queue a **Retry**. Success → commit the task in the worktree.
 4. **Guard the main checkout.** `git status --porcelain` in MAIN must still be empty. If a worker wrote outside its worktree, stop everything: go to **Stop** with reason STRAY, listing the paths. Leave all worktrees.
 5. **Retries.** Run every queued retry as its own batch, the same way, in fresh worktrees from BASE (remove the failed attempt's worktree and branch first). Each task still gets only one retry.
 
@@ -204,7 +204,7 @@ When every task in the wave set has either committed in its worktree or ended in
 
 6. **Integrate.** Before cherry-picking a task, confirm `git log --oneline <BASE>..<task branch>` shows exactly one commit and that it carries the task's Orcastrat-Task trailer. If not, mark the task `blocked` with `- Blocked: MERGE — branch has <n> commits` and don't integrate it. Then integrate the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
 7. **Re-verify the combined result.** If two or more tasks were integrated, Verify each integrated task's Verify command again in MAIN (see Definitions), deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, and go to **Stop** without rolling back: the user decides.
-8. **Record.** Set each integrated task to `done`, and commit: `chore(plan): <milestone ID> wave <n> done (<task IDs>)`.
+8. **Record.** Set each integrated task to `done`, add any `- Process:` line you remembered for it in item 3, and commit: `chore(plan): <milestone ID> wave <n> done (<task IDs>)`.
 9. **Clean up** each integrated task: `git worktree remove "<worktree>"` and `git branch -D <task branch>`. If removal fails (on Windows a process can hold a file lock), leave it, mention it in your report, and continue. Worktrees of blocked tasks stay for the user.
 10. If any task in the wave ended blocked, go to **Stop**, after integrating everything that succeeded.
 
