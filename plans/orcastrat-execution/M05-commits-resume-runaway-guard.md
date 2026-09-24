@@ -686,13 +686,14 @@ The per-task `reviewer` takes a `Base:` line and reviews every change since that
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/reference/plan-format.md`
 - Verify: `grep -qF '| Max run time |' plugins/orcastrat/reference/plan-format.md && grep -qF '| Max tasks |' plugins/orcastrat/reference/plan-format.md && grep -qF '| Max milestones |' plugins/orcastrat/reference/plan-format.md && grep -qF -- '- Interrupted: attempt <n> at <tier>' plugins/orcastrat/reference/plan-format.md && grep -qF 'chore(plan): <task ID> done' plugins/orcastrat/reference/plan-format.md && grep -qF 'notes/<task ID>-failures.md' plugins/orcastrat/reference/plan-format.md && ! grep -qF 'run adds the trailer' plugins/orcastrat/reference/plan-format.md`
 - Fails first: no (reference text with no test; the Verify greps fail until the text is added)
 - Commit: `docs(orcastrat): describe limits, worker commits and the failure log in the plan format`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
