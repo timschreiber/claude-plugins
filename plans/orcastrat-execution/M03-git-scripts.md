@@ -1577,7 +1577,7 @@ A repository-root `.gitattributes` gives every bash file `eol=lf` (D61), and eve
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M03-T04
 - Files: `plugins/orcastrat/skills/run/SKILL.md`

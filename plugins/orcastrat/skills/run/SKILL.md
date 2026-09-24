@@ -31,11 +31,8 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **MAIN**: the absolute path of the main checkout (`git rev-parse --show-toplevel` at startup).
 - **WT_ROOT**: the directory `git rev-parse --git-common-dir` prints, made absolute, plus `/orcastrat/<plan-slug>`. Task worktrees live under it, inside `.git`, so they never show up in the main checkout's status.
 - **Task branch**: `orcastrat/<plan-slug>/<task-id>`.
-- **Verify a command** in a directory D:
-  ```
-  cd "D" && <command> > "D/.orcastrat-verify.log" 2>&1; echo "exit=$?"
-  ```
-  In the main checkout, write the log to `$(git rev-parse --git-dir)/orcastrat-verify.log` instead, so it isn't an untracked file. Nonzero exit is a failure: read only the log's last 40 lines. In a worktree, delete the log before committing.
+- **Scripts**: the bookkeeping scripts live in `${CLAUDE_PLUGIN_ROOT}/scripts/`. Call each as one line, `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<name>" <arguments>`, with every path argument in double quotes, and read only what it prints. A script that exits 2 prints one line starting `error:` on stderr and nothing on stdout: go to **Stop** with reason SETUP, quoting that line.
+- **Verify a command** in a directory D: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify" "<plan dir>" "D" '<command>'`, passing the command as one single-quoted argument, with each `'` inside it written as `'\''`. Line 1 of its output is `exit=<n>`, line 2 is `log=<log path>`, and when n isn't 0 the log's last 40 lines follow. A nonzero n is a failure. Never read the log file itself. The script writes the log under the directory `git rev-parse --git-common-dir` prints, plus `/orcastrat/<plan-slug>/logs/`, so it never shows up in a checkout's status and needs no cleanup.
 - **Commit a task** in a directory D: `git -C "D" add -A`, then
   `git -C "D" commit -m "<task's Commit message>" -m "Orcastrat-Task: <task ID>"`.
 
@@ -175,7 +172,7 @@ For each task in the wave set, in order:
    - `DONE` → continue.
 4. **Check scope.** Every path in `git status --porcelain` must be in the task's Files. Anything else → mark the task `blocked` with `- Blocked: SCOPE — <paths>` and go to **Stop**.
 5. **Verify yourself**, in MAIN. Don't trust the worker's VERIFY line.
-   - A command → run it; failure → **Retry**.
+   - A command → Verify it in MAIN (see Definitions); failure → **Retry**.
    - `review` → invoke `orcastrat:reviewer` with the same three lines as the dispatch; `VERDICT: FAIL` → **Retry** with its REASONS.
    - Both → command first, review only if it passes.
 6. **Record and commit.** Set the task's Status to `done`, then commit the task in MAIN. Code and status land in one commit.
@@ -203,14 +200,14 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
 When every task in the wave set has either committed in its worktree or ended in a block:
 
 6. **Integrate.** Before cherry-picking a task, confirm `git log --oneline <BASE>..<task branch>` shows exactly one commit and that it carries the task's Orcastrat-Task trailer. If not, mark the task `blocked` with `- Blocked: MERGE — branch has <n> commits` and don't integrate it. Then integrate the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
-7. **Re-verify the combined result.** If two or more tasks were integrated, run each integrated task's Verify command again in MAIN, deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, and go to **Stop** without rolling back: the user decides.
+7. **Re-verify the combined result.** If two or more tasks were integrated, Verify each integrated task's Verify command again in MAIN (see Definitions), deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, and go to **Stop** without rolling back: the user decides.
 8. **Record.** Set each integrated task to `done`, and commit: `chore(plan): <milestone ID> wave <n> done (<task IDs>)`.
 9. **Clean up** each integrated task: `git worktree remove "<worktree>"` and `git branch -D <task branch>`. If removal fails (on Windows a process can hold a file lock), leave it, mention it in your report, and continue. Worktrees of blocked tasks stay for the user.
 10. If any task in the wave ended blocked, go to **Stop**, after integrating everything that succeeded.
 
 ### 3f. Finish the milestone
 
-1. Run the Milestone verify command in MAIN, if any. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
+1. Verify the Milestone verify command in MAIN (see Definitions), if any. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
 2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base**: `git log --format=%H --grep="^chore(plan): start <ID>$"`, taking the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orcastrat:milestone-reviewer` with exactly:
    ```
    Plan: <plan dir>
@@ -228,7 +225,7 @@ When every task in the wave set has either committed in its worktree or ended in
    ```
    - `BLOCKED` / `GAP`: handle it as in 3a item 4.
    - `DONE`: check scope (`git status --porcelain` may show only plan.md and this milestone's file; anything else → **Stop**), then commit: `git add -A` and `git commit -m "chore(plan): fix tasks <ID>"`. Run the validation checklist on the milestone; any failure → mark it `blocked` with the failures and go to **Stop**. Run the fix tasks through the wave loop (**3c**), then go on to item 5. The `detail` gate doesn't pause for fix tasks.
-5. **Re-review.** Run the Milestone verify command in MAIN again, if any, handling a failure as in item 1. Then invoke `orcastrat:milestone-reviewer` with the same Base and exactly:
+5. **Re-review.** Verify the Milestone verify command in MAIN again (see Definitions), if any, handling a failure as in item 1. Then invoke `orcastrat:milestone-reviewer` with the same Base and exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -246,7 +243,7 @@ When every task in the wave set has either committed in its worktree or ended in
 
 When every milestone is `done`:
 
-1. Run Final verify in MAIN, if any. On failure, set the plan to `blocked` and go to **Stop**.
+1. Verify the Final verify command in MAIN (see Definitions), if any. On failure, set the plan to `blocked` and go to **Stop**.
 2. Set the plan to `complete` and commit: `chore(plan): complete plan`.
 3. Report: milestones and tasks completed in this run, how many ran in parallel, escalations (task and tiers), and the commit range for this run.
 
@@ -260,7 +257,7 @@ Each task gets at most one retry, one tier up: `worker-light` → `worker` → `
   Retry: previous attempt by <tier> failed. You are starting from a clean state.
   Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", or "RED not confirmed (Fails first: yes)">
   Verify tail:
-  <last 40 lines of the verify log, if a command failed>
+  <the lines verify printed after its log= line, if a command failed>
   ```
 
 ## Block with GAP
