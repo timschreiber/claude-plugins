@@ -142,7 +142,7 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 - `push-check <base>`: prints `OK`, or the commits found on a remote.
 - `verify <dir> <command>`: runs the command with `bash -c` in `<dir>`, writing the full log under `$(git rev-parse --git-common-dir)/orcastrat/<plan-slug>/logs/`, so logs never dirty the tree or trip the scope check; prints `exit=<n>` and, on failure, the last 40 lines. `run` reads only this output, never the log itself.
 - `integrate <task-branch> <base>`: runs the cherry-pick range; prints `OK`, or `CONFLICT` plus the conflicted files.
-- `recover <plan-dir>`: lists `todo` tasks whose trailer (`Orcastrat-Task:`, or the pre-rename `Orchestratinator-Task:`) is already in history, and tasks with worker commits (subject prefix `<task ID>:`) after the last trailer commit but no trailer of their own. Those are interrupted attempts: `run` treats them as failed attempts at their recorded tier and handles them per Change 1.
+- `recover <plan-dir>`: lists `todo` tasks whose trailer (`Orcastrat-Task:`, or the pre-rename `Orchestratinator-Task:`) is already in history, and tasks with worker commits (subject prefix `<task ID>:`) after the last trailer commit but no trailer of their own. Those are interrupted attempts. An interruption (a crash, a closed session, a stopped run) is not a capability failure, so `run` doesn't escalate it: it preserves the report, resets to the attempt's BASE and cleans, logs an `interrupted attempt` entry in the failure log, and dispatches a fresh worker at the same tier. That retry doesn't count toward the three-rung cap. A second interrupted attempt on the same task counts as a normal failed attempt (Change 1), so a task that keeps being interrupted can't retry forever.
 - `task-brief <plan-dir> <task-id>`: Change 7.
 - `run-report <plan-dir>`: Change 11.
 - The Stop hook script: Change 8.
@@ -591,7 +591,7 @@ The README carries the same steps under "Upgrading from Orchestratinator".
    - a survey, plan-review, review or re-review note already committed → skip the agent;
    - a milestone detailed (Status `ready`) but not committed → run the validation checklist and commit it, rather than invoking the planner again;
    - a task whose trailer is in history (`recover`'s `done`) → mark it `done`;
-   - an interrupted attempt (`recover`'s `interrupted`, or uncommitted changes in a task's Files) → a failed attempt at its recorded tier (Change 1);
+   - an interrupted attempt (`recover`'s `interrupted`, or uncommitted changes in a task's Files) → redispatched once at its recorded tier without escalating; a second interruption of the same task is a failed attempt (Change 6, `recover`; Change 1);
    - a Pause or Stop commit already made → nothing to redo.
 4. **The Stop hook's reason points at `next`** (Change 8 item 2 and Compaction).
 5. **Tests:** bats tests for `next` with fixture plans in each state: fresh (outline M01), survey committed, detailed but uncommitted, mid-wave, interrupted attempt, blocked with open questions, milestone done awaiting review, plan complete. `run-report` (Change 11) reports tokens per run invocation from the D07 usage lines, so the cost of a resume is visible.
@@ -683,7 +683,7 @@ Build it in serial mode (`Parallel: off`), since the installed plugin predates t
   - `plan` on a spec with planted gaps, showing the interview, the audit, and the write-back;
   - the toolchain check failing on a repo with no commit identity, and `run` refusing a dirty tree;
   - a second Claude Code session in another worktree of the same repository ending its turns normally while a run is active;
-  - a run interrupted after a worker commit but before the status commit, recovered as a failed attempt;
+  - a run interrupted after a worker commit but before the status commit, recovered as an interrupted attempt and redispatched at the same tier;
   - an escalated task whose fresh worker reads the preserved report of the earlier attempt;
   - `recover` on a plan with commits carrying the old `Orchestratinator-Task:` trailer;
   - the migration steps on a machine with the old plugin installed.
@@ -776,7 +776,7 @@ Review these before planning.
 50. **Only the success commit carries the `Orcastrat-Task:` trailer.** Failure-log commits don't, so recovery can't mistake a failed attempt for a finished one.
 51. **A failed attempt's report is preserved before the reset,** as `notes/reports/<task-id>-attempt<n>.md`, so the next tier can read what was tried.
 52. **Verify logs, briefs and worktrees live inside `.git`;** notes written in the tree are committed before the next dispatch.
-53. **`recover` treats worker commits without a trailer as an interrupted, failed attempt.**
+53. **`recover` treats worker commits without a trailer as an interrupted attempt,** retried once at the same tier; a second interruption counts as a failed attempt.
 54. **The run marker is per checkout, with a heartbeat,** so parallel sessions in other worktrees are unaffected and long waves never look stuck.
 55. **A failed merge reruns the task at the tier that succeeded,** not its planned tier.
 56. **Briefs are regenerated when Decisions change** before a retry.

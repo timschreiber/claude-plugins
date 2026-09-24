@@ -35,6 +35,7 @@ Governing sources: spec §6 (Change 5), §23 item 1 (Change 22), §22 item 3 (th
 
 - Add `agents/merger.md` with the frontmatter and instructions above.
 - `run`: rewrite the parallel section (worktree creation, dispatch, per-task checks, integration via `integrate`, conflict handling via `merger` with the serial-rerun fallback, containment check and downgrade, combined re-verify, cleanup).
+- `run`: bring resume, the three-rung ladder, the failure log and escalation commits to parallel tasks (D82), and make a scope violation in a parallel wave a failed attempt (D83).
 - `run`: same-tier grouping of dispatch order in serial and parallel modes.
 - `reference/plan-format.md`, `plan` skill, `planner`: `Max parallel` default 2 for new plans (D29), and "waves with only tiny tasks are batched (`Batch: yes`) rather than parallelized".
 - Worker agents: the worktree rules, conditional on a `Worktree:` line (already there; confirm they follow Change 21.2).

@@ -1,6 +1,6 @@
 # M05: Worker commits, resume, runaway guard (Changes 1, 2, 3)
 
-- Status: blocked
+- Status: outline
 - Format: 2
 - Goal: Workers commit their own work with `<task ID>: ` subjects, and `run` verifies `BASE..HEAD`, makes the status commit with the `Orcastrat-Task:` trailer, and checks for pushes. A failed attempt is resumed once on the same agent before escalating. Escalation resets to `BASE`, and commits the preserved report and failure-log entry without a trailer. The ladder is capped at three rungs, with a worker breaker, a failure log, and escalation context. `Max run time`, `Max tasks` and `Max milestones` pause with `LIMIT`. `run-state` exists with bats tests, and `status` shows a `Failures:` line.
 - Depends on: M04
