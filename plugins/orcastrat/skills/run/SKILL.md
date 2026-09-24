@@ -42,6 +42,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **Next**: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/next" "<plan dir>"`. It prints nine `key: value` lines, in this order: `plan: <plan status>`; `milestone: <ID> <status> <file path>` for the first milestone that isn't `done`, or `milestone: none`; `next:` with the step to take, one of `survey <ID>`, `detail <ID>`, `start <ID>`, `wave <n>`, `milestone-verify <ID>`, `review <ID>`, `final-verify`, `complete` or `blocked`; `wave: <n> <task ID>:<tier> ...`, the current milestone's lowest wave with `todo` tasks, each with its planned Tier, or `wave: none`; `blocked:` with the blocked milestone and task IDs, or `blocked: none`; `open-questions: <count>`; `recover:` with the `recover` script's output lines joined by `; `; `worktrees: <count>`, the task worktrees left under WT_ROOT; and `marker: none`, `marker: active <n>m` or `marker: stale`, this checkout's active-run marker. It reads only the plan's status, Wave and Tier lines, never Decisions, Context or Steps.
 - **Plan header**: plan.md's title, header fields and Milestones table, every line above its `## Coverage` heading, or above `## Decisions` when it has no Coverage. To read it, Grep plan.md for `^## (Coverage|Decisions)` with line numbers, then Read plan.md from line 1 up to the line before the first match. Never read further down plan.md, except for the validation checklist.
 - **Task block** of a task: its lines in the milestone file, from its `### <task ID>:` heading to the line before the next line starting `## ` or `### ` outside a code fence. To read it, Grep the milestone file for `^#{2,3} ` with line numbers, then Read only that range, with the Read tool's offset and limit; if the range ends inside an open code fence, read on to the next heading after the fence. It gives you the fields `next` doesn't print (Verify, Files, Commit, Fails first, Depends on) and the task's `- Escalated:`, `- Re-tiered:`, `- Interrupted:` and `- Blocked:` lines, and it lets you edit the task's lines.
+- **Committed review result** of a review note: Grep the note for `^## Blocking` with `-A 2`. If `None.` follows the heading, the result is `BLOCKING: 0`; any finding there means `BLOCKING` above 0. Read nothing else of the note.
 - **Verify a command** in a directory D: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify" "<plan dir>" "D" '<command>'`, passing the command as one single-quoted argument, with each `'` inside it written as `'\''`. Line 1 of its output is `exit=<n>`, line 2 is `log=<log path>`, and when n isn't 0 the log's last 40 lines follow. A nonzero n is a failure. Never read the log file itself. The script writes the log under the directory `git rev-parse --git-common-dir` prints, plus `/orcastrat/<plan-slug>/logs/`, so it never shows up in a checkout's status and needs no cleanup.
 - **BASE**: in a serial wave, the commit that `git rev-parse HEAD` prints in MAIN just before a task's dispatch (3d item 1); a resume keeps the same BASE. In a parallel wave, BASE is the wave's starting commit (3e).
 - **Report file** and **Failure log** of a task: `<plan dir>/notes/reports/<task ID>.md` and `<plan dir>/notes/<task ID>-failures.md`, with `<plan dir>` written relative to the repository root, such as `plans/<plan-slug>`, because `scope-check` compares repo-relative paths. Either file may not exist yet: skip any step that copies or reads a file that doesn't exist.
@@ -128,11 +129,11 @@ If `--yes` was given, the user approved in advance: show the summary and continu
 
 Take milestones in table order. Skip `done` ones. With `--milestone`, handle only that one, and first confirm every milestone it depends on is `done`.
 
-For the current milestone, read its file, then:
+The current milestone is the one the `milestone:` line of **next** names, with its file path. Read that file only for the validation checklist and for task blocks (see Definitions). Then:
 
 ### 3a. Detail it if it's an outline
 
-If Status is `outline`:
+If the `next:` line of **next** says `survey <ID>` or `detail <ID>`, the milestone is an outline:
 
 1. **Survey.** Invoke the agent named by the milestone's Survey (`orcastrat:scout` or `orcastrat:scout-heavy`) with exactly:
    ```
@@ -140,7 +141,7 @@ If Status is `outline`:
    Plan: <plan dir>
    Output: <plan dir>/notes/<ID>-survey.md
    ```
-   Skip this if that notes file is already committed from an earlier, interrupted attempt. Don't read the survey yourself: it's for the planner. Check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): survey <ID>"`.
+   Skip this when the `next:` line of **next** says `detail <ID>`: the survey note is already committed. Don't read the survey yourself: it's for the planner. Check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): survey <ID>"`.
 2. **Plan.** Invoke the agent `orcastrat:planner` with exactly:
    ```
    Plan: <plan dir>
@@ -175,7 +176,7 @@ Run the validation checklist on the milestone, including the wave rules. Any fai
 
 ### 3c. Wave loop
 
-Repeat until the milestone has no `todo` task. Take the lowest wave that still has `todo` tasks. Its `todo` tasks, in task ID order, are the **wave set**. If any dependency of a task in the set isn't `done`, go to **Stop**.
+Before each wave, run **next** (see Definitions); repeat until its `wave:` line says `wave: none`. That line names the lowest wave that still has `todo` tasks and lists them, in task ID order, with their planned tiers: they are the **wave set**. Read a task's **task block** (see Definitions) when you need its fields. If any dependency of a task in the set isn't `done`, go to **Stop**.
 
 Choose the mode for this wave:
 
@@ -261,8 +262,8 @@ When every task in the wave set has either committed in its worktree or ended in
 
 ### 3f. Finish the milestone
 
-1. Verify the Milestone verify command in MAIN (see Definitions), if any. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
-2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base** among this plan's commits only: run `git log --diff-filter=A --format=%H -- "<plan dir>/plan.md"` and take the last line printed, the commit that added plan.md; then run `git log --format=%H --grep="^chore(plan): start <ID>$" <that commit>..HEAD` and take the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orcastrat:milestone-reviewer` with exactly:
+1. Verify the Milestone verify command in MAIN (see Definitions), if any, unless the `next:` line of **next** says `review <ID>`: the review note is then already committed, so this ran before it. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
+2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base** among this plan's commits only: run `git log --diff-filter=A --format=%H -- "<plan dir>/plan.md"` and take the last line printed, the commit that added plan.md; then run `git log --format=%H --grep="^chore(plan): start <ID>$" <that commit>..HEAD` and take the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise, if the `next:` line of **next** says `review <ID>`, the review is already committed from an earlier session: don't invoke the reviewer again, take its **committed review result** (see Definitions), and go on to item 3. Otherwise invoke the agent `orcastrat:milestone-reviewer` with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -279,7 +280,7 @@ When every task in the wave set has either committed in its worktree or ended in
    ```
    - `BLOCKED` / `GAP`: handle it as in 3a item 4.
    - `DONE`: check scope (`git status --porcelain` may show only plan.md and this milestone's file; anything else → **Stop**), then commit: `git add -A` and `git commit -m "chore(plan): fix tasks <ID>"`. Run the validation checklist on the milestone; any failure → mark it `blocked` with the failures and go to **Stop**. Run the fix tasks through the wave loop (**3c**), then go on to item 5. The `detail` gate doesn't pause for fix tasks.
-5. **Re-review.** Verify the Milestone verify command in MAIN again (see Definitions), if any, handling a failure as in item 1. Then invoke `orcastrat:milestone-reviewer` with the same Base and exactly:
+5. **Re-review.** If `git ls-files "<plan dir>/notes/<ID>-review-2.md"` prints that path, the re-review is already committed from an earlier session: take its **committed review result** (see Definitions) and go on to item 6. Otherwise verify the Milestone verify command in MAIN again (see Definitions), if any, handling a failure as in item 1. Then invoke `orcastrat:milestone-reviewer` with the same Base and exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
