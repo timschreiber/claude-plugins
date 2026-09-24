@@ -1,0 +1,21 @@
+## Issues
+
+None found in the portion reviewed (see Advisory below for what wasn't reached).
+
+## Advisory (checks not completed — ran out of turns)
+
+I reviewed plan.md's header, Coverage rows, Open questions, and all Decisions M07 cites (D05, D12, D13, D17, D18, D29, D50, D62, D82, D83, D117, D119–D135), the governing spec sections (§6, §22, §23), and the milestone file in full. I then verified, task by task, that Read first citations, Interfaces Consumes/Produces (character-for-character against the producing tasks in M03/M04/M05/M06), literal replacement/insertion targets (via Grep for uniqueness and exact match), Verify command greps against the literal text each task's Steps would produce, Fails-first sequencing, and wave placement/file-overlap for all four waves were consistent and correct for every task, M07-T01 through M07-T09. No contradictions, missing citations, mismatched Produces/Consumes, or Verify commands that would pass before the work was done turned up in that pass.
+
+I did not get to, and could not confirm either way:
+
+1. **Coverage (check 3)** — I read the milestone's `## Coverage` section and confirmed every row cites task IDs that exist (M07-T01..T09), but I did not cross-check every plan.md-level row mapped to M07 against the milestone's own Coverage rows for completeness, nor re-derive the requirement list from spec §6/§22/§23 independently to look for an uncovered requirement.
+2. **Wave interference (check 5)** — I checked Files-overlap and obvious Read-first-vs-Files collisions across all four waves and found none, but I did not do the full five-rule pass (registration points, shared external state, Verify-exercises-other's-changed-code) exhaustively for every pair within wave 1 (4 tasks) and did not double check M07-T04/M07-T05/M07-T06 against each other beyond file paths.
+3. **Banned phrases and placeholders (check 1)** — I did not grep the full task Steps text across all nine tasks for the banned words ("decide", "choose", "figure out", "as appropriate", "if needed", "etc.", "and so on", "similar", "per the spec") or placeholders (`TBD`, `TODO`, stray `...`). Everything I read in passing looked literal and concrete, but this wasn't a systematic pass.
+4. **The Sonnet test / sizing rules (check 2)** — Not independently re-verified task by task beyond what surfaced naturally while checking Interfaces and Verify; the tasks I read in full (M07-T01, T02, T03) looked fully specified with no left-open choices, but I did not do this check specifically for the SKILL.md/plan-format.md text tasks (T04–T09), which are long and dense.
+5. **Tier fit (check 8)** — All nine tasks are `Tier: worker` (D62 sets `worker` as the floor for this whole plan build, so no `worker-light` is expected). None are `worker-heavy` or `specialist`, so no `Why this tier` line is required; I did not separately confirm none of the tasks are intricate enough to need `worker-heavy` instead.
+6. **Unsourced assumptions (check 9)** — Not run as a dedicated pass; everything I traced back had a Decision or spec citation, but I did not check every value in T04–T09's inserted text (e.g., the exact wording "two concurrent workers roughly halve the wall-clock time...") against the spec for verbatim sourcing beyond spot-checking §6 Defaults, which does support that wording.
+7. **Read first ≤5 entries (check 10)** — Spot-checked (all tasks I looked at had 3–5 entries), not counted for every task.
+8. **M07-T08's later Steps in detail** — I confirmed the Verify greps and the major structural pieces (integrate, merger dispatch, re-verify, record, escalations/merge-failures, blocks) match the cited Decisions (D120, D121, D123, D124, D127, D128, D130, D131, D132, D134) at a summary level, but did not re-derive every sub-bullet of item 11 and item 12 against those Decisions line by line.
+9. **M07-T09's full Interfaces/Depends-on cross-check** — Confirmed its two Consumes lines match M07-T08's and M05-T09's Produces, but did not re-read M05-T09's full Steps to confirm "## Failed attempt" section shape beyond the two lines quoted.
+
+None of the above turned up a concrete problem while I was looking at them; they are simply checks I did not reach before running out of turns, not confirmed-clean areas.
