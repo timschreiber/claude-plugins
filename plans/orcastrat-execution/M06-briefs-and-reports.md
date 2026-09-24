@@ -987,7 +987,7 @@ Before every dispatch `run` generates the task's brief with `task-brief`, and a 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 7
 - Depends on: M06-T04, M06-T06, M06-T12, M05-T07
 - Files: `plugins/orcastrat/skills/run/SKILL.md`

@@ -45,6 +45,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **Committed review result** of a review note: Grep the note for `^## Blocking` with `-A 2`. If `None.` follows the heading, the result is `BLOCKING: 0`; any finding there means `BLOCKING` above 0. Read nothing else of the note.
 - **Verify a command** in a directory D: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify" "<plan dir>" "D" '<command>'`, passing the command as one single-quoted argument, with each `'` inside it written as `'\''`. Line 1 of its output is `exit=<n>`, line 2 is `log=<log path>`, and when n isn't 0 the log's last 40 lines follow. A nonzero n is a failure. Never read the log file itself. The script writes the log under the directory `git rev-parse --git-common-dir` prints, plus `/orcastrat/<plan-slug>/logs/`, so it never shows up in a checkout's status and needs no cleanup.
 - **Brief** of a task: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/task-brief" "<plan dir>" <task ID>`. It copies plan.md's Decisions, the milestone's Context and the task block into one file under the directory `git rev-parse --git-common-dir` prints, plus `/orcastrat/<plan-slug>/briefs/`, where every worktree can read it, and prints only that file's path. Generate it before every dispatch of a task, including the fresh dispatch after an escalation and the redispatch of an interrupted attempt, so it always holds the current Decisions and task block. Never generate it for a resume: the resumed agent has already read it.
+- **RED evidence** in a report file: its `## RED evidence` section has a `Command:` line and a code fence with at least one line of output in it. Check it with Grep on the report file, pattern `^## RED evidence`, output mode content, with `-A 12`, and read nothing else of the report. A report file that doesn't exist has no RED evidence.
 - **BASE**: in a serial wave, the commit that `git rev-parse HEAD` prints in MAIN just before a task's dispatch (3d item 1); a resume keeps the same BASE. In a parallel wave, BASE is the wave's starting commit (3e).
 - **Report file** and **Failure log** of a task: `<plan dir>/notes/reports/<task ID>.md` and `<plan dir>/notes/<task ID>-failures.md`, with `<plan dir>` written relative to the repository root, such as `plans/<plan-slug>`, because `scope-check` compares repo-relative paths. Either file may not exist yet: skip any step that copies or reads a file that doesn't exist.
 - **Attempt number** `<n>` of a task's current attempt: 1 plus the number of lines starting `## Attempt ` in its failure log, counted with `grep -c "^## Attempt " "<failure log>"` (1 when the log doesn't exist). Every dispatch and every resume of the task is an attempt, and the count carries across runs.
@@ -63,6 +64,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
   - Description: <the failure's description (see Failed attempt), or interrupted attempt>
   - Hypothesis: <the worker's HYPOTHESIS line, or none reported when it gave none or "-">
   - Fixes tried: <the worker's FIXES TRIED line, or none reported when it gave none or "-">
+  - Report: <notes/reports/<task ID>-attempt<n>.md when this attempt's report was preserved under that name, otherwise notes/reports/<task ID>.md>
   - Then: <resumed | escalated to <tier> | resume failed (<error>), escalated to <tier> | resume failed (<error>), blocked (STUCK) | redispatched at <tier> (interrupted) | blocked (STUCK)>
   - Error: none
   ```
@@ -204,20 +206,22 @@ For each task in the wave set, in order, first **check the limits** (see Definit
 2. **Check for branch changes and pushes** after every attempt, whether it succeeded or failed, in MAIN, against BASE:
    - Run `git branch --show-current`. If it doesn't print the plan's Branch, go to **Stop** with reason STRAY.
    - Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<MAIN>" <BASE>`. It prints `OK`, or one line per commit since BASE that is on a remote, as `<sha> <subject>`. Anything but `OK` → go to **Stop** with reason PUSHED, listing those lines.
-3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `HYPOTHESIS`, `FIXES TRIED`, `NOTE`). If the worker's reply has no `STATUS:` line, it returned no report (for example, it hit its turn limit): that is a **Failed attempt** with the description `no report (turn limit reached)`. For a task with `- Fails first: yes`, check RED first:
+3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `HYPOTHESIS`, `FIXES TRIED`, `NOTE`, `REPORT`). If the worker's reply has no `STATUS:` line, it returned no report (for example, it hit its turn limit): that is a **Failed attempt** with the description `no report (turn limit reached)`. For a task with `- Fails first: yes`, check RED first:
    - `RED: PASSED-EARLY` → **Block with GAP** (see below), with block reason `VACUOUS`.
-   - `DONE` with the RED line missing or `N/A` → **Failed attempt** with the description `RED not confirmed`.
-   - Otherwise (`RED: CONFIRMED <first failing line>`, or a `BLOCKED` report with RED missing or `N/A`) → go on to STATUS.
+   - `DONE` or `DONE_WITH_CONCERNS` with the RED line missing or `N/A`, or with `RED: CONFIRMED` but no **RED evidence** in the task's report file (see Definitions) → **Failed attempt** with the description `RED not confirmed`.
+   - Otherwise (`RED: CONFIRMED <first failing line>` with its RED evidence, or a `BLOCKED` report with RED missing or `N/A`) → go on to STATUS.
 
    A task without `- Fails first: yes` (Fails first `no`, or no Fails first line, as in format 1 milestones and `investigate` tasks) skips the RED check. Then, for every task, read STATUS:
    - `BLOCKED` / `GAP` → **Block with GAP** (see below).
    - `BLOCKED` / `STUCK` → **Failed attempt** with the description `STUCK: <NOTE>`.
    - `DONE` → continue.
+   - `DONE_WITH_CONCERNS` → continue as for `DONE`; item 5 also sends the task to the reviewer with the worker's concerns.
 4. **Check scope.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<MAIN>" <BASE> "<path>" ...`, passing each path in the task's Files, then the task's report file and failure log (see Definitions), each as its own double-quoted argument. It prints `OK`, or each changed path that isn't in that list, one per line; it checks both commits since BASE and uncommitted changes. Anything but `OK` → **Failed attempt** with the description `scope violation: <the printed paths, comma-separated>`.
 5. **Verify yourself**, in MAIN. Don't trust the worker's VERIFY line.
    - A command → Verify it in MAIN (see Definitions); failure → **Failed attempt** with the description `Verify failed`.
    - `review` → invoke `orcastrat:reviewer` with exactly the two lines `Brief: <the task's brief path>` and `Base: <BASE>`; `VERDICT: FAIL` → **Failed attempt** with the description `reviewer FAIL: <REASONS>`.
    - Both → command first, review only if it passes.
+   - `DONE_WITH_CONCERNS` → the reviewer always runs, even when Verify is only a command: once the command passes, if there is one, invoke `orcastrat:reviewer` as for `review`, with the extra line `Report: <MAIN>/<report file>`, so it also checks the worker's concerns. A task whose Verify includes `review` gets one review, with that line. `VERDICT: FAIL` → **Failed attempt** with the description `reviewer FAIL: <REASONS>`.
 6. **Commit what the worker left.** Workers commit their own work. If `git status --porcelain` still lists a path outside the plan directory, commit those paths for the worker (the scope check passed, so they are all in the task's Files): `git add -A -- ":(exclude)<plan dir>"`, then `git commit -m '<task ID>: <the task's Commit message>'`, writing each `'` in the message as `'\''`.
 7. **Record and commit.** Set the task's Status to `done`. Then `git add -A` and `git commit -m "chore(plan): <task ID> done" -m "Orcastrat-Task: <task ID>"`. This status commit also carries the task's report file and failure log. It is the only commit with the trailer.
 
@@ -237,10 +241,10 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
    - First, apply the checks of 3d item 2 to that worktree, with BASE as the recorded HEAD: `git -C "<worktree>" branch --show-current` must print the task branch (otherwise **Stop** with reason STRAY); run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<worktree>" <BASE>` (anything but `OK` → **Stop** with reason PUSHED); and if `git -C "<worktree>" log --oneline <BASE>..HEAD` prints any commit, run `git -C "<worktree>" reset --soft <BASE>` and remember the `- Process:` line. Add that line when you record the task in item 8, or together with its `- Escalated:` or `- Blocked:` line.
    - No `STATUS:` line in the reply → the worker returned no report: queue a retry (item 5), with the reason `no report`.
    - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record it for **Block with GAP**, with block reason `VACUOUS`. Leave its worktree for inspection.
-   - `DONE` on a task with `- Fails first: yes`, with the RED line missing or `N/A` → queue a retry (item 5), with the reason `RED not confirmed (Fails first: yes)`.
+   - `DONE` or `DONE_WITH_CONCERNS` on a task with `- Fails first: yes`, with the RED line missing or `N/A`, or with no **RED evidence** in the report file under the worktree (see Definitions) → queue a retry (item 5), with the reason `RED not confirmed (Fails first: yes)`.
    - Any other `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
    - `BLOCKED` / `STUCK` → queue a retry (item 5).
-   - Any other `DONE` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files, then the task's report file (see Definitions), each as its own double-quoted argument; anything but `OK` → record a SCOPE block with the printed paths and leave the worktree. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory (command, `review`, or both; the reviewer also gets the `Worktree:` line, and `Base: <BASE>`). Failure → queue a retry (item 5). Success → commit the task in the worktree: `git -C "<worktree>" add -A`, then `git -C "<worktree>" commit -m '<task's Commit message>' -m "Orcastrat-Task: <task ID>"`, writing each `'` in the message as `'\''`.
+   - Any other `DONE` or `DONE_WITH_CONCERNS` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files, then the task's report file (see Definitions), each as its own double-quoted argument; anything but `OK` → record a SCOPE block with the printed paths and leave the worktree. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory (command, `review`, or both; the reviewer also gets the `Worktree:` line, and after `DONE_WITH_CONCERNS` its `Report:` line names the report file under the worktree). Failure → queue a retry (item 5). Success → commit the task in the worktree: `git -C "<worktree>" add -A`, then `git -C "<worktree>" commit -m '<task's Commit message>' -m "Orcastrat-Task: <task ID>"`, writing each `'` in the message as `'\''`.
 4. **Guard the main checkout.** `git status --porcelain` in MAIN must still be empty. If a worker wrote outside its worktree, stop everything: go to **Stop** with reason STRAY, listing the paths. Leave all worktrees.
 5. **Retries.** A parallel task gets at most one retry, one tier up the ladder, in a fresh worktree, with no resume. For each queued retry:
    - If the task has already been retried in this run, or its current tier (see Definitions) is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`, and leave its worktree for the user to inspect. Finish the wave's other tasks first (item 6, Integrate, onward), then go to **Stop**.
@@ -317,6 +321,7 @@ The ladder is `worker-mini` → `worker-light` → `worker` → `worker-heavy` �
      ```
      Resume: attempt <n> failed. Fix it and report again.
      Reason: <the description>
+     Report: <MAIN>/<report file>
      Verify tail:
      <the lines verify printed after its log= line>
      ```
