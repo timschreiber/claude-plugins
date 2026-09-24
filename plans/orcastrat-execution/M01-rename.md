@@ -1,10 +1,10 @@
 # M01: Rename to Orcastrat (Change 24)
 
-- Status: blocked
+- Status: in-progress
 - Format: 2
 - Goal: The plugin lives at `plugins/orcastrat/` with name `orcastrat`, the marketplace catalog lists it (with a `renames` entry), and every skill, agent, reference, and README says Orcastrat and uses `orcastrat` identifiers. The only exceptions are the compatibility points: recovery also matches the old `Orchestratinator-Task:` trailer, `ORCHESTRATINATOR_MAIN` is still set, `run` reports old `orchestratinator/` directories, and the README has the "Formerly" note and the upgrade steps. `./scripts/Validate-All.ps1` passes.
 - Depends on: none
-- Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1 && ! grep -rin orchestratinator plugins/orcastrat | grep -v -e 'Orchestratinator-Task' -e 'ORCHESTRATINATOR_MAIN' -e 'orchestratinator/' -e 'Formerly Orchestratinator' -e 'Upgrading from Orchestratinator' -e 'was called Orchestratinator' -e 'orchestratinator@timschreiber'`
+- Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1 && ! grep -rin orchestratinator plugins/orcastrat | grep -v -e 'Orchestratinator-Task' -e 'Orchestratinator)-Task' -e 'ORCHESTRATINATOR_MAIN' -e 'orchestratinator/' -e 'Formerly Orchestratinator' -e 'Upgrading from Orchestratinator' -e 'was called Orchestratinator' -e 'orchestratinator@timschreiber'`
 
 ## Context
 
