@@ -15,7 +15,7 @@
 
 | ID | Title | Status | File |
 |---|---|---|---|
-| M01 | Rename to Orcastrat (Change 24) | in-progress | M01-rename.md |
+| M01 | Rename to Orcastrat (Change 24) | done | M01-rename.md |
 | M02 | Portable runtime foundation (Change 19) | outline | M02-portable-runtime.md |
 | M03 | Git bookkeeping scripts (Change 6) | outline | M03-git-scripts.md |
 | M04 | Worker tiers and agent prefix hygiene (Changes 4, 21) | outline | M04-tiers-and-agent-hygiene.md |
