@@ -159,7 +159,7 @@ If Status is `outline`:
    Once the plan review reports `APPROVED`, or the fix pass reports `DONE`, run the validation checklist on the milestone. Any failure → mark it `blocked` with the failures and go to **Stop**.
 6. Check scope: `git status --porcelain` may show only plan.md, this milestone's file, this milestone's survey notes, and its plan-review report, `notes/<ID>-plan-review.md`. Anything else → **Stop**.
 7. Commit: `git add -A` and `git commit -m "chore(plan): detail <ID>"`. Survey notes stay in the plan as a record of what the planner worked from. The plan-review report is committed here too, with no commit of its own.
-8. If Gates includes `detail`: go to **Pause**, telling the user to review the milestone file and rerun.
+8. If Gates includes `detail`: go to **Pause** with reason `GATE`, telling the user to review the milestone file and rerun.
 
 ### 3b. Validate and start
 
@@ -282,7 +282,7 @@ When every task in the wave set has either committed in its worktree or ended in
    Don't read the report yourself. Skip the commit, or check scope and commit, as in item 2, with `git commit -m "chore(plan): re-review <ID>"`.
 6. If the re-review reports `BLOCKING` above 0, mark the milestone `blocked` and go to **Stop** with reason `REVIEW`. There is only one fix round per milestone.
 7. Set the milestone to `done` in its file and in the plan.md table. Commit: `chore(plan): complete <ID>`.
-8. If `--milestone` was given, go to **Pause**. If Gates includes `milestone`, go to **Pause**, telling the user to review and rerun.
+8. If a milestone limit is in effect (see Definitions) and this run has now completed that many milestones, go to **Pause** with reason `LIMIT`. If `--milestone` was given, go to **Pause** with reason `MILESTONE`. If Gates includes `milestone`, go to **Pause** with reason `GATE`, telling the user to review and rerun.
 9. Otherwise continue with the next milestone.
 
 ## 4. Finish the plan
@@ -290,7 +290,7 @@ When every task in the wave set has either committed in its worktree or ended in
 When every milestone is `done`:
 
 1. Verify the Final verify command in MAIN (see Definitions), if any. On failure, set the plan to `blocked` and go to **Stop**.
-2. Set the plan to `complete` and commit: `chore(plan): complete plan`.
+2. Set the plan to `complete`. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" end COMPLETE plan`: it deletes the active-run marker and appends an `end` line to `<plan dir>/notes/run-log.md`. Then `git add "<plan dir>"` and `git commit -m "chore(plan): complete plan"`.
 3. Report: milestones and tasks completed in this run, how many ran in parallel, escalations (task and tiers), and the commit range for this run.
 
 ## Failed attempt
@@ -328,15 +328,17 @@ A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same h
 
 ## Pause
 
-A clean, intentional stop: gates, `--milestone`, `--max-tasks`.
+A clean, intentional stop, with one of these reasons: `GATE` (a `detail` or `milestone` gate), `MILESTONE` (`--milestone`), or `LIMIT` (the run time, task or milestone limit; see Definitions).
 
-1. Commit any pending plan-file changes: `chore(plan): pause at <where>`. The main checkout must be clean when you finish, and no task worktrees should remain.
-2. Report where the run paused, what happens next, and that rerunning `/orcastrat:run <plan dir>` continues from there.
+1. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" end PAUSE <reason>`. It deletes the active-run marker and appends an `end` line to `<plan dir>/notes/run-log.md`.
+2. Commit the pending plan-file changes, that line included: `git add "<plan dir>"`, then `git commit -m "chore(plan): pause at <where>"`. The main checkout must be clean when you finish, and no task worktrees should remain.
+3. Report where the run paused and why, what happens next, and that rerunning `/orcastrat:run <plan dir>` continues from there.
 
 ## Stop
 
 A problem the user must resolve.
 
-1. Plan-file changes (blocked statuses, open questions) are committed on their own: `git add <plan dir>` and `git commit -m "chore(plan): blocked at <where>"`. In serial mode, if task code is in the main working tree, leave all of it uncommitted, plan files included, for the user to inspect.
-2. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, VACUOUS, MERGE, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP or VACUOUS, quote the question exactly.
-3. Stop. Don't continue with anything else.
+1. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" end STOP <reason>`, with the reason you report in item 3. It deletes the active-run marker and appends an `end` line to `<plan dir>/notes/run-log.md`.
+2. Plan-file changes (blocked statuses, open questions, a blocked task's report and failure log, and that `end` line) are committed on their own: `git add <plan dir>` and `git commit -m "chore(plan): blocked at <where>"`. In serial mode, if task code is in the main working tree, leave all of it uncommitted, plan files included, for the user to inspect.
+3. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, VACUOUS, MERGE, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP or VACUOUS, quote the question exactly. For STUCK, say the task most likely needs replanning, not another run. For a blocked attempt kept under `refs/orcastrat/discarded/`, name its ref.
+4. Stop. Don't continue with anything else.

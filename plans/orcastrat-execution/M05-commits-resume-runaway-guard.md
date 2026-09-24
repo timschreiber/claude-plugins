@@ -1295,13 +1295,14 @@ Parallel waves check the limits before each batch, send the reviewer `Base:`, co
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 6
 - Depends on: M05-T01, M05-T07, M05-T10
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
 - Verify: `grep -qF 'scripts/run-state" end PAUSE <reason>' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'scripts/run-state" end STOP <reason>' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'scripts/run-state" end COMPLETE plan' plugins/orcastrat/skills/run/SKILL.md && grep -qE 'Pause\*\* with reason .GATE., telling the user to review the milestone file' plugins/orcastrat/skills/run/SKILL.md && grep -qE 'Pause\*\* with reason .MILESTONE.' plugins/orcastrat/skills/run/SKILL.md && grep -qE 'that many milestones, go to \*\*Pause\*\* with reason .LIMIT.' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF '$(' plugins/orcastrat/skills/run/SKILL.md`
 - Fails first: no (skill text with no test; the Verify greps fail until the edits are made)
 - Commit: `feat(orcastrat): run ends the run state at every pause, stop and completion`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
