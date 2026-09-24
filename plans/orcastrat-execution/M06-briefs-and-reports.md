@@ -782,7 +782,7 @@ The plan format says workers and the reviewer read their task through a brief, n
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M06-T09
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
