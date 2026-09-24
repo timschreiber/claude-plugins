@@ -140,7 +140,7 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M02-T01
 - Files: `scripts/run-bats.sh`, `.gitignore`
