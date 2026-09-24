@@ -487,13 +487,14 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M02-T03, M02-T05, M02-T06
 - Files: `tests/orcastrat/no-powershell.bats`
 - Verify: `bash scripts/run-bats.sh tests/orcastrat/no-powershell.bats`
 - Fails first: yes
 - Commit: `test(orcastrat): add the no-PowerShell portability check`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
