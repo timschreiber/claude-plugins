@@ -20,7 +20,7 @@
 | M03 | Git bookkeeping scripts (Change 6) | done | M03-git-scripts.md |
 | M04 | Worker tiers and agent prefix hygiene (Changes 4, 21) | done | M04-tiers-and-agent-hygiene.md |
 | M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | done | M05-commits-resume-runaway-guard.md |
-| M06 | Task briefs and report files (Changes 7, 9) | outline | M06-briefs-and-reports.md |
+| M06 | Task briefs and report files (Changes 7, 9) | ready | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | outline | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | outline | M08-stop-hook.md |
 | M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | outline | M09-preflight-checks.md |
@@ -66,7 +66,7 @@
 - `docs/orcastrat-execution-spec.md` §20: Change 19 item 6, preflight toolchain check → M09
 - `docs/orcastrat-execution-spec.md` §20: Change 19 item 10, README prerequisites → M15
 - `docs/orcastrat-execution-spec.md` §21: Change 20, `status` delegation, no model pins, Opus check → M09
-- `docs/orcastrat-execution-spec.md` §22: Change 21, agent prefix hygiene and allowlists → M04, M07, M09, M10, M12
+- `docs/orcastrat-execution-spec.md` §22: Change 21, agent prefix hygiene and allowlists → M04, M06, M07, M09, M10, M12
 - `docs/orcastrat-execution-spec.md` §23: Change 22, same-tier dispatch order → M07
 - `docs/orcastrat-execution-spec.md` §23: Change 22, README "During a run" → M15
 - `docs/orcastrat-execution-spec.md` §24: Change 23, README Prerequisites → M15
@@ -194,6 +194,13 @@
 
 - D109: `run`'s clean-tree check accepts one dirty state: the current milestone's file says `ready` and every uncommitted path is `plan.md`, that milestone file, its `notes/<ID>-survey*.md` or its `notes/<ID>-plan-review.md`. `run` then skips the planner, runs the plan review unless that plan-review report is among the uncommitted files, runs the validation checklist, and commits `chore(plan): detail <ID>`. Uncommitted changes in a task's Files are never treated as an interrupted attempt (they may be the user's edits, which a reset and clean would destroy): any other dirty tree stops with SETUP, listing the paths. Committed interrupted attempts are still handled by `recover` (D90). Spec §2 and §25a item 3 updated to match. (source: user, M06 open question 1, option c refined)
 - D110: `plan` gives every scout brief an `Output: <plan dir>/notes/research-<n>.md` line. A scout whose answer fits in 20 lines replies inline and writes no file; otherwise it writes the file and replies with its status block and the path. (source: user, M06 open question 2, hybrid of options a and b)
+- D111: A worker's report file has the sections `## Implemented`, `## Files changed`, `## RED evidence`, `## GREEN evidence`, `## Self-review` and `## Concerns`, in that order; each evidence section is a `Command:` line plus a `text` fence, and a resume appends `## Resume after attempt <n>`. The reply gains `DONE_WITH_CONCERNS` and a `REPORT:` line (9 lines). A report has RED evidence when its `## RED evidence` section has a `Command:` line and a non-empty fence, which `run` checks with Grep. (source: spec §10, the report's contents, "RED evidence (the command, and the relevant failing output)", and the 10-line cap)
+- D112: `task-brief` writes, with carriage returns stripped, plan.md's `## Decisions` section, the milestone's `## Context` section, and the task block (from `### <task ID>:`), each ending at the next heading of its level or higher outside a code fence, in that order. It finds the milestone file from the Milestones row whose ID is the task ID's `M<nn>` part. Errors follow D55, plus `no plan.md in:`, `not a task ID:` and `task not found:`. (source: spec §8; D05; D55; the fence rule of `plugins/orcastrat/scripts/recover:55-96`)
+- D113: `next` takes milestone statuses from the Milestones table; its `milestone:` path is `<plan-dir>/<File>` through `print_path`; `wave:` and `blocked:` separate IDs with spaces, in table order then task order; `open-questions:` counts lines starting `- ` in `## Open questions`; `worktrees:` counts the directories under WT_ROOT that hold a `.git` file (so not `logs/`, `hold/` or `briefs/`); `marker:` is `stale` when the heartbeat is more than 3600 seconds old or unreadable. Errors follow D112. (source: spec §25a item 1, "Paths go through print_path"; spec §9, "more than an hour old"; plan format, table and file statuses always agree)
+- D114: When notes files are still uncommitted just before a dispatch, `run` commits them as `chore(plan): notes`. (source: spec §10, "Notes are committed before the next dispatch")
+- D115: `run` reads plan.md's header (everything above `## Coverage`, or above `## Decisions`) and a task's block by finding their line numbers with Grep and reading only that range, since Claude Code's Edit tool needs the file read first. (source: spec §25a item 2, "with Grep on the task heading"; D105)
+- D116: D109's detailed but uncommitted milestone is finished in 2c, before the `chore(plan): start run` commit (which adds every change), with the plan review's one fix pass and the `detail` gate, as in 3a. (source: D109; `plugins/orcastrat/skills/run/SKILL.md:117`, `:143-162`)
+- D117: In a parallel wave, a worker's `Report:` path is its report file under its worktree. (source: D100; `plugins/orcastrat/agents/worker.md:43-44`, a worker never writes in the main checkout; `plugins/orcastrat/skills/run/SKILL.md:233`, the main-checkout guard)
 
 ## Open questions
 
