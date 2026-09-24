@@ -10,7 +10,7 @@ cataloged in `.claude-plugin/marketplace.json`:
 - `denoizinator-net`: a `PreToolUse` hook that rewrites `dotnet`/`msbuild`
   commands in-flight to add quiet flags, so verbose build/test output never
   enters Claude's context.
-- `orchestratinator`: skills (`plan`, `run`, `status`) and tiered agents that
+- `orcastrat`: skills (`plan`, `run`, `status`) and tiered agents that
   split a spec into small tasks and run each on the cheapest model/effort
   that can do it. Pure Markdown, with no hooks, scripts, or shared code. Its
   own README documents the design, and `reference/plan-format.md` is the plan

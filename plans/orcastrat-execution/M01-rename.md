@@ -85,7 +85,7 @@ None found: M01 edits only Markdown and JSON, and no test harness exists until M
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M01-T01
 - Files: `plugins/orchestratinator/.claude-plugin/plugin.json`, `plugins/orchestratinator/README.md`, `plugins/orchestratinator/agents/milestone-reviewer.md`, `plugins/orchestratinator/agents/plan-reviewer.md`, `plugins/orchestratinator/agents/planner.md`, `plugins/orchestratinator/agents/reviewer.md`, `plugins/orchestratinator/agents/scout-heavy.md`, `plugins/orchestratinator/agents/scout.md`, `plugins/orchestratinator/agents/specialist.md`, `plugins/orchestratinator/agents/worker-heavy.md`, `plugins/orchestratinator/agents/worker-light.md`, `plugins/orchestratinator/agents/worker.md`, `plugins/orchestratinator/reference/plan-format.md`, `plugins/orchestratinator/skills/plan/SKILL.md`, `plugins/orchestratinator/skills/run/SKILL.md`, `plugins/orchestratinator/skills/status/SKILL.md`, `plugins/orcastrat/.claude-plugin/plugin.json`, `plugins/orcastrat/README.md`, `plugins/orcastrat/agents/milestone-reviewer.md`, `plugins/orcastrat/agents/plan-reviewer.md`, `plugins/orcastrat/agents/planner.md`, `plugins/orcastrat/agents/reviewer.md`, `plugins/orcastrat/agents/scout-heavy.md`, `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/specialist.md`, `plugins/orcastrat/agents/worker-heavy.md`, `plugins/orcastrat/agents/worker-light.md`, `plugins/orcastrat/agents/worker.md`, `plugins/orcastrat/reference/plan-format.md`, `plugins/orcastrat/skills/plan/SKILL.md`, `plugins/orcastrat/skills/run/SKILL.md`, `plugins/orcastrat/skills/status/SKILL.md`, `.claude-plugin/marketplace.json`, `README.md`, `CLAUDE.md`
