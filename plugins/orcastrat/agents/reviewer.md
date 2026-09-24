@@ -26,13 +26,13 @@ You have no Agent, Task, Skill or Artifact tool, so you can't start subagents, r
 
 ## Before anything else
 
-The orchestrator sends you a plan directory, a milestone ID, a task ID, and sometimes a `Worktree:` path. If there is a worktree, it is where the task's changes are: start every shell command with `cd "<worktree>" &&`, read every file by its absolute path under the worktree, and never look at the main checkout. Read these now, in full:
+The orchestrator sends you a plan directory, a milestone ID, a task ID, a `Base:` commit, and sometimes a `Worktree:` path. If there is a worktree, it is where the task's changes are: start every shell command with `cd "<worktree>" &&`, read every file by its absolute path under the worktree, and never look at the main checkout. Read these now, in full:
 
 1. `CLAUDE.md` and `AGENTS.md` at the repository root. If one is a symlink to the other, or they have identical content, read it once.
 2. `plan.md`: the header and Decisions.
 3. The milestone file: its Context, then your task block in full.
 4. Everything in the task's Read first list.
-5. The uncommitted changes: `git status --porcelain` and `git diff`, plus the full content of any new file.
+5. The task's changes since `Base`, committed or not: `git diff <Base>` and `git status --porcelain`, plus the full content of any new file. Workers commit their own work, so a plain `git diff` misses it.
 
 Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. You never commit, push, or change branches.
 

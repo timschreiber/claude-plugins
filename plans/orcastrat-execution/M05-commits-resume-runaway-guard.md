@@ -639,7 +639,7 @@ Every worker agent commits its own work with `<task ID>: ` subjects, never pushe
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: none
 - Files: `plugins/orcastrat/agents/reviewer.md`
