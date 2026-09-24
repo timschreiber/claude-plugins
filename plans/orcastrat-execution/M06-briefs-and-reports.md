@@ -656,7 +656,7 @@ The per-task `reviewer` reads the `Brief:` file instead of plan.md and the miles
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/reference/plan-format.md`

@@ -7,7 +7,7 @@ A plan is a directory. It is the contract between:
 - **planner** (agent), which details outlined milestones during a run,
 - **plan-reviewer** (agent), which checks each detailed milestone against it before it runs,
 - **milestone-reviewer** (agent), which reviews each finished milestone against it,
-- **workers** and **reviewer** (agents), which read their task from it.
+- **workers** and **reviewer** (agents), which read their task from it, through a brief that run's `task-brief` script copies out of it.
 
 All state lives in these files, never in anyone's context. That is what lets a run survive context compaction, interruption, and multi-day execution: anyone can pick up from the files alone.
 
@@ -18,7 +18,7 @@ plans/<plan-slug>/
 ├── plan.md                # index: header, settings, milestones, coverage, decisions, open questions
 ├── sources/               # verbatim copies of any input that isn't already a file in the repo
 │   └── prompt.md
-├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), and plan reviews (<milestone-id>-plan-review.md)
+├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), plan reviews (<milestone-id>-plan-review.md), worker reports (reports/<task-id>.md), failure logs (<task-id>-failures.md), and the run log (run-log.md)
 ├── M01-<slug>.md          # one file per milestone
 └── M02-<slug>.md
 ```
@@ -254,6 +254,8 @@ Each task block is the prompt a worker executes. The planner does the thinking s
 - **Every value is written down.** Names, signatures, types, constants, messages, file paths, test names, and test cases appear in the Steps, not "per the spec".
 - **One action per step.** "Add method `x(int): String` to `Foo` that returns ..." is a step. "Implement the parser" is a task that hasn't been planned yet.
 - **Self-contained.** A worker that has read only CLAUDE.md / AGENTS.md, plan.md's Decisions, the milestone's Context, and the task (with its Read first list) can finish it without asking anything and without making a choice.
+
+A worker never opens plan.md or the milestone file. Before each dispatch, run's `task-brief` script copies plan.md's Decisions, the milestone's whole Context, and the task block into one brief inside `.git`, and the worker and the per-task reviewer read that brief, CLAUDE.md / AGENTS.md, and the task's Read first list. So anything a worker needs from the plan must be in one of those three places. The worker writes what it did, with its RED and GREEN evidence, to its report file, `notes/reports/<task ID>.md` in the plan directory, and run commits that file with the task.
 
 ## Sequence and parallelism
 
