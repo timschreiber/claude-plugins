@@ -143,7 +143,7 @@ Waves: 7 (widths 4, 3, 2, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/scripts/task-brief`, `tests/orcastrat/task-brief.bats`

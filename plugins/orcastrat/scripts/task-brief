@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# task-brief <plan-dir> <task-id>
+#
+# Writes one file holding plan.md's Decisions, the milestone's Context and
+# the task block (fields, Objective, Read first, Interfaces, Steps, Done
+# when), in that order, to
+# <git-common-dir>/orcastrat/<plan-slug>/briefs/<task-id>.md, inside .git, so
+# it never dirties the tree and is readable from any worktree (D112). The
+# milestone file is found from the row of plan.md's Milestones table whose ID
+# is the task ID's `M<nn>` part. Each section runs from its start line to the
+# next heading of its level or higher, outside a code fence (recover's fence
+# rule); a missing Decisions or Context section adds nothing. Carriage
+# returns are stripped.
+# Prints the brief's absolute path through print_path, and nothing else, on
+# success.
+# Exits 0 after writing the brief. On a usage error, or when the task isn't
+# found, prints one `error: <message>` line on stderr, nothing on stdout, and
+# exits 2 (D55).
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+if [ "$#" -ne 2 ]; then
+  fail 'usage: task-brief <plan-dir> <task-id>'
+fi
+plan_dir=$1
+task_id=$2
+
+[ -d "$plan_dir" ] || fail "not a directory: $(print_path "$plan_dir")"
+[ "$(git -C "$plan_dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$plan_dir")"
+[ -f "$plan_dir/plan.md" ] || fail "no plan.md in: $(print_path "$plan_dir")"
+case "$task_id" in
+  M[0-9]*-T[0-9]*)
+    rest=${task_id#M}
+    mid_num=${rest%%-T*}
+    tnum=${rest#*-T}
+    case "$mid_num" in
+      '' | *[!0-9]*) fail "not a task ID: $task_id" ;;
+    esac
+    case "$tnum" in
+      '' | *[!0-9]*) fail "not a task ID: $task_id" ;;
+    esac
+    ;;
+  *) fail "not a task ID: $task_id" ;;
+esac
+
+milestone_id=${task_id%%-T*}
+
+# Prints the file named in the Milestones-table row whose first cell equals
+# the wanted milestone ID.
+# shellcheck disable=SC2016
+milestone_row_awk='
+{ sub(/\r$/, "") }
+/^## / { in_table = ($0 == "## Milestones"); next }
+in_table && /^\|/ {
+  n = split($0, cell, "|")
+  for (i = 1; i <= n; i++) gsub(/^[ \t]+|[ \t]+$/, "", cell[i])
+  id = cell[2]
+  file = cell[n]
+  if (file == "") file = cell[n - 1]
+  if (id != "" && id == want) { print file; exit }
+}'
+milestone_file=$(awk -v want="$milestone_id" "$milestone_row_awk" "$plan_dir/plan.md")
+[ -n "$milestone_file" ] || fail "task not found: $task_id"
+[ -f "$plan_dir/$milestone_file" ] || fail "task not found: $task_id"
+
+# fence_of(s) mirrors recover's fence rule (plugins/orcastrat/scripts/recover:55-96):
+# a fence opens on a line of 3+ backticks or tildes (after leading blanks are
+# removed) and closes on a line of at least as many of the same character,
+# with nothing else on the line.
+#
+# Prints the lines of a `##`- or `###`-level section: from the first line
+# outside a code fence matching start_re, through the line before the next
+# line outside a code fence matching end_re (or through the end of the file).
+# A start match after the section has already started, or before one is
+# found, never restarts it.
+# shellcheck disable=SC2016
+extract_awk='
+function fence_of(s,   c, n) {
+  c = substr(s, 1, 1)
+  if (c != "`" && c != "~") return ""
+  n = 0
+  while (substr(s, n + 1, 1) == c) n++
+  if (n < 3) return ""
+  return substr(s, 1, n)
+}
+{
+  sub(/\r$/, "")
+  line = $0
+  t = line
+  sub(/^[ \t]*/, "", t)
+  is_heading = 0
+  if (fence_open != "") {
+    f = fence_of(t)
+    rest = substr(t, length(f) + 1)
+    sub(/[ \t]*$/, "", rest)
+    if (f != "" && substr(f, 1, 1) == substr(fence_open, 1, 1) && length(f) >= length(fence_open) && rest == "") fence_open = ""
+  } else {
+    f = fence_of(t)
+    if (f != "") {
+      fence_open = f
+    } else {
+      is_heading = 1
+    }
+  }
+  if (state == 1 && is_heading && line ~ end_re) {
+    state = 2
+  } else {
+    if (state == 0 && is_heading && line ~ start_re) state = 1
+    if (state == 1) print line
+  }
+}'
+
+# Prints `found` and stops at the first line matching want_re outside a code
+# fence (recover's fence rule), otherwise prints nothing.
+# shellcheck disable=SC2016
+find_heading_awk='
+function fence_of(s,   c, n) {
+  c = substr(s, 1, 1)
+  if (c != "`" && c != "~") return ""
+  n = 0
+  while (substr(s, n + 1, 1) == c) n++
+  if (n < 3) return ""
+  return substr(s, 1, n)
+}
+{
+  sub(/\r$/, "")
+  line = $0
+  t = line
+  sub(/^[ \t]*/, "", t)
+  is_heading = 0
+  if (fence_open != "") {
+    f = fence_of(t)
+    rest = substr(t, length(f) + 1)
+    sub(/[ \t]*$/, "", rest)
+    if (f != "" && substr(f, 1, 1) == substr(fence_open, 1, 1) && length(f) >= length(fence_open) && rest == "") fence_open = ""
+  } else {
+    f = fence_of(t)
+    if (f != "") {
+      fence_open = f
+    } else {
+      is_heading = 1
+    }
+  }
+  if (is_heading && line ~ want_re) { print "found"; exit }
+}'
+
+task_start_re="^### ${task_id}:"
+has_task=$(awk -v want_re="$task_start_re" "$find_heading_awk" "$plan_dir/$milestone_file")
+[ -n "$has_task" ] || fail "task not found: $task_id"
+
+# Resolve the slug and the absolute common dir exactly as verify does, with
+# <plan-dir> in place of <dir>.
+slug=$(printf '%s\n' "$plan_dir" | sed -e 's#\\#/#g' -e 's#/*$##' -e 's#.*/##')
+common=$(git -C "$plan_dir" rev-parse --git-common-dir)
+common_abs=$(cd "$plan_dir" && cd "$common" && pwd) ||
+  fail "cannot resolve the git common dir of: $(print_path "$plan_dir")"
+
+brief_dir="$common_abs/orcastrat/$slug/briefs"
+mkdir -p "$brief_dir" || fail "cannot create the briefs directory: $(print_path "$brief_dir")"
+brief="$brief_dir/$task_id.md"
+tmp="$brief.tmp"
+
+: > "$tmp"
+awk -v start_re='^## Decisions$' -v end_re='^(# |## )' "$extract_awk" "$plan_dir/plan.md" >> "$tmp"
+awk -v start_re='^## Context$' -v end_re='^(# |## )' "$extract_awk" "$plan_dir/$milestone_file" >> "$tmp"
+awk -v start_re="$task_start_re" -v end_re='^(# |## |### )' "$extract_awk" "$plan_dir/$milestone_file" >> "$tmp"
+
+mv -f "$tmp" "$brief" || fail "cannot write the brief: $(print_path "$brief")"
+
+print_path "$brief"
+exit 0
