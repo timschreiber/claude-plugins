@@ -783,13 +783,14 @@ The plan-reviewer reports a Verify that relies on non-bash syntax under a new `#
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M02-T03
 - Files: `.github/workflows/orcastrat.yml`
 - Verify: `grep -qF "branches: ['**']" .github/workflows/orcastrat.yml && grep -qF 'os: [ubuntu-latest, macos-latest, windows-latest]' .github/workflows/orcastrat.yml && grep -qF 'run: bash scripts/run-bats.sh' .github/workflows/orcastrat.yml && grep -qF '! -name hooks.json' .github/workflows/orcastrat.yml && git diff --quiet HEAD -- .github/workflows/validate.yml` + review
 - Fails first: no (CI configuration that only GitHub Actions runs; the Verify greps fail until the file exists)
 - Commit: `ci(orcastrat): run bats on three OSes and shellcheck shipped scripts`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
