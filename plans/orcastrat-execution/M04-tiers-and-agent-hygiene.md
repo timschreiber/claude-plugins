@@ -551,7 +551,7 @@ Waves: 6 (widths 3, 3, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M04-T02, M04-T03
 - Files: `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/scout-heavy.md`, `plugins/orcastrat/agents/reviewer.md`, `tests/orcastrat/agent-files.bats`
