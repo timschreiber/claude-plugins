@@ -31,6 +31,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **MAIN**: the absolute path of the main checkout (`git rev-parse --show-toplevel` at startup).
 - **WT_ROOT**: the directory `git rev-parse --git-common-dir` prints, made absolute, plus `/orcastrat/<plan-slug>`. Task worktrees live under it, inside `.git`, so they never show up in the main checkout's status.
 - **Task branch**: `orcastrat/<plan-slug>/<task-id>`.
+- **Worker agent** for a tier: `orcastrat:<tier>`, except for `worker-mini`, which has two agents: `orcastrat:worker-mini-serial` in a serial wave (3d) and `orcastrat:worker-mini-parallel` in a parallel wave (3e).
 - **Scripts**: the bookkeeping scripts live in `${CLAUDE_PLUGIN_ROOT}/scripts/`. Call each as one line, `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<name>" <arguments>`, with every path argument in double quotes, and read only what it prints. A script that exits 2 prints one line starting `error:` on stderr and nothing on stdout: go to **Stop** with reason SETUP, quoting that line.
 - **Verify a command** in a directory D: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify" "<plan dir>" "D" '<command>'`, passing the command as one single-quoted argument, with each `'` inside it written as `'\''`. Line 1 of its output is `exit=<n>`, line 2 is `log=<log path>`, and when n isn't 0 the log's last 40 lines follow. A nonzero n is a failure. Never read the log file itself. The script writes the log under the directory `git rev-parse --git-common-dir` prints, plus `/orcastrat/<plan-slug>/logs/`, so it never shows up in a checkout's status and needs no cleanup.
 - **Commit a task** in a directory D: `git -C "D" add -A`, then
@@ -153,7 +154,7 @@ Then run the wave (**3d** or **3e**), and afterwards:
 
 For each task in the wave set, in order:
 
-1. **Dispatch** to the agent `orcastrat:<tier>`, sending exactly:
+1. **Dispatch** to the worker agent for the task's tier (see Definitions), sending exactly:
    ```
    Plan: <plan dir>
    Milestone: <milestone ID>
@@ -185,7 +186,7 @@ For each task in the wave set, in order:
 Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave set in batches of at most Max parallel tasks (or `--max-parallel`), in task ID order. For each batch:
 
 1. **Create worktrees.** For each task: `git worktree add -b <task branch> "<WT_ROOT>/<task ID>" <BASE>`. If Worktree setup isn't `none`, run it there: `cd "<worktree>" && ORCASTRAT_MAIN="<MAIN>" ORCHESTRATINATOR_MAIN="<MAIN>" <setup command>`; the old name is set too, for setup commands in plans written before the rename. A failure here → go to **Stop** with reason SETUP; it's an environment problem, not a task problem.
-2. **Dispatch all of the batch's workers at once**: one agent call per task, all in a single message, so they run concurrently. Each gets the three dispatch lines plus:
+2. **Dispatch all of the batch's workers at once**: one call per task to the worker agent for its tier (see Definitions), all in a single message, so they run concurrently. Each gets the three dispatch lines plus:
    ```
    Worktree: <absolute worktree path>
    ```
@@ -252,10 +253,10 @@ When every milestone is `done`:
 
 ## Retry
 
-Each task gets at most one retry, one tier up: `worker-light` → `worker` → `worker-heavy` → `specialist`.
+Each task gets at most one retry, one tier up the ladder: `worker-mini` → `worker-light` → `worker` → `worker-heavy` → `specialist`.
 
 - If the task has already been retried in this run, or its tier is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`. Leave its changes for the user to inspect (the working tree in serial mode, its worktree in parallel mode). In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
-- Otherwise, discard the attempt: in serial mode, `git reset --hard HEAD` and `git clean -fd` in MAIN (the tree was clean when the task began); in parallel mode, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, plus any `- Process:` line you remembered for this attempt. Commit those lines in MAIN before dispatching again, so the next scope check never sees them: `git add "<milestone file path>"`, then `git commit -m "chore(plan): <task ID> attempt 1 failed"`, with no `Orcastrat-Task:` trailer. Then dispatch again to the next tier with these lines appended:
+- Otherwise, discard the attempt: in serial mode, `git reset --hard HEAD` and `git clean -fd` in MAIN (the tree was clean when the task began); in parallel mode, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, plus any `- Process:` line you remembered for this attempt. Commit those lines in MAIN before dispatching again, so the next scope check never sees them: `git add "<milestone file path>"`, then `git commit -m "chore(plan): <task ID> attempt 1 failed"`, with no `Orcastrat-Task:` trailer. Then dispatch again to the worker agent for the next tier (see Definitions) with these lines appended:
   ```
   Retry: previous attempt by <tier> failed. You are starting from a clean state.
   Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", or "RED not confirmed (Fails first: yes)">
