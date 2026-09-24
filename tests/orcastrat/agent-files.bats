@@ -73,6 +73,24 @@ write_no_prototyping() {
 EOF
 }
 
+# write_worker_rules <file>: writes the lines every worker agent file must
+# contain for Changes 1 to 3: commits, the precedence rule, the breaker, the
+# failure log, resumes and the report lines (spec sections 2 to 4).
+write_worker_rules() {
+  cat > "$1" <<'EOF'
+The orchestrator sends you a plan directory, a milestone ID, a task ID, and sometimes a worktree path, retry context, or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
+If a `Failures: <path>` line is present, earlier attempts at this task failed and the working tree was reset. Before starting, read that failure log and every preserved report of an earlier attempt that exists, `notes/reports/<task ID>-attempt<n>.md` in the plan directory. Never read an earlier attempt's transcript. Don't repeat the approaches the failure log records. If they show the Steps can't be followed as written, stop and report `BLOCKED` / `GAP` instead of improvising.
+If the orchestrator resumes you with a message starting `Resume:`, your attempt failed. Read its `Reason:` line and any `Verify tail:` lines, fix the failure, and report again in the same format. Continue from your own work, unless the message says the tree was reset: then your changes are gone, and you start again from the task's first Step. A resume is a new attempt, so your count of failed Verify runs starts again at 0.
+- Don't edit plan.md or milestone files.
+- Commit your changes when the task is done and its Verify passes, or, for a task whose Verify is `review` alone, when the task is done. Commit only paths in the task's Files. Your first commit's subject is `<task ID>: <the task's Commit message>`, for example `M03-T02: feat(api): add the parser`; any further commit for the task is `<task ID>: <short message>`. Several commits per task are fine.
+- Never push, switch branches, rebase, reset, stash, or rewrite history.
+- Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern pushing, branching, or history. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. Committing your task's changes is expected.
+- Stop after your 3rd failed Verify run after implementation and report `BLOCKED` / `STUCK`, with one-line `HYPOTHESIS:` and `FIXES TRIED:` lines. The expected failing run of a `- Fails first: yes` task doesn't count. Stop the same way sooner if you can't make it work after a genuine attempt.
+HYPOTHESIS: <for STUCK, one line: why it still fails. Otherwise "-".>
+FIXES TRIED: <for STUCK, one line: what you tried. Otherwise "-".>
+EOF
+}
+
 @test "field ignores carriage returns" {
   printf -- '---\r\nname: sample\r\ntools: Read, Bash\r\n---\r\n' > "$BATS_TEST_TMPDIR/sample.md"
   [ "$(field "$BATS_TEST_TMPDIR/sample.md" name)" = 'sample' ]
@@ -200,5 +218,27 @@ EOF
     [ -z "$(field "$f" disallowedTools)" ] || bad="$bad $(basename "$f")(disallowedTools)"
   done
   echo "wrong:$bad"
+  [ -z "$bad" ]
+}
+
+@test "worker agents have the commit, breaker, failure-log and resume rules" {
+  local bad='' name missing
+  write_worker_rules "$BATS_TEST_TMPDIR/worker-rules"
+  for name in $WORKER_AGENTS; do
+    missing="$(missing_lines "$AGENTS/$name.md" "$BATS_TEST_TMPDIR/worker-rules")"
+    [ -z "$missing" ] || bad="$bad $name"
+  done
+  echo "missing worker rules:$bad"
+  [ -z "$bad" ]
+}
+
+@test "worker agents have no don't-commit rule" {
+  local bad='' name
+  for name in $WORKER_AGENTS; do
+    if grep -qF -e "Don't commit" -e 'your work can be lost' -e 'The orchestrator commits your work' "$AGENTS/$name.md"; then
+      bad="$bad $name"
+    fi
+  done
+  echo "don't-commit rule in:$bad"
   [ -z "$bad" ]
 }
