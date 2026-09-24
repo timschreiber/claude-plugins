@@ -6,8 +6,8 @@ setup() {
 # The agents the list-based tests below cover. The task that brings an agent
 # file up to date adds its name here.
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
-NON_WORKER_AGENTS='scout scout-heavy reviewer'
-NO_SHELL_AGENTS=''
+NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer'
+NO_SHELL_AGENTS='plan-reviewer'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
 # of <file>, ignoring carriage returns. Prints nothing when the file or the
