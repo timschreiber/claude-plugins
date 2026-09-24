@@ -337,6 +337,15 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 - The planner, scouts and reviewers read the updated spec when detailing later milestones.
 - `plan` makes no design decisions of its own. Every substantive spec change traces to an answer.
 
+**Persisted questions:** answers often need a product owner or a meeting, and come back in a different session. So every question round is written to a file before `plan` or `run` waits:
+
+- **Layout:** `plans/<slug>/questions/plan.md` holds the rounds `plan` asks before and while writing the plan (scope, structure, cross-cutting choices). `plans/<slug>/questions/<milestone-id>.md` holds the questions raised while that milestone is detailed, plus its tasks' GAPs, tagged with the task ID. `plan` creates the plan directory for this even before the plan exists.
+- **Format:** each file appends rounds under `## Round <n> (<date>)`. Each question keeps the round format above (number, kind, quoted passage or "not stated", options, recommendation) and ends with an empty `Answer:` line. Answers can be written on those lines, by the developer or the product owner, or pasted as the usual one-line block.
+- **Index:** `plan.md`'s Open questions holds one line per open question, pointing at its file, so `status` and a fresh session can see what is waiting.
+- **Resuming planning:** `/orcastrat:plan <sources>` checks `questions/plan.md` first. It applies every answered question (Decisions, spec write-back), asks the unanswered ones again, and never re-asks an answered one.
+- **Answering a run's questions:** a new skill, `/orcastrat:answer <plan dir> [<milestone>]`, applies the answers in one milestone's file, or in every file with unapplied answers. It records each answer as a Decision citing the spec section it changed, writes it back into the spec, clears the matching Open questions lines, unblocks the milestone or task, and commits. Then the user reruns `run`. No one edits `plan.md` by hand to answer a question.
+- `run` writes a planner's GAP questions and a task's GAP question to the milestone's file, as well as to the index.
+
 **Fresh session:** `plan` ends by recommending `/clear` or a new session before `run`.
 
 **Acceptance:** on a multi-milestone spec with a planted gap, a planted spec/repo contradiction, and a question the repo answers, the interview asks about the gap and the contradiction but not the answered question; the audit doesn't repeat them; the spec file contains the answers in its sections, with Decisions entries, Out of scope and an end-to-end step; `plan.md` Decisions cite the spec sections. A ≤5-task job with no approach-changing questions skips the interview; `--skip-interview` skips it; inline input is never modified.
@@ -760,3 +769,4 @@ Review these before planning.
 66. **`run` stops leftover background work** after every agent returns, with the Stop Task tool. When that fails, it logs a warning to `notes/run-log.md` and continues. It never kills processes by PID, and the run report counts the warnings (Changes 3 and 11).
 67. **Planning and review agents never prototype or duplicate work.** Every non-worker agent file and the `plan` skill forbid writing or running trial code, scripts or tests, creating worktrees, branches or commits, and redoing another agent's survey, Verify or recorded facts. `planner` and `plan-reviewer` have no shell (Change 21).
 68. **Only the workers get an unrestricted shell.** `scout`, `scout-heavy`, `reviewer`, `milestone-reviewer`, `validator` and `status-reader` use it for short read-only commands only; `planner`, `plan-reviewer`, `decider` and `merger` get none (Change 21).
+69. **Question rounds persist in `plans/<slug>/questions/`**: `plan.md` for planning rounds, `<milestone-id>.md` for detailing questions and task GAPs, each question with an `Answer:` line. `plan` resumes from `questions/plan.md`, and a new `/orcastrat:answer` skill applies a run's answers, so answers can come back in any session (Change 14).

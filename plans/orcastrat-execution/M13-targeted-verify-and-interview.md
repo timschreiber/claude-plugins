@@ -9,7 +9,7 @@
 
 ## Context
 
-Governing sources: spec §14 (Change 13), §15 (Change 14); Decisions D29, D38.
+Governing sources: spec §14 (Change 13), §15 (Change 14, including "Persisted questions"); Decisions D29, D38, D75.
 
 - Targeted Verify:
   - The narrowest command that fails before the task and passes after it.
@@ -55,5 +55,9 @@ Governing sources: spec §14 (Change 13), §15 (Change 14); Decisions D29, D38.
 - `reference/plan-format.md`, `plan`, `planner`: the targeted Verify rule and its exception. `plan-reviewer`: the blocking check.
 - `reference/plan-format.md`: the `## Out of scope` section in `plan.md` (after Coverage). `milestone-reviewer` and `reviewer`: use it (M10's category).
 - `plan` skill: the new sequence, the interview phase with scaling and `--skip-interview` (argument hint included), the completeness checks, the question-rules format defined once, and write-back.
+- `plan` skill: write every question round to `questions/plan.md` before waiting, and on start resume from it (apply answered questions, ask only unanswered ones), per D75.
+- `run`: write a planner's GAP questions and a task's GAP question to `questions/<milestone-id>.md`, and make `plan.md`'s Open questions a one-line index pointing at the file.
+- Add the `answer` skill (`skills/answer/SKILL.md`, invoked by name only): it applies answers from one milestone's file or every file with unapplied answers, records Decisions citing the spec section, writes back into the spec, clears index lines, unblocks, and commits.
+- `reference/plan-format.md`: the `questions/` directory, the round and `Answer:` format, and Open questions as an index. `status` (or `status-reader`, M09) shows open questions from the index.
 - `plan` skill: end the hand-off with the `/clear` or new-session recommendation.
 - `planner`, `scout`, `scout-heavy`, reviewers: read the updated spec when detailing or reviewing.
