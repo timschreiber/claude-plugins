@@ -126,7 +126,7 @@ A repository-root `.gitattributes` gives every bash file `eol=lf` (D61), and eve
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M03-T01
 - Files: `plugins/orcastrat/scripts/scope-check`, `tests/orcastrat/scope-check.bats`
