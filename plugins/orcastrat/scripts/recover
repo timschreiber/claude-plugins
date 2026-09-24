@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# recover <plan-dir>
+#
+# Finds `todo` tasks whose work is already in the plan branch's history (D57).
+# Reads `- Branch:` from <plan-dir>/plan.md and the milestone files named in
+# its Milestones table, and runs git as `git -C "<plan-dir>"`. For each
+# `- Status: todo` task, in table order then task order, prints at most one line:
+#   done <task ID>         a commit reachable from the branch has the message
+#                          line `Orcastrat-Task: <task ID>` or
+#                          `Orchestratinator-Task: <task ID>`;
+#   interrupted <task ID>  otherwise, a commit newer than the branch's newest
+#                          commit carrying either trailer (every commit on the
+#                          branch, when none has one) has a subject starting
+#                          `<task ID>:`.
+# Prints OK when it prints no task line, including when the branch doesn't
+# exist. Task headings and statuses inside fenced code blocks are ignored, and
+# CRLF line endings are accepted.
+# Exits 0 after printing its result. On a usage error, prints one
+# `error: <message>` line on stderr, nothing on stdout, and exits 2 (D55).
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+if [ "$#" -ne 1 ]; then
+  fail 'usage: recover <plan-dir>'
+fi
+plan_dir=$1
+
+[ -d "$plan_dir" ] || fail "not a directory: $(print_path "$plan_dir")"
+[ "$(git -C "$plan_dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$plan_dir")"
+
+# Prints the milestone file named in each row of plan.md's Milestones table.
+# shellcheck disable=SC2016
+milestones_awk='
+{ sub(/\r$/, "") }
+/^## / { in_table = ($0 == "## Milestones"); next }
+in_table && /^\|/ {
+  n = split($0, cell, "|")
+  file = cell[n]
+  gsub(/^[ \t]+|[ \t]+$/, "", file)
+  if (file == "") {
+    file = cell[n - 1]
+    gsub(/^[ \t]+|[ \t]+$/, "", file)
+  }
+  if (file ~ /\.md$/) print file
+}'
+
+# Prints the ID of each task whose first `- Status:` line says `todo`, skipping
+# fenced code blocks. A fence closes on a line of at least as many of the same
+# character as opened it, with nothing else on the line.
+# shellcheck disable=SC2016
+todo_awk='
+function fence_of(s,   c, n) {
+  c = substr(s, 1, 1)
+  if (c != "`" && c != "~") return ""
+  n = 0
+  while (substr(s, n + 1, 1) == c) n++
+  if (n < 3) return ""
+  return substr(s, 1, n)
+}
+{
+  sub(/\r$/, "")
+  t = $0
+  sub(/^[ \t]*/, "", t)
+  f = fence_of(t)
+  if (fence_open != "") {
+    rest = substr(t, length(f) + 1)
+    sub(/[ \t]*$/, "", rest)
+    if (f != "" && substr(f, 1, 1) == substr(fence_open, 1, 1) && length(f) >= length(fence_open) && rest == "") fence_open = ""
+    next
+  }
+  if (f != "") { fence_open = f; next }
+  if ($0 ~ /^#+ /) {
+    id = ""
+    if ($0 ~ /^### M[0-9]+-T[0-9]+:/) {
+      id = substr($0, 5)
+      sub(/:.*/, "", id)
+      status_seen = 0
+    }
+    next
+  }
+  if (id != "" && !status_seen && $0 ~ /^- Status:/) {
+    status_seen = 1
+    st = $0
+    sub(/^- Status:[ \t]*/, "", st)
+    sub(/[ \t]*$/, "", st)
+    if (st == "todo") print id
+  }
+}'
+
+branch=$(sed -n 's/^- Branch:[[:space:]]*//p' "$plan_dir/plan.md" 2>/dev/null | head -n 1 | tr -d '\r' | sed 's/[[:space:]]*$//')
+ref="refs/heads/$branch"
+if [ -z "$branch" ] || ! git -C "$plan_dir" rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+  printf 'OK\n'
+  exit 0
+fi
+
+trailer_re='^(Orcastrat|Orchestratinator)-Task: '
+messages=$(git -C "$plan_dir" log "$ref" -E --grep="$trailer_re" --format=%B 2>/dev/null)
+newest=$(git -C "$plan_dir" log -1 "$ref" -E --grep="$trailer_re" --format=%H 2>/dev/null)
+if [ -n "$newest" ]; then
+  subjects=$(git -C "$plan_dir" log "$newest..$ref" --format=%s 2>/dev/null)
+else
+  subjects=$(git -C "$plan_dir" log "$ref" --format=%s 2>/dev/null)
+fi
+
+printed=0
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    if printf '%s\n' "$messages" | grep -qxF -e "Orcastrat-Task: $id" -e "Orchestratinator-Task: $id"; then
+      printf 'done %s\n' "$id"
+      printed=1
+    elif printf '%s\n' "$subjects" | grep -q "^$id:"; then
+      printf 'interrupted %s\n' "$id"
+      printed=1
+    fi
+  done < <(awk "$todo_awk" "$plan_dir/$file" 2>/dev/null)
+done < <(awk "$milestones_awk" "$plan_dir/plan.md" 2>/dev/null)
+
+if [ "$printed" = 0 ]; then
+  printf 'OK\n'
+fi
+exit 0
