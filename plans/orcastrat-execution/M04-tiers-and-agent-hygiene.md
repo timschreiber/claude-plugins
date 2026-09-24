@@ -130,7 +130,7 @@ Waves: 6 (widths 3, 3, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orcastrat-execution/notes/dispatch-sizes.md`
