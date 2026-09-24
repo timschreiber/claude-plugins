@@ -50,7 +50,7 @@ None found: M01 edits only Markdown and JSON, and no test harness exists until M
 
 - Kind: investigate
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orcastrat-execution/notes/M01-T01.md`
