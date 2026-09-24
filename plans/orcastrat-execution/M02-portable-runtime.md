@@ -1,6 +1,6 @@
 # M02: Portable runtime foundation (Change 19)
 
-- Status: in-progress
+- Status: done
 - Format: 2
 - Goal: The portability rule is in place and enforced. The inventory of scripts and embedded commands is recorded. Every command that skills and agents tell Claude to run is a single-line call to a script or to `git`, with no `$(...)` and no multi-line bash (except the Change 6 steps M03 replaces). `plan` and `planner` write Verify commands that run from bash, and the plan-reviewer flags non-bash Verify syntax as advisory. A bats harness exists under `tests/orcastrat/` with a passing no-PowerShell test. `.github/workflows/orcastrat.yml` runs the checks on three OSes, and `Validate-All.ps1` has the same no-`.ps1` check.
 - Depends on: M01
