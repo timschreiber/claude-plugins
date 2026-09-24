@@ -255,7 +255,7 @@ The plan and status skills name nothing Orchestratinator, and the plan format do
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M01-T01, M01-T02, M01-T04
 - Files: `plugins/orcastrat/README.md`, `CHANGELOG.md`

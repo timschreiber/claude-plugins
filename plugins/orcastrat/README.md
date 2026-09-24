@@ -1,24 +1,38 @@
-# Orchestratinator
+# Orcastrat
 
 Big asks. Small tasks. Right-sized models.
 
-Orchestratinator turns a spec, a phased prompt set, or a long free-form prompt into a plan of small, mechanical tasks, each tagged with the cheapest model and effort that can do it. Then it runs them through a ladder of worker subagents, from Haiku up to Opus, running independent tasks in parallel git worktrees, verifying every task itself, and committing each one on its own. The Opus orchestrator never writes a line of code, and never takes a worker's word for anything.
+Formerly Orchestratinator. Name history: phase-runner → Deligatinator → Optimizinator → Orchestratinator → Orcastrat.
+
+Orcastrat turns a spec, a phased prompt set, or a long free-form prompt into a plan of small, mechanical tasks, each tagged with the cheapest model and effort that can do it. Then it runs them through a ladder of worker subagents, from Haiku up to Opus, running independent tasks in parallel git worktrees, verifying every task itself, and committing each one on its own. The Opus orchestrator never writes a line of code, and never takes a worker's word for anything.
 
 ## Install
 
 ```bash
 claude plugin marketplace add timschreiber/claude-plugins
-claude plugin install orchestratinator@timschreiber
+claude plugin install orcastrat@timschreiber
 ```
 
-Nothing to configure. The three skills appear as `/orchestratinator:plan`, `/orchestratinator:run`, and `/orchestratinator:status`, and run only when you invoke them.
+Nothing to configure. The three skills appear as `/orcastrat:plan`, `/orcastrat:run`, and `/orcastrat:status`, and run only when you invoke them.
+
+## Upgrading from Orchestratinator
+
+Orcastrat was called Orchestratinator. To move an existing install to the new name:
+
+1. Finish or pause any active runs.
+2. `claude plugin uninstall orchestratinator@timschreiber`
+3. `claude plugin marketplace update timschreiber`
+4. `claude plugin install orcastrat@timschreiber`
+5. Restart Claude Code. Repeat on every machine where the plugin is installed.
+
+Claude Code applies the marketplace's `renames` entry to existing installs, so after `claude plugin marketplace update timschreiber` an installed `orchestratinator@timschreiber` becomes `orcastrat@timschreiber` on its own. The steps above are the fallback if it doesn't.
 
 ## How to use
 
 ```text
-/orchestratinator:plan docs/spec.md phases 3-5
-/orchestratinator:run plans/<slug>
-/orchestratinator:status plans/<slug>
+/orcastrat:plan docs/spec.md phases 3-5
+/orcastrat:run plans/<slug>
+/orcastrat:status plans/<slug>
 ```
 
 1. **Plan.** Point `plan` at any mix of sources: spec files, sections, a prompt file, or a long prompt you've written in the conversation. It saves inline input verbatim under `plans/<slug>/sources/` and maps the source's own structure (phases, steps) onto milestones without reshuffling it. Before writing anything, it audits the sources for missing information, ambiguity, contradictions, and assumptions, and asks you about every one it can't settle from the sources or the code.
@@ -48,9 +62,9 @@ For unattended or non-interactive runs, `--yes` gives approval in advance.
 `status` tells you what's blocked and what to do next. In general:
 
 1. Resolve it: answer the question under `plan.md` Decisions, fix the environment, or split the task.
-2. Commit or discard any leftover working-tree changes, and remove any worktrees the run left for inspection (`git worktree remove <path>`, then delete its `orchestratinator/...` branch). `status` lists them.
+2. Commit or discard any leftover working-tree changes, and remove any worktrees the run left for inspection (`git worktree remove <path>`, then delete its `orcastrat/...` branch). `status` lists them.
 3. Set the blocked task or milestone back to `todo` / `ready` (or `outline` for a GAP the planner hit while detailing a milestone), set the plan's Status back to `in-progress`, and commit.
-4. Rerun `/orchestratinator:run plans/<slug>`.
+4. Rerun `/orcastrat:run plans/<slug>`.
 
 ## What it does
 
@@ -103,9 +117,9 @@ The full plan format, including the tier rubric and sizing rules, is in [`refere
 ### How a run behaves
 
 - **Parallel by default, wave by wave.** When a wave has two or more tasks, each runs in its own git worktree created from the same commit, up to Max parallel at once (default 3). A wave with one task, a plan with `Parallel: off`, or `--serial` runs in the main checkout, one task at a time.
-- **Worktrees you can trust.** Worktrees live under `.git/orchestratinator/`, branch from the plan branch's current commit (not your default branch), and get the plan's Worktree setup command (dependency installs, untracked config) before their worker starts. If a worker writes outside its worktree, the run stops.
+- **Worktrees you can trust.** Worktrees live under `.git/orcastrat/`, branch from the plan branch's current commit (not your default branch), and get the plan's Worktree setup command (dependency installs, untracked config) before their worker starts. If a worker writes outside its worktree, the run stops.
 - **Integrated in order, then checked together.** Verified tasks are cherry-picked onto the plan branch in task order, then every integrated task's Verify runs again on the combined result, because two tasks can each pass alone and still break each other. A merge conflict or a combined failure stops the run and reports the wave as a planning error.
-- **Recoverable.** Every task commit carries an `Orchestratinator-Task:` trailer, so an interrupted run recovers its progress from git history on the next start.
+- **Recoverable.** Every task commit carries an `Orcastrat-Task:` trailer, so an interrupted run recovers its progress from git history on the next start. Commits from before the rename carry `Orchestratinator-Task:`, which recovery also matches.
 - **Verify, don't trust.** The orchestrator runs each task's Verify command itself, or sends the diff to the read-only reviewer when no command can check it. A worker saying "tests pass" is not evidence.
 - **Scope check.** A changed file not listed in the task's Files blocks the task instead of being committed.
 - **Commit per task.** The code and the plan's status update land in one commit.
