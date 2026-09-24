@@ -218,8 +218,8 @@ The expected behavior must come from the sources or Decisions. If it doesn't, it
 |---|---|
 | ID | `M<nn>-T<nn>`, unique across the plan, sequential within the milestone. |
 | Kind | `change` (modifies the codebase or docs) or `investigate` (reads and reports; writes only its note, `plans/<plan-slug>/notes/<task-id>.md`). |
-| Tier | `worker-light`, `worker`, `worker-heavy`, or `specialist`. |
-| Batch | Format 2 milestones only. Optional: a batch task has the line `- Batch: yes`, directly after Tier; any other task has no Batch line. A batch task groups edits of the **same kind with no logic**: the same constant change, field addition, import fix, or rename across files. It relaxes two sizing rules: it may touch about ten files instead of about three production files, and it has one Step per file in its Files, each with the literal edit for that file, instead of at most about seven Steps. It is one commit, like every task, and is usually `worker-light`. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly. |
+| Tier | `worker-mini`, `worker-light`, `worker`, `worker-heavy`, or `specialist`. |
+| Batch | Format 2 milestones only. Optional: a batch task has the line `- Batch: yes`, directly after Tier; any other task has no Batch line. A batch task groups edits of the **same kind with no logic**: the same constant change, field addition, import fix, or rename across files. It relaxes two sizing rules: it may touch about ten files instead of about three production files, and it has one Step per file in its Files, each with the literal edit for that file, instead of at most about seven Steps. It is one commit, like every task, and is usually `worker-mini`. Waves still apply: a batch touching many files interferes with more tasks, so place it accordingly. |
 | Why this tier | Required line for `worker-heavy` and `specialist` only. One sentence. |
 | Status | `todo`, `done`, or `blocked`. Only run changes it after planning. |
 | Wave | Positive integer. See [Sequence and parallelism](#sequence-and-parallelism). |
@@ -271,16 +271,21 @@ The milestone's Context records its wave shape on one line, for example `Waves: 
 
 | Tier | Model / effort | Use for |
 |---|---|---|
-| `worker-light` | Haiku | Only tasks whose Steps contain the **literal final content** to write: complete lines of code or config, exact file text. The work is transcription plus verification. If any step requires composing code from a prose description, the floor is `worker`. |
-| `worker` | Sonnet / medium | **The default.** Fully specified work: names, signatures, behavior, and test cases all given in Steps. Most investigate tasks. |
-| `worker-heavy` | Sonnet / high | Fully specified but intricate: numeric or geometric code, parsers, state machines, concurrency, many edge cases. |
-| `specialist` | Opus / high | No design decisions, but the implementation needs judgment the plan can't pin down: unfamiliar library internals, debugging a known failure, poorly documented APIs. |
+| `worker-mini` | Haiku in a serial wave (agent `worker-mini-serial`); Sonnet / low in a parallel wave (agent `worker-mini-parallel`) | Only tasks whose Steps contain the **literal final content** to write: complete lines of code or config, exact file text. The work is transcription plus verification. If any step requires composing code from a prose description, the floor is `worker-light`. |
+| `worker-light` | Sonnet / medium | **The default.** Fully specified work: names, signatures, behavior, and test cases all given in Steps. Most investigate tasks. |
+| `worker` | Sonnet / high | Fully specified but intricate: numeric or geometric code, parsers, state machines, concurrency, many edge cases. |
+| `worker-heavy` | Opus / medium | No design decisions, but bounded judgment the plan can't pin down: unfamiliar library internals, debugging a known failure, poorly documented APIs. |
+| `specialist` | Opus / high | The hardest bounded implementation. Rare by design. |
+
+The ladder, from lowest to highest, is `worker-mini` → `worker-light` → `worker` → `worker-heavy` → `specialist`.
+
+Plan the tier where the task is expected to succeed: a failed task climbs only a few rungs of the ladder, so starting too low wastes the rungs it might need.
 
 The cheapest models often take two to three times as many turns on multi-step work described in prose, which can cost more overall.
 
-If more than about one task in ten is `specialist`, the milestone is under-specified: split or specify those tasks instead.
+If more than about one task in ten is `worker-heavy` or `specialist`, the milestone is under-specified: split or specify those tasks instead.
 
-A milestone's Context can hold `- Tier adjustment:` lines, which the planner writes when the same tier escalated two or more times on the same kind of task in `done` milestones. Tasks of that kind in that milestone take the tier the line names, one tier above the one that escalated.
+A milestone's Context can hold `- Tier adjustment:` lines, which the planner writes when the same tier escalated two or more times on the same kind of task in `done` milestones. Tasks of that kind in that milestone take the tier the line names, the next tier up the ladder from the one that escalated.
 
 ## Sizing rules
 
