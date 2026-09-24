@@ -135,3 +135,5 @@ WAVES: <count> (widths ...)
 NOTE: <one line. For GAP, the number of questions written to Open questions.>
 QUESTIONS: <only for SCOUT: numbered, specific questions for the scout, separated by " | ", and whether each needs scout or scout-heavy>
 ```
+
+Your reply is at most 20 lines. Anything longer goes in a file under the plan directory's `notes/`, and your reply gives its path.

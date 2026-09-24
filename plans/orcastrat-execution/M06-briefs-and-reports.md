@@ -488,7 +488,7 @@ Every worker agent reads the `Brief:` file instead of plan.md and the milestone 
 - Kind: change
 - Tier: worker
 - Batch: yes
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M04-T02, M06-T04
 - Files: `tests/orcastrat/agent-files.bats`, `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/scout-heavy.md`, `plugins/orcastrat/agents/planner.md`, `plugins/orcastrat/agents/reviewer.md`, `plugins/orcastrat/agents/plan-reviewer.md`, `plugins/orcastrat/agents/milestone-reviewer.md`

@@ -291,3 +291,12 @@ EOF
   echo "plan-file reads in:$bad"
   [ -z "$bad" ]
 }
+
+@test "non-worker agents cap their reply at 20 lines" {
+  local bad='' name
+  for name in $NON_WORKER_AGENTS; do
+    has_line "$AGENTS/$name.md" 'Your reply is at most 20 lines. Anything longer goes in a file under the plan directory'"'"'s `notes/`, and your reply gives its path.' || bad="$bad $name"
+  done
+  echo "no reply cap in:$bad"
+  [ -z "$bad" ]
+}

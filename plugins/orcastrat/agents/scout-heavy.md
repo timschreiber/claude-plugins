@@ -64,3 +64,5 @@ OUTPUT: <path>
 UNCONFIRMED: <count>
 CONFLICTS: <count>
 ```
+
+Your reply is at most 20 lines. Anything longer goes in a file under the plan directory's `notes/`, and your reply gives its path.

@@ -91,3 +91,5 @@ ISSUES: <count>
 ```
 
 `APPROVED` means `## Issues` says `None.` and the count is 0; any issue at all makes it `ISSUES`. The count covers `## Issues` only: advisory findings never change STATUS or the count, and nobody fixes them automatically.
+
+Your reply is at most 20 lines. Anything longer goes in a file under the plan directory's `notes/`, and your reply gives its path.

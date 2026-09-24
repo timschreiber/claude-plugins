@@ -57,3 +57,5 @@ Reply with exactly this block and nothing else:
 VERDICT: PASS | FAIL
 REASONS: <for FAIL, up to three specific failures, each naming the Step or criterion, separated by " | ". For PASS, "-".>
 ```
+
+Your reply is at most 20 lines. Anything longer goes in a file under the plan directory's `notes/`, and your reply gives its path.
