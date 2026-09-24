@@ -17,7 +17,7 @@
 |---|---|---|---|
 | M01 | Rename to Orcastrat (Change 24) | done | M01-rename.md |
 | M02 | Portable runtime foundation (Change 19) | done | M02-portable-runtime.md |
-| M03 | Git bookkeeping scripts (Change 6) | outline | M03-git-scripts.md |
+| M03 | Git bookkeeping scripts (Change 6) | ready | M03-git-scripts.md |
 | M04 | Worker tiers and agent prefix hygiene (Changes 4, 21) | outline | M04-tiers-and-agent-hygiene.md |
 | M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | outline | M05-commits-resume-runaway-guard.md |
 | M06 | Task briefs and report files (Changes 7, 9) | outline | M06-briefs-and-reports.md |
@@ -142,6 +142,9 @@
 - D60: `scope-check` stays strict: only the task's Files, its report file and its failure log. `run` commits its own plan-file edits (`- Process:`, `- Escalated:`, failure-log entries, notes) in a bookkeeping commit BEFORE it records BASE for the next dispatch; an `- Escalated:` line goes into Change 1's escalation commit. The milestone file is never in a worker's scope, so a worker that edits the plan is still caught. This matches Change 9's rule that notes are committed before the next dispatch. (source: user, M03 open question 7, option c)
 - D61: The repo gets a `.gitattributes` forcing `eol=lf` for `*.sh`, `*.bats`, `*.bash`, `plugins/orcastrat/scripts/**`, `plugins/orcastrat/hooks/**`, `tests/orcastrat/**` and `scripts/run-bats.sh`. The same task runs `git add --renormalize` on those paths so files already committed with CRLF are fixed. It is M03's first task. Cause: `core.autocrlf` on this machine would check these bash files out with CRLF, which bash can't run. (source: user, answer to Q8 at the M03 stop)
 - D62: For the rest of THIS build only, the planner assigns no `worker-light` tasks; `worker` is the floor. The installed plugin's `worker-light` is Haiku, and in M02 it committed on its own in all 7 attempts and twice omitted RED evidence. Once Orcastrat is installed, `worker-light` means Sonnet/medium and is the default again, so this Decision governs this plan only and changes nothing in the plugin. (source: user, answer to Q9 at the M03 stop)
+- D63: When a bookkeeping script that `run` calls exits 2 (a D55 usage or environment error), `run` goes to **Stop** with reason SETUP, quoting the script's `error:` line. It is never treated as a task failure. (source: D55; `plugins/orcastrat/skills/run/SKILL.md:187`, where SETUP is "an environment problem, not a task problem")
+- D64: `run` never writes to the milestone file between recording the base and running `scope-check`. A `- Process:` line from the stray-commit check is written with the task's `done` Status (serial 3d item 6, parallel 3e item 8), or with its `- Escalated:` or `- Blocked:` line. Before a retry, `run` commits the `- Escalated:` (and any `- Process:`) line in MAIN as `chore(plan): <task ID> attempt 1 failed`, with no `Orcastrat-Task:` trailer, and only then dispatches again. (source: D60; spec §2, the escalation commit subject; `run` allows one retry per task today, so a retry always follows attempt 1)
+- D65: `run` passes a Verify command to `verify` as one single-quoted bash argument, writing each `'` inside it as `'\''`, so the whole call stays one line with no `$(...)`. (source: D05, "`<command>` is one argument passed to `bash -c`"; spec §20 item 3)
 
 ## Open questions
 
