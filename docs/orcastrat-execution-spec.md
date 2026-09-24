@@ -64,6 +64,7 @@ These are the decisions already made during the isolation planning (answers 32โ€
 - **Escalation context:** a fresh worker at the next tier gets `Failures: <path>` in its dispatch and reads the failure log and the preserved reports of earlier attempts (`notes/reports/<task-id>-attempt<n>.md`, Change 1), never the failed transcript. Its agent prompt says: don't repeat the approaches in the failure log; if they show the Steps can't be followed as written, report a GAP instead of improvising.
 - **Limits:** header fields `Max run time: none | <n>m | <n>h`, `Max tasks: none | <n>`, and `Max milestones: none | <n>`, plus the flags `--max-run-time`, `--max-tasks` and `--max-milestones`. The flag beats the header field. Time and task limits are checked before each serial task or parallel batch; the milestone limit after each milestone completes, including its milestone review. Hitting one is a **Pause** with reason `LIMIT`, never a Stop. `Max milestones: 1` gives a natural point to `/clear` between milestones.
 - **`status`** gains a `Failures:` line.
+- **Leftover background work:** after every agent returns, if its completion notice reports background work still running, `run` stops it with the Stop Task tool. If that fails, `run` records a warning line in `notes/run-log.md` naming the agent and quoting the notice, and continues. `run` never kills processes by PID. The run report counts these warnings (Change 11).
 - **Resuming an exhausted task:** unchanged. You fix the problem, set the task back to `todo`, and rerun.
 
 **Acceptance:** the ladder cap, breaker, failure log, escalation context, and the three limits behave as described.
@@ -240,6 +241,7 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
   - containment downgrades;
   - auto-decided questions, each with its Decision (Change 12);
   - advisory findings per milestone, and blocking candidates confirmed or downgraded by the `validator` (Change 10);
+  - leftover-background-work warnings (Change 3);
   - stops and pauses by reason;
   - wall-clock time.
 - Usage and cost are included only where Claude Code reports them to the orchestrator. Otherwise that section says "not available". They are display only (ground rule 5).
@@ -461,6 +463,11 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 
 1. **Static agent files:** no dates, paths, plan names, or per-run content. All per-task content goes in the dispatch message.
 2. **Invariant instructions live in agent files.** Everything that applies to every dispatch of an agent goes in its file, not the dispatch template: commit rules and the precedence rule (Change 1), resume behavior (Change 2), the breaker and escalation-context rules (Change 3), worktree rules (Change 5, conditional on a `Worktree:` line), brief reading (Change 7), the report format and reply cap (Change 9), fails first and RED evidence, GAP and no-design-decision rules, and each reviewer's findings format (Change 10). The same applies to scouts, the planner, reviewers, `validator`, `merger`, `decider` and `status-reader`. The scoring rubric (Change 10) is in the agent file of every reviewer and of `validator`.
+   - **Search and command bounds, in every agent file** (workers, scouts, reviewers, the planner, `validator`, `merger`, `decider`, `status-reader`):
+     - Search only inside the repository, or paths named in your brief or task. Never search from a filesystem root or home directory (`find /`, `find ~`, `find /c`, `find C:\`). Prefer the Glob and Grep tools over `find`.
+     - Never start a background command, and never run a command that may not finish within the Bash time limit. If you need information a long command would give, report the question instead of running it.
+     - Don't verify environment facts (installed tools, versions) that a task's own Verify or scripts establish. For example, `run-bats.sh` clones bats itself.
+     - Why: in the build of this spec, a plan-reviewer ran `find / -iname bats` under Git Bash on Windows. The command outlived the Bash time limit, was moved to the background, and kept scanning the whole drive after the agent had finished.
    - The dispatch message then carries only task-unique lines: `Brief:`, `Failures:` when retrying, `Worktree:` in parallel waves, and the report path.
    - This is a standing rule: any later change that adds an every-dispatch instruction puts it in the agent file.
    - Record the before and after dispatch-message sizes for one task per tier in the CHANGELOG entry.
@@ -471,6 +478,7 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
    - **`planner`:** read-only file tools, plus write for the milestone file it details and its notes.
    - **`merger`:** read, search and edit. No shell; `run` does all git steps.
    - **`decider`:** read and search, plus write for its one output file.
+   - **No agent below the orchestrator** gets the Agent (Task) tool, so there are no nested subagents. None gets the Skill tool or the Artifact tool either.
    - Record each agent's allowlist in the README's cast table. The verification run (ยง30) confirms nothing is missing; any tool found missing is added to that agent, with the reason recorded.
 4. **Workers still re-read CLAUDE.md as a file** on every task. That content can't be shared from cache, which is why Change 16 matters; the README says so.
 
@@ -736,3 +744,8 @@ Review these before planning.
 **Scope**
 
 64. **Items that depend on unobserved Claude Code behavior are deferred to the backlog**, not probed: the SubagentStop gate, the `claude -p` driver, permission-mode guidance, code intelligence in workers, and workflow-backed execution.
+
+**Robustness (from the build)**
+
+65. **Every agent file bounds searches and commands:** search only inside the repository or paths the brief names, never from a filesystem root or home directory; never start a background command or one that may outlive the Bash time limit; don't verify environment facts that the task's own Verify or scripts establish. No agent below the orchestrator gets the Agent, Skill or Artifact tool (Change 21).
+66. **`run` stops leftover background work** after every agent returns, with the Stop Task tool. When that fails, it logs a warning to `notes/run-log.md` and continues. It never kills processes by PID, and the run report counts the warnings (Changes 3 and 11).

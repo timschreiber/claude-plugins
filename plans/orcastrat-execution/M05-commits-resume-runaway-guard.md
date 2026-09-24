@@ -9,7 +9,9 @@
 
 ## Context
 
-Governing sources: spec §2 (Change 1), §3 (Change 2), §4 (Change 3), §1.3, §1.5; Decisions D05, D06, D23, D29, D31.
+Governing sources: spec §2 (Change 1), §3 (Change 2), §4 (Change 3), §1.3, §1.5; Decisions D05, D06, D23, D29, D31, D49.
+
+- Leftover background work (D49, spec §4): after every agent returns (workers, reviewers, scouts, the planner, and every agent later milestones add), `run` checks the agent's completion notice. If it reports background work still running, `run` stops that agent's task with the Stop Task tool. If Stop Task fails, `run` appends `background-warning <UTC> <agent> <task or milestone ID> "<notice text>"` to `plans/<slug>/notes/run-log.md` and continues. `run` never kills processes by PID. This is a `run` rule, stated once in its dispatch section.
 
 - Worker git rules, in all six worker agents:
   - Commit when the task is done and Verify passes. Subjects start `<task ID>: `, and several commits are fine.
@@ -27,6 +29,7 @@ Governing sources: spec §2 (Change 1), §3 (Change 2), §4 (Change 3), §1.3, �
 ## Outline
 
 - `run-state` script and `tests/orcastrat/run-state.bats`.
+- `run`: the leftover-background-work rule (D49), applied after every agent return.
 - Worker agents: the commit and precedence rules above. The breaker: stop after the 3rd failed Verify run after implementation, where the expected red run doesn't count, and report `BLOCKED` / `STUCK` with one-line `HYPOTHESIS:` and `FIXES TRIED:`. When a `Failures: <path>` line is present, read the failure log and the preserved reports, don't repeat those approaches, and report a GAP if they show the Steps can't be followed.
 - `run` preflight: the clean-tree check stops with `SETUP` and lists the files (`git clean -fd` rationale). Call `run-state start` at the end of preflight.
 - `run` per task:

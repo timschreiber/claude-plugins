@@ -11,6 +11,8 @@
 
 Governing sources: spec §6 (Change 5), §23 item 1 (Change 22), §22 item 3 (the `merger` allowlist); Decisions D05, D12, D13, D17, D18, D29.
 
+- D48: the new agent file gets the `## Search and command bounds` section (added to every agent in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks both.
+
 - Worktrees: `git worktree add -b <task branch> <path> BASE`, under `<git-common-dir>/orcastrat/<plan-slug>/worktrees/`. The task branch is `orcastrat/<plan-slug>/<task-id>` (D18). Worktree setup sets `ORCASTRAT_MAIN` and `ORCHESTRATINATOR_MAIN` (D17). The dispatch carries `Worktree: <path>`, and workers keep the "cd into it for every command" rules.
 - Per task, in its worktree: `scope-check`, `verify` and `push-check` (M03 scripts, directory argument per D05).
 - Integration: `integrate <task-branch> <BASE>`, in task order, onto the plan branch. The old "exactly one commit" check is removed, since tasks may have several commits.

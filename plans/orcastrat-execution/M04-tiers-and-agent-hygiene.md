@@ -9,7 +9,7 @@
 
 ## Context
 
-Governing sources: spec §5 (Change 4), §22 (Change 21), §1.4; Decisions D12, D13, D14, D28.
+Governing sources: spec §5 (Change 4), §22 (Change 21), §1.4; Decisions D12, D13, D14, D28, D48.
 
 Tier table (Change 4):
 
@@ -29,6 +29,8 @@ Tier table (Change 4):
   - `scout-heavy`, `reviewer`, `plan-reviewer`, `milestone-reviewer`: `Read, Glob, Grep, Bash, Write`.
   - `planner`: `Read, Glob, Grep, Write`.
   - Agents created later get theirs when they are created (D28): `merger` in M07, `status-reader` in M09, `validator` in M10, `decider` in M12.
+  - No agent gets `Agent` (Task), `Skill` or `Artifact` (D48). Each `tools` line lists only the tools above, and the agent file says in one line that it has no subagent, skill or artifact tools.
+- Search and command bounds (D48, spec §22 item 2) go into the invariant instructions of every agent file this milestone touches, reviewers and workers alike, as their own `## Search and command bounds` section with the three rules verbatim from D48. Agents created later (`merger`, `status-reader`, `validator`, `decider`) get the same section when they are created, and those milestones' Context names it.
 - Quote every frontmatter value that contains `: ` (§1.4).
 - Existing plans read the new tier meanings. There is no mapping and no format change (Change 4).
 - Standing rule (Change 21.2): any later instruction that applies to every dispatch goes in the agent file, not the dispatch template. State this rule once in `run`.
@@ -40,6 +42,7 @@ Tier table (Change 4):
 - Add `agents/worker-mini-serial.md` and `agents/worker-mini-parallel.md`, built from the current worker body (literal-content transcription tasks).
 - Update the frontmatter (`model`, `effort`, `maxTurns`, `description`, `tools`) of `worker-light`, `worker`, `worker-heavy` and `specialist` to the table.
 - Replace `disallowedTools` with `tools` in `scout`, `scout-heavy`, `reviewer`, `plan-reviewer`, `milestone-reviewer` and `planner`.
+- Add the `## Search and command bounds` section (D48) to all twelve agent files: the six worker agents, `scout`, `scout-heavy`, `reviewer`, `plan-reviewer`, `milestone-reviewer` and `planner`. Add a bats test, `tests/orcastrat/agent-files.bats`, that fails when any `plugins/orcastrat/agents/*.md` lacks that section, or has a `tools` line naming `Agent`, `Task`, `Skill` or `Artifact`.
 - Move every instruction that `run` sends on every dispatch into the matching agent files, and trim `run`'s dispatch templates to task-unique lines. Remove any per-run content (dates, paths, plan names) from agent files.
 - Rewrite the tier rubric in `reference/plan-format.md` per Change 4:
   - `worker-mini` only when Steps contain the literal final content;

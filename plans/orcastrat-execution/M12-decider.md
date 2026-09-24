@@ -11,6 +11,8 @@
 
 Governing sources: spec §13 (Change 12), §1.3, §22 item 3 (`decider` allowlist); Decisions D12, D13, D29, D33.
 
+- D48: the new agent file gets the `## Search and command bounds` section (added to every agent in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks both.
+
 - `decider`:
   - Frontmatter: `model: opus`, `effort: high`, `maxTurns: 40`, `tools: Read, Glob, Grep, Write`.
   - Writes only its output file, `plans/<slug>/notes/decisions/<question-id>.md`, where the question ID follows D33. It replies with a status block only.

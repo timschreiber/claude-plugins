@@ -9,9 +9,9 @@
 
 ## Context
 
-Governing sources: spec §12 (Change 11), §19 (Change 18), §1.5; Decisions D04, D06, D07.
+Governing sources: spec §12 (Change 11), §19 (Change 18), §1.5; Decisions D04, D06, D07, D49.
 
-- Sources the report reads: task statuses; `Orcastrat-Task:` and `Orchestratinator-Task:` trailers; failure logs; `Escalated:` lines; merge and containment notes; review notes (advisory counts, validator confirmations and downgrades); `Re-tiered:` lines (D31, once M14 lands); auto-decided Decisions (`auto-decided (<question-id>)`, once M12 lands); `notes/run-log.md` (D06 start and end lines, D07 usage lines, and the M09 model notice).
+- Sources the report reads: task statuses; `Orcastrat-Task:` and `Orchestratinator-Task:` trailers; failure logs; `Escalated:` lines; merge and containment notes; review notes (advisory counts, validator confirmations and downgrades); `Re-tiered:` lines (D31, once M14 lands); auto-decided Decisions (`auto-decided (<question-id>)`, once M12 lands); `notes/run-log.md` (D06 start and end lines, D07 usage lines, the M09 model notice, and D49 background warnings).
 - It reports per run invocation and for the plan so far:
   - tasks done;
   - attempts, resumes and escalations per tier;
@@ -33,3 +33,4 @@ Governing sources: spec §12 (Change 11), §19 (Change 18), §1.5; Decisions D04
 - `run`: call `run-report` at Pause, Stop and completion, and commit the report in the pause, stop or completion commit.
 - `run`: the milestone-end suggestion step and `notes/instruction-suggestions.md`.
 - `run-report` shows every `model-notice` line from `notes/run-log.md` (D42).
+- `run-report` counts the `background-warning` lines in `notes/run-log.md` (D49), per run invocation and for the plan so far, and lists each one.
