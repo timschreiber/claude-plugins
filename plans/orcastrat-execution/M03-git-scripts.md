@@ -1807,7 +1807,7 @@ In parallel waves, `run` checks each task's worktree with `push-check` and `scop
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M03-T04, M03-T06
 - Files: `plugins/orcastrat/reference/plan-format.md`
