@@ -22,6 +22,13 @@ out_line() {
   printf '%s\n' "$output" | grep "^$1: "
 }
 
+# write_marker <heartbeat>: writes an active-run marker for the fixture plan.
+write_marker() {
+  mkdir -p "$REPO/.git/orcastrat"
+  printf 'plan=%s\nstarted=%s\nheartbeat=%s\nblocks=0\nblock_heartbeat=\n' \
+    'plans/demo plan' '1000' "$1" > "$REPO/.git/orcastrat/active-run"
+}
+
 # write_plan <plan status> <M01 status> <M02 status> [<open-question line>...]
 write_plan() {
   local plan_status="$1" m01_status="$2" m02_status="$3"
@@ -126,7 +133,7 @@ mid_wave_plan() {
   local keys
   keys=$(printf '%s\n' "$output" | awk -F: '{print $1}' | tr '\n' ' ')
   keys=${keys% }
-  [ "$keys" = 'plan milestone next wave blocked open-questions' ]
+  [ "$keys" = 'plan milestone next wave blocked open-questions recover worktrees marker' ]
 }
 
 @test "survey committed: next details the milestone" {
@@ -319,6 +326,106 @@ mid_wave_plan() {
   run_script "$win_w"
   [ "$status" -eq 0 ]
   [ "$(out_line next)" = 'next: survey M01' ]
+}
+
+@test "fresh plan: next prints all nine lines" {
+  fresh_plan
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$output" = "$(printf '%s\n' \
+    'plan: planned' \
+    "milestone: M01 outline cygpath-stub [-m] [$PLAN/M01-first.md]" \
+    'next: survey M01' \
+    'wave: none' \
+    'blocked: none' \
+    'open-questions: 0' \
+    'recover: OK' \
+    'worktrees: 0' \
+    'marker: none')" ]
+}
+
+@test "interrupted attempt: recover's line is printed" {
+  write_plan in-progress in-progress outline
+  write_milestone M01-first.md in-progress M01-T01:todo:1:worker
+  write_milestone M02-second.md outline
+  commit_all 'chore(plan): start M01'
+  printf 'work\n' > "$REPO/work.txt"
+  commit_all 'M01-T01: feat: part one'
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(out_line recover)" = 'recover: interrupted M01-T01' ]
+  [ "$(out_line next)" = 'next: wave 1' ]
+  [ "$(out_line wave)" = 'wave: 1 M01-T01:worker' ]
+}
+
+@test "recover lines are joined with \"; \"" {
+  write_plan in-progress in-progress outline
+  write_milestone M01-first.md in-progress M01-T01:todo:1:worker M01-T02:todo:1:worker
+  write_milestone M02-second.md outline
+  commit_all plan
+  git -C "$REPO" commit --quiet --allow-empty -m 'chore(plan): M01-T01 done' -m 'Orcastrat-Task: M01-T01'
+  printf 'work\n' > "$REPO/work.txt"
+  commit_all 'M01-T02: feat: part one'
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(out_line recover)" = 'recover: done M01-T01; interrupted M01-T02' ]
+}
+
+@test "worktrees counts only task worktrees under the plan's worktree root" {
+  fresh_plan
+  git -C "$REPO" worktree add --quiet -b task-one "$REPO/.git/orcastrat/demo plan/M01-T01"
+  mkdir -p "$REPO/.git/orcastrat/demo plan/logs" "$REPO/.git/orcastrat/demo plan/hold" "$REPO/.git/orcastrat/demo plan/briefs"
+  git -C "$REPO" worktree add --quiet -b other "$BATS_TEST_TMPDIR/other tree"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(out_line worktrees)" = 'worktrees: 1' ]
+}
+
+@test "marker is active with its heartbeat age in whole minutes" {
+  fresh_plan
+  write_marker "$(($(date -u +%s) - 330))"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(out_line marker)" = 'marker: active 5m' ]
+}
+
+@test "marker is stale when its heartbeat is more than an hour old" {
+  fresh_plan
+  write_marker "$(($(date -u +%s) - 3700))"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(out_line marker)" = 'marker: stale' ]
+}
+
+@test "a marker with no readable heartbeat is stale" {
+  fresh_plan
+  write_marker ''
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ "$(out_line marker)" = 'marker: stale' ]
+  write_marker abc
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ "$(out_line marker)" = 'marker: stale' ]
+}
+
+@test "marker is read from the plan checkout's own git dir" {
+  fresh_plan
+  write_marker "$(date -u +%s)"
+  git -C "$REPO" worktree add --quiet -b other "$BATS_TEST_TMPDIR/other tree"
+  run_script "$BATS_TEST_TMPDIR/other tree/plans/demo plan"
+  [ "$status" -eq 0 ]
+  [ "$(out_line marker)" = 'marker: none' ]
+  [ "$(out_line worktrees)" = 'worktrees: 0' ]
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  [ "$(out_line marker)" = 'marker: active 0m' ]
 }
 
 @test "next exits 2 with the wrong number of arguments" {
