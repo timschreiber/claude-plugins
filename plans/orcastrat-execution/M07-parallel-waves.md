@@ -1,6 +1,6 @@
 # M07: Parallel waves and dispatch order (Changes 5, 22)
 
-- Status: blocked
+- Status: outline
 - Format: 2
 - Goal: Parallel waves follow Change 5's mechanism. Workers commit in worktrees under `<git-common-dir>/orcastrat/<plan-slug>/worktrees/`. `run` checks each task branch, then integrates in task order with `integrate` (multi-commit). A new `merger` agent handles conflicts, falling back to a serial rerun at the tier that succeeded. A containment failure downgrades the run to serial without stopping it. The default for plans written from now on is `Max parallel: 2`. The plan format says tiny tasks are batched rather than parallelized. Same-tier tasks are dispatched back to back within a wave.
 - Depends on: M06
