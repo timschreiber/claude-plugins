@@ -216,6 +216,7 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
   - **Plan-reviewer:** a task that needs a design decision to execute; a Coverage gap; Wave interference; a Verify that can't fail first; a Verify that violates Change 13.
 - Everything else is **advisory**.
 - Reviewer inputs are the diff or detailed milestone plus the criteria (brief or task and milestone fields, Coverage, Interfaces, Out of scope), never worker transcripts.
+- **Reading budget, in every reviewer's agent file** (`reviewer`, `milestone-reviewer`, `plan-reviewer`, and `validator`): read each file once; read the milestone file (or the diff) whole and everything else only in part; read only the Decisions and spec sections the work cites, found with Grep on `^- D<nn>:` and the headings named; check `path:line` citations and literal replacement targets with Grep on the quoted text, not by reading the whole file; don't read survey notes or a repo copy of a file the milestone is changing; keep the reply to the status block, with everything else in the report file. Why: in the build of this spec, each plan review read whole files, several of them twice, and cost 170-210k tokens.
 
 **Independent validation.** A new agent, **`validator`** (Sonnet, medium effort, read-only, `maxTurns: 20`), checks every blocking candidate before it has any effect:
 
@@ -334,6 +335,7 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 - Answers are integrated into the relevant spec sections, not appended as a Q&A log. Each answer adds or updates an entry in the spec's final "Decisions made in this spec" section. The spec gains Out of scope and an end-to-end step if they were missing. No requirement the user wrote is removed unless an answer says to.
 - `plan` shows a short summary of the spec changes. The spec edits are handled the same way `plan` handles its plan files.
 - `plan.md` Decisions still records every answer, each citing the spec section it changed. The spec is authoritative if they ever disagree.
+- Each `plan.md` Decision is one or two lines: what was decided, and its source. Rationale, evidence and long lists go in a `notes/` file the Decision links to, since every planner, reviewer and brief reads the whole list.
 - The planner, scouts and reviewers read the updated spec when detailing later milestones.
 - `plan` makes no design decisions of its own. Every substantive spec change traces to an answer.
 
@@ -770,3 +772,5 @@ Review these before planning.
 67. **Planning and review agents never prototype or duplicate work.** Every non-worker agent file and the `plan` skill forbid writing or running trial code, scripts or tests, creating worktrees, branches or commits, and redoing another agent's survey, Verify or recorded facts. `planner` and `plan-reviewer` have no shell (Change 21).
 68. **Only the workers get an unrestricted shell.** `scout`, `scout-heavy`, `reviewer`, `milestone-reviewer`, `validator` and `status-reader` use it for short read-only commands only; `planner`, `plan-reviewer`, `decider` and `merger` get none (Change 21).
 69. **Question rounds persist in `plans/<slug>/questions/`**: `plan.md` for planning rounds, `<milestone-id>.md` for detailing questions and task GAPs, each question with an `Answer:` line. `plan` resumes from `questions/plan.md`, and a new `/orcastrat:answer` skill applies a run's answers, so answers can come back in any session (Change 14).
+70. **Reviewers work to a reading budget:** each file once, cited Decisions and spec sections only, citations checked with Grep, short replies (Change 10).
+71. **Decisions stay short:** each `plan.md` Decision is one or two lines stating what was decided and its source; rationale, evidence and long lists go in a `notes/` file the Decision links to (Change 14).

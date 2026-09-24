@@ -9,7 +9,7 @@
 
 ## Context
 
-Governing sources: spec §11 (Change 10), §22 item 3 (`validator` allowlist); Decisions D12, D13, D21.
+Governing sources: spec §11 (Change 10), §22 item 3 (`validator` allowlist); Decisions D12, D13, D21, D76.
 
 - D48, D66: the new agent file gets the `## Search and command bounds` section and the `## No prototyping or duplicate work` section (both added in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks all three.
 
@@ -29,6 +29,7 @@ Governing sources: spec §11 (Change 10), §22 item 3 (`validator` allowlist); D
 
 ## Outline
 
+- `reviewer`, `milestone-reviewer`, `plan-reviewer`, and the new `validator`: a `## Reading budget` section per D76 (spec §11, "Reading budget"). `agent-files.bats` fails when any of the four lacks it.
 - `reference/review-rubric.md` and the rubric drift test.
 - `reviewer`, `milestone-reviewer`, `plan-reviewer`: scoring, category tags, blocking-candidate rules, notes format with advisory findings, and the rubric copy.
 - Add `agents/validator.md`.
