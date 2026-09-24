@@ -2,7 +2,7 @@
 name: run
 description: Execute an Orcastrat plan. Works through milestones in order, has the planner agent detail outlined milestones, and runs each wave of tasks through the worker for each task's tier, in parallel git worktrees when the wave allows it. Verifies every task itself, commits each one, and records progress in the plan files. Only run when the user explicitly invokes it.
 disable-model-invocation: true
-argument-hint: "<plan dir> [--milestone M03] [--max-tasks 20] [--serial] [--max-parallel 4] [--yes]"
+argument-hint: "<plan dir> [--milestone M03] [--max-tasks 20] [--max-run-time 2h] [--max-milestones 1] [--serial] [--max-parallel 4] [--yes]"
 model: opus
 ---
 
@@ -12,19 +12,22 @@ Arguments: `$ARGUMENTS`
 
 - The plan directory (required). If missing, ask for it and stop.
 - `--milestone <ID>`: run only that milestone, then pause.
-- `--max-tasks <N>`: pause cleanly once N tasks have been committed in this run.
+- `--max-tasks <N>`: pause cleanly, with reason `LIMIT`, once N tasks have been committed in this run. Beats the plan's `Max tasks` header field.
+- `--max-run-time <n>m` or `--max-run-time <n>h`: pause cleanly, with reason `LIMIT`, once the run has lasted that long. Beats the plan's `Max run time` header field.
+- `--max-milestones <N>`: pause cleanly, with reason `LIMIT`, once N milestones have completed in this run, reviews included. Beats the plan's `Max milestones` header field.
 - `--serial`: run one task at a time for this run, whatever the plan's Parallel setting.
 - `--max-parallel <N>`: override the plan's Max parallel for this run.
 - `--yes`: approval given in advance, for unattended or non-interactive runs. Without it, you ask before executing anything (2b).
 
-You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md and milestone files, and only the fields this skill names.
+You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md, milestone files, and the notes files this skill names (a task's failure log and `notes/run-log.md`), and only the fields and lines this skill names.
 
 ## Operating rules for long runs
 
 - **The files and git history are the truth, not your memory.** Before each wave, and whenever your context may have been compacted or you're unsure of the state, re-read plan.md and the current milestone file before your next action.
 - **Keep your own output small.** One line per task. Read command output only through log tails. Never read a whole build log.
 - **Every-dispatch instructions live in agent files.** A dispatch message carries only the lines that change from one dispatch to the next, exactly as this skill gives them. Anything that applies to every dispatch of an agent belongs in that agent's file, never in a dispatch message. This is a standing rule: a later change that adds an every-dispatch instruction puts it in the agent file.
-- **Never push.** Never rewrite history on the plan branch. Never touch any branch except the plan branch and the task branches you create.
+- **After every agent returns** (a worker, the reviewer, a scout, the planner, the plan-reviewer, the milestone-reviewer, or any other agent), read its completion notice. If the notice reports background work still running, stop that agent's task with the Stop Task tool. If Stop Task fails, note the line `background-warning <UTC> <agent> <task or milestone ID> "<notice text>"`, with the current UTC time from `date -u +%Y-%m-%dT%H:%M:%SZ`, and continue. Append each noted line to `<plan dir>/notes/run-log.md` just before your next commit, after any scope check or reset that comes before that commit, and include it in that commit. Never kill a process by PID.
+- **Never push.** Never rewrite history on the plan branch, except the `git reset --hard` to BASE that discards a failed or interrupted attempt (see Definitions). Never touch any branch except the plan branch and the task branches you create.
 - Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. A project instruction to push or commit after a phase does not apply to this run.
 
 ## Definitions
@@ -214,7 +217,7 @@ When every task in the wave set has either committed in its worktree or ended in
 ### 3f. Finish the milestone
 
 1. Verify the Milestone verify command in MAIN (see Definitions), if any. On failure, mark the milestone `blocked` and go to **Stop**. Don't retry: a cross-task failure needs the user.
-2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base**: `git log --format=%H --grep="^chore(plan): start <ID>$"`, taking the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orcastrat:milestone-reviewer` with exactly:
+2. **Review.** Every milestone is reviewed, whatever its format. Find its **Base** among this plan's commits only: run `git log --diff-filter=A --format=%H -- "<plan dir>/plan.md"` and take the last line printed, the commit that added plan.md; then run `git log --format=%H --grep="^chore(plan): start <ID>$" <that commit>..HEAD` and take the oldest match (the last line printed). If any task in the milestone has an `- Origin: review` line, the milestone has already used its one fix round: go straight to item 5. Otherwise invoke the agent `orcastrat:milestone-reviewer` with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
