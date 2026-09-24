@@ -174,43 +174,43 @@ Choose the mode for this wave:
 - **Parallel** if the wave set has two or more tasks, the plan's Parallel is `auto`, and `--serial` wasn't given.
 - **Serial** otherwise.
 
-If `--max-tasks` is in effect, trim the wave set to the number of tasks still allowed in this run.
+If a task limit is in effect (see Definitions), trim the wave set to the number of tasks still allowed in this run.
 
 Then run the wave (**3d** or **3e**), and afterwards:
 
 - Report one line per task to the user, for example `M02-T07 done (worker, parallel)`.
-- If `--max-tasks` is now used up, go to **Pause**.
+- If a task limit is in effect and is now used up, go to **Pause** with reason `LIMIT`.
 
 ### 3d. Serial wave
 
-For each task in the wave set, in order:
+For each task in the wave set, in order, first **check the limits** (see Definitions), then:
 
-1. **Dispatch** to the worker agent for the task's tier (see Definitions), sending exactly:
+1. **Dispatch.** Record BASE: run `git rev-parse HEAD` in MAIN. Find the task's current tier (see Definitions) and dispatch to the worker agent for that tier, sending exactly:
    ```
    Plan: <plan dir>
    Milestone: <milestone ID>
    Task: <task ID>
    ```
-   plus the retry lines on a retry (see **Retry**). Never paraphrase the task: the worker reads it from the plan. Record `git rev-parse HEAD` before dispatching.
-2. **Check for branch changes, pushes and stray commits**, in MAIN, against the HEAD you recorded in item 1:
+   plus the line `Failures: <failure log>` when the task's failure log exists (see Definitions). Never paraphrase the task: the worker reads it from the plan. Note the agent ID the dispatch returns, for a resume.
+2. **Check for branch changes and pushes** after every attempt, whether it succeeded or failed, in MAIN, against BASE:
    - Run `git branch --show-current`. If it doesn't print the plan's Branch, go to **Stop** with reason STRAY.
-   - Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<MAIN>" <recorded HEAD>`. It prints `OK`, or one line per commit since the recorded HEAD that is on a remote, as `<sha> <subject>`. Anything but `OK` → go to **Stop** with reason PUSHED, listing those lines.
-   - Run `git log --oneline <recorded HEAD>..HEAD`. If it prints any commit, run `git reset --soft <recorded HEAD>` and remember to add `- Process: worker committed on its own; reset and recommitted` under the task. Don't write that line yet: the scope check in item 4 would flag the milestone file. Add it when you set the task's Status in item 6, or together with the `- Escalated:` or `- Blocked:` line if the task retries or blocks instead.
-3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `NOTE`). If the worker's reply has no `STATUS:` line, it returned no report (for example, it hit its turn limit): that is a failed attempt, so go to **Retry** with the reason `no report`. For a task with `- Fails first: yes`, check RED first:
+   - Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<MAIN>" <BASE>`. It prints `OK`, or one line per commit since BASE that is on a remote, as `<sha> <subject>`. Anything but `OK` → go to **Stop** with reason PUSHED, listing those lines.
+3. **Read the report** (`STATUS`, `REASON`, `FILES`, `VERIFY`, `RED`, `HYPOTHESIS`, `FIXES TRIED`, `NOTE`). If the worker's reply has no `STATUS:` line, it returned no report (for example, it hit its turn limit): that is a **Failed attempt** with the description `no report (turn limit reached)`. For a task with `- Fails first: yes`, check RED first:
    - `RED: PASSED-EARLY` → **Block with GAP** (see below), with block reason `VACUOUS`.
-   - `DONE` with the RED line missing or `N/A` → **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
+   - `DONE` with the RED line missing or `N/A` → **Failed attempt** with the description `RED not confirmed`.
    - Otherwise (`RED: CONFIRMED <first failing line>`, or a `BLOCKED` report with RED missing or `N/A`) → go on to STATUS.
 
    A task without `- Fails first: yes` (Fails first `no`, or no Fails first line, as in format 1 milestones and `investigate` tasks) skips the RED check. Then, for every task, read STATUS:
    - `BLOCKED` / `GAP` → **Block with GAP** (see below).
-   - `BLOCKED` / `STUCK` → **Retry**.
+   - `BLOCKED` / `STUCK` → **Failed attempt** with the description `STUCK: <NOTE>`.
    - `DONE` → continue.
-4. **Check scope.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<MAIN>" <recorded HEAD> "<path>" ...`, passing each path in the task's Files as its own double-quoted argument. It prints `OK`, or each changed path that isn't in the task's Files, one per line; it checks both commits since the recorded HEAD and uncommitted changes. Anything but `OK` → mark the task `blocked` with `- Blocked: SCOPE — <the printed paths, comma-separated>` and go to **Stop**.
+4. **Check scope.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<MAIN>" <BASE> "<path>" ...`, passing each path in the task's Files, then the task's report file and failure log (see Definitions), each as its own double-quoted argument. It prints `OK`, or each changed path that isn't in that list, one per line; it checks both commits since BASE and uncommitted changes. Anything but `OK` → **Failed attempt** with the description `scope violation: <the printed paths, comma-separated>`.
 5. **Verify yourself**, in MAIN. Don't trust the worker's VERIFY line.
-   - A command → Verify it in MAIN (see Definitions); failure → **Retry**.
-   - `review` → invoke `orcastrat:reviewer` with the same three lines as the dispatch; `VERDICT: FAIL` → **Retry** with its REASONS.
+   - A command → Verify it in MAIN (see Definitions); failure → **Failed attempt** with the description `Verify failed`.
+   - `review` → invoke `orcastrat:reviewer` with the same three lines as the dispatch, plus `Base: <BASE>`; `VERDICT: FAIL` → **Failed attempt** with the description `reviewer FAIL: <REASONS>`.
    - Both → command first, review only if it passes.
-6. **Record and commit.** Set the task's Status to `done`, add any `- Process:` line you remembered in item 2, then commit the task in MAIN. Code and status land in one commit.
+6. **Commit what the worker left.** Workers commit their own work. If `git status --porcelain` still lists a path outside the plan directory, commit those paths for the worker (the scope check passed, so they are all in the task's Files): `git add -A -- ":(exclude)<plan dir>"`, then `git commit -m '<task ID>: <the task's Commit message>'`, writing each `'` in the message as `'\''`.
+7. **Record and commit.** Set the task's Status to `done`. Then `git add -A` and `git commit -m "chore(plan): <task ID> done" -m "Orcastrat-Task: <task ID>"`. This status commit also carries the task's report file and failure log. It is the only commit with the trailer.
 
 ### 3e. Parallel wave
 
@@ -283,18 +283,32 @@ When every milestone is `done`:
 2. Set the plan to `complete` and commit: `chore(plan): complete plan`.
 3. Report: milestones and tasks completed in this run, how many ran in parallel, escalations (task and tiers), and the commit range for this run.
 
-## Retry
+## Failed attempt
 
-Each task gets at most one retry, one tier up the ladder: `worker-mini` → `worker-light` → `worker` → `worker-heavy` → `specialist`.
+An attempt at a serial task failed: its Verify failed, the reviewer returned FAIL, the worker reported STUCK or returned no report, RED wasn't confirmed, or the scope check printed paths. 3d gives each failure its description for the failure log: `Verify failed`, `reviewer FAIL: <REASONS>`, `STUCK: <NOTE>`, `no report (turn limit reached)`, `RED not confirmed`, or `scope violation: <paths>`; a second interruption (2c item 2) has `interrupted attempt`. Parallel tasks follow 3e item 5 instead.
 
-- If the task has already been retried in this run, or its tier is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`. Leave its changes for the user to inspect (the working tree in serial mode, its worktree in parallel mode). In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
-- Otherwise, discard the attempt: in serial mode, `git reset --hard HEAD` and `git clean -fd` in MAIN (the tree was clean when the task began); in parallel mode, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, plus any `- Process:` line you remembered for this attempt. Commit those lines in MAIN before dispatching again, so the next scope check never sees them: `git add "<milestone file path>"`, then `git commit -m "chore(plan): <task ID> attempt 1 failed"`, with no `Orcastrat-Task:` trailer. Then dispatch again to the worker agent for the next tier (see Definitions) with these lines appended:
-  ```
-  Retry: previous attempt by <tier> failed. You are starting from a clean state.
-  Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", "RED not confirmed (Fails first: yes)", or "no report">
-  Verify tail:
-  <the lines verify printed after its log= line, if a command failed>
-  ```
+The ladder is `worker-mini` → `worker-light` → `worker` → `worker-heavy` → `specialist`. Each rung gets one attempt plus one resume of the same agent, and a task climbs at most two tiers above its starting tier: three rungs, never past `specialist`. Find the attempt number `<n>` and the task's current tier and rung (see Definitions), then take the first of these that applies:
+
+1. **Resume** when this attempt wasn't itself a resume (the failure log's last entry doesn't say `- Then: resumed`) and isn't a second interruption:
+   - For a scope violation, first **discard the attempt** (see Definitions), but copy the held report back to the report file itself instead of `-attempt<n>.md`. For every other failure, leave the tree as the worker left it.
+   - Append the **failure-log entry**, with Then `resumed`.
+   - Resume the same agent with the SendMessage tool, addressed to the agent ID its dispatch returned, sending exactly:
+     ```
+     Resume: attempt <n> failed. Fix it and report again.
+     Reason: <the description>
+     Verify tail:
+     <the lines verify printed after its log= line>
+     ```
+     Leave out the two `Verify tail:` lines unless Verify failed. For a scope violation, add the line `The tree was reset to where your attempt started.`
+   - If the SendMessage call returns an error, change that entry's Then line to `resume failed (<error>), escalated to <next tier>`, or to `resume failed (<error>), blocked (STUCK)` when item 3 applies, and go on to item 2 or 3 without appending another entry.
+   - Otherwise, when the resumed worker replies, go on with the task at 3d item 2, with the same BASE.
+2. **Escalate** when the rung is below 3 and the current tier isn't `specialist`. The next tier is one up the ladder from the current tier.
+   - **Discard the attempt** (see Definitions).
+   - Append the **failure-log entry**, with Then `escalated to <next tier>`, unless item 1 already wrote it.
+   - Add `- Escalated: <current tier> → <next tier> (<the description>)` under the task, below its other lines, leaving its Tier field unchanged.
+   - Commit: `git add -A`, then `git commit -m "chore(plan): <task ID> attempt <n> failed"`, with no `Orcastrat-Task:` trailer.
+   - Dispatch the task again at 3d item 1, without checking the limits: it records the new HEAD as BASE, dispatches a fresh worker at the next tier, and adds the `Failures:` line. After a second interruption found in 2c, don't dispatch now: the wave loop dispatches the task.
+3. **Block** when the rung is 3 or the current tier is `specialist`. **Keep the blocked attempt** (see Definitions) with reason `STUCK` and the description as its detail. Append the **failure-log entry**, with Then `blocked (STUCK)`, unless item 1 already wrote it. Then go to **Stop** with reason STUCK. The stop report says the task most likely needs replanning, not another run: a task no three consecutive tiers can execute is a planning problem, not an execution problem.
 
 ## Block with GAP
 
