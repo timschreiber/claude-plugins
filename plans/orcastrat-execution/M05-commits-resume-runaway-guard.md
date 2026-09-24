@@ -74,7 +74,7 @@ Governing sources: spec §2 (Change 1), §3 (Change 2), §4 (Change 3), §1.3, �
   NOTE: <one line. For GAP, the exact question.>
   ```
 
-Waves: 6 (widths 5, 2, 1, 1, 1, 1)
+Waves: 7 (widths 5, 2, 1, 1, 1, 1, 1)
 
 ## Coverage
 
@@ -1382,4 +1382,62 @@ Every Pause names its reason (`GATE`, `MILESTONE` or `LIMIT`), the milestone lim
 
 - 3a item 8 and 3f item 8 name their Pause reasons, and 3f item 8 checks the milestone limit first.
 - Section 4, `## Pause` and `## Stop` each run `run-state end` before their commit, and the skill contains no `$(`.
+- Nothing else in the file changed.
+
+### M05-T12: Add a blocked serial task's Open question after its attempt is discarded
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 7
+- Depends on: M05-T07, M05-T10
+- Files: `plugins/orcastrat/skills/run/SKILL.md`
+- Verify: `grep -qF 'such as an Open question, after this step' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'then add the question to plan.md' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'in serial mode, keep the blocked attempt, then add the Open question to plan.md' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF 'Add the question to plan.md' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF 'Open questions tagged with the task ID. Then block and stop' plugins/orcastrat/skills/run/SKILL.md`
+- Fails first: no (skill text with no test; the Verify greps fail until the edits are made)
+- Commit: `fix(orcastrat): add a blocked serial task's open question after its attempt is discarded`
+- Origin: review
+
+**Objective**
+
+In serial mode, `## Block with GAP` adds the GAP or VACUOUS question to plan.md's Open questions only after **keep the blocked attempt** has reset the tree, so the reset can't undo it, and the `**Keep a blocked attempt**` definition says to make every other plan-file edit for the block after it.
+
+**Read first**
+
+- `plans/orcastrat-execution/notes/M05-review.md`, the `## Blocking` finding
+- plan.md Decisions D85 and D93
+- `plugins/orcastrat/skills/run/SKILL.md` section `## Definitions`, the `**Discard an attempt**` and `**Keep a blocked attempt**` entries
+- `plugins/orcastrat/skills/run/SKILL.md` section `## Block with GAP`
+
+**Interfaces**
+
+- Consumes: `**Keep a blocked attempt**` (M05-T07)
+- Produces: none
+
+**Steps**
+
+1. In `plugins/orcastrat/skills/run/SKILL.md`, section `## Definitions`, in the entry that starts `- **Keep a blocked attempt**`, replace `Only a blocked task keeps a ref; an escalation keeps none.` with:
+
+   ```text
+   Only a blocked task keeps a ref; an escalation keeps none. Discarding the attempt resets the tree and reverts every uncommitted plan-file edit, so make every other plan-file edit for the block, such as an Open question, after this step.
+   ```
+
+2. In section `## Block with GAP`, replace the whole paragraph that starts `The plan left a decision open.` (one line) with exactly:
+
+   ```text
+   The plan left a decision open. **Never retry or escalate a GAP**: a higher tier would just make the decision. In serial mode, **keep the blocked attempt** (see Definitions) with reason `GAP` and the question as its detail, then add the question to plan.md's Open questions tagged with the task ID, then go to **Stop**. Keeping the attempt resets the tree, which would revert an Open question added before it. In parallel mode, add the question to plan.md's Open questions tagged with the task ID, mark the task `blocked` with `- Blocked: GAP — <question>`, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
+   ```
+
+3. In the same section, in the paragraph that starts ``A `RED: PASSED-EARLY` report``, replace ``Add `Verify passed before implementation: <worker's NOTE>` to plan.md's Open questions tagged with the task ID. Then block and stop exactly as for a GAP, with reason `VACUOUS` and the worker's NOTE as the detail: in serial mode, keep the blocked attempt; in parallel mode, mark the task `blocked` with `- Blocked: VACUOUS — <worker's NOTE>`.`` with:
+
+   ```text
+   Block and stop exactly as for a GAP, with reason `VACUOUS`, the worker's NOTE as the detail, and the Open question `Verify passed before implementation: <worker's NOTE>` tagged with the task ID: in serial mode, keep the blocked attempt, then add the Open question to plan.md; in parallel mode, add the Open question to plan.md and mark the task `blocked` with `- Blocked: VACUOUS — <worker's NOTE>`.
+   ```
+
+   Leave the start of that paragraph, up to and including `Never retry or escalate it.`, as it is.
+4. Run Verify.
+
+**Done when**
+
+- The `**Keep a blocked attempt**` entry ends with the sentence from Step 1.
+- In `## Block with GAP`, serial mode adds the GAP question and the VACUOUS question to plan.md's Open questions only after keeping the blocked attempt; parallel mode adds them as before.
 - Nothing else in the file changed.
