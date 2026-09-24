@@ -96,7 +96,7 @@ Governing sources: spec §8 (Change 7), §10 (Change 9), §25a (Change 25), §22
   REPORT: <the path the Report: line gave>
   ```
 
-Waves: 7 (widths 4, 3, 2, 2, 1, 1, 1)
+Waves: 8 (widths 4, 3, 2, 2, 1, 1, 1, 1)
 
 ## Coverage
 
@@ -1102,3 +1102,50 @@ Before every dispatch `run` generates the task's brief with `task-brief`, and a 
 **Done when**
 
 - The file keeps its "Before (M04)" section unchanged and ends with the "After (M06)" section, which has exactly one `worker-light | M01-T01` row and one `worker | M04-T06` row, each with five cells: two positive counts computed in Steps 1 to 5 and their sum. No `{` is left in the file.
+
+### M06-T15: Scouts always write a follow-up survey's answers to its file
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 8
+- Depends on: M06-T07
+- Files: `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/scout-heavy.md`
+- Verify: `grep -qF 'file and your answers fit in 20 lines. Otherwise write them' plugins/orcastrat/agents/scout.md && grep -qF 'file and your answers fit in 20 lines. Otherwise write them' plugins/orcastrat/agents/scout-heavy.md && grep -qF 'reaches the planner only as a file, since the planner reads only survey notes.' plugins/orcastrat/agents/scout.md && grep -qF 'reaches the planner only as a file, since the planner reads only survey notes.' plugins/orcastrat/agents/scout-heavy.md && grep -qF 'or a question brief that the rule above sends to the' plugins/orcastrat/agents/scout.md && grep -qF 'or a question brief that the rule above sends to the' plugins/orcastrat/agents/scout-heavy.md && ! grep -qF 'If your answers fit in 20 lines, or the brief has no' plugins/orcastrat/agents/scout.md && ! grep -qF 'If your answers fit in 20 lines, or the brief has no' plugins/orcastrat/agents/scout-heavy.md && ! grep -qF 'question brief whose answers' plugins/orcastrat/agents/scout.md && ! grep -qF 'question brief whose answers' plugins/orcastrat/agents/scout-heavy.md`
+- Fails first: no (agent text with no test; the Verify greps fail until the edits are made)
+- Commit: `fix(orcastrat): scouts always write a follow-up survey's answers to its file`
+- Origin: review
+
+**Objective**
+
+`scout` and `scout-heavy` reply inline only to a question brief with no `Output:` line, or with a `notes/research-<n>.md` `Output:` path and answers that fit in 20 lines, so `run`'s follow-up survey (`notes/<ID>-survey-2.md`) is always written and reaches the planner (D118).
+
+**Read first**
+
+- plan.md Decisions D110 and D118
+- `plugins/orcastrat/agents/scout.md` section `## Output`
+- `plugins/orcastrat/skills/run/SKILL.md` line 153 (3a item 3, the follow-up scout round)
+- `plugins/orcastrat/agents/planner.md` line 37 (the planner reads only survey notes)
+
+**Interfaces**
+
+- Consumes: `Output: <plan dir>/notes/research-<n>.md` scout brief line (M06-T07)
+- Consumes: `Output: <plan dir>/notes/<ID>-survey-2.md` follow-up scout brief line (existing, `plugins/orcastrat/skills/run/SKILL.md:153`)
+- Produces: none
+
+**Steps**
+
+1. In `plugins/orcastrat/agents/scout.md`, replace the line that starts `- **For a question brief**,` with this line:
+
+   ```text
+   - **For a question brief**, answer under each question's number, then give Unconfirmed and Conflicts if any. Reply with them and write no file only when the brief has no `Output:` line, or when its `Output:` path is a `notes/research-<n>.md` file and your answers fit in 20 lines. Otherwise write them to the brief's `Output:` path and reply in the survey format below. Any other `Output:` path is always written, whatever the length: a follow-up survey's `notes/<ID>-survey-2.md` reaches the planner only as a file, since the planner reads only survey notes.
+   ```
+
+2. In the same file, replace `or a question brief whose answers don't fit in 20 lines, write the report to the Output path.` with ``or a question brief that the rule above sends to the `Output:` path, write the report there.``
+3. In `plugins/orcastrat/agents/scout-heavy.md`, make the same two replacements as Steps 1 and 2.
+4. Run Verify.
+
+**Done when**
+
+- Both scout files' `## Output` sections read as in Steps 1 and 2.
+- Nothing else in the two files changed.

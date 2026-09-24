@@ -201,6 +201,7 @@
 - D115: `run` reads plan.md's header (everything above `## Coverage`, or above `## Decisions`) and a task's block by finding their line numbers with Grep and reading only that range, since Claude Code's Edit tool needs the file read first. (source: spec §25a item 2, "with Grep on the task heading"; D105)
 - D116: D109's detailed but uncommitted milestone is finished in 2c, before the `chore(plan): start run` commit (which adds every change), with the plan review's one fix pass and the `detail` gate, as in 3a. (source: D109; `plugins/orcastrat/skills/run/SKILL.md:117`, `:143-162`)
 - D117: In a parallel wave, a worker's `Report:` path is its report file under its worktree. (source: D100; `plugins/orcastrat/agents/worker.md:43-44`, a worker never writes in the main checkout; `plugins/orcastrat/skills/run/SKILL.md:233`, the main-checkout guard)
+- D118: A scout's inline reply (D110) applies only to a question brief with no `Output:` line, or one whose `Output:` path is a `notes/research-<n>.md` file (`plan`'s briefs). Any other `Output:` path, such as `run`'s follow-up `notes/<ID>-survey-2.md`, is always written, because the planner reads only `notes/<ID>-survey*.md`. (source: D110; `notes/M06-review.md` Blocking; `plugins/orcastrat/skills/run/SKILL.md:153`; `plugins/orcastrat/agents/planner.md:37`)
 
 ## Open questions
 
