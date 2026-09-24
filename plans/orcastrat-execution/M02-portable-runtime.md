@@ -62,7 +62,7 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: investigate
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orcastrat-execution/notes/M02-T01.md`
