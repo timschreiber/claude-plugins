@@ -1,6 +1,6 @@
 # M03: Git bookkeeping scripts (Change 6)
 
-- Status: blocked
+- Status: outline
 - Format: 2
 - Goal: `plugins/orcastrat/scripts/` has `scope-check`, `push-check`, `verify`, `integrate` and `recover`, each with bats tests. Each prints the short fixed-format result the spec gives. `run` uses `scope-check`, `push-check`, `verify` and `recover` for today's scope check, push check, Verify runs and interrupted-run recovery, in place of reasoning through the git steps itself.
 - Depends on: M02
@@ -9,12 +9,16 @@
 
 ## Context
 
-Governing sources: spec §7 (Change 6) for these five scripts, §20 (Change 19) rules and item 7 (tests), §25 item 4 (both trailers); Decisions D04, D05, D18, D23.
+Governing sources: spec §7 (Change 6) for these five scripts, §20 (Change 19) rules and item 7 (tests), §25 item 4 (both trailers); Decisions D04, D05, D18, D23, D50–D62.
+
+- Script contracts are fixed by Decisions: `verify` output, log naming and stdin (D54); exit status and errors for all five scripts (D55); `push-check` lines (D56); `recover` rules and output (D57); `integrate` empty range and non-conflict failures (D58), conflicts (D51); Windows-path and space tests (D59); `scope-check` path collection (D52) and printed paths (D53); the base passed to `scope-check` and `push-check` (D50).
+- D60: `scope-check` stays strict. Where M03 wires `scope-check` into `run`, `run` first commits its own plan-file edits (`- Process:`, `- Escalated:`, notes) in a `chore(plan)` bookkeeping commit, then records the base for the next dispatch.
+- D62: no task in this milestone is `worker-light`; `worker` is the floor.
 
 - Signatures (D05):
   - `scope-check <dir> <base> <files...>`: prints `OK`, or the out-of-scope paths, one per line. Checks `git diff --name-only <base>..HEAD` plus `git status --porcelain` in `<dir>`.
   - `push-check <dir> <base>`: prints `OK`, or the commits in `<base>..HEAD` that `git branch -r --contains` finds on a remote.
-  - `verify <plan-dir> <dir> <command>`: runs `<command>` with `bash -c` in `<dir>`. Writes the full log under `<git-common-dir>/orcastrat/<plan-slug>/logs/`, where the slug is the last path component of `<plan-dir>`. Prints `exit=<n>`, and on failure the log's last 40 lines.
+  - `verify <plan-dir> <dir> <command>`: runs `<command>` with `bash -c` in `<dir>`. Writes the full log under `<git-common-dir>/orcastrat/<plan-slug>/logs/`, where the slug is the last path component of `<plan-dir>`. Prints `exit=<n>`, then `log=<path>`, and on failure the log's last 40 lines (D54).
   - `integrate <task-branch> <base>`: cherry-picks `<base>..<task-branch>` onto the current branch. Prints `OK`, or `CONFLICT` plus the conflicted files.
   - `recover <plan-dir>`: lists (a) `todo` tasks whose trailer, `Orcastrat-Task:` or `Orchestratinator-Task:`, is already in history, and (b) tasks with worker commits (subject prefix `<task ID>:`) after the last trailer commit but no trailer of their own.
 - Every script sources `lib/common` (M02) and prints each path through `print_path` (D43, D44), for example the verify log path. Tests assert this with the stub `cygpath` from `tests/orcastrat/lib-common.bats`. Script Verify commands run `bash scripts/run-bats.sh tests/orcastrat/<script>.bats` (D02).
@@ -25,6 +29,7 @@ Governing sources: spec §7 (Change 6) for these five scripts, §20 (Change 19) 
 
 ## Outline
 
+- First task: add `.gitattributes` per D61 (`eol=lf` for `*.sh`, `*.bats`, `*.bash`, `plugins/orcastrat/scripts/**`, `plugins/orcastrat/hooks/**`, `tests/orcastrat/**`, `scripts/run-bats.sh`) and run `git add --renormalize` on those paths. Every later M03 task depends on it.
 - One task per script, test-first (`Fails first: yes`): `scope-check`, `push-check`, `verify`, `integrate`, `recover`, each with its `.bats` file.
 - `run`: replace the "Verify a command" definition and both verify-log paths with a call to `verify`, reading only its output.
 - `run`: replace the serial and parallel scope checks with `scope-check`, passing the task's Files.
