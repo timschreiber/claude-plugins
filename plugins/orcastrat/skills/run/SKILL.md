@@ -38,8 +38,30 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **Worker agent** for a tier: `orcastrat:<tier>`, except for `worker-mini`, which has two agents: `orcastrat:worker-mini-serial` in a serial wave (3d) and `orcastrat:worker-mini-parallel` in a parallel wave (3e).
 - **Scripts**: the bookkeeping scripts live in `${CLAUDE_PLUGIN_ROOT}/scripts/`. Call each as one line, `bash "${CLAUDE_PLUGIN_ROOT}/scripts/<name>" <arguments>`, with every path argument in double quotes, and read only what it prints. A script that exits 2 prints one line starting `error:` on stderr and nothing on stdout: go to **Stop** with reason SETUP, quoting that line.
 - **Verify a command** in a directory D: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/verify" "<plan dir>" "D" '<command>'`, passing the command as one single-quoted argument, with each `'` inside it written as `'\''`. Line 1 of its output is `exit=<n>`, line 2 is `log=<log path>`, and when n isn't 0 the log's last 40 lines follow. A nonzero n is a failure. Never read the log file itself. The script writes the log under the directory `git rev-parse --git-common-dir` prints, plus `/orcastrat/<plan-slug>/logs/`, so it never shows up in a checkout's status and needs no cleanup.
-- **Commit a task** in a directory D: `git -C "D" add -A`, then
-  `git -C "D" commit -m "<task's Commit message>" -m "Orcastrat-Task: <task ID>"`.
+- **BASE**: in a serial wave, the commit that `git rev-parse HEAD` prints in MAIN just before a task's dispatch (3d item 1); a resume keeps the same BASE. In a parallel wave, BASE is the wave's starting commit (3e).
+- **Report file** and **Failure log** of a task: `<plan dir>/notes/reports/<task ID>.md` and `<plan dir>/notes/<task ID>-failures.md`, with `<plan dir>` written relative to the repository root, such as `plans/<plan-slug>`, because `scope-check` compares repo-relative paths. Either file may not exist yet: skip any step that copies or reads a file that doesn't exist.
+- **Attempt number** `<n>` of a task's current attempt: 1 plus the number of lines starting `## Attempt ` in its failure log, counted with `grep -c "^## Attempt " "<failure log>"` (1 when the log doesn't exist). Every dispatch and every resume of the task is an attempt, and the count carries across runs.
+- **Current tier and rung** of a task, read from its lines in the milestone file: count only the `- Escalated:` lines below its last `- Blocked:` line, or all of them if it has none. The starting tier is the `<new>` tier of its `- Re-tiered: <old> → <new> (...)` line if it has one, otherwise its Tier. The current tier is the `<to>` tier of the last counted `- Escalated: <from> → <to> (...)` line, or the starting tier when no line counts. The rung is 1 plus the number of counted lines.
+- **Hold directory**: `<WT_ROOT>/hold`. It is inside `.git`, so files held there survive `git reset --hard` and `git clean -fd`.
+- **Discard an attempt** of a task, in MAIN, with attempt number `<n>`:
+  1. Run `mkdir -p "<WT_ROOT>/hold"`. With `cp`, copy the report file to `"<WT_ROOT>/hold/<task ID>-attempt<n>.md"` and the failure log to `"<WT_ROOT>/hold/<task ID>-failures.md"`.
+  2. Run `git reset --hard <BASE>`, then `git clean -fd`.
+  3. Run `mkdir -p "<plan dir>/notes/reports"`. With `cp`, copy the held report to `"<plan dir>/notes/reports/<task ID>-attempt<n>.md"` and the held failure log back to the failure log. Then run `rm -rf "<WT_ROOT>/hold"`.
+- **Keep a blocked attempt** of a serial task, with a block reason, a one-line detail and attempt number `<n>`, in MAIN: run `git rev-parse HEAD` and note the sha it prints; run `git update-ref refs/orcastrat/discarded/<task ID>-<n> HEAD`; **discard the attempt**; then mark the task `blocked` with `- Blocked: <reason> — <detail>; discarded attempt <sha>, kept at refs/orcastrat/discarded/<task ID>-<n>`. The Stop commit records the report, the failure log and the `- Blocked:` line. Only a blocked task keeps a ref; an escalation keeps none.
+- **Failure-log entry** for attempt `<n>`: append these lines to the failure log, creating it if needed, with one empty line before the heading when the log already has an entry:
+  ```
+  ## Attempt <n>
+  - Tier: <the tier the attempt ran at>
+  - Time: <the current UTC time, from date -u +%Y-%m-%dT%H:%M:%SZ>
+  - Description: <the failure's description (see Failed attempt), or interrupted attempt>
+  - Hypothesis: <the worker's HYPOTHESIS line, or none reported when it gave none or "-">
+  - Fixes tried: <the worker's FIXES TRIED line, or none reported when it gave none or "-">
+  - Then: <resumed | escalated to <tier> | resume failed (<error>), escalated to <tier> | resume failed (<error>), blocked (STUCK) | redispatched at <tier> (interrupted) | blocked (STUCK)>
+  - Error: none
+  ```
+  When Verify failed, the last line is `- Error:` instead, followed by the lines `verify` printed after its `log=` line, inside a `text` code fence.
+- **Limits**: the run time limit is `--max-run-time`, or else the plan's `Max run time` header field; the task limit is `--max-tasks`, or else `Max tasks`; the milestone limit is `--max-milestones`, or else `Max milestones`. A missing field, or `none`, means no limit. A run time of `<n>m` is n minutes, and `<n>h` is n × 60 minutes.
+- **Check the limits**: if a run time limit is in effect, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" elapsed`, which prints the whole minutes since this run started; if that is at least the limit, go to **Pause** with reason `LIMIT`. If a task limit is in effect and this run has already committed that many tasks as `done`, go to **Pause** with reason `LIMIT`. Check them before each new serial task (3d) and before each parallel batch (3e). The milestone limit is checked in 3f item 8.
 
 ## 1. Re-read the ground truth
 

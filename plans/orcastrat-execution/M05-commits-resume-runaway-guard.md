@@ -898,7 +898,7 @@ The plan format documents the optional `Max run time`, `Max tasks` and `Max mile
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M05-T01, M05-T02, M05-T06
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
