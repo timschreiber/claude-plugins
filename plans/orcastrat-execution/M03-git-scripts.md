@@ -1638,7 +1638,7 @@ The run skill defines how it calls the bookkeeping scripts, defines "Verify a co
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M03-T02, M03-T03, M03-T07
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
