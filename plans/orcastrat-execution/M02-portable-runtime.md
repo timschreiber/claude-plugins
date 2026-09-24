@@ -274,13 +274,15 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M02-T03
 - Files: `tests/orcastrat/test_helper.bash`, `tests/orcastrat/test-helper.bats`
 - Verify: `bash scripts/run-bats.sh tests/orcastrat/test-helper.bats`
 - Fails first: yes
 - Commit: `test(orcastrat): add the bats test helper with fixture repos and a cygpath stub`
+- Process: worker committed on its own; reset and discarded before retry
+- Escalated: worker-light → worker (RED not confirmed (Fails first: yes))
 
 **Objective**
 
