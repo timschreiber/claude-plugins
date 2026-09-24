@@ -96,12 +96,13 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: investigate
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plans/orcastrat-execution/notes/M02-T02.md`
 - Verify: review
 - Commit: `docs(plan): inventory the plugin's scripts and embedded commands`
+- Escalated: worker → worker-heavy (reviewer FAIL: one wrong line cite, four run commit commands missing from the inventory)
 
 **Objective**
 
