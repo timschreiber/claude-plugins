@@ -9,7 +9,7 @@
 - Parallel: off
 - Max parallel: 3
 - Worktree setup: none
-- Status: blocked
+- Status: in-progress
 
 ## Milestones
 
@@ -20,7 +20,7 @@
 | M03 | Git bookkeeping scripts (Change 6) | done | M03-git-scripts.md |
 | M04 | Worker tiers and agent prefix hygiene (Changes 4, 21) | done | M04-tiers-and-agent-hygiene.md |
 | M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | done | M05-commits-resume-runaway-guard.md |
-| M06 | Task briefs and report files (Changes 7, 9) | blocked | M06-briefs-and-reports.md |
+| M06 | Task briefs and report files (Changes 7, 9) | outline | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | outline | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | outline | M08-stop-hook.md |
 | M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | outline | M09-preflight-checks.md |
@@ -192,11 +192,9 @@
 - D107: Each failure-log entry (D87) gains the line `- Report: <path>` after `- Fixes tried:`, naming that attempt's report: `notes/reports/<task ID>-attempt<n>.md` when `run` preserved it under that name, otherwise `notes/reports/<task ID>.md`. The resume message (D94) gains the line `Report: <report file>` after `Reason:`. (source: spec §10, "The failure log and resume messages point to the report file")
 - D108: Until M07 rewrites the parallel wave (D82), its scope check also passes the task's report file, so a worker's report is never out of scope there. (source: spec §10, "The report path is always in scope for the task"; D82)
 
+- D109: `run`'s clean-tree check accepts one dirty state: the current milestone's file says `ready` and every uncommitted path is `plan.md`, that milestone file, its `notes/<ID>-survey*.md` or its `notes/<ID>-plan-review.md`. `run` then skips the planner, runs the plan review unless that plan-review report is among the uncommitted files, runs the validation checklist, and commits `chore(plan): detail <ID>`. Uncommitted changes in a task's Files are never treated as an interrupted attempt (they may be the user's edits, which a reset and clean would destroy): any other dirty tree stops with SETUP, listing the paths. Committed interrupted attempts are still handled by `recover` (D90). Spec §2 and §25a item 3 updated to match. (source: user, M06 open question 1, option c refined)
+- D110: `plan` gives every scout brief an `Output: <plan dir>/notes/research-<n>.md` line. A scout whose answer fits in 20 lines replies inline and writes no file; otherwise it writes the file and replies with its status block and the path. (source: user, M06 open question 2, hybrid of options a and b)
+
 ## Open questions
 
-- (M06) [contradiction] When `run` starts on a dirty tree, does it resume the two uncommitted states spec §25a item 3 names, and how does it recognize them?
-  Where: spec §2, "`run`'s preflight requires a clean working tree ... A dirty tree stops the run with `SETUP`, listing the files" (also §30, "`run` refusing a dirty tree"; `plugins/orcastrat/skills/run/SKILL.md:80`); spec §25a item 3, "a milestone detailed (Status `ready`) but not committed → run the validation checklist and commit it, rather than invoking the planner again" and "an interrupted attempt (`recover`'s `interrupted`, or uncommitted changes in a task's Files) → redispatched once at its recorded tier".
-  Options: (a) the clean-tree check allows two cases and stops with SETUP on anything else: (1) the current milestone's file says `ready` but differs from HEAD, and every uncommitted path is plan.md, that file, its `notes/<ID>-survey*.md` or its `notes/<ID>-plan-review.md`: `next` prints `detail <ID>`, and `run` skips the planner and the plan review (a plan-review report that exists has already run, and its fix pass isn't repeated), runs the validation checklist, and commits `chore(plan): detail <ID>`; (2) every uncommitted path is in the Files, report file or failure log of the first task on `next`'s `wave:` line, the task a serial wave was running: it is that task's interrupted attempt, handled as 2c item 2 handles one now, with BASE at HEAD when the task has no worker commits; (b) keep the strict clean-tree stop, and drop both uncommitted cases from §25a item 3, so the user commits or discards first; (c) allow case (1) only, and still stop with SETUP on uncommitted task files; recommended: (a), it resumes both states the spec names, while any other uncommitted file, such as the user's own, still stops the run.
-- (M06) [ambiguous] How does a scout reply to a question brief with no `Output:` line, under Change 9's 20-line cap?
-  Where: spec §10, "Scouts, the planner, reviewers, the `merger` and the `decider` write anything long to a file under `plans/<slug>/notes/` and reply with a status block and the path, at most 20 lines"; `plugins/orcastrat/agents/scout.md:58` and `plugins/orcastrat/agents/scout-heavy.md:58`, "For a question brief, reply with your answers under each question's number", which is how `plan`'s research briefs are answered (`plugins/orcastrat/skills/plan/SKILL.md:48`; they carry no `Output:` line). Every brief `run` sends has an `Output:` line.
-  Options: (a) `plan` adds `Output: <plan dir>/notes/research-<n>.md` to every scout brief, creating the plan directory first, so every scout writes a file and replies with its four-line status block; (b) a brief with no `Output:` line keeps inline answers, capped at 20 lines; (c) the cap applies only to briefs with an `Output:` line, and `plan`'s inline answers stay uncapped; recommended: (a), the only option that meets §10 for every scout reply without cutting answers short.
+None.

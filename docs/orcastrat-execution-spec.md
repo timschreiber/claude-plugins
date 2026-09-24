@@ -29,7 +29,7 @@ The isolation spec tried to *enforce* worker discipline through Claude Code feat
 
 **`run`:**
 
-- **Clean tree required.** `run`'s preflight requires a clean working tree: no uncommitted changes and no untracked files outside `.gitignore`. Failed attempts are cleaned with `git clean -fd`, which would otherwise delete the user's untracked files. A dirty tree stops the run with `SETUP`, listing the files.
+- **Clean tree required.** `run`'s preflight requires a clean working tree: no uncommitted changes and no untracked files outside `.gitignore`. Failed attempts are cleaned with `git clean -fd`, which would otherwise delete the user's untracked files. A dirty tree stops the run with `SETUP`, listing the files. The one exception is a detailed but uncommitted milestone (Change 25 item 3).
 - Record `BASE = git rev-parse HEAD` before every dispatch.
 - Scope check: `git diff --name-only BASE..HEAD` plus `git status --porcelain` must list only the task's Files, its report file (Change 9), and its failure log (Change 3).
 - Verify runs on the resulting tree, as today.
@@ -589,9 +589,9 @@ The README carries the same steps under "Upgrading from Orchestratinator".
 2. **The orchestrator reads `next` instead of the plan files** at start, before each wave, after compaction, and when the Stop hook sends it back. It reads plan.md's header fields, never its Decisions: those reach agents through their briefs (Change 7). It reads the current task's block only when it needs a field `next` doesn't print (Verify, Files, Commit, Fails first), with Grep on the task heading.
 3. **Every bookkeeping step resumes from git.** Before doing any step, `run` checks whether its result is already committed or present, and skips or finishes it instead of redoing it:
    - a survey, plan-review, review or re-review note already committed → skip the agent;
-   - a milestone detailed (Status `ready`) but not committed → run the validation checklist and commit it, rather than invoking the planner again;
+   - a milestone detailed (Status `ready`) but not committed, with every uncommitted path being `plan.md`, that milestone file, its survey notes or its plan-review report → skip the planner, run the plan review unless that milestone's plan-review report is among the uncommitted files, run the validation checklist, and commit `chore(plan): detail <ID>`. This is the only dirty tree the clean-tree check accepts;
    - a task whose trailer is in history (`recover`'s `done`) → mark it `done`;
-   - an interrupted attempt (`recover`'s `interrupted`, or uncommitted changes in a task's Files) → redispatched once at its recorded tier without escalating; a second interruption of the same task is a failed attempt (Change 6, `recover`; Change 1);
+   - an interrupted attempt (`recover`'s `interrupted`, from committed work) → redispatched once at its recorded tier without escalating; a second interruption of the same task is a failed attempt (Change 6, `recover`; Change 1). Uncommitted changes in a task's Files are not treated as an interrupted attempt: they may be the user's own edits, which a reset and clean would destroy, so the clean-tree check stops the run with `SETUP`, listing the paths, and the user commits or discards them and reruns;
    - a Pause or Stop commit already made → nothing to redo.
 4. **The Stop hook's reason points at `next`** (Change 8 item 2 and Compaction).
 5. **Tests:** bats tests for `next` with fixture plans in each state: fresh (outline M01), survey committed, detailed but uncommitted, mid-wave, interrupted attempt, blocked with open questions, milestone done awaiting review, plan complete. `run-report` (Change 11) reports tokens per run invocation from the D07 usage lines, so the cost of a resume is visible.
