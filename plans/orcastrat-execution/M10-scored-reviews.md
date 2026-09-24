@@ -11,7 +11,7 @@
 
 Governing sources: spec §11 (Change 10), §22 item 3 (`validator` allowlist); Decisions D12, D13, D21.
 
-- D48: the new agent file gets the `## Search and command bounds` section (added to every agent in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks both.
+- D48, D66: the new agent file gets the `## Search and command bounds` section and the `## No prototyping or duplicate work` section (both added in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks all three.
 
 - The rubric (D21): canonical text in `plugins/orcastrat/reference/review-rubric.md`. It uses the spec's five anchors (0, 25, 50, 75, 100) in the spec's wording. It is copied verbatim between `<!-- rubric:start -->` and `<!-- rubric:end -->` into `reviewer`, `milestone-reviewer`, `plan-reviewer` and `validator`. `tests/orcastrat/review-rubric.bats` fails when any copy differs.
 - Blocking candidate: score ≥ 80, cites `path:line` (or the plan section), and falls in a blocking category.

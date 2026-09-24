@@ -11,7 +11,7 @@
 
 Governing sources: spec §20 item 6 (toolchain check), §17 (Change 16), §21 (Change 20), §22 item 3 (`status-reader` allowlist); Decisions D12, D13, D29, D30, D40.
 
-- D48: the new agent file gets the `## Search and command bounds` section (added to every agent in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks both.
+- D48, D66: the new agent file gets the `## Search and command bounds` section and the `## No prototyping or duplicate work` section (both added in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks all three.
 
 - These checks are skill instructions that run commands directly through the session's shell tool, not shipped scripts. Change 19.6 says the toolchain check "is never a shipped script". Change 19's rule is to prefer the shell tool over a new script, and Change 6 lists every new script.
 - Toolchain check:

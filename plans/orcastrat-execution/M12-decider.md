@@ -11,7 +11,7 @@
 
 Governing sources: spec §13 (Change 12), §1.3, §22 item 3 (`decider` allowlist); Decisions D12, D13, D29, D33.
 
-- D48: the new agent file gets the `## Search and command bounds` section (added to every agent in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks both.
+- D48, D66: the new agent file gets the `## Search and command bounds` section and the `## No prototyping or duplicate work` section (both added in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks all three.
 
 - `decider`:
   - Frontmatter: `model: opus`, `effort: high`, `maxTurns: 40`, `tools: Read, Glob, Grep, Write`.

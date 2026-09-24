@@ -479,6 +479,13 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
    - **`merger`:** read, search and edit. No shell; `run` does all git steps.
    - **`decider`:** read and search, plus write for its one output file.
    - **No agent below the orchestrator** gets the Agent (Task) tool, so there are no nested subagents. None gets the Skill tool or the Artifact tool either.
+   - **`planner` and `plan-reviewer` get no shell:** `planner` gets `Read, Glob, Grep, Write, Edit` (it edits `plan.md` and the milestone file it details); `plan-reviewer` gets `Read, Glob, Grep, Write` (write for its report only). Reading is all either needs, and without a shell neither can run trial code or tests.
+   - **No prototyping or duplicate work, in every non-worker agent file** (`planner`, `plan-reviewer`, `milestone-reviewer`, `reviewer`, `scout`, `scout-heavy`, `validator`, `decider`, `merger`, `status-reader`) and in the `plan` skill, as a section of its own:
+     - Don't implement. Never write or run trial code, scripts, tests or fixtures, in the repository, the scratchpad or any temp directory. Never create git worktrees, branches or commits. Write nothing except your own output file. Building and testing is the workers' job, and each task's own tests catch mistakes.
+     - Don't redo another agent's work: don't re-survey what the milestone's survey note covers; don't re-run a task's Verify, a Milestone verify or a Final verify; don't re-check facts a Decision or a cited note already records.
+     - Settle uncertainty in the plan, not by experiment: a detail only running something would settle becomes an exact Step or Done-when for the worker; an unknown fact becomes an `investigate` task; a design choice is a GAP.
+     - Agents that have a shell use it only for short read-only commands (`git log`, `git show`, `git diff`, `grep`, `ls`, `cat`).
+     - Why: in the build of this spec, planners and a plan-reviewer wrote and ran trial versions of a milestone's scripts and test suites. One planner used 330k tokens and hit its turn limit, and the plan-reviewer created a git worktree and branch in a temp directory. Duplicating the workers' job is the waste Orcastrat exists to prevent.
    - Record each agent's allowlist in the README's cast table. The verification run (§30) confirms nothing is missing; any tool found missing is added to that agent, with the reason recorded.
 4. **Workers still re-read CLAUDE.md as a file** on every task. That content can't be shared from cache, which is why Change 16 matters; the README says so.
 
@@ -749,3 +756,4 @@ Review these before planning.
 
 65. **Every agent file bounds searches and commands:** search only inside the repository or paths the brief names, never from a filesystem root or home directory; never start a background command or one that may outlive the Bash time limit; don't verify environment facts that the task's own Verify or scripts establish. No agent below the orchestrator gets the Agent, Skill or Artifact tool (Change 21).
 66. **`run` stops leftover background work** after every agent returns, with the Stop Task tool. When that fails, it logs a warning to `notes/run-log.md` and continues. It never kills processes by PID, and the run report counts the warnings (Changes 3 and 11).
+67. **Planning and review agents never prototype or duplicate work.** Every non-worker agent file and the `plan` skill forbid writing or running trial code, scripts or tests, creating worktrees, branches or commits, and redoing another agent's survey, Verify or recorded facts. `planner` and `plan-reviewer` have no shell (Change 21).
