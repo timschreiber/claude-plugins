@@ -642,7 +642,7 @@ Waves: 6 (widths 3, 3, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M04-T02, M04-T03, M04-T04, M04-T05
 - Files: `plugins/orcastrat/agents/planner.md`, `tests/orcastrat/agent-files.bats`
