@@ -593,13 +593,14 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M01-T04, M02-T02
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
 - Verify: `grep -qF 'prints, made absolute, plus ' plugins/orcastrat/skills/run/SKILL.md && ! grep -n '\$(' plugins/orcastrat/skills/run/SKILL.md | grep -v 'orcastrat-verify.log'`
 - Fails first: no (skill text edit with no tests; the Verify greps fail until the edit is made)
 - Commit: `refactor(orcastrat): describe WT_ROOT without command substitution`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 

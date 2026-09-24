@@ -29,7 +29,7 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 ## Definitions
 
 - **MAIN**: the absolute path of the main checkout (`git rev-parse --show-toplevel` at startup).
-- **WT_ROOT**: `$(git rev-parse --git-common-dir)/orcastrat/<plan-slug>`, made absolute. Task worktrees live under it, inside `.git`, so they never show up in the main checkout's status.
+- **WT_ROOT**: the directory `git rev-parse --git-common-dir` prints, made absolute, plus `/orcastrat/<plan-slug>`. Task worktrees live under it, inside `.git`, so they never show up in the main checkout's status.
 - **Task branch**: `orcastrat/<plan-slug>/<task-id>`.
 - **Verify a command** in a directory D:
   ```
