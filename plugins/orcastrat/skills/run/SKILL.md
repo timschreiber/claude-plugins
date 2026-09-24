@@ -77,12 +77,12 @@ Read these now, in full:
 
 These only read. Stop and report to the user if any fails.
 
-1. **Working tree is clean.** `git status --porcelain` prints nothing. If it prints anything, stop: the user must commit or discard first.
+1. **Working tree is clean.** `git status --porcelain` prints nothing: no uncommitted changes, and no untracked files outside `.gitignore`. If it prints anything, stop with reason SETUP and list the paths it printed: the user must commit or discard them first. A failed attempt is cleaned with `git clean -fd`, which would otherwise delete the user's untracked files.
 2. **Plan status.** If `complete`, report that and stop. If `blocked`, stop and tell the user to resolve the recorded block first (see the plugin README).
 3. **Open blocks.** If any milestone or task is `blocked`, stop and report it.
 4. **Leftover worktrees.** If WT_ROOT contains worktrees from an earlier run, list them to the user and stop. Don't delete them: they may hold work the user wants to inspect. The user removes them with `git worktree remove` and deletes their branches.
 5. **Branch.** If the plan's Branch exists but isn't checked out, stop and ask.
-6. **Interrupted-run recovery.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/recover" "<plan dir>"`. It prints `OK`, or one line per affected `todo` task. A `done <task ID>` line means the task's trailer, `Orcastrat-Task:` or the pre-rename `Orchestratinator-Task:`, is already in the Branch's history: the task was integrated before an interruption, but its status wasn't recorded. Note those tasks; you'll mark them `done` in 2c. Take no action on `interrupted <task ID>` lines.
+6. **Interrupted-run recovery.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/recover" "<plan dir>"`. It prints `OK`, or one line per affected `todo` task. A `done <task ID>` line means the task's trailer, `Orcastrat-Task:` or the pre-rename `Orchestratinator-Task:`, is already in the Branch's history: the task was integrated before an interruption, but its status wasn't recorded. Note those tasks; you'll mark them `done` in 2c. An `interrupted <task ID>` line means a worker committed for that task but the run ended before its status commit: 2c item 2 resets that attempt and redispatches the task. If `recover` prints more than one `interrupted` line, or the subject that `git log -1 --format=%s` prints doesn't start with `<task ID>: ` for the interrupted task, stop with reason SETUP and list the lines.
 7. **Pre-rename leftovers.** If a directory named `orchestratinator/` exists in the directory `git rev-parse --git-dir` prints or in the one `git rev-parse --git-common-dir` prints, run `git worktree prune` (the one write in these checks) and tell the user in one line that the old `orchestratinator/` directory can be deleted. Never delete it yourself. This check never stops the run.
 
 ### 2b. Ask for approval
@@ -92,8 +92,8 @@ Nothing is executed without the user's explicit approval, and nothing in the rep
 - The plan's title and the branch it runs on (and that it will be created, if it doesn't exist yet).
 - Milestones: done, remaining, and which one comes next. If the next one is an outline, say the planner will detail it first, and whether the `detail` gate will pause for review afterward.
 - For the next milestone, if it's detailed: `todo` task count by tier, its waves, and whether they'll run in parallel (and Max parallel) or serially.
-- Where this run will stop on its own: gates, `--milestone`, `--max-tasks`, or the end of the plan.
-- Any tasks you'll mark `done` because of interrupted-run recovery.
+- Where this run will stop on its own: gates, `--milestone`, the limits in effect (see Definitions), or the end of the plan.
+- Any tasks you'll mark `done` because of interrupted-run recovery, and any interrupted attempt you will reset and redispatch.
 
 Then ask: `Proceed?` and wait for the answer.
 
@@ -107,9 +107,14 @@ If `--yes` was given, the user approved in advance: show the summary and continu
 ### 2c. Prepare
 
 1. **Branch.** If the plan's Branch doesn't exist, create it: `git switch -c <branch>`.
-2. **Recovery.** Mark the tasks noted in 2a as `done`.
-3. **Status.** Set the plan's Status to `in-progress`.
-4. Commit any of these changes: `chore(plan): start run`.
+2. **Interrupted attempt.** For an `interrupted <task ID>` line from 2a item 6:
+   - Find its BASE, the commit just below the task's worker commits at the tip of the Branch: `git log -1 --format=%H --invert-grep --grep="^<task ID>: "`.
+   - If the task has an `- Interrupted:` line below its last `- Blocked:` line (or any `- Interrupted:` line, if it has no `- Blocked:` line), this is its second interruption: handle it as a **Failed attempt** with the description `interrupted attempt`.
+   - Otherwise, find its attempt number `<n>` and current tier (see Definitions). **Discard the attempt**. Append its **failure-log entry**, with Description `interrupted attempt`, Hypothesis and Fixes tried `none reported`, Then `redispatched at <tier> (interrupted)`, and Error `none`. Add `- Interrupted: attempt <n> at <tier>` under the task. Then `git add -A` and `git commit -m "chore(plan): <task ID> attempt <n> interrupted"`, with no `Orcastrat-Task:` trailer. The wave loop dispatches the task again, at the same tier.
+3. **Recovery.** Mark the tasks noted in 2a as `done`.
+4. **Status.** Set the plan's Status to `in-progress`.
+5. **Run state.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" start "<plan dir>"`. It writes this checkout's active-run marker and appends a `start` line to `<plan dir>/notes/run-log.md`.
+6. Commit: `git add -A`, then `git commit -m "chore(plan): start run"`.
 
 ## 3. Milestone loop
 
