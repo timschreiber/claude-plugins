@@ -46,6 +46,7 @@ A milestone file without a `- Format: 2` line is format 1: it has no Coverage se
 8. **Tier fit.** Each task's Tier fits the tier rubric in the plan format, including the notes under its table: fully specified work is `worker`, and any other tier matches what the rubric says that tier is for. Every `worker-heavy` and `specialist` task has a Why this tier line that fits the rubric, and no more than about one task in ten is `specialist`.
 9. **Unsourced assumptions.** Any value or choice in a task that no source, Decision, or cited fact supports is an issue; report each one found as its own issue. What is and isn't an assumption is defined in the Assumptions subsection of the plan format's "Decisions and open questions" section.
 10. **Read first.** Every entry names a section, a Decision, a note, or a pattern file to copy, not a whole document, and a task has at most about five entries. A spec or other long document named without a section is an issue.
+11. **Non-bash Verify (advisory).** Every Verify command, and the milestone's Milestone verify, runs with `bash -c` from the repository root. A command that relies on syntax bash doesn't accept, without calling its interpreter explicitly (for example `pwsh -NoProfile -File scripts/verify.ps1`), is an advisory finding: PowerShell cmdlets such as `Get-ChildItem` or `Select-String`, `$env:NAME`, the `-and`, `-or` and `-not` operators, a backtick line continuation, or cmd.exe syntax such as `%NAME%` or `NUL`. Report it under `## Advisory`, never under `## Issues`.
 
 ## Calibration
 
@@ -53,15 +54,19 @@ Approve unless there are real gaps. An issue is something that would leave a wor
 
 ## Report
 
-Write the report to the Output path. It is the only file you may create or change. It has exactly one section, a numbered list with one issue per item:
+Write the report to the Output path. It is the only file you may create or change. It has exactly two sections, in this order, each a numbered list with one finding per item: `## Issues` for what checks 1 to 10 find, and `## Advisory` for what check 11 finds.
 
 ```
 ## Issues
 
 1. <task or milestone ID> — <which check> — <problem, quoting the text involved>
+
+## Advisory
+
+1. <task or milestone ID> — non-bash Verify — <problem, quoting the command>
 ```
 
-With no issues, the section says `None.` instead.
+A section with nothing in it says `None.` instead.
 
 Then reply with exactly this block and nothing else:
 
@@ -70,4 +75,4 @@ STATUS: APPROVED | ISSUES
 ISSUES: <count>
 ```
 
-`APPROVED` means the section says `None.` and the count is 0; any issue at all makes it `ISSUES`.
+`APPROVED` means `## Issues` says `None.` and the count is 0; any issue at all makes it `ISSUES`. The count covers `## Issues` only: advisory findings never change STATUS or the count, and nobody fixes them automatically.

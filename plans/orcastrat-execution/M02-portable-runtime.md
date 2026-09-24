@@ -697,7 +697,7 @@ The plan format, the `plan` skill and the `planner` agent say that Verify comman
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: none
 - Files: `plugins/orcastrat/agents/plan-reviewer.md`, `plugins/orcastrat/skills/plan/SKILL.md`
