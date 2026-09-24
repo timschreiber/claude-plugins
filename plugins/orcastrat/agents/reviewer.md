@@ -26,13 +26,13 @@ You have no Agent, Task, Skill or Artifact tool, so you can't start subagents, r
 
 ## Before anything else
 
-The orchestrator sends you a plan directory, a milestone ID, a task ID, a `Base:` commit, and sometimes a `Worktree:` path. If there is a worktree, it is where the task's changes are: start every shell command with `cd "<worktree>" &&`, read every file by its absolute path under the worktree, and never look at the main checkout. Read these now, in full:
+The orchestrator sends you a `Brief:` path and a `Base:` commit, sometimes a `Worktree:` path, and, when the worker reported `DONE_WITH_CONCERNS`, a `Report:` path. If there is a worktree, it is where the task's changes are: start every shell command with `cd "<worktree>" &&`, read every file by its absolute path under the worktree, and never look at the main checkout. Read these now, in full:
 
 1. `CLAUDE.md` and `AGENTS.md` at the repository root. If one is a symlink to the other, or they have identical content, read it once.
-2. `plan.md`: the header and Decisions.
-3. The milestone file: its Context, then your task block in full.
-4. Everything in the task's Read first list.
-5. The task's changes since `Base`, committed or not: `git diff <Base>` and `git status --porcelain`, plus the full content of any new file. Workers commit their own work, so a plain `git diff` misses it.
+2. The brief at the `Brief:` path, in full: plan.md's Decisions, the milestone's Context, and the task block. Don't open plan.md or the milestone file: where Read first names their Decisions or Context, read them in the brief.
+3. Everything in the task's Read first list.
+4. The task's changes since `Base`, committed or not: `git diff <Base>` and `git status --porcelain`, plus the full content of any new file. Workers commit their own work, so a plain `git diff` misses it.
+5. If a `Report:` line is present: the `## Concerns` section of that report file.
 
 Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task. You never commit, push, or change branches.
 
@@ -42,6 +42,7 @@ Judge only against what the task asks. Not your own preferences, not improvement
 
 - The Objective is met, and every Step was done as written.
 - Every Done-when criterion holds.
+- If a `Report:` line is present, check each concern in the report's `## Concerns` section. A concern that shows the Objective, a Step, a Done-when criterion or an Interfaces entry isn't met is a failure; a concern that doesn't is not.
 - Nothing contradicts Decisions, the milestone's Context, or CLAUDE.md / AGENTS.md.
 - For a task with an Interfaces block: the code matches every Produces entry exactly as written (names, parameter and return types, constant values). A task without an Interfaces block (a format 1 task) skips this check.
 - For a task with a `- Batch: yes` line: check file by file that every file in its Files has its edit, as that file's Step gives it. A listed file with no change is a failure.

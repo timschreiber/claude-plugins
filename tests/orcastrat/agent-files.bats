@@ -118,6 +118,18 @@ REPORT: <the path the Report: line gave>
 EOF
 }
 
+# write_reviewer_rules <file>: writes the lines the reviewer agent file must
+# contain for reading the brief and checking a worker's concerns (spec
+# sections 8 and 10).
+write_reviewer_rules() {
+  cat > "$1" <<'EOF'
+2. The brief at the `Brief:` path, in full: plan.md's Decisions, the milestone's Context, and the task block. Don't open plan.md or the milestone file: where Read first names their Decisions or Context, read them in the brief.
+3. Everything in the task's Read first list.
+5. If a `Report:` line is present: the `## Concerns` section of that report file.
+- If a `Report:` line is present, check each concern in the report's `## Concerns` section. A concern that shows the Objective, a Step, a Done-when criterion or an Interfaces entry isn't met is a failure; a concern that doesn't is not.
+EOF
+}
+
 @test "field ignores carriage returns" {
   printf -- '---\r\nname: sample\r\ntools: Read, Bash\r\n---\r\n' > "$BATS_TEST_TMPDIR/sample.md"
   [ "$(field "$BATS_TEST_TMPDIR/sample.md" name)" = 'sample' ]
@@ -299,4 +311,16 @@ EOF
   done
   echo "no reply cap in:$bad"
   [ -z "$bad" ]
+}
+
+@test "reviewer reads the brief and checks the worker's concerns" {
+  local missing
+  write_reviewer_rules "$BATS_TEST_TMPDIR/reviewer-rules"
+  missing="$(missing_lines "$AGENTS/reviewer.md" "$BATS_TEST_TMPDIR/reviewer-rules")"
+  echo "missing:$missing"
+  [ -z "$missing" ]
+  run grep -qF -- 'The orchestrator sends you a `Brief:` path and a `Base:` commit' "$AGENTS/reviewer.md"
+  [ "$status" -eq 0 ]
+  run grep -qF -- '2. `plan.md`: the header and Decisions.' "$AGENTS/reviewer.md"
+  [ "$status" -ne 0 ]
 }
