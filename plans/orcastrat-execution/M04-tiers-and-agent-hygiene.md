@@ -9,7 +9,7 @@
 
 ## Context
 
-Governing sources: spec §5 (Change 4), §22 (Change 21), §1.4; Decisions D12, D13, D14, D28, D48, D66.
+Governing sources: spec §5 (Change 4), §22 (Change 21), §1.4; Decisions D12, D13, D14, D28, D48, D66, D67, D68.
 
 Tier table (Change 4):
 

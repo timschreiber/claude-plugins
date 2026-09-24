@@ -9,7 +9,7 @@
 
 ## Context
 
-Governing sources: spec §13 (Change 12), §1.3, §22 item 3 (`decider` allowlist); Decisions D12, D13, D29, D33.
+Governing sources: spec §13 (Change 12), §1.3, §22 item 3 (`decider` allowlist); Decisions D12, D13, D29, D33, D68 (`decider` has no shell).
 
 - D48, D66: the new agent file gets the `## Search and command bounds` section and the `## No prototyping or duplicate work` section (both added in M04), and its `tools` line names no `Agent`, `Task`, `Skill` or `Artifact`; `tests/orcastrat/agent-files.bats` checks all three.
 
