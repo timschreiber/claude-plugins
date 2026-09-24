@@ -129,7 +129,7 @@ Waves: 6 (widths 5, 2, 1, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/scripts/run-state`, `tests/orcastrat/run-state.bats`
