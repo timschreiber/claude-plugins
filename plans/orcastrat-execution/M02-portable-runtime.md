@@ -398,13 +398,15 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M02-T03, M02-T05
 - Files: `plugins/orcastrat/scripts/lib/common`, `tests/orcastrat/lib-common.bats`
 - Verify: `bash scripts/run-bats.sh tests/orcastrat/lib-common.bats`
 - Fails first: yes
 - Commit: `feat(orcastrat): add scripts/lib/common with print_path`
+- Process: worker committed on its own; reset and discarded before retry
+- Escalated: worker-light → worker (RED not confirmed (Fails first: yes))
 
 **Objective**
 

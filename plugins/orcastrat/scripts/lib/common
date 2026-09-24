@@ -1,0 +1,14 @@
+# shellcheck shell=bash
+# Shared helpers for the orcastrat scripts. Source it; never run it directly.
+# Bash 3.2 compatible.
+
+# print_path <path>: prints <path> in the form Claude Code's file tools accept
+# (D43). When cygpath is on PATH (Git for Windows), prints `cygpath -m <path>`,
+# for example C:/Users/me/file.txt. Otherwise prints <path> unchanged.
+print_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
