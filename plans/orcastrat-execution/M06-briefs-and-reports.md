@@ -1107,7 +1107,7 @@ Before every dispatch `run` generates the task's brief with `task-brief`, and a 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 8
 - Depends on: M06-T07
 - Files: `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/scout-heavy.md`
