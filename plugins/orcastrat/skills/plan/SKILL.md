@@ -45,7 +45,7 @@ Everything else you need to know about the codebase, get from read-only helpers 
 - **`orcastrat:scout`** (Sonnet, medium effort): for **precise extraction** once you know where to look. Exact signatures, types, constants, messages, behavior, error handling, test layout and commands, with `path:line` references. Also for external research: library documentation and API references.
 - **`orcastrat:scout-heavy`** (Sonnet, high effort): when the answer requires **tracing logic** across many files, such as control flow, state, concurrency, or behavior nobody documented.
 
-Brief scouts with specific, numbered questions and ask for facts, not summaries; they report exactly that way. Run independent scouts at the same time, in one message.
+Brief scouts with specific, numbered questions and ask for facts, not summaries; they report exactly that way. End every scout brief with the line `Output: <plan dir>/notes/research-<n>.md`, numbering this plan's scout briefs from 1: a scout whose answers fit in 20 lines replies with them and writes no file, and otherwise writes them to that file and replies with its path. Run independent scouts at the same time, in one message.
 
 Read a code file yourself only to confirm an exact value a task will depend on, or when helper reports are ambiguous or conflict with each other. Treat every report as evidence, not as a decision: if a report conflicts with the sources, that is a contradiction for step 5, not something to resolve on your own.
 

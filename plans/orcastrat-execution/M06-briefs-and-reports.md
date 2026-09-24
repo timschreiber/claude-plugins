@@ -606,7 +606,7 @@ The per-task `reviewer` reads the `Brief:` file instead of plan.md and the miles
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M06-T05
 - Files: `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/scout-heavy.md`, `plugins/orcastrat/skills/plan/SKILL.md`

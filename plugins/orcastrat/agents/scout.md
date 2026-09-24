@@ -55,8 +55,8 @@ Read plan.md's Decisions, the milestone file's Goal, Context, and Outline, and t
 
 ## Output
 
-- **For a question brief**, reply with your answers under each question's number, then Unconfirmed and Conflicts if any. If the brief ends with an `Output:` line, write those answers to that file instead and reply in the survey format below.
-- **For a survey request**, or a brief with an `Output:` line, write the report to the Output path. It is the only file you may create or change. Then reply with exactly:
+- **For a question brief**, answer under each question's number, then give Unconfirmed and Conflicts if any. If your answers fit in 20 lines, or the brief has no `Output:` line, reply with them and write no file. Otherwise write them to the brief's `Output:` path and reply in the survey format below.
+- **For a survey request**, or a question brief whose answers don't fit in 20 lines, write the report to the Output path. It is the only file you may create or change. Then reply with exactly:
 
 ```
 STATUS: DONE
