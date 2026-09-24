@@ -1214,7 +1214,7 @@ In serial waves, `run` checks the limits before each task, dispatches at the tas
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M05-T03, M05-T07, M05-T09
 - Files: `plugins/orcastrat/skills/run/SKILL.md`

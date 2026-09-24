@@ -214,7 +214,7 @@ For each task in the wave set, in order, first **check the limits** (see Definit
 
 ### 3e. Parallel wave
 
-Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave set in batches of at most Max parallel tasks (or `--max-parallel`), in task ID order. For each batch:
+Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave set in batches of at most Max parallel tasks (or `--max-parallel`), in task ID order. Before each batch, **check the limits** (see Definitions). For each batch:
 
 1. **Create worktrees.** For each task: `git worktree add -b <task branch> "<WT_ROOT>/<task ID>" <BASE>`. If Worktree setup isn't `none`, run it there: `cd "<worktree>" && ORCASTRAT_MAIN="<MAIN>" ORCHESTRATINATOR_MAIN="<MAIN>" <setup command>`; the old name is set too, for setup commands in plans written before the rename. A failure here → go to **Stop** with reason SETUP; it's an environment problem, not a task problem.
 2. **Dispatch all of the batch's workers at once**: one call per task to the worker agent for its tier (see Definitions), all in a single message, so they run concurrently. Each gets the three dispatch lines plus:
@@ -224,14 +224,24 @@ Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave se
    plus the retry lines on a retry.
 3. **For each report**, in task ID order, working inside that task's worktree:
    - First, apply the checks of 3d item 2 to that worktree, with BASE as the recorded HEAD: `git -C "<worktree>" branch --show-current` must print the task branch (otherwise **Stop** with reason STRAY); run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<worktree>" <BASE>` (anything but `OK` → **Stop** with reason PUSHED); and if `git -C "<worktree>" log --oneline <BASE>..HEAD` prints any commit, run `git -C "<worktree>" reset --soft <BASE>` and remember the `- Process:` line. Add that line when you record the task in item 8, or together with its `- Escalated:` or `- Blocked:` line.
-   - No `STATUS:` line in the reply → the worker returned no report: queue a **Retry**, with the reason `no report`.
+   - No `STATUS:` line in the reply → the worker returned no report: queue a retry (item 5), with the reason `no report`.
    - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record it for **Block with GAP**, with block reason `VACUOUS`. Leave its worktree for inspection.
-   - `DONE` on a task with `- Fails first: yes`, with the RED line missing or `N/A` → queue a **Retry**, with the reason `RED not confirmed (Fails first: yes)`.
+   - `DONE` on a task with `- Fails first: yes`, with the RED line missing or `N/A` → queue a retry (item 5), with the reason `RED not confirmed (Fails first: yes)`.
    - Any other `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
-   - `BLOCKED` / `STUCK` → queue a **Retry**.
-   - Any other `DONE` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files as its own double-quoted argument; anything but `OK` → record a SCOPE block with the printed paths and leave the worktree. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory (command, `review`, or both; the reviewer also gets the `Worktree:` line). Failure → queue a **Retry**. Success → commit the task in the worktree.
+   - `BLOCKED` / `STUCK` → queue a retry (item 5).
+   - Any other `DONE` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files as its own double-quoted argument; anything but `OK` → record a SCOPE block with the printed paths and leave the worktree. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory (command, `review`, or both; the reviewer also gets the `Worktree:` line, and `Base: <BASE>`). Failure → queue a retry (item 5). Success → commit the task in the worktree: `git -C "<worktree>" add -A`, then `git -C "<worktree>" commit -m '<task's Commit message>' -m "Orcastrat-Task: <task ID>"`, writing each `'` in the message as `'\''`.
 4. **Guard the main checkout.** `git status --porcelain` in MAIN must still be empty. If a worker wrote outside its worktree, stop everything: go to **Stop** with reason STRAY, listing the paths. Leave all worktrees.
-5. **Retries.** Run every queued retry as its own batch, the same way, in fresh worktrees from BASE (remove the failed attempt's worktree and branch first). Each task still gets only one retry.
+5. **Retries.** A parallel task gets at most one retry, one tier up the ladder, in a fresh worktree, with no resume. For each queued retry:
+   - If the task has already been retried in this run, or its current tier (see Definitions) is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`, and leave its worktree for the user to inspect. Finish the wave's other tasks first (item 6, Integrate, onward), then go to **Stop**.
+   - Otherwise, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, plus any `- Process:` line you remembered for this attempt. Commit those lines in MAIN before dispatching again, so the next scope check never sees them: `git add "<milestone file path>"`, then `git commit -m "chore(plan): <task ID> attempt 1 failed"`, with no `Orcastrat-Task:` trailer.
+
+   Then run the retries as their own batch, the same way, in fresh worktrees from BASE, each dispatched to the worker agent for its next tier with these lines appended:
+   ```
+   Retry: previous attempt by <tier> failed. You are starting from a clean state.
+   Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", "RED not confirmed (Fails first: yes)", or "no report">
+   Verify tail:
+   <the lines verify printed after its log= line, if a command failed>
+   ```
 
 When every task in the wave set has either committed in its worktree or ended in a block:
 
@@ -312,9 +322,9 @@ The ladder is `worker-mini` → `worker-light` → `worker` → `worker-heavy` �
 
 ## Block with GAP
 
-The plan left a decision open. **Never retry or escalate a GAP**: a higher tier would just make the decision. Mark the task `blocked` with `- Blocked: GAP — <question>`, and add the question to plan.md's Open questions tagged with the task ID. In serial mode go to **Stop**; in parallel mode, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
+The plan left a decision open. **Never retry or escalate a GAP**: a higher tier would just make the decision. Add the question to plan.md's Open questions tagged with the task ID. In serial mode, **keep the blocked attempt** (see Definitions) with reason `GAP` and the question as its detail, then go to **Stop**. In parallel mode, mark the task `blocked` with `- Blocked: GAP — <question>`, finish the wave's other tasks first (item 6 of 3e, Integrate, onward), then **Stop**.
 
-A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same handling, with block reason `VACUOUS` instead of `GAP`: the test passed before any implementation existed, so either it can't fail or the behavior already exists, and both mean the plan is wrong. Never retry or escalate it. Mark the task `blocked` with `- Blocked: VACUOUS — <worker's NOTE>`, add `Verify passed before implementation: <worker's NOTE>` to plan.md's Open questions tagged with the task ID, and stop exactly as for a GAP.
+A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same handling, with block reason `VACUOUS` instead of `GAP`: the test passed before any implementation existed, so either it can't fail or the behavior already exists, and both mean the plan is wrong. Never retry or escalate it. Add `Verify passed before implementation: <worker's NOTE>` to plan.md's Open questions tagged with the task ID. Then block and stop exactly as for a GAP, with reason `VACUOUS` and the worker's NOTE as the detail: in serial mode, keep the blocked attempt; in parallel mode, mark the task `blocked` with `- Blocked: VACUOUS — <worker's NOTE>`.
 
 ## Pause
 
