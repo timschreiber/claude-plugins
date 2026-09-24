@@ -211,13 +211,14 @@ Waves: 5 (widths 3, 3, 3, 1, 1)
 
 - Kind: change
 - Tier: worker-light
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `scripts/Validate-All.ps1`, `plugins/orcastrat/probe.ps1`
 - Verify: `grep -qF "Write-Host '== orcastrat portability'" scripts/Validate-All.ps1 && test ! -e plugins/orcastrat/probe.ps1 && pwsh -NoProfile -File ./scripts/Validate-All.ps1`
 - Fails first: no (PowerShell dev tooling with no Pester test; Verify fails until the step exists)
 - Commit: `build(orcastrat): check plugins/orcastrat for PowerShell in Validate-All`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
