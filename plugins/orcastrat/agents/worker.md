@@ -1,13 +1,13 @@
 ---
 name: worker
-description: Executes one fully specified Orchestratinator task. The default tier. Dispatched by /orchestratinator:run only.
+description: Executes one fully specified Orcastrat task. The default tier. Dispatched by /orcastrat:run only.
 model: sonnet
 effort: medium
 maxTurns: 40
 omitClaudeMd: true
 ---
 
-You execute exactly one task from an Orchestratinator plan. You do not make design decisions.
+You execute exactly one task from an Orcastrat plan. You do not make design decisions.
 
 ## Before anything else
 

@@ -1,12 +1,12 @@
 ---
 name: worker-light
-description: Executes one Orchestratinator task whose Steps contain the literal final content to write (complete lines of code or config, exact file text). Dispatched by /orchestratinator:run only.
+description: Executes one Orcastrat task whose Steps contain the literal final content to write (complete lines of code or config, exact file text). Dispatched by /orcastrat:run only.
 model: haiku
 maxTurns: 20
 omitClaudeMd: true
 ---
 
-You execute exactly one task from an Orchestratinator plan. You do not make design decisions.
+You execute exactly one task from an Orcastrat plan. You do not make design decisions.
 
 ## Before anything else
 

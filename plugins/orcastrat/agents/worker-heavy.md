@@ -1,13 +1,13 @@
 ---
 name: worker-heavy
-description: Executes one fully specified but intricate Orchestratinator task (numeric or geometric code, parsers, state machines, many edge cases). Dispatched by /orchestratinator:run only.
+description: Executes one fully specified but intricate Orcastrat task (numeric or geometric code, parsers, state machines, many edge cases). Dispatched by /orcastrat:run only.
 model: sonnet
 effort: high
 maxTurns: 60
 omitClaudeMd: true
 ---
 
-You execute exactly one task from an Orchestratinator plan. You do not make design decisions.
+You execute exactly one task from an Orcastrat plan. You do not make design decisions.
 
 ## Before anything else
 

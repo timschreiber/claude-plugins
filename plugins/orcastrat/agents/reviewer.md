@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Checks one completed Orchestratinator task against its Steps and Done-when criteria when no command can verify it. Read-only. Dispatched by /orchestratinator:run only.
+description: Checks one completed Orcastrat task against its Steps and Done-when criteria when no command can verify it. Read-only. Dispatched by /orcastrat:run only.
 model: sonnet
 effort: high
 maxTurns: 30

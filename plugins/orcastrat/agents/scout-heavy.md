@@ -1,6 +1,6 @@
 ---
 name: scout-heavy
-description: "Read-only research for Orchestratinator planning when answers require tracing logic across many files: control flow, state, concurrency, or undocumented behavior. Reports exact facts with path:line references. Dispatched by /orchestratinator:plan and /orchestratinator:run."
+description: "Read-only research for Orcastrat planning when answers require tracing logic across many files: control flow, state, concurrency, or undocumented behavior. Reports exact facts with path:line references. Dispatched by /orcastrat:plan and /orcastrat:run."
 model: sonnet
 effort: high
 maxTurns: 60

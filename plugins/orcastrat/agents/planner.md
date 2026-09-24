@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Details one outlined milestone of an Orchestratinator plan into small tiered tasks, using the code and findings that exist now, and writes fix tasks when a milestone review finds blocking problems. Dispatched by /orchestratinator:run only.
+description: Details one outlined milestone of an Orcastrat plan into small tiered tasks, using the code and findings that exist now, and writes fix tasks when a milestone review finds blocking problems. Dispatched by /orcastrat:run only.
 model: opus
 effort: high
 maxTurns: 60

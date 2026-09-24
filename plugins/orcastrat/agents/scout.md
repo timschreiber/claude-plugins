@@ -1,6 +1,6 @@
 ---
 name: scout
-description: "Read-only code and documentation research for Orchestratinator planning: answers precise questions or surveys a milestone's code, reporting exact facts with path:line references. Dispatched by /orchestratinator:plan and /orchestratinator:run."
+description: "Read-only code and documentation research for Orcastrat planning: answers precise questions or surveys a milestone's code, reporting exact facts with path:line references. Dispatched by /orcastrat:plan and /orcastrat:run."
 model: sonnet
 effort: medium
 maxTurns: 40

@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: "Reviews one detailed Orchestratinator milestone with fresh eyes before any of it runs, checking its tasks against the plan format: banned phrases and placeholders, choices left to the worker, Coverage, Interfaces, wave interference, Verify commands, Fails first, tier fit, unsourced assumptions, and Read first. Read-only except its report file. Dispatched by /orchestratinator:plan and /orchestratinator:run."
+description: "Reviews one detailed Orcastrat milestone with fresh eyes before any of it runs, checking its tasks against the plan format: banned phrases and placeholders, choices left to the worker, Coverage, Interfaces, wave interference, Verify commands, Fails first, tier fit, unsourced assumptions, and Read first. Read-only except its report file. Dispatched by /orcastrat:plan and /orcastrat:run."
 model: sonnet
 effort: high
 maxTurns: 40

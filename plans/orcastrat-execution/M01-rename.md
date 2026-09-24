@@ -130,13 +130,14 @@ The plugin lives at `plugins/orcastrat/` with `name` `orcastrat`, the catalog li
 - Kind: change
 - Tier: worker-light
 - Batch: yes
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M01-T02
 - Files: `plugins/orcastrat/agents/worker.md`, `plugins/orcastrat/agents/worker-light.md`, `plugins/orcastrat/agents/worker-heavy.md`, `plugins/orcastrat/agents/specialist.md`, `plugins/orcastrat/agents/scout.md`, `plugins/orcastrat/agents/scout-heavy.md`, `plugins/orcastrat/agents/reviewer.md`, `plugins/orcastrat/agents/planner.md`, `plugins/orcastrat/agents/plan-reviewer.md`, `plugins/orcastrat/agents/milestone-reviewer.md`
 - Verify: `! grep -rni orchestratinator plugins/orcastrat/agents | grep -v -F '(Orcastrat|Orchestratinator)-Task' && grep -qF -e '-E --grep="^(Orcastrat|Orchestratinator)-Task: <task ID>$"' plugins/orcastrat/agents/milestone-reviewer.md`
 - Fails first: no (text replacement with no tests; the Verify grep fails until every replacement is made)
 - Commit: `refactor(orcastrat): rename Orchestratinator in agent files`
+- Escalated: worker-light → worker (hit its 20-turn limit with no report)
 
 **Objective**
 

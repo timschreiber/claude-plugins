@@ -1,6 +1,6 @@
 ---
 name: milestone-reviewer
-description: "Reviews one finished Orchestratinator milestone as a whole, checking its combined diff against Coverage, Interfaces, Review Focus, Decisions, and code quality. Read-only except its report file. Dispatched by /orchestratinator:run only."
+description: "Reviews one finished Orcastrat milestone as a whole, checking its combined diff against Coverage, Interfaces, Review Focus, Decisions, and code quality. Read-only except its report file. Dispatched by /orcastrat:run only."
 model: opus
 effort: high
 maxTurns: 60
@@ -50,7 +50,7 @@ A milestone file without a `- Format: 2` line is format 1: it has no Coverage se
 
 For a task with a `- Batch: yes` line, also check file by file that every file in its Files has its edit. A listed file with no change is a blocking finding.
 
-For a re-review (`Re-review: fixes only`), check only two things instead. First, that each finding under `## Blocking` in `notes/<ID>-review.md` is fixed. Second, that the fix tasks, the tasks with an `- Origin: review` line, introduce no new blocking problem: find each one's commit with `git log --format=%H --grep="^Orchestratinator-Task: <task ID>$"` and read it with `git show <sha>`.
+For a re-review (`Re-review: fixes only`), check only two things instead. First, that each finding under `## Blocking` in `notes/<ID>-review.md` is fixed. Second, that the fix tasks, the tasks with an `- Origin: review` line, introduce no new blocking problem: find each one's commit with `git log --format=%H -E --grep="^(Orcastrat|Orchestratinator)-Task: <task ID>$"` and read it with `git show <sha>`.
 
 ## Findings
 
