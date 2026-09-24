@@ -36,7 +36,7 @@ Governing sources: spec §28 (Docs), §24 (Change 23), §23 item 2 (Change 22), 
 
 - README: Prerequisites (Change 23), before `## Install`.
 - README: how commits work; resume, the ladder, the failure log, and LIMIT (including `Max milestones`); parallel defaults, conflict handling, and the serial fallback; Windows notes.
-- README: task briefs, report files, `DONE_WITH_CONCERNS`, rubric-scored reviews with the validator, the run report; the Stop hook (heartbeat, loop guard, one active run per checkout); the decider, auto-decide and its limit, and that planning questions are always answered by the user.
+- README: resuming a run (the `next` script, and that a fresh session picks up from the plan files and git, D79); task briefs, report files, `DONE_WITH_CONCERNS`, rubric-scored reviews with the validator, the run report; the Stop hook (heartbeat, loop guard, one active run per checkout); the decider, auto-decide and its limit, and that planning questions are always answered by the user.
 - README: the interview, write-back, `--skip-interview`; targeted Verify; the instruction-file check and what to do about its findings; "During a run"; the cast table with allowlists.
 - CHANGELOG *Added*, *Changed* and *Removed* entries per §28, with the inventory, model-pin grep, and dispatch sizes.
 - CLAUDE.md updates per D26.

@@ -33,4 +33,5 @@ Governing sources: spec §12 (Change 11), §19 (Change 18), §1.5; Decisions D04
 - `run`: call `run-report` at Pause, Stop and completion, and commit the report in the pause, stop or completion commit.
 - `run`: the milestone-end suggestion step and `notes/instruction-suggestions.md`.
 - `run-report` shows every `model-notice` line from `notes/run-log.md` (D42).
+- `run-report` reports tokens per run invocation from the D07 usage lines (D79, spec §25a item 5), so a resume's cost is visible.
 - `run-report` counts the `background-warning` lines in `notes/run-log.md` (D49), per run invocation and for the plan so far, and lists each one.

@@ -159,7 +159,7 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 - `run` generates the brief before each dispatch, and the dispatch names it: `Brief: <path>`.
 - Workers and the per-task `reviewer` read the brief **instead of** `plan.md` and the milestone file. They still re-read CLAUDE.md and AGENTS.md first, and still read everything in the task's Read first list, which always includes the spec sections the task implements.
 - Resumes and retries reuse the same brief, unless `plan.md`'s Decisions changed since it was generated (for example, an auto-decided GAP, Change 12). Then `run` regenerates it before the retry.
-- The orchestrator likewise reads only the header fields and the current task's block from plan files, except for a full read of `plan.md` at start and when the Stop hook sends it back (Change 8).
+- The orchestrator likewise reads only the header fields and the current task's block from plan files. It finds its place with `next` (Change 25), at start and whenever the Stop hook sends it back (Change 8), and never reads plan.md's Decisions.
 
 **Acceptance:** the script exists with tests; workers and the reviewer read the brief rather than plan files; the dispatch format includes `Brief:`.
 
@@ -171,8 +171,8 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 - **Heartbeat:** `run` updates the marker's heartbeat on every dispatch, every returned agent, and every commit. The heartbeat, not the start time, is what the loop guard and stale detection use, so a long wave of workers running in parallel never looks like a stuck run.
 - **Hook:** the plugin ships a `Stop` hook (`hooks/hooks.json` plus a bash script, invoked as `bash "${CLAUDE_PLUGIN_ROOT}/hooks/<script>"` with the path quoted). The script locates the marker from `$CLAUDE_PROJECT_DIR`, not from the session's current directory, which can change. When Claude tries to end its turn, the hook:
   1. does nothing if no marker exists for this checkout;
-  2. otherwise blocks the stop, with the reason `An Orcastrat run is in progress for <plan dir>. Re-read plan.md and the current milestone file, then continue the run from where the files say it is. If you meant to pause or stop, follow run's Pause or Stop section, which removes the marker.`
-- **Compaction:** the block reason's re-read instruction is also the recovery path after auto-compaction. No separate compaction hook is needed.
+  2. otherwise blocks the stop, with the reason `An Orcastrat run is in progress for <plan dir>. Run the next script for <plan dir> and continue the run from the step it names. If you meant to pause or stop, follow run's Pause or Stop section, which removes the marker.`
+- **Compaction:** the block reason's `next` instruction is also the recovery path after auto-compaction (Change 25). No separate compaction hook is needed.
 - **Loop guard:** the hook counts consecutive blocks in the marker file and resets the count whenever the heartbeat has advanced since the last block. After 3 consecutive blocks with no heartbeat change, it allows the stop, deletes the marker, and leaves a note in the marker's place that says why. A run that's truly stuck ends instead of spinning.
 - **Fast exit when idle:** the hook runs on every turn of every session where the plugin is enabled, so it checks for the marker first, using only `$CLAUDE_PROJECT_DIR` and a file test, and exits 0 immediately when there is none, before reading stdin or running git. (`ralph-loop` had a reported bug where reading stdin first delayed every response, even with no loop active.)
 - **Fails open:** any error in the hook script (missing git, unreadable marker, unparseable input) allows the stop. A broken hook must never trap a session.
@@ -571,6 +571,33 @@ The README carries the same steps under "Upgrading from Orchestratinator".
 
 **Acceptance:** no `orchestratinator` identifier remains in `plugins/orcastrat/`, except where the old trailer and old directory name are accepted for compatibility, and in the "Formerly" note and name history; `claude plugin validate` passes; `recover` finds tasks under both trailers; the migration steps work on a machine with the old plugin installed.
 
+## 25a. Change 25: Cheap resume
+
+**Why.** A run is interrupted by closed sessions, compaction, Stop-hook re-reads, GAP stops answered days later, and plain `/clear` between milestones. Recovery itself already works from the plan files and git history. What costs tokens is how the orchestrator finds its place: it reads `plan.md` whole (every Decision), reads the current milestone file whole (over a thousand lines for a detailed milestone), and re-reads both before every wave and after every compaction. The orchestrator runs on Opus, the most expensive place to spend those tokens.
+
+1. **`next <plan-dir>`:** a new script (Change 6's conventions, Change 19's rules, D04 naming) that prints the run's position as fixed `key: value` lines, in this order:
+   - `plan: <status>`
+   - `milestone: <ID> <status> <file>` (the first milestone that isn't `done`), or `milestone: none` when every milestone is `done`
+   - `next: <what run does next>`, one of `survey <ID>`, `detail <ID>`, `start <ID>`, `wave <n>`, `milestone-verify <ID>`, `review <ID>`, `final-verify`, `complete`, `blocked`
+   - `wave: <n> <task ID>:<tier> ...` for the lowest wave with `todo` tasks, or `wave: none`
+   - `blocked: <milestone or task IDs>` or `blocked: none`
+   - `open-questions: <count>`
+   - `recover: <recover's output lines joined with "; ">` (M03)
+   - `worktrees: <count>` of leftover task worktrees under the plan's worktree root
+   - `marker: none | active <heartbeat age in minutes>m | stale` (Change 8)
+   Paths go through `print_path`. It reads only plan.md's header, Milestones table and Open questions, and each milestone's Status and task Status, Wave and Tier lines, never Decisions, Context, Steps or notes.
+2. **The orchestrator reads `next` instead of the plan files** at start, before each wave, after compaction, and when the Stop hook sends it back. It reads plan.md's header fields, never its Decisions: those reach agents through their briefs (Change 7). It reads the current task's block only when it needs a field `next` doesn't print (Verify, Files, Commit, Fails first), with Grep on the task heading.
+3. **Every bookkeeping step resumes from git.** Before doing any step, `run` checks whether its result is already committed or present, and skips or finishes it instead of redoing it:
+   - a survey, plan-review, review or re-review note already committed → skip the agent;
+   - a milestone detailed (Status `ready`) but not committed → run the validation checklist and commit it, rather than invoking the planner again;
+   - a task whose trailer is in history (`recover`'s `done`) → mark it `done`;
+   - an interrupted attempt (`recover`'s `interrupted`, or uncommitted changes in a task's Files) → a failed attempt at its recorded tier (Change 1);
+   - a Pause or Stop commit already made → nothing to redo.
+4. **The Stop hook's reason points at `next`** (Change 8 item 2 and Compaction).
+5. **Tests:** bats tests for `next` with fixture plans in each state: fresh (outline M01), survey committed, detailed but uncommitted, mid-wave, interrupted attempt, blocked with open questions, milestone done awaiting review, plan complete. `run-report` (Change 11) reports tokens per run invocation from the D07 usage lines, so the cost of a resume is visible.
+
+**Acceptance:** `next` exists with its tests; `run` reads `next` rather than `plan.md` and the milestone file when finding its place; a run resumed in a fresh session at each fixture state takes the step `next` names without re-running a completed agent; the Stop hook's reason names `next`.
+
 ## 26. Out of scope
 
 - Rewriting or restructuring CLAUDE.md or AGENTS.md. Orcastrat checks and advises (Change 16) but never edits instruction files. A standalone CLAUDE.md-slimming tool is out of scope.
@@ -613,7 +640,7 @@ The README carries the same steps under "Upgrading from Orchestratinator".
   - the cast table with models, efforts and tool allowlists;
   - "Formerly Orchestratinator", the name history, and "Upgrading from Orchestratinator" (Change 24).
 - **CHANGELOG** (under Unreleased):
-  - *Added:* resume before escalating, the failure log, the worker breaker, LIMIT with its fields and flags (including `Max milestones`), the `merger` agent, the `worker-mini` tier with its serial and parallel agents, the bookkeeping scripts, task briefs, the Stop hook, report files, `DONE_WITH_CONCERNS`, rubric-scored review findings with categories, the `validator` agent, the run report, the `decider` agent with auto-decide, the interview phase with spec write-back, completeness checks and Out of scope, targeted Verify, the batch pilot, the instruction-file check, conventions excerpts, rule and hook suggestions, the `status-reader` agent, tool allowlists, the three-OS CI matrix, the README Prerequisites section.
+  - *Added:* resume before escalating, the failure log, the worker breaker, LIMIT with its fields and flags (including `Max milestones`), the `merger` agent, the `worker-mini` tier with its serial and parallel agents, the bookkeeping scripts, task briefs, the Stop hook, report files, `DONE_WITH_CONCERNS`, rubric-scored review findings with categories, the `validator` agent, the run report, the `decider` agent with auto-decide, the interview phase with spec write-back, completeness checks and Out of scope, targeted Verify, the batch pilot, the instruction-file check, conventions excerpts, rule and hook suggestions, the `status-reader` agent, tool allowlists, the three-OS CI matrix, the README Prerequisites section, the `next` script and cheap resume (Change 25).
   - *Changed:* renamed to Orcastrat (with migration steps); workers commit their own work; every worker tier moves one step up the ladder (`worker-light` is now Sonnet / medium, `worker` Sonnet / high, `worker-heavy` Opus / medium); the ladder is capped at three rungs; the turn limits; the Max parallel default of 2; `status` delegates to a subagent; no skill pins a model; invariant instructions moved into agent files; shipped runtime is bash only.
   - *Removed:* the soft-reset guard; runtime PowerShell in the plugin (with the inventory).
 
@@ -629,6 +656,7 @@ The README carries the same steps under "Upgrading from Orchestratinator".
 8. Changes 10, 11 and 18: reviews with the rubric and `validator`, the run report, suggestions.
 9. Change 12, the decider.
 10. Changes 13, 14, 15 and 17: the planning changes.
+10a. Change 25, cheap resume: `next` with the task briefs (step 5), and the Stop hook's reason with the Stop hook (step 7).
 11. Docs, including Change 23.
 
 Build it in serial mode (`Parallel: off`), since the installed plugin predates these changes.
@@ -659,6 +687,7 @@ Build it in serial mode (`Parallel: off`), since the installed plugin predates t
   - an escalated task whose fresh worker reads the preserved report of the earlier attempt;
   - `recover` on a plan with commits carrying the old `Orchestratinator-Task:` trailer;
   - the migration steps on a machine with the old plugin installed.
+  - a run interrupted mid-wave and resumed in a fresh session, taking the step `next` names without re-running a completed agent (Change 25).
 
   Tim runs this after the build, before merging to `main`.
 
@@ -775,3 +804,4 @@ Review these before planning.
 70. **Reviewers work to a reading budget:** each file once, cited Decisions and spec sections only, citations checked with Grep, short replies (Change 10).
 71. **Decisions stay short:** each `plan.md` Decision is one or two lines stating what was decided and its source; rationale, evidence and long lists go in a `notes/` file the Decision links to (Change 14).
 72. **A milestone's Base comes only from its own plan's commits**: `run` searches for `chore(plan): start <ID>` only after the commit that added `plan.md`, so an older plan in the same repository with a milestone of the same ID can't match.
+73. **Resuming is cheap:** the orchestrator finds its place with the `next` script, never reads plan.md's Decisions, and resumes every bookkeeping step from git instead of redoing it (Change 25).
