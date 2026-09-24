@@ -1,6 +1,6 @@
 # M06: Task briefs and report files (Changes 7, 9)
 
-- Status: ready
+- Status: in-progress
 - Format: 2
 - Goal: `task-brief` writes each task's brief inside `.git`, with bats tests. `run` generates a brief before every dispatch, names it with `Brief:`, and regenerates it when Decisions changed. Workers and the per-task reviewer read the brief instead of plan files. Workers write report files with RED and GREEN evidence and reply in at most 10 lines. `DONE_WITH_CONCERNS` triggers a review. `RED: CONFIRMED` without RED evidence fails the attempt. Other agents write long output to notes files and reply in at most 20 lines. Notes are committed before the next dispatch, and the "after" dispatch sizes are recorded. A `next` script, with bats tests, tells `run` where the run is, so it never re-reads plan.md or the milestone file to find its place, and every bookkeeping step resumes from git (Change 25).
 - Depends on: M05
