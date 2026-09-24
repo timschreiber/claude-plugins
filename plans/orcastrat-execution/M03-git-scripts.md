@@ -1,6 +1,6 @@
 # M03: Git bookkeeping scripts (Change 6)
 
-- Status: ready
+- Status: in-progress
 - Format: 2
 - Goal: `plugins/orcastrat/scripts/` has `scope-check`, `push-check`, `verify`, `integrate` and `recover`, each with bats tests. Each prints the short fixed-format result the spec gives. `run` uses `scope-check`, `push-check`, `verify` and `recover` for today's scope check, push check, Verify runs and interrupted-run recovery, in place of reasoning through the git steps itself.
 - Depends on: M02
