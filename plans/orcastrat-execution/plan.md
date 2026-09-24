@@ -16,7 +16,7 @@
 | ID | Title | Status | File |
 |---|---|---|---|
 | M01 | Rename to Orcastrat (Change 24) | done | M01-rename.md |
-| M02 | Portable runtime foundation (Change 19) | outline | M02-portable-runtime.md |
+| M02 | Portable runtime foundation (Change 19) | ready | M02-portable-runtime.md |
 | M03 | Git bookkeeping scripts (Change 6) | outline | M03-git-scripts.md |
 | M04 | Worker tiers and agent prefix hygiene (Changes 4, 21) | outline | M04-tiers-and-agent-hygiene.md |
 | M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | outline | M05-commits-resume-runaway-guard.md |
@@ -124,6 +124,9 @@
 - D42: Under `--yes`, `run` records the model notice by appending the line `model-notice <UTC> <session model>` to `plans/<slug>/notes/run-log.md` (M09), and `run-report` shows it (M11). (source: user, Q29)
 - D43: `task-brief` prints the absolute path of the brief it wrote, and nothing else on success. Every path a script prints for an agent or a tool (brief, report, failure log, worktree, log paths) is printed in the form Claude Code's file tools accept: `cygpath -m <path>` (`C:/Users/...`) when `cygpath` is available, and the path unchanged otherwise. (source: user, Q30)
 - D44: The D43 rule lives in one shared helper, `plugins/orcastrat/scripts/lib/common`, sourced by every script. Its function `print_path <path>` prints `cygpath -m <path>` when `cygpath` exists, and the path unchanged otherwise. One bats test, with a stub `cygpath` on `PATH`, covers the helper, and each script's tests assert that the paths it prints go through it. Scripts may use `$(...)` internally, including to source `lib/common`: Change 19.3's "no `$(...)`" rule covers only commands that skills and agents tell Claude to run. `hooks/stop-guard` does its fast exit (Change 8) before sourcing `lib/common`, so an idle session never pays to load it. (source: user, Q30, Q33)
+- D45: The plan-reviewer's non-bash Verify check (Change 19.4) is advisory: its findings go in a `## Advisory` section of the plan-review report, after `## Issues`. They never count toward `ISSUES:` or change `STATUS`, and neither the planner nor `plan` fixes them; both fix only what `## Issues` lists. (source: spec §20 item 4, "flags a Verify that relies on non-bash syntax (advisory)"; spec §11, "Advisory findings are recorded in the review's notes file ... and never acted on automatically"; the `## Advisory` heading follows `plugins/orcastrat/agents/milestone-reviewer.md:68`)
+- D46: M02's inventory marks the `git branch -r --contains <sha>` check in `run`'s stray-commit guard `replaced in M03 (push-check)`, and the cherry-pick integration in `run` section 3e item 6 `replaced in M07 (integrate)`. Both are single-line `git` calls, so M02 rewrites neither. (source: M03 Context, which defines `push-check` by `git branch -r --contains` and says `run` starts using `integrate` in M07; `notes/M02-survey.md` Unconfirmed items 1 and 2)
+- D47: bats-core `v1.14.0`'s `bats --version` (and `-v`) prints exactly one line, `Bats 1.14.0`, and exits 0, so M02-T03's Verify matches that line with `grep -qx 'Bats 1.14.0'`. (source: `https://raw.githubusercontent.com/bats-core/bats-core/v1.14.0/libexec/bats-core/bats`, read 2026-09-23: `export BATS_VERSION='1.14.0'`; `version() { printf 'Bats %s\n' "$BATS_VERSION"; }`; the `-v | --version)` case calls `version` and then `exit 0`)
 
 ## Open questions
 
