@@ -19,7 +19,7 @@
 | M02 | Portable runtime foundation (Change 19) | done | M02-portable-runtime.md |
 | M03 | Git bookkeeping scripts (Change 6) | done | M03-git-scripts.md |
 | M04 | Worker tiers and agent prefix hygiene (Changes 4, 21) | done | M04-tiers-and-agent-hygiene.md |
-| M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | in-progress | M05-commits-resume-runaway-guard.md |
+| M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | done | M05-commits-resume-runaway-guard.md |
 | M06 | Task briefs and report files (Changes 7, 9) | outline | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | outline | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | outline | M08-stop-hook.md |
