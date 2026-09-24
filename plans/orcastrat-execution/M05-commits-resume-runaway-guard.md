@@ -1388,7 +1388,7 @@ Every Pause names its reason (`GATE`, `MILESTONE` or `LIMIT`), the milestone lim
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 7
 - Depends on: M05-T07, M05-T10
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
