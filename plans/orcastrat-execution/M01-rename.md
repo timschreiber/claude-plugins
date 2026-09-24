@@ -216,7 +216,7 @@ The run skill uses `orcastrat` names, paths, branches and the `Orcastrat-Task:` 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M01-T04
 - Files: `plugins/orcastrat/skills/plan/SKILL.md`, `plugins/orcastrat/skills/status/SKILL.md`, `plugins/orcastrat/reference/plan-format.md`

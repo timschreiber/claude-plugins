@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Turn a spec, a phased prompt, a long free-form prompt, or any mix of sources into an Orchestratinator plan directory of milestones and small tiered tasks, ready for /orchestratinator:run. Jobs too small to be worth delegating are done directly instead. Only run when the user explicitly invokes it.
+description: Turn a spec, a phased prompt, a long free-form prompt, or any mix of sources into an Orcastrat plan directory of milestones and small tiered tasks, ready for /orcastrat:run. Jobs too small to be worth delegating are done directly instead. Only run when the user explicitly invokes it.
 disable-model-invocation: true
 argument-hint: "<sources: file paths and/or instructions> [--into plans/<slug>] [--direct-max 5] [--always-plan] [--yes]"
 model: opus
@@ -33,8 +33,8 @@ Read these yourself. They are what the plan is built from, and a summary would d
 Everything else you need to know about the codebase, get from read-only helpers rather than reading it yourself. Your context is the most expensive one in the whole run: spend it on reasoning, not on reading files.
 
 - **Explore** (Claude Code's built-in read-only agent, on Haiku): use it **eagerly**, for every discovery question. Where things live, what calls what, which files and tests exist, what conventions and patterns the code follows, what an area of the code does. Send several at once, in one message, whenever you have independent questions. Ask for `medium` thoroughness by default and `very thorough` for broad surveys.
-- **`orchestratinator:scout`** (Sonnet, medium effort): for **precise extraction** once you know where to look. Exact signatures, types, constants, messages, behavior, error handling, test layout and commands, with `path:line` references. Also for external research: library documentation and API references.
-- **`orchestratinator:scout-heavy`** (Sonnet, high effort): when the answer requires **tracing logic** across many files, such as control flow, state, concurrency, or behavior nobody documented.
+- **`orcastrat:scout`** (Sonnet, medium effort): for **precise extraction** once you know where to look. Exact signatures, types, constants, messages, behavior, error handling, test layout and commands, with `path:line` references. Also for external research: library documentation and API references.
+- **`orcastrat:scout-heavy`** (Sonnet, high effort): when the answer requires **tracing logic** across many files, such as control flow, state, concurrency, or behavior nobody documented.
 
 Brief scouts with specific, numbered questions and ask for facts, not summaries; they report exactly that way. Run independent scouts at the same time, in one message.
 
@@ -64,7 +64,7 @@ Determine the milestones:
 - **Detailing: `rolling`** otherwise. Detail M01 fully now; outline every later milestone (Goal, Depends on, Milestone verify, Survey, Context, Outline). The planner agent details each one when the run reaches it, working from a survey of the code that a scout writes first. Set each outline's Survey to `scout`, or to `scout-heavy` when understanding that milestone's code means tracing intricate logic.
 - **Gates:** default to `detail` for `rolling` plans, so the user reviews every milestone the planner writes before it runs, and `none` for `upfront` plans. If the user asked for something else, use that.
 - **Parallel:** default to `auto` with Max parallel `3`, so waves run concurrently whenever they can. Use `off` only if the user asks, or if tasks can't run side by side on one machine at all (for example, every verification needs the same single database or port and the plan can't give each its own).
-- **Worktree setup:** parallel tasks run in fresh git worktrees, which contain only committed files. Work out what a fresh checkout of this repository needs before it can build and run the plan's Verify commands: dependency installs, generated files, untracked config such as `.env`. Write that as one command, run from the worktree root, that creates only git-ignored files; it can reach the main checkout through `$ORCHESTRATINATOR_MAIN`. Use `none` if a plain checkout builds as-is. If you can't tell, that is an insufficient-information question for step 5.
+- **Worktree setup:** parallel tasks run in fresh git worktrees, which contain only committed files. Work out what a fresh checkout of this repository needs before it can build and run the plan's Verify commands: dependency installs, generated files, untracked config such as `.env`. Write that as one command, run from the worktree root, that creates only git-ignored files; it can reach the main checkout through `$ORCASTRAT_MAIN`. Use `none` if a plain checkout builds as-is. If you can't tell, that is an insufficient-information question for step 5.
 
 ## 5. Find every problem and ask about it
 
@@ -172,7 +172,7 @@ Otherwise, write the plan.
 
 Write the plan directory (default `plans/<slug>/`). Set plan Status to `planned`, detailed milestones to `ready`, outlined ones to `outline`, and every task to `todo`. Every milestone file, detailed or outlined, gets the line `- Format: 2` directly after its Status line. plan.md gets the Coverage section from step 9, between its Milestones and Decisions sections, and every detailed milestone file gets its own Coverage section, directly after its Context and Waves line. Every detailed milestone file also gets its Review Focus section from step 6, directly after its Coverage section.
 
-Then have every detailed milestone reviewed with fresh eyes. Invoke the agent `orchestratinator:plan-reviewer` once for each detailed milestone, all in one message so they run at the same time, each with exactly:
+Then have every detailed milestone reviewed with fresh eyes. Invoke the agent `orcastrat:plan-reviewer` once for each detailed milestone, all in one message so they run at the same time, each with exactly:
 
 ```
 Plan: <plan dir>
@@ -192,4 +192,4 @@ Reply to the user with only:
 - Plan review: issues found and issues fixed, as totals across all detailed milestones.
 - Detailing, Gates, Parallel, Max parallel, and Worktree setup, in one line.
 - `Assumptions: none`, on its own line.
-- Next steps: review the plan, commit it, then run `/orchestratinator:run plans/<slug>`. run requires a clean working tree, so the plan must be committed first.
+- Next steps: review the plan, commit it, then run `/orcastrat:run plans/<slug>`. run requires a clean working tree, so the plan must be committed first.

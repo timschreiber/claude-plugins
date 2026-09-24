@@ -1,6 +1,6 @@
 ---
 name: status
-description: Summarize an Orchestratinator plan's progress, blocks, open questions, and next step, without changing anything. Only run when the user explicitly invokes it.
+description: Summarize an Orcastrat plan's progress, blocks, open questions, and next step, without changing anything. Only run when the user explicitly invokes it.
 disable-model-invocation: true
 argument-hint: "<plan dir>"
 model: haiku
@@ -23,10 +23,10 @@ Current: <milestone ID and title>, <done>/<total> tasks done, wave <n> of <count
 Blocked: <item, reason, one-line detail>        (omit if none)
 Open questions: <count>, listed below            (omit if none)
 Working tree: clean | <n> uncommitted paths
-Worktrees: none | <paths left under .git/orchestratinator/ for inspection>
+Worktrees: none | <paths left under .git/orcastrat/ for inspection>
 Next: <the exact command or action that comes next>
 ```
 
 Then list open questions, one per line, with their tags.
 
-For **Next**, choose exactly one: rerun `/orchestratinator:run <dir>`; resolve the block (say which); answer the open questions and record them under Decisions; commit or discard uncommitted changes; or nothing, the plan is complete.
+For **Next**, choose exactly one: rerun `/orcastrat:run <dir>`; resolve the block (say which); answer the open questions and record them under Decisions; commit or discard uncommitted changes; or nothing, the plan is complete.
