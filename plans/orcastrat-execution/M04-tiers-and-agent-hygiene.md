@@ -456,7 +456,7 @@ Waves: 6 (widths 3, 3, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M04-T02
 - Files: `plugins/orcastrat/agents/worker-light.md`, `plugins/orcastrat/agents/worker.md`, `plugins/orcastrat/agents/worker-heavy.md`, `plugins/orcastrat/agents/specialist.md`, `tests/orcastrat/agent-files.bats`

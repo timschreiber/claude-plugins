@@ -5,7 +5,7 @@ setup() {
 
 # The agents the list-based tests below cover. The task that brings an agent
 # file up to date adds its name here.
-WORKER_AGENTS='worker-mini-serial worker-mini-parallel'
+WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
 NON_WORKER_AGENTS=''
 NO_SHELL_AGENTS=''
 
