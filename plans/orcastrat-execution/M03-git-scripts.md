@@ -76,7 +76,7 @@ Waves: 5 (widths 1, 5, 2, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `.gitattributes`, `scripts/run-bats.sh`, `tests/orcastrat/lib-common.bats`, `tests/orcastrat/no-powershell.bats`, `tests/orcastrat/test-helper.bats`, `tests/orcastrat/test_helper.bash`, `plugins/orcastrat/scripts/lib/common`
