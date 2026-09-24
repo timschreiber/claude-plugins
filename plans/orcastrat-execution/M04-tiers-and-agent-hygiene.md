@@ -1,6 +1,6 @@
 # M04: Worker tiers and agent prefix hygiene (Changes 4, 21)
 
-- Status: ready
+- Status: in-progress
 - Format: 2
 - Goal: The plan has five tiers (`worker-mini`, `worker-light`, `worker`, `worker-heavy`, `specialist`) served by six worker agents, with the models, efforts and turn limits from Change 4's table. `run` dispatches `worker-mini` to `worker-mini-serial` or `worker-mini-parallel` by mode, and climbs the new ladder. The tier rubric is rewritten, and every reader of tier names is updated. Every existing agent has an explicit minimal `tools` allowlist in place of `disallowedTools`. Agent files hold every instruction that applies to every dispatch and nothing per-run, and dispatch messages carry only task-unique lines. The "before" dispatch sizes are recorded.
 - Depends on: M03
