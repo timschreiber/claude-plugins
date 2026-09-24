@@ -78,8 +78,8 @@ EOF
 # failure log, resumes and the report lines (spec sections 2 to 4).
 write_worker_rules() {
   cat > "$1" <<'EOF'
-The orchestrator sends you a plan directory, a milestone ID, a task ID, and sometimes a worktree path, retry context, or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
-If a `Failures: <path>` line is present, earlier attempts at this task failed and the working tree was reset. Before starting, read that failure log and every preserved report of an earlier attempt that exists, `notes/reports/<task ID>-attempt<n>.md` in the plan directory. Never read an earlier attempt's transcript. Don't repeat the approaches the failure log records. If they show the Steps can't be followed as written, stop and report `BLOCKED` / `GAP` instead of improvising.
+The orchestrator sends you a `Brief:` path and a `Report:` path, and sometimes a `Worktree:` path, retry context, or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
+If a `Failures: <path>` line is present, earlier attempts at this task failed and the working tree was reset. Before starting, read that failure log and every preserved report of an earlier attempt that exists, `<task ID>-attempt<n>.md` in the directory of your report file. Never read an earlier attempt's transcript. Don't repeat the approaches the failure log records. If they show the Steps can't be followed as written, stop and report `BLOCKED` / `GAP` instead of improvising.
 If the orchestrator resumes you with a message starting `Resume:`, your attempt failed. Read its `Reason:` line and any `Verify tail:` lines, fix the failure, and report again in the same format. Continue from your own work, unless the message says the tree was reset: then your changes are gone, and you start again from the task's first Step. A resume is a new attempt, so your count of failed Verify runs starts again at 0.
 - Don't edit plan.md or milestone files.
 - Commit your changes when the task is done and its Verify passes, or, for a task whose Verify is `review` alone, when the task is done. Commit only paths in the task's Files. Your first commit's subject is `<task ID>: <the task's Commit message>`, for example `M03-T02: feat(api): add the parser`; any further commit for the task is `<task ID>: <short message>`. Several commits per task are fine.
@@ -88,6 +88,33 @@ If the orchestrator resumes you with a message starting `Resume:`, your attempt 
 - Stop after your 3rd failed Verify run after implementation and report `BLOCKED` / `STUCK`, with one-line `HYPOTHESIS:` and `FIXES TRIED:` lines. The expected failing run of a `- Fails first: yes` task doesn't count. Stop the same way sooner if you can't make it work after a genuine attempt.
 HYPOTHESIS: <for STUCK, one line: why it still fails. Otherwise "-".>
 FIXES TRIED: <for STUCK, one line: what you tried. Otherwise "-".>
+EOF
+}
+
+# write_worker_report_rules <file>: writes the lines every worker agent file
+# must contain for Change 9: the brief, the report file, and
+# DONE_WITH_CONCERNS (spec sections 8 and 10).
+write_worker_report_rules() {
+  cat > "$1" <<'EOF'
+2. The brief at the `Brief:` path, in full. It holds plan.md's Decisions, the milestone's Context, and your task block, which is your prompt. Don't open plan.md or the milestone file: where Read first names their Decisions or Context, read them in the brief.
+3. Everything in the task's Read first list: the exact source sections, pattern files, and notes it names.
+4. Every file in the task's Files that already exists.
+- Use absolute paths under the worktree for every file you read, edit, or create, including your report file, CLAUDE.md, and AGENTS.md. The one exception is the brief: read it at the path the `Brief:` line gives.
+- If the task has `- Fails first: yes`: do its test-writing Steps first, then run the Verify command and confirm it fails, before you write any implementation code. Report `RED: CONFIRMED <first failing line>`, quoting the first failing line of Verify's output, and write the RED evidence in your report file: `RED: CONFIRMED` without it fails the attempt. If Verify passes before you have written implementation code, stop: either the test can't fail or the behavior already exists, and both mean the plan is wrong. Report `BLOCKED` / `GAP` with `RED: PASSED-EARLY`, and say in NOTE which check passed early.
+- If the task is done and its Verify passes, but you doubt that the work is correct or stays within the task's scope, report `DONE_WITH_CONCERNS` instead of `DONE`, and write each doubt under `## Concerns` in your report file. The orchestrator then has the reviewer check them before it accepts the task. Commit your work as for `DONE`.
+## Report file
+Before you reply, whatever your status, write your report file at the path the `Report:` line gives, creating its directory if needed. It has these six sections, in this order:
+- `## Implemented`: what you did, in a few lines.
+- `## Files changed`: each path you created or changed, one per line.
+- `## RED evidence`: for a task with `- Fails first: yes`, the line `Command: <the Verify command>`, then the relevant failing output of the run before implementation inside a `text` code fence. Otherwise the line `N/A`.
+- `## GREEN evidence`: the line `Command: <the Verify command>`, then its passing output inside a `text` code fence. For a task whose Verify is `review` alone, or when you stop before Verify passes, the line `N/A`.
+- `## Self-review`: for each Done-when criterion, one line on how the work meets it.
+- `## Concerns`: each doubt about correctness or scope, one per line, or `None.`
+Quote only the relevant lines of long output, never a whole build log. When the orchestrator resumes you and the file already exists, keep what is in it and append a section `## Resume after attempt <n>`, with `<n>` from the `Resume:` line, saying what you changed, with the new GREEN evidence and any new concerns. The report file is always in your task's scope, but don't commit it: it isn't in Files, and the orchestrator commits it with the task.
+Reply with exactly this block and nothing else, at most 10 lines:
+STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED
+NOTE: <one line. For GAP, the exact question. For DONE_WITH_CONCERNS, your main concern.>
+REPORT: <the path the Report: line gave>
 EOF
 }
 
@@ -240,5 +267,27 @@ EOF
     fi
   done
   echo "don't-commit rule in:$bad"
+  [ -z "$bad" ]
+}
+
+@test "worker agents read the brief and write the report file" {
+  local bad='' name missing
+  write_worker_report_rules "$BATS_TEST_TMPDIR/worker-report-rules"
+  for name in $WORKER_AGENTS; do
+    missing="$(missing_lines "$AGENTS/$name.md" "$BATS_TEST_TMPDIR/worker-report-rules")"
+    [ -z "$missing" ] || bad="$bad $name"
+  done
+  echo "missing report rules:$bad"
+  [ -z "$bad" ]
+}
+
+@test "worker agents don't read plan.md or the milestone file" {
+  local bad='' name
+  for name in $WORKER_AGENTS; do
+    if grep -qF -- '2. `plan.md` in the plan directory: the Decisions section.' "$AGENTS/$name.md" || grep -qF -- '4. Your task block in the milestone file, in full. It is your prompt.' "$AGENTS/$name.md"; then
+      bad="$bad $name"
+    fi
+  done
+  echo "plan-file reads in:$bad"
   [ -z "$bad" ]
 }

@@ -434,13 +434,14 @@ Waves: 7 (widths 4, 3, 2, 2, 1, 1, 1)
 - Kind: change
 - Tier: worker
 - Batch: yes
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: M04-T02, M05-T02
 - Files: `tests/orcastrat/agent-files.bats`, `plugins/orcastrat/agents/worker-mini-serial.md`, `plugins/orcastrat/agents/worker-mini-parallel.md`, `plugins/orcastrat/agents/worker-light.md`, `plugins/orcastrat/agents/worker.md`, `plugins/orcastrat/agents/worker-heavy.md`, `plugins/orcastrat/agents/specialist.md`
 - Verify: `bash scripts/run-bats.sh tests/orcastrat/agent-files.bats`
 - Fails first: yes
 - Commit: `feat(orcastrat): workers read their brief, write a report file, and may report done with concerns`
+- Process: worker committed on its own; reset and recommitted
 
 **Objective**
 
