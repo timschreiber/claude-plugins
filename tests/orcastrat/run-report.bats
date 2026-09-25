@@ -669,3 +669,56 @@ commit_at() {
   printf '%s\n' "$S1" | grep -qxF -- '- Tasks done: 0'
   printf '%s\n' "$P" | grep -qxF -- '- Tasks done: 3'
 }
+
+@test "suggestions are listed with their kind and target" {
+  cat > "$PLAN/notes/instruction-suggestions.md" << 'EOF'
+# Instruction suggestions
+
+## missing-test
+
+- Milestones: M01 M02
+- Kind: hook
+- Target: CLAUDE.md
+- Leanness: not flagged
+- Draft:
+
+```text
+## not-a-heading
+A PreToolUse hook that runs the tests.
+```
+
+## naming
+
+- Milestones: M02 M03
+- Kind: rule
+- Target: CLAUDE.md
+- Leanness: flagged; a hook or skill is preferred
+- Draft:
+
+```text
+Name shell variables in lower_snake_case.
+```
+EOF
+  write_log "start 2026-09-20T10:00:00Z plans/demo plan" "end 2026-09-20T10:45:30Z PAUSE GATE"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  section "$REPORT" '## Suggestions' > "$BATS_TEST_TMPDIR/suggestions.txt"
+  expected=$'## Suggestions\n- missing-test: hook, target CLAUDE.md\n- naming: rule, target CLAUDE.md'
+  [ "$(cat "$BATS_TEST_TMPDIR/suggestions.txt")" = "$expected" ]
+}
+
+@test "with no suggestions file the section says None." {
+  write_log "start 2026-09-20T10:00:00Z plans/demo plan" "end 2026-09-20T10:45:30Z PAUSE GATE"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  expected=$'## Suggestions\nNone.'
+  [ "$(section "$REPORT" '## Suggestions')" = "$expected" ]
+}
+
+@test "the report's sections come in order" {
+  write_log "start 2026-09-20T10:00:00Z plans/demo plan" "end 2026-09-20T10:45:30Z PAUSE GATE"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  expected=$'## Invocation 1: 2026-09-20T10:00:00Z\n## Plan so far\n## Usage\n## Model notices\n## Suggestions'
+  [ "$(grep '^## ' "$REPORT")" = "$expected" ]
+}

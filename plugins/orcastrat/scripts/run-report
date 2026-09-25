@@ -4,16 +4,16 @@
 # Writes <plan-dir>/notes/run-report.md from notes/run-log.md, plan.md's
 # "- D<nn>:" lines, the milestone files named in plan.md's Milestones table,
 # notes/<task ID>-failures.md failure logs, the review notes
-# (notes/M*-review*.md, notes/reviews/M*.md), and the trailer commits
-# (Orcastrat-Task: / Orchestratinator-Task:) on the plan's Branch. One
-# section per run invocation (a `start` line through the next `end` line, or
-# the next `start`, or the end of the log) and a Plan so far section, each
-# giving tasks done, attempts/resumes/escalations per tier, tasks that ended
-# STUCK, merges, containment downgrades, auto-decided questions, review
-# findings per milestone, leftover-background-work warnings, the stops and
-# pauses by reason and the wall-clock time in whole minutes, rounded down,
-# followed by Usage and Model notices sections. Later tasks add more
-# sources, more bullets and more sections.
+# (notes/M*-review*.md, notes/reviews/M*.md), the trailer commits
+# (Orcastrat-Task: / Orchestratinator-Task:) on the plan's Branch, and
+# notes/instruction-suggestions.md. One section per run invocation (a
+# `start` line through the next `end` line, or the next `start`, or the end
+# of the log) and a Plan so far section, each giving tasks done,
+# attempts/resumes/escalations per tier, tasks that ended STUCK, merges,
+# containment downgrades, auto-decided questions, review findings per
+# milestone, leftover-background-work warnings, the stops and pauses by
+# reason and the wall-clock time in whole minutes, rounded down, followed by
+# Usage, Model notices and Suggestions sections.
 # Prints the report's absolute path through print_path, and nothing else, on
 # success.
 # Exits 0 after writing the report. On a usage error, prints one
@@ -330,10 +330,52 @@ review_records() {
   )
 }
 
+# suggestion_records: when notes/instruction-suggestions.md exists, prints
+# "S<TAB><category><TAB><kind><TAB><target>" for each "## <category>"
+# heading outside a fence, at the suggestion's end (the next "## " line
+# outside a fence, or the end of the file), the kind and target being the
+# values after the first "- Kind: " and "- Target: " lines inside it,
+# trimmed, empty when missing.
+suggestion_records() {
+  local f="$plan_dir/notes/instruction-suggestions.md"
+  [ -f "$f" ] || return 0
+  sed 's/\r$//' "$f" | awk '
+    function emit() {
+      if (started) printf "S\t%s\t%s\t%s\n", category, kind, target
+    }
+    {
+      t = $0
+      sub(/^[ \t]*/, "", t)
+      if (substr(t, 1, 3) == "```") {
+        if (fence_open) { fence_open = 0 } else { fence_open = 1 }
+        next
+      }
+    }
+    fence_open { next }
+    /^## / {
+      emit()
+      started = 1
+      category = substr($0, 4)
+      kind = ""; kind_seen = 0
+      target = ""; target_seen = 0
+      next
+    }
+    started && !kind_seen && /^- Kind:/ {
+      kind_seen = 1
+      v = $0; sub(/^- Kind:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); kind = v
+    }
+    started && !target_seen && /^- Target:/ {
+      target_seen = 1
+      v = $0; sub(/^- Target:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); target = v
+    }
+    END { emit() }
+  '
+}
+
 # Sources: notes/run-log.md, plan.md's "- D<nn>:" lines, the milestone
-# files, the failure logs, the review notes, and the trailer commits on the
-# plan's Branch.
-records=$(runlog_records; decision_records; task_records; commit_records; failure_records; review_records)
+# files, the failure logs, the review notes, the trailer commits on the
+# plan's Branch, and notes/instruction-suggestions.md.
+records=$(runlog_records; decision_records; task_records; commit_records; failure_records; review_records; suggestion_records)
 
 # report_awk builds the report from the record lines above, one
 # <kind><TAB><fields> per line. It ignores lines whose kind it doesn't know,
@@ -672,6 +714,12 @@ substr($0, 1, 1) == "R" {
   rev_conf[rev_n] = $5 + 0
   rev_down[rev_n] = $6 + 0
 }
+substr($0, 1, 1) == "S" {
+  sugg_n++
+  sugg_category[sugg_n] = $2
+  sugg_kind[sugg_n] = $3
+  sugg_target[sugg_n] = $4
+}
 function usage_line(k, label,    i, w2, tok_sum, ms_sum, cnt, ord, ocnt, agent, j, atok, oms) {
   tok_sum = 0
   ms_sum = 0
@@ -742,6 +790,16 @@ END {
     print "- " substr(log_line[i], length("model-notice ") + 1)
   }
   if (notice_n == 0) print "None."
+  print ""
+  print "## Suggestions"
+  print ""
+  if (sugg_n == 0) {
+    print "None."
+  } else {
+    for (i = 1; i <= sugg_n; i++) {
+      print "- " sugg_category[i] ": " sugg_kind[i] ", target " sugg_target[i]
+    }
+  }
 }'
 
 notes_dir="$plan_dir/notes"

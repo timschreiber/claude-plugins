@@ -505,7 +505,7 @@ The run report gives, per milestone, the advisory findings and the blocking cand
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M11-T04
 - Files: `plugins/orcastrat/scripts/run-report`, `tests/orcastrat/run-report.bats`
