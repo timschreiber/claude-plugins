@@ -110,7 +110,7 @@ Six worker agents, five plan tiers:
 
 **Mechanism:**
 
-1. **Worktrees:** `git worktree add -b <task branch> <path> BASE` under `$(git rev-parse --git-common-dir)/orcastrat/<plan-slug>/worktrees/`, created by `run`, as today. Worktree setup runs there before dispatch, as today.
+1. **Worktrees:** `git worktree add -b <task branch> .orcastrat/wt/<task ID> BASE`, at the repository root, created by `run`. Not under `.git`: Claude Code treats `.git` as a protected directory, so every Write and Edit a worker made there would prompt. `.orcastrat/` is kept out of `git status` by the `/.orcastrat/` line in `.git/info/exclude` (Change 16). The plan slug isn't in the path, since there is one active run per checkout (Change 8). Worktree setup runs there before dispatch, as today. After a wave, `run` removes its task worktrees (blocked tasks keep their `refs/orcastrat/discarded/` refs) before the combined re-verify and before any Milestone verify or Final verify, so no check in the main checkout ever sees nested copies of the source.
 2. **Workers** work and commit inside their worktree. The dispatch includes `Worktree: <path>`, with the existing "cd into it for every command" rules.
 3. **Per task**, `run` checks the task branch in its worktree: scope, Verify, and the push check.
 4. **Integration:** in task order, `git cherry-pick BASE..<task branch>` onto the plan branch, which supports multi-commit tasks.
@@ -146,6 +146,12 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 - `task-brief <plan-dir> <task-id>`: Change 7.
 - `run-report <plan-dir>`: Change 11.
 - The Stop hook script: Change 8.
+- `instructions-ack <choice> <file>...` and `instructions-ack --check <file>...`: Change 16.
+- `ensure-exclude`: adds `/.orcastrat/` to `.git/info/exclude` if missing (Change 19).
+- `hold save` and `hold restore`: keep a task's report and failure log in `.git` across the reset that discards an attempt, and write them back.
+- `run-state drop`: deletes a stale run marker without writing to the run log (Change 8 preflight).
+
+These last four exist because Claude Code treats `.git` as a protected directory, where a write by Claude (Write, Edit, a redirect or `tee`) prompts. Anything `run` or `plan` writes inside `.git` goes through a shipped script or a git command.
 
 `run` calls these through `${CLAUDE_PLUGIN_ROOT}/scripts/` instead of reasoning through the git steps itself. Each script gets bash tests (Change 19).
 
@@ -386,16 +392,18 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
 
    - **Conflicts:** rules that work against Orcastrat, such as pushing, switching branches or rewriting history (Change 1), "run the whole suite" after every change (Change 13), or skipping tests or verification. Committing is no longer a conflict. Action: remove, or scope to work outside Orcastrat runs.
 4. **Threshold:** criteria only by default. An optional header field, `Instructions max lines: <n>`, adds a size finding when the total loaded line count exceeds it.
-5. **Outputs**, in `$(git rev-parse --git-common-dir)/orcastrat/instructions/` (inside `.git`, like the briefs, so they never dirty the tree):
+5. **Outputs.** Claude Code treats `.git` as a protected directory: a Write or Edit there, or a shell redirect or `tee` into it, prompts in `default` and `acceptEdits` modes, and settings allow rules can't pre-approve it. So Orcastrat never has Claude write into `.git` itself; every such write goes through a shipped script or a git command. The outputs are split:
+   - `review.md` and `fix-prompt.md` go in `.orcastrat/instructions/` at the repository root, written with the Write tool. The toolchain check (Change 19) makes sure `.git/info/exclude` holds the line `/.orcastrat/`, so these files never appear in `git status` and `git clean -fd` never removes them.
+   - `ack` goes in `$(git rev-parse --git-common-dir)/orcastrat/instructions/ack`, written only by the shipped script `instructions-ack <choice> <file>...`. The script runs `git hash-object` on each file itself and writes one `<hash> <path>` line per file plus the choice. Claude never computes or types a hash.
    - `review.md`: the findings with actions, then the general checks: `/doctor` for derivable content, `/context` to confirm what actually loaded, and the guidance's test for each line, "Would removing this cause Claude to make mistakes?"
    - `fix-prompt.md`: a paste-ready Claude Code prompt that performs the cleanup. It spells out in full: re-read CLAUDE.md, AGENTS.md and the review file; produce a plan with a detailed task list where each task needs no new reasoning or design decisions and is small and mechanical enough for Sonnet; then execute.
-   - `ack`: the list of loaded files, a hash of their content (`git hash-object`), the findings summary, and the choice made.
-6. **Prompt (interactive only):** when there are findings and the current hash isn't acknowledged, show a summary (finding counts by class, then each finding with its action, capped at about 10 lines, with the rest in the review) and the review's path, then ask through AskUserQuestion:
+   - `ack`: the list of loaded files with each file's `git hash-object` hash, and the choice made. It holds no findings summary: findings are model output and vary between reviews of identical files, so comparing them would prompt again when nothing had changed.
+6. **Prompt (interactive only):** when there are findings and the current file set isn't acknowledged, show a summary (finding counts by class, then each finding with its action, capped at about 10 lines, with the rest in the review) and the review's path, then ask through AskUserQuestion:
    - **Stop and fix it:** exit before anything starts. No plan files, no marker, no stop reason. Point to the fix prompt and `/doctor`.
    - **Continue:** record the acknowledgement for this hash and proceed.
-7. **Don't nag:** an acknowledged hash with unchanged findings produces no prompt. Conflicts are still shown as one line on every invoke. A changed file or new findings prompts again.
+7. **Don't nag:** a file set counts as acknowledged when its file list and per-file hashes equal those in `ack`. Then neither `plan` nor `run` repeats the full review or prompts; both show only the stored conflicts line from `.orcastrat/instructions/review.md`, if any. A full review runs only when a file changed, was added or was removed.
 8. **Unattended:** under `--yes`, never prompt. Write the review and fix prompt, show the one-line summary, and continue.
-9. **Cost split:** `plan` does the full review. `run` finds the instruction files again (a quick file search for CLAUDE.md, CLAUDE.local.md and AGENTS.md, plus the imports recorded in `ack`), hashes them with `git hash-object`, and compares against `ack`. If the list and hash are unchanged, it shows only the conflicts line (if any). Otherwise it does the full review.
+9. **Cost split:** `plan` and `run` find the instruction files (a quick file search for CLAUDE.md, CLAUDE.local.md and AGENTS.md, plus the imports recorded in `ack`) and run `instructions-ack --check <file>...`, which hashes them and prints whether the list and hashes equal `ack`'s, so Claude never hashes anything. If the file set is acknowledged, they show only the conflicts line (item 7). Otherwise they do the full review.
 10. **No edits:** Orcastrat never edits instruction files.
 
 **Acceptance:** a repo with a file tree, an API reference, an `@` import and a push rule produces findings with the matching actions and `path:line`, a review, a fix prompt with the standard prompt rules, and the prompt; Continue then `run` produces only the conflicts line; editing CLAUDE.md prompts again; `--yes` never prompts; nothing appears in `git status`.
@@ -442,7 +450,11 @@ Add bash scripts under `plugins/orcastrat/scripts/`, written to Change 19's rule
    - **git:** `git --version` runs and reports 2.17 or later, the oldest version with `git worktree remove`, which parallel-wave cleanup needs. (`git worktree add` and `--git-common-dir` date from 2.5.)
    - **Repository:** the current directory is inside a git work tree (`git rev-parse --is-inside-work-tree`), not a bare repository.
    - **Commit identity:** `git config user.name` and `git config user.email` both resolve. Workers commit (Change 1), so a missing identity would fail every task.
+   - **Active run (`run` only):** read this checkout's run marker (a file read). If it is live (heartbeat under an hour old), stop with the active-run message (Change 8) and skip the clean-tree check, whose advice to commit or discard would touch the other run's changes.
    - **Clean tree (`run` only):** see Change 1.
+   - **Exclude line:** once bash and git pass, the shipped script `ensure-exclude` makes sure `.git/info/exclude` holds the line `/.orcastrat/` (Change 16), adding it only if missing. It covers the task worktrees (Change 5) and the instruction-check files.
+   - **Worktree leftovers:** `git worktree prune`, then report (never delete) any directory under `.orcastrat/wt/` that `git worktree list` no longer lists.
+   - **Long paths (Windows only):** if `git config core.longpaths` isn't `true`, warn once without stopping, since nested worktrees can exceed 260 characters, and show `git config core.longpaths true`. Orcastrat never changes git config itself.
    - **On failure:** `run` stops with reason `SETUP`, and `plan` exits before surveying, since both depend on git. Exception: a missing or old bash only warns in `plan`, which doesn't run the scripts. Nothing is created in either case.
    - **The message** lists every failed item at once, with the fix for the platform: Git for Windows on native Windows (it provides both bash and git); the system package manager elsewhere (minimal Alpine-based containers, for example, ship `sh` without `bash`); `git init` for a directory that isn't a repository; and the `git config` commands for the identity.
 7. **Tests:** bash tests (bats-core) for every shipped script, piping fixture inputs (including Windows-style escaped paths and fixture repos) and asserting output, exit code and files written. No test runs Claude Code.
@@ -536,7 +548,7 @@ Add a **Prerequisites** section to the README, placed before the install instruc
    - **Linux:** bash is standard on most distributions. Minimal containers (Alpine, for example) need it installed.
 5. **No other interpreters:** Orcastrat itself needs no PowerShell, Python, Node or `jq`.
 6. **The project's own toolchain:** whatever the plan's Verify commands call (a .NET SDK, Node, `pwsh` for PowerShell-based projects) must be installed and on the PATH. Verify commands run through bash (Change 19).
-7. **Machine resources for parallel waves:** disk space for one worktree per concurrent task, and memory for `Max parallel` concurrent builds. Link to the Windows notes (Defender exclusions, memory versus `Max parallel`).
+7. **Machine resources for parallel waves:** disk space for one worktree per concurrent task, and memory for `Max parallel` concurrent builds. Link to the Windows notes (Defender exclusions, memory versus `Max parallel`, `core.longpaths`).
 8. **Recommended, not required:** a lean CLAUDE.md, since workers re-read it on every task (Change 16), and the "During a run" guidance (Change 22).
 9. **The preflight check:** a short table of what `plan` and `run` check (bash, git, work tree, commit identity, and for `run` a clean tree), what happens when a check fails (`run` stops with `SETUP`; `plan` exits, or only warns for bash), and the fix for each item per platform. The wording matches the check's actual messages.
 10. **Install and update:** the existing `claude plugin marketplace add` and `claude plugin install` commands follow the section, with the update commands and the rule to never update during a run.
@@ -630,7 +642,7 @@ The README carries the same steps under "Upgrading from Orchestratinator".
   - how commits work now (workers commit, `run` verifies the range and records status);
   - resume before escalate, the ladder, the failure log, and LIMIT (including `Max milestones`);
   - parallel defaults, conflict handling, and the automatic serial fallback;
-  - the Windows notes: Defender exclusions, and memory versus Max parallel;
+  - the Windows notes: Defender exclusions, memory versus Max parallel, and enabling `git config core.longpaths true` for nested worktrees;
   - task briefs, report files, `DONE_WITH_CONCERNS`, rubric-scored reviews with independent validation, and the run report;
   - the Stop hook: what it does, the heartbeat and loop guard, and one active run per checkout;
   - the decider, auto-decide, its limit, and that planning questions are always answered by the user;
