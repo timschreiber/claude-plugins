@@ -697,7 +697,7 @@ In `run`'s parallel wave, 3e item 4 commits every uncommitted path in the task's
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 6
 - Depends on: M07-T07, M07-T08, M07-T10
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
