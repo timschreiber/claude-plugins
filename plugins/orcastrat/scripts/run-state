@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# run-state start <plan-dir> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>
+# run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>
 #
 # Manages the active-run marker, <git-dir>/orcastrat/active-run, where
 # <git-dir> is this checkout's `git rev-parse --git-dir` (D06). The marker
-# holds the key=value lines plan=, started=, heartbeat=, blocks= and
-# block_heartbeat=, with times in UTC epoch seconds.
+# holds the key=value lines plan=, started=, heartbeat=, blocks=,
+# block_heartbeat= and session=, the ID of the session that owns the run
+# (D144), with times in UTC epoch seconds.
 #
-#   start <plan-dir>     writes a new marker, overwriting any old one, creates
+#   start <plan-dir> <session-id>
+#                        writes a new marker, overwriting any old one, creates
 #                        <plan-dir>/notes/ if needed, and appends
 #                        "start <UTC> <plan-dir>" to <plan-dir>/notes/run-log.md.
+#                        Writes session=<session-id> as given.
 #   beat                 sets heartbeat= to now.
 #   elapsed              prints the whole minutes since started=, rounded down.
 #   end <mode> <reason>  appends "end <UTC> <mode> <reason>" to the run log of
@@ -29,14 +32,14 @@ fail() {
   exit 2
 }
 
-usage='usage: run-state start <plan-dir> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>'
+usage='usage: run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>'
 
 [ "$#" -ge 1 ] || fail "$usage"
 cmd=$1
 shift
 case "$cmd" in
   start)
-    [ "$#" -eq 1 ] || fail 'usage: run-state start <plan-dir>'
+    [ "$#" -eq 2 ] || fail 'usage: run-state start <plan-dir> <session-id>'
     [ -d "$1" ] || fail "not a directory: $(print_path "$1")"
     ;;
   beat|elapsed)
@@ -72,10 +75,11 @@ marker_value() {
 case "$cmd" in
   start)
     plan_dir=$1
+    session_id=$2
     now=$(date -u +%s)
     mkdir -p "$git_dir/orcastrat"
-    printf 'plan=%s\nstarted=%s\nheartbeat=%s\nblocks=0\nblock_heartbeat=\n' \
-      "$plan_dir" "$now" "$now" > "$marker"
+    printf 'plan=%s\nstarted=%s\nheartbeat=%s\nblocks=0\nblock_heartbeat=\nsession=%s\n' \
+      "$plan_dir" "$now" "$now" "$session_id" > "$marker"
     mkdir -p "$plan_dir/notes"
     printf 'start %s %s\n' "$(utc_now)" "$plan_dir" >> "$plan_dir/notes/run-log.md"
     ;;
