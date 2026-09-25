@@ -234,7 +234,23 @@ Milestone: <ID>
 Output: <plan dir>/notes/<ID>-plan-review.md
 ```
 
-Each reviewer writes its issues to its Output file and replies `APPROVED` or `ISSUES`, with a count. For each milestone whose reviewer replied `ISSUES`, read its report and fix every issue under its `## Issues` heading yourself, once, under the same rules you wrote the milestone by in steps 6 to 9. Findings under its `## Advisory` heading are never fixed automatically. An issue whose fix needs a design decision is a question for the user: ask it as in step 5, and record the answer as a Decision before you make the fix. There is no re-review. After this one fix pass, run the validation checklist again on every milestone you changed, and fix every failure. A job done directly (step 10) writes no plan directory, so it gets no plan review.
+Each reviewer writes its findings to its Output file, each scored on the review rubric, the issues under `## Issues` and every other finding under `## Advisory`, and replies `APPROVED` or `ISSUES`, with a count.
+
+Before you fix anything, have every issue scored again by a validator, which never sees the reviewer's score. For each milestone whose reviewer replied `ISSUES`, read the lines under its report's `## Issues` heading: each line that starts with a number, a period and ` [` is a candidate. Invoke the agent `orcastrat:validator` once for each candidate, for every milestone at once, all in one message so they run at the same time, each with exactly:
+
+```
+Finding: <the candidate line, without its list marker and without its leading [<score>] >
+Plan: <plan dir>
+Milestone: <ID>
+```
+
+plus one line `Instruction file: <path>` for each instruction file the candidate names: each path in its text whose file name is `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md`, or which starts with `.claude/rules/`. Each validator replies with a `SCORE:` line and a `REASON:` line. A call that returns an error, or a reply with no `SCORE:` line holding a whole number, gives its candidate no score. Then, in each report:
+
+1. Change each candidate's leading `[<score>]` to `[<score>/<validator score>]`, or to `[<score>/none]` when it has no score.
+2. Move each candidate the validator scored below 80, or that has no score, to the end of `## Advisory`, adding ` — validator: <the text after REASON: in its reply>` to its end, or ` — validator: no score`. If `## Advisory` says `None.`, the first line moved replaces it.
+3. Renumber both sections from 1, and write `None.` in a section left with no finding.
+
+The candidates left under `## Issues` are the validated issues. For each milestone whose report still has one, fix every issue under its `## Issues` heading yourself, once, under the same rules you wrote the milestone by in steps 6 to 9. Findings under its `## Advisory` heading are never fixed automatically. An issue whose fix needs a design decision is a question for the user: ask it as in step 5, and record the answer as a Decision before you make the fix. There is no re-review. After this one fix pass, run the validation checklist again on every milestone you changed, and fix every failure. A job done directly (step 10) writes no plan directory, so it gets no plan review.
 
 Before you hand off, check the finished plan (plan.md and every milestone file, detailed or outlined) for assumptions, as the plan format's Assumptions subsection defines them. If you find any, don't hand off yet: ask them as one more round of questions, as in step 5, and record every answer under Decisions with source `user`. Then update every part of the plan an answer changes, under the same rules you wrote it by in steps 6 to 9, run the validation checklist again on every milestone you changed, and fix every failure. Then hand off.
 

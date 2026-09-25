@@ -16,6 +16,13 @@ field() {
   '
 }
 
+# has_stripped_line <file> <text>: succeeds when <file> has a line equal to
+# <text> once carriage returns and leading spaces are removed.
+has_stripped_line() {
+  [ -f "$1" ] || return 1
+  tr -d '\r' < "$1" | sed 's/^ *//' | grep -qxF -- "$2"
+}
+
 @test "field reads a frontmatter key and ignores the body" {
   printf -- '---\r\nname: sample\r\nmodel: opus\r\n---\r\n\r\nmodel: haiku\r\n' > "$BATS_TEST_TMPDIR/SKILL.md"
   [ "$(field "$BATS_TEST_TMPDIR/SKILL.md" model)" = 'opus' ]
@@ -51,4 +58,13 @@ field() {
   done
   echo "command substitution in:$bad"
   [ -z "$bad" ]
+}
+
+@test "plan's validator dispatch carries the finding without its score" {
+  local f="$SKILLS/plan/SKILL.md"
+  has_stripped_line "$f" 'Finding: <the candidate line, without its list marker and without its leading [<score>] >'
+  has_stripped_line "$f" 'Plan: <plan dir>'
+  has_stripped_line "$f" 'Milestone: <ID>'
+  run grep -qiE '^ *(reviewer )?score:' "$f"
+  [ "$status" -ne 0 ]
 }
