@@ -1,6 +1,6 @@
 # M09: Preflight checks and status delegation (Changes 19.6, 16, 20)
 
-- Status: blocked
+- Status: outline
 - Format: 2
 - Goal: Every `plan` and `run` starts with the toolchain check, then the instruction-file check, then the model check, in that order and before anything else. `run` writes its marker only after all three and "Proceed?". The instruction-file check writes `review.md`, `fix-prompt.md` and `ack` inside `.git`, prompts only when findings are new or changed, and never edits instruction files. No skill pins a model. `status` dispatches a new Haiku `status-reader` agent and relays its report.
 - Depends on: M08
@@ -21,7 +21,7 @@ Governing sources: spec §20 item 6 (toolchain check), §17 (Change 16), §21 (C
   - `git config user.name` and `git config user.email` both resolve.
   - For `run` only, first the active-run check (D155), then the clean-tree check (from M05).
   - `ensure-exclude`, `git worktree prune` and the leftover report, and the Windows `core.longpaths` warning (D154).
-  - On failure, `run` stops with `SETUP`; `plan` exits before surveying, but a missing or old bash only warns in `plan`. Nothing is created either way.
+  - On failure, `run` stops with `SETUP`; `plan` exits before surveying, including when bash is missing or older than 3.2 (D169). Nothing is created either way.
   - One message lists every failed item with its per-platform fix: Git for Windows on native Windows; the system package manager elsewhere; `git init`; the `git config` commands.
 - Instruction-file check (Change 16):
   - Files checked: root and nested CLAUDE.md, CLAUDE.local.md, AGENTS.md, and `@` imports resolved recursively. Confirm the list against the Claude Code docs' "CLAUDE.md files" page. `~/.claude/CLAUDE.md` is reported separately, as information.

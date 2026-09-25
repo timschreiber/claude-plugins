@@ -9,7 +9,7 @@
 - Parallel: off
 - Max parallel: 3
 - Worktree setup: none
-- Status: blocked
+- Status: in-progress
 
 ## Milestones
 
@@ -23,7 +23,7 @@
 | M06 | Task briefs and report files (Changes 7, 9) | done | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | done | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | done | M08-stop-hook.md |
-| M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | blocked | M09-preflight-checks.md |
+| M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | outline | M09-preflight-checks.md |
 | M10 | Scored reviews and the validator (Change 10) | outline | M10-scored-reviews.md |
 | M11 | Run report and rule suggestions (Changes 11, 18) | outline | M11-run-report-and-suggestions.md |
 | M12 | The decider (Change 12) | outline | M12-decider.md |
@@ -254,9 +254,8 @@
 - D166: The full instruction review (finding classes and actions, `review.md` with its one `Conflicts:` line, `fix-prompt.md`'s text, the summary and the prompt) is written once, in `plugins/orcastrat/reference/instruction-review.md`, which `plan` and `run` read only when a full review runs. The toolchain check, the quick instruction check and the model check are written into each skill. (source: spec §17 item 9, the full review runs only on a change; `run`'s "Read as little of the plan as you can")
 - D167: `status-reader` has no `maxTurns` or `effort` line (as `merger`), writes nothing, and caps its reply with the line `Your reply is at most 20 lines.` instead of the notes-file line. The `status` skill sends it `Plan: <plan dir>`, or `Plan: none` when no directory was given; then it lists the plan directories under `plans/` and asks for a rerun naming one. Its `Worktrees:` line lists paths under `.orcastrat/wt/` (D153). (source: spec §21 item 1; spec §22 item 3, "reply inline and write nothing"; D153; D158; `plugins/orcastrat/agents/merger.md:1-7`)
 - D168: The skill `model:` inventory for M15's CHANGELOG is the one `notes/M09-survey.md` records ("Investigate task" section): `model: opus` at `plugins/orcastrat/skills/plan/SKILL.md:6` and `plugins/orcastrat/skills/run/SKILL.md:6`, `model: haiku` at `plugins/orcastrat/skills/status/SKILL.md:6`. M09 has no investigate task for it. (source: `notes/M09-survey.md`; D66 item 2)
+- D169: A missing bash, or bash older than 3.2, stops the preflight of both `plan` and `run`, which report the missing prerequisite with its per-platform fix; spec §20 item 6's exception ("a missing or old bash only warns in `plan`") no longer applies, so `plan` never goes on without bash and its instruction-file check always has `ensure-exclude` and `instructions-ack`. As in D150, the stop writes and commits nothing. (source: user, M09 question, option c)
 
 ## Open questions
 
-- (M09) [contradiction] What does `plan` do when bash is missing or older than 3.2, now that its preflight runs the shipped scripts `ensure-exclude` and `instructions-ack`?
-  Where: spec §20 item 6, "Exception: a missing or old bash only warns in `plan`, which doesn't run the scripts", and "Exclude line: once bash and git pass, the shipped script `ensure-exclude` ..."; versus spec §17 item 1, the check runs "on every `/orcastrat:plan` and `/orcastrat:run`", item 5, `ack` is "written only by the shipped script `instructions-ack`", and item 9, "`plan` and `run` ... run `instructions-ack --check <file>...`" (D152). Without bash, `plan` can't run either script, so it can't check or record `ack`, and without the exclude line `.orcastrat/instructions/` shows in `git status`.
-  Options: (a) `plan` warns, skips `ensure-exclude` and both `instructions-ack` calls, does the full review every time, writes `review.md` and `fix-prompt.md`, prompts when there are findings, and records no `ack` (the two files show in `git status` until a run adds the exclude line); (b) `plan` warns and skips the instruction-file check entirely, saying in one line that `run` does it; (c) a missing or old bash stops `plan` like `run`, and spec §20 item 6 drops the exception; recommended: (b), because `run` needs bash anyway and always does the check before any task runs, and `plan` then writes nothing outside the plan.
+None.
