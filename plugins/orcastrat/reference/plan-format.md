@@ -19,7 +19,7 @@ plans/<plan-slug>/
 ├── plan.md                # index: header, settings, milestones, coverage, decisions, open questions
 ├── sources/               # verbatim copies of any input that isn't already a file in the repo
 │   └── prompt.md
-├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), plan reviews (<milestone-id>-plan-review.md), per-task reviews (reviews/<task-id>-attempt<n>.md), worker reports (reports/<task-id>.md), failure logs (<task-id>-failures.md), and the run log (run-log.md)
+├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), plan reviews (<milestone-id>-plan-review.md), per-task reviews (reviews/<task-id>-attempt<n>.md), worker reports (reports/<task-id>.md), failure logs (<task-id>-failures.md), the run log (run-log.md), the run report (run-report.md), and instruction suggestions (instruction-suggestions.md)
 ├── M01-<slug>.md          # one file per milestone
 └── M02-<slug>.md
 ```

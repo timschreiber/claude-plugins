@@ -848,7 +848,7 @@ At the end of each milestone, before its completion commit, `run` runs `suggest-
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: none
 - Files: `plugins/orcastrat/reference/plan-format.md`
