@@ -186,7 +186,7 @@ Waves: 5 (widths 3, 2, 2, 2, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M11-T01, M11-T07
 - Files: `plugins/orcastrat/scripts/run-report`, `tests/orcastrat/run-report.bats`

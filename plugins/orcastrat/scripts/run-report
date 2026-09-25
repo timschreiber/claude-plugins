@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # run-report <plan-dir>
 #
-# Writes <plan-dir>/notes/run-report.md from notes/run-log.md. One section
-# per run invocation (a `start` line through the next `end` line, or the
-# next `start`, or the end of the log) and a Plan so far section, each
-# giving the stops and pauses by reason and the wall-clock time in whole
-# minutes, rounded down. Later tasks add more sources, more bullets and more
-# sections.
+# Writes <plan-dir>/notes/run-report.md from notes/run-log.md and plan.md's
+# "- D<nn>:" lines. One section per run invocation (a `start` line through
+# the next `end` line, or the next `start`, or the end of the log) and a
+# Plan so far section, each giving merges, containment downgrades,
+# auto-decided questions, leftover-background-work warnings, the stops and
+# pauses by reason and the wall-clock time in whole minutes, rounded down,
+# followed by Usage and Model notices sections. Later tasks add more
+# sources, more bullets and more sections.
 # Prints the report's absolute path through print_path, and nothing else, on
 # success.
 # Exits 0 after writing the report. On a usage error, prints one
@@ -53,8 +55,17 @@ runlog_records() {
   sed 's/\r$//' "$plan_dir/notes/run-log.md" | awk '{ printf "L\t%s\n", $0 }'
 }
 
-# Sources: notes/run-log.md.
-records=$(runlog_records)
+# decision_records: prints "D<TAB><line without its leading \"- \">" for
+# each line of plan.md, carriage return removed, that matches
+# "^- D[0-9]+:".
+decision_records() {
+  sed 's/\r$//' "$plan_dir/plan.md" | awk '
+    /^- D[0-9]+:/ { printf "D\t%s\n", substr($0, 3) }
+  '
+}
+
+# Sources: notes/run-log.md, plan.md's "- D<nn>:" lines.
+records=$(runlog_records; decision_records)
 
 # report_awk builds the report from the record lines above, one
 # <kind><TAB><fields> per line. It ignores lines whose kind it doesn't know,
@@ -88,7 +99,53 @@ function inv_of(t,    k) {
   }
   return 0
 }
-function bullets(k,    i, list, val, key, count, order, ocount, sum, any_end, j) {
+function bullets(k,    i, list, val, key, count, order, ocount, sum, any_end, j,
+    r, m, a, f, cdown, acnt, wcnt, lk, w2, autoord, warnord, qid, did, txt) {
+  r = 0
+  m = 0
+  a = 0
+  cdown = 0
+  acnt = 0
+  wcnt = 0
+  for (i = 1; i <= log_n; i++) {
+    if (k > 0 && inv_of(log_epoch[i]) != k) continue
+    lk = log_key[i]
+    if (lk == "merge-resolved") {
+      r++
+    } else if (lk == "merge-rerun") {
+      m++
+    } else if (lk == "already-integrated") {
+      a++
+    } else if (lk == "containment-fallback") {
+      cdown++
+    } else if (lk == "auto-decided") {
+      acnt++
+      split(log_line[i], w2, " ")
+      autoord[acnt] = w2[3] "\t" w2[4]
+    } else if (lk == "background-warning") {
+      wcnt++
+      warnord[wcnt] = substr(log_line[i], length("background-warning ") + 1)
+    }
+  }
+  f = m + a
+  print "- Merges: " sprintf("%.0f", r) " resolved, " sprintf("%.0f", f) " failed (" sprintf("%.0f", m) " rerun, " sprintf("%.0f", a) " already integrated)"
+  print "- Containment downgrades: " sprintf("%.0f", cdown)
+  print "- Auto-decided questions: " sprintf("%.0f", acnt)
+  for (j = 1; j <= acnt; j++) {
+    split(autoord[j], w2, "\t")
+    qid = w2[1]
+    did = w2[2]
+    if (did in dec_text) {
+      txt = dec_text[did]
+    } else {
+      txt = did " (not in plan.md)"
+    }
+    print "  - " qid ": " txt
+  }
+  print "- Leftover-background-work warnings: " sprintf("%.0f", wcnt)
+  for (j = 1; j <= wcnt; j++) {
+    print "  - " warnord[j]
+  }
   if (k > 0) {
     if (inv_has_end[k] && (inv_mode[k] == "PAUSE" || inv_mode[k] == "STOP")) {
       list = inv_mode[k] " " inv_reason[k] " 1"
@@ -138,6 +195,8 @@ substr($0, 1, 1) == "L" {
   split(logline, w, " ")
   key = w[1]
   ts = w[2]
+  log_key[log_n] = key
+  log_epoch[log_n] = epoch(ts)
   if (key == "start") {
     e = epoch(ts)
     if (e >= 0) {
@@ -158,6 +217,44 @@ substr($0, 1, 1) == "L" {
     }
   }
 }
+substr($0, 1, 1) == "D" {
+  drest = substr($0, 3)
+  did = drest
+  sub(/:.*/, "", did)
+  dec_text[did] = drest
+}
+function usage_line(k, label,    i, w2, tok_sum, ms_sum, cnt, ord, ocnt, agent, j, atok, oms) {
+  tok_sum = 0
+  ms_sum = 0
+  cnt = 0
+  ocnt = 0
+  for (i = 1; i <= log_n; i++) {
+    if (log_key[i] != "usage") continue
+    split(log_line[i], w2, " ")
+    if (w2[5] !~ /^[0-9]+$/) continue
+    if (k > 0 && inv_of(log_epoch[i]) != k) continue
+    cnt++
+    tok_sum += w2[5] + 0
+    ms_sum += w2[6] + 0
+    agent = w2[4]
+    if (!(agent in atok)) {
+      ocnt++
+      ord[ocnt] = agent
+      atok[agent] = 0
+      oms[agent] = 0
+    }
+    atok[agent] += w2[5] + 0
+    oms[agent] += w2[6] + 0
+  }
+  if (cnt == 0) {
+    print "- " label ": not available"
+    return
+  }
+  print "- " label ": " sprintf("%.0f", tok_sum) " tokens, " sprintf("%.0f", int(ms_sum / 60000)) " min of agent time"
+  for (j = 1; j <= ocnt; j++) {
+    print "  - " ord[j] ": " sprintf("%.0f", atok[ord[j]]) " tokens, " sprintf("%.0f", int(oms[ord[j]] / 60000)) " min"
+  }
+}
 END {
   printf "# Run report: %s\n\n", title
   for (k = 1; k <= n; k++) {
@@ -168,6 +265,34 @@ END {
   print "## Plan so far"
   print ""
   bullets(0)
+  print ""
+  print "## Usage"
+  print ""
+  usage_total = 0
+  for (i = 1; i <= log_n; i++) {
+    if (log_key[i] != "usage") continue
+    split(log_line[i], w2, " ")
+    if (w2[5] !~ /^[0-9]+$/) continue
+    usage_total++
+  }
+  if (usage_total == 0) {
+    print "not available"
+  } else {
+    for (k = 1; k <= n; k++) {
+      usage_line(k, "Invocation " k)
+    }
+    usage_line(0, "Plan so far")
+  }
+  print ""
+  print "## Model notices"
+  print ""
+  notice_n = 0
+  for (i = 1; i <= log_n; i++) {
+    if (log_key[i] != "model-notice") continue
+    notice_n++
+    print "- " substr(log_line[i], length("model-notice ") + 1)
+  }
+  if (notice_n == 0) print "None."
 }'
 
 notes_dir="$plan_dir/notes"

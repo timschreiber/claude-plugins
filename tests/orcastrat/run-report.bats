@@ -19,6 +19,24 @@ setup() {
     "start 2026-09-22T08:00:00Z plans/demo plan"
     "end 2026-09-22T08:10:00Z PAUSE GATE"
   )
+
+  LOG15=(
+    "start 2026-09-20T10:00:00Z plans/demo plan"
+    "usage 2026-09-20T10:05:00Z M01-T01 worker 1000 60000"
+    "usage 2026-09-20T10:10:00Z M01-T01 reviewer 500 30000"
+    "merge-resolved 2026-09-20T10:20:00Z M01-T02"
+    "containment-fallback 2026-09-20T10:25:00Z M01 wave 2"
+    "background-warning 2026-09-20T10:26:00Z worker M01-T03 \"1 background task still running\""
+    "end 2026-09-20T10:45:30Z PAUSE GATE"
+    "model-notice 2026-09-21T08:59:00Z claude-sonnet-4-5"
+    "start 2026-09-21T09:00:00Z plans/demo plan"
+    "usage 2026-09-21T09:30:00Z M02 planner 3000 120000"
+    "merge-rerun 2026-09-21T09:40:00Z M02-T01"
+    "already-integrated 2026-09-21T09:41:00Z M02-T02"
+    "auto-decided 2026-09-21T09:50:00Z M02-T03-q1 D02"
+    "auto-decided 2026-09-21T09:55:00Z M02-T04-q1 D09"
+    "end 2026-09-21T11:30:59Z STOP GAP"
+  )
 }
 
 # run_script <args...>: runs run-report with the stub cygpath first on PATH,
@@ -44,6 +62,7 @@ write_plan() {
     '## Decisions' \
     '' \
     '- D01: First decision.' \
+    '- D02: Use the second option. (source: decider)' \
     '' \
     '## Open questions' \
     '' \
@@ -256,4 +275,101 @@ section() {
   [ "$status" -eq 0 ]
   S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
   printf '%s\n' "$S1" | grep -qxF -- '- Wall-clock time: 45 min'
+}
+
+@test "run-log events are counted per invocation and for the plan" {
+  write_log "${LOG15[@]}"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  S2=$(section "$REPORT" '## Invocation 2: 2026-09-21T09:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$S1" | grep -qxF -- '- Merges: 1 resolved, 0 failed (0 rerun, 0 already integrated)'
+  printf '%s\n' "$S1" | grep -qxF -- '- Containment downgrades: 1'
+  printf '%s\n' "$S1" | grep -qxF -- '- Auto-decided questions: 0'
+  printf '%s\n' "$S1" | grep -qxF -- '- Leftover-background-work warnings: 1'
+  printf '%s\n' "$S1" | grep -qxF -- '  - 2026-09-20T10:26:00Z worker M01-T03 "1 background task still running"'
+  ! printf '%s\n' "$S1" | grep -q '^  - M02:'
+
+  printf '%s\n' "$S2" | grep -qxF -- '- Merges: 0 resolved, 2 failed (1 rerun, 1 already integrated)'
+  printf '%s\n' "$S2" | grep -qxF -- '- Containment downgrades: 0'
+  printf '%s\n' "$S2" | grep -qxF -- '- Auto-decided questions: 2'
+  printf '%s\n' "$S2" | grep -qxF -- '  - M02-T03-q1: D02: Use the second option. (source: decider)'
+  printf '%s\n' "$S2" | grep -qxF -- '  - M02-T04-q1: D09 (not in plan.md)'
+  printf '%s\n' "$S2" | grep -qxF -- '- Leftover-background-work warnings: 0'
+
+  printf '%s\n' "$P" | grep -qxF -- '- Merges: 1 resolved, 2 failed (1 rerun, 1 already integrated)'
+  printf '%s\n' "$P" | grep -qxF -- '- Containment downgrades: 1'
+  printf '%s\n' "$P" | grep -qxF -- '- Auto-decided questions: 2'
+  printf '%s\n' "$P" | grep -qxF -- '  - M02-T03-q1: D02: Use the second option. (source: decider)'
+  printf '%s\n' "$P" | grep -qxF -- '  - M02-T04-q1: D09 (not in plan.md)'
+  printf '%s\n' "$P" | grep -qxF -- '- Leftover-background-work warnings: 1'
+  printf '%s\n' "$P" | grep -qxF -- '  - 2026-09-20T10:26:00Z worker M01-T03 "1 background task still running"'
+}
+
+@test "usage is summed per invocation and per agent" {
+  write_log "${LOG15[@]}"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  run section "$REPORT" '## Usage'
+  [ "$status" -eq 0 ]
+  expected=$'## Usage\n- Invocation 1: 1500 tokens, 1 min of agent time\n  - worker: 1000 tokens, 1 min\n  - reviewer: 500 tokens, 0 min\n- Invocation 2: 3000 tokens, 2 min of agent time\n  - planner: 3000 tokens, 2 min\n- Plan so far: 4500 tokens, 3 min of agent time\n  - worker: 1000 tokens, 1 min\n  - reviewer: 500 tokens, 0 min\n  - planner: 3000 tokens, 2 min'
+  [ "$output" = "$expected" ]
+}
+
+@test "model notices are listed" {
+  write_log "${LOG15[@]}"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  run section "$REPORT" '## Model notices'
+  [ "$status" -eq 0 ]
+  expected=$'## Model notices\n- 2026-09-21T08:59:00Z claude-sonnet-4-5'
+  [ "$output" = "$expected" ]
+}
+
+@test "with no usage line the usage section says not available" {
+  write_log "start 2026-09-20T10:00:00Z plans/demo plan" "end 2026-09-20T10:45:30Z PAUSE GATE"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  run section "$REPORT" '## Usage'
+  [ "$output" = $'## Usage\nnot available' ]
+  run section "$REPORT" '## Model notices'
+  [ "$output" = $'## Model notices\nNone.' ]
+}
+
+@test "an invocation with no usage line says not available" {
+  write_log \
+    "start 2026-09-20T10:00:00Z plans/demo plan" \
+    "usage 2026-09-20T10:05:00Z M01-T01 worker 1000 60000" \
+    "end 2026-09-20T10:45:30Z PAUSE GATE" \
+    "start 2026-09-21T09:00:00Z plans/demo plan" \
+    "end 2026-09-21T09:30:00Z PAUSE GATE"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  run section "$REPORT" '## Usage'
+  expected=$'## Usage\n- Invocation 1: 1000 tokens, 1 min of agent time\n  - worker: 1000 tokens, 1 min\n- Invocation 2: not available\n- Plan so far: 1000 tokens, 1 min of agent time\n  - worker: 1000 tokens, 1 min'
+  [ "$output" = "$expected" ]
+}
+
+@test "a line appended after the end line counts in the invocation its time falls in" {
+  write_log \
+    "start 2026-09-20T10:00:00Z plans/demo plan" \
+    "end 2026-09-20T10:45:30Z PAUSE GATE" \
+    "background-warning 2026-09-20T10:40:00Z worker M01-T03 \"still running\"" \
+    "usage 2026-09-20T10:44:00Z M01 milestone-reviewer 700 6000" \
+    "merge-resolved 2026-09-20T11:00:00Z M01-T05" \
+    "start 2026-09-21T09:00:00Z plans/demo plan"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  S2=$(section "$REPORT" '## Invocation 2: 2026-09-21T09:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$S1" | grep -qxF -- '- Leftover-background-work warnings: 1'
+  printf '%s\n' "$S1" | grep -qxF -- '- Merges: 0 resolved, 0 failed (0 rerun, 0 already integrated)'
+  printf '%s\n' "$S2" | grep -qxF -- '- Leftover-background-work warnings: 0'
+  printf '%s\n' "$S2" | grep -qxF -- '- Merges: 0 resolved, 0 failed (0 rerun, 0 already integrated)'
+  printf '%s\n' "$P" | grep -qxF -- '- Merges: 1 resolved, 0 failed (0 rerun, 0 already integrated)'
+  run section "$REPORT" '## Usage'
+  printf '%s\n' "$output" | grep -qxF -- '- Invocation 1: 700 tokens, 0 min of agent time'
+  printf '%s\n' "$output" | grep -qxF -- '- Invocation 2: not available'
 }
