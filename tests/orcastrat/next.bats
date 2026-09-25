@@ -374,15 +374,18 @@ mid_wave_plan() {
   [ "$(out_line recover)" = 'recover: done M01-T01; interrupted M01-T02' ]
 }
 
-@test "worktrees counts only task worktrees under the plan's worktree root" {
+@test "worktrees counts only task worktrees in the plan's worktrees directory" {
   fresh_plan
-  git -C "$REPO" worktree add --quiet -b task-one "$REPO/.git/orcastrat/demo plan/M01-T01"
-  mkdir -p "$REPO/.git/orcastrat/demo plan/logs" "$REPO/.git/orcastrat/demo plan/hold" "$REPO/.git/orcastrat/demo plan/briefs"
+  WT="$REPO/.git/orcastrat/demo plan"
+  git -C "$REPO" worktree add --quiet -b task-one "$WT/worktrees/M01-T01"
+  git -C "$REPO" worktree add --quiet -b task-two "$WT/worktrees/M01-T02"
+  git -C "$REPO" worktree add --quiet -b task-three "$WT/M01-T03"
+  mkdir -p "$WT/logs" "$WT/hold" "$WT/briefs" "$WT/worktrees/stray dir"
   git -C "$REPO" worktree add --quiet -b other "$BATS_TEST_TMPDIR/other tree"
   run_script "$PLAN"
   [ "$status" -eq 0 ]
   [ -z "$stderr" ]
-  [ "$(out_line worktrees)" = 'worktrees: 1' ]
+  [ "$(out_line worktrees)" = 'worktrees: 2' ]
 }
 
 @test "marker is active with its heartbeat age in whole minutes" {
