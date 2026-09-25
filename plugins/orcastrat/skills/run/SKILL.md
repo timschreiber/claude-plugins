@@ -220,7 +220,7 @@ If the `next:` line of **next** says `survey <ID>` or `detail <ID>`, the milesto
    Milestone: <ID>
    Output: <plan dir>/notes/<ID>-plan-review.md
    ```
-   Don't read the report yourself: it's for the planner. If it reports `ISSUES`, invoke the agent `orcastrat:planner` once more, with exactly:
+   If it reports `ISSUES`, **validate the review** (see Definitions) in its `## Issues` section, with those three lines as the lines you sent the reviewer. Read nothing else of the report: it's for the planner. If a validated finding is left, invoke the agent `orcastrat:planner` once more, with exactly:
    ```
    Plan: <plan dir>
    Milestone: <ID>
@@ -230,7 +230,7 @@ If the `next:` line of **next** says `survey <ID>` or `detail <ID>`, the milesto
    - `BLOCKED` / `GAP`: discard the detailed milestone file, restoring its committed outline: `git checkout -- "<milestone file path>"`. Then handle it as in item 4. The plan-review report stays, and the Stop commits it.
    - `DONE`: go on.
 
-   Once the plan review reports `APPROVED`, or the fix pass reports `DONE`, run the validation checklist on the milestone. Any failure → mark it `blocked` with the failures and go to **Stop**.
+   Once the plan review reports `APPROVED` or leaves no validated finding, or the fix pass reports `DONE`, run the validation checklist on the milestone. Any failure → mark it `blocked` with the failures and go to **Stop**.
 6. Check scope: `git status --porcelain` may show only plan.md, this milestone's file, this milestone's survey notes, and its plan-review report, `notes/<ID>-plan-review.md`. Anything else → **Stop**.
 7. Commit: `git add -A` and `git commit -m "chore(plan): detail <ID>"`. Survey notes stay in the plan as a record of what the planner worked from. The plan-review report is committed here too, with no commit of its own.
 8. If Gates includes `detail`: go to **Pause** with reason `GATE`, telling the user to review the milestone file and rerun.
@@ -368,8 +368,8 @@ Keep every task branch: the items below delete each one once its task is settled
    Base: <Base>
    Output: <plan dir>/notes/<ID>-review.md
    ```
-   Don't read the report yourself: it's for the planner. If `git status --porcelain` prints nothing, the report is unchanged from an earlier, interrupted attempt: skip the commit. Otherwise check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): review <ID>"`.
-3. If it reports `APPROVED`, or `FINDINGS` with `BLOCKING: 0`, go to item 7. Advisory findings don't hold the milestone up.
+   If it reports `FINDINGS` with `BLOCKING` above 0, **validate the review** (see Definitions) in its `## Blocking` section, with those four lines as the lines you sent the reviewer, before you commit it. Read nothing else of the report: it's for the planner. The review's result is then `BLOCKING: <the number of validated findings>`. If `git status --porcelain` prints nothing, the report is unchanged from an earlier, interrupted attempt: skip the commit. Otherwise check scope (`git status --porcelain` may show only that file; anything else → **Stop**), then commit it: `git add -A` and `git commit -m "chore(plan): review <ID>"`.
+3. If it reports `APPROVED`, or the review's result is `BLOCKING: 0`, after validation or as the committed review result, go to item 7. Advisory findings don't hold the milestone up.
 4. **Fix round.** For blocking findings, invoke the agent `orcastrat:planner` with exactly:
    ```
    Plan: <plan dir>
@@ -386,8 +386,8 @@ Keep every task branch: the items below delete each one once its task is settled
    Output: <plan dir>/notes/<ID>-review-2.md
    Re-review: fixes only
    ```
-   Don't read the report yourself. Skip the commit, or check scope and commit, as in item 2, with `git commit -m "chore(plan): re-review <ID>"`.
-6. If the re-review reports `BLOCKING` above 0, mark the milestone `blocked` and go to **Stop** with reason `REVIEW`. There is only one fix round per milestone.
+   If it reports `BLOCKING` above 0, **validate the review** (see Definitions) in its `## Blocking` section, with those five lines as the lines you sent the reviewer, before you commit it. Read nothing else of the report. Skip the commit, or check scope and commit, as in item 2, with `git commit -m "chore(plan): re-review <ID>"`.
+6. If the re-review's result is `BLOCKING` above 0, after validation or as the committed review result, mark the milestone `blocked` and go to **Stop** with reason `REVIEW`. There is only one fix round per milestone.
 7. Set the milestone to `done` in its file and in the plan.md table. Commit: `chore(plan): complete <ID>`.
 8. If a milestone limit is in effect (see Definitions) and this run has now completed that many milestones, go to **Pause** with reason `LIMIT`. If `--milestone` was given, go to **Pause** with reason `MILESTONE`. If Gates includes `milestone`, go to **Pause** with reason `GATE`, telling the user to review and rerun.
 9. Otherwise continue with the next milestone.

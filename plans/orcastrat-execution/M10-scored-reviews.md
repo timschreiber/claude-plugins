@@ -963,7 +963,7 @@ The plan format lists `validator` among its readers, lists the per-task reviewer
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 6
 - Depends on: M10-T05, M10-T08, M10-T09
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
