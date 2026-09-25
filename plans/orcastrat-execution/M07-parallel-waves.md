@@ -114,7 +114,7 @@ Waves: 4 (widths 4, 2, 2, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: M04-T02, M06-T05
 - Files: `plugins/orcastrat/agents/merger.md`, `tests/orcastrat/agent-files.bats`

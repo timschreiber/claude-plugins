@@ -6,8 +6,8 @@ setup() {
 # The agents the list-based tests below cover. The task that brings an agent
 # file up to date adds its name here.
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
-NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner'
-NO_SHELL_AGENTS='plan-reviewer planner'
+NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger'
+NO_SHELL_AGENTS='plan-reviewer planner merger'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
 # of <file>, ignoring carriage returns. Prints nothing when the file or the
@@ -198,6 +198,7 @@ EOF
       scout-heavy|reviewer|milestone-reviewer) expected='Read, Glob, Grep, Bash, Write' ;;
       plan-reviewer) expected='Read, Glob, Grep, Write' ;;
       planner) expected='Read, Glob, Grep, Write, Edit' ;;
+      merger) expected='Read, Glob, Grep, Edit' ;;
       *) expected='not a known non-worker agent' ;;
     esac
     [ "$(field "$AGENTS/$name.md" tools)" = "$expected" ] || bad="$bad $name"
@@ -323,4 +324,16 @@ EOF
   [ "$status" -eq 0 ]
   run grep -qF -- '2. `plan.md`: the header and Decisions.' "$AGENTS/reviewer.md"
   [ "$status" -ne 0 ]
+}
+
+@test "merger has its model, effort, no maxTurns, its input lines and its reply block" {
+  local f="$AGENTS/merger.md"
+  [ "$(field "$f" name)" = 'merger' ]
+  [ "$(field "$f" model)" = 'sonnet' ]
+  [ "$(field "$f" effort)" = 'high' ]
+  [ -z "$(field "$f" maxTurns)" ]
+  has_line "$f" 'Merge: <task ID>'
+  has_line "$f" 'Conflicted: <path>'
+  has_line "$f" 'STATUS: RESOLVED | UNRESOLVED'
+  has_line "$f" 'NOTE: <one line; for UNRESOLVED, why>'
 }
