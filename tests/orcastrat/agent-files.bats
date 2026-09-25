@@ -8,7 +8,7 @@ setup() {
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
 NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader validator'
 NO_SHELL_AGENTS='plan-reviewer planner merger'
-READING_BUDGET_AGENTS='validator'
+READING_BUDGET_AGENTS='validator plan-reviewer'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
 # of <file>, ignoring carriage returns. Prints nothing when the file or the
@@ -410,4 +410,18 @@ EOF
   has_line "$f" '- Keep your reply to the status block.'
   has_line "$f" '- Use the shell only for short read-only commands (`git log`, `git show`, `git diff`, `git status`, `grep`, `ls`, `cat`).'
   has_line "$f" 'Never read a review report: a file under `<plan dir>/notes/reviews/`, `<plan dir>/notes/<ID>-review.md`, `<plan dir>/notes/<ID>-review-2.md` or `<plan dir>/notes/<ID>-plan-review.md`. They hold the scores the reviewer gave, and you score without them.'
+}
+
+@test "plan-reviewer scores its findings and sorts them into issues and advisory findings" {
+  local f="$AGENTS/plan-reviewer.md"
+  has_line "$f" '- Keep your reply to the status block. Everything else goes in your report file.'
+  has_line "$f" '3. `plan.md`: its header, its Coverage rows for this milestone, its Open questions, and the Decisions the milestone cites, found with Grep. Not the whole file.'
+  has_line "$f" '- `design-decision`: a task needs a design decision to execute (checks 1, 2 and 4, and the unsourced assumptions of check 9).'
+  has_line "$f" '- `coverage`: a Coverage gap (check 3).'
+  has_line "$f" '- `wave-interference`: two tasks in one wave interfere (check 5).'
+  has_line "$f" '- `verify-fails-first`: a Verify command that would pass before its task is done (check 6), or a Fails first problem (check 7).'
+  has_line "$f" '- `verify-targeted`: a Verify command not targeted at what its task changes (check 6).'
+  has_line "$f" '1. [<score>] <category>: <task or milestone ID> — <which check> — <problem, quoting the text involved>'
+  run grep -qF 'for what check 11 finds' "$f"
+  [ "$status" -ne 0 ]
 }

@@ -536,7 +536,7 @@ The plan format lists `validator` among its readers, lists the per-task reviewer
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M02-T10, M10-T01, M10-T04
 - Files: `plugins/orcastrat/agents/plan-reviewer.md`, `tests/orcastrat/agent-files.bats`
