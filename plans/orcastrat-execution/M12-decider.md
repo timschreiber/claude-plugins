@@ -1,6 +1,6 @@
 # M12: The decider (Change 12)
 
-- Status: outline
+- Status: blocked
 - Format: 2
 - Goal: A `decider` agent answers every GAP during a run with a recommendation (or `no recommendation`) and a `local` or `stop` label. With `Auto-decide: local` or `--auto-decide`, `run` records `local` recommendations as Decisions and continues, up to `Max auto-decisions` per invocation, then pauses with `LIMIT`. Otherwise the stop report carries the recommendation. `plan` never uses the decider.
 - Depends on: M11
