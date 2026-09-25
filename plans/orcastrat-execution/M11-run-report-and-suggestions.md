@@ -24,7 +24,7 @@ Governing sources: spec §12 (Change 11), §19 (Change 18), §1.5, §25 item 4, 
 - **Inserting lines.** "Directly below the line L, insert X" means: put X on its own lines right after L, with no empty line between them.
 - Skill and reference text contains no `$(`: `tests/orcastrat/skill-files.bats` checks it.
 
-Waves: 5 (widths 3, 2, 2, 2, 1)
+Waves: 6 (widths 3, 2, 2, 2, 1, 1)
 
 ## Coverage
 
@@ -877,4 +877,65 @@ The plan format's directory listing names `notes/run-report.md` and `notes/instr
 **Done when**
 
 - The Verify command exits 0.
+- Nothing else in the file changed.
+
+### M11-T11: Make the review-findings test's per-invocation checks able to fail
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 6
+- Depends on: M11-T04, M11-T05
+- Files: `tests/orcastrat/run-report.bats`
+- Verify: `bash scripts/run-bats.sh tests/orcastrat/run-report.bats && f=tests/orcastrat/run-report.bats && grep -c '^  ! printf' "$f" | grep -qx 1 && grep -cF '[ -z "$(printf' "$f" | grep -qx 2`
+- Fails first: no (repairs two assertions that never ran, for placement `run-report` already does, `plugins/orcastrat/scripts/run-report:569-575`; the repaired test passes before and after, D214. The Verify greps fail until the edit is made)
+- Commit: `test(orcastrat): run-report review-findings test checks each invocation's milestones`
+- Origin: review
+
+**Objective**
+
+The test `review findings are counted per milestone, per invocation and for the plan` fails when Invocation 1 lists a `  - M02:` line or Invocation 2 lists a `  - M01:` line, so D207's per-invocation placement of review notes is really checked (M11 review, Blocking finding; D207).
+
+**Read first**
+
+- `plans/orcastrat-execution/notes/M11-review.md` section `## Blocking`
+- `tests/orcastrat/run-report.bats` the test `review findings are counted per milestone, per invocation and for the plan` (lines 558–620)
+
+**Interfaces**
+
+- Consumes: `run-report bullet Review findings` (M11-T04)
+- Produces: none
+
+**Steps**
+
+1. Why: bats runs a test body under `set -e`, and bash's errexit ignores a `!`-negated command that isn't the last in the body, so a line `! printf ... | grep -q ...` can never fail the test. In `tests/orcastrat/run-report.bats`, in the test `review findings are counted per milestone, per invocation and for the plan`, replace the line directly below the line `  printf '%s\n' "$S1" | grep -qxF -- '  - M01: 3 advisory, 2 confirmed, 1 downgraded'`, which is
+
+   ```text
+     ! printf '%s\n' "$S1" | grep -q '^  - M02:'
+   ```
+
+   with this line:
+
+   ```text
+     [ -z "$(printf '%s\n' "$S1" | grep '^  - M02:')" ]
+   ```
+
+   The same `! printf` line also appears in the test `run-log events are counted per invocation and for the plan` (line 406): leave that one unchanged.
+2. In the same test, replace the line
+
+   ```text
+     ! printf '%s\n' "$S2" | grep -q '^  - M01:'
+   ```
+
+   with this line:
+
+   ```text
+     [ -z "$(printf '%s\n' "$S2" | grep '^  - M01:')" ]
+   ```
+
+3. Run Verify. If a bats test fails, change nothing else (never `plugins/orcastrat/scripts/run-report`): stop and report `BLOCKED` / `GAP`, quoting the failing test's output.
+
+**Done when**
+
+- The Verify command exits 0: 29 tests pass, `tests/orcastrat/run-report.bats` has exactly one line starting `  ! printf` (line 406, unchanged), and exactly two lines holding `[ -z "$(printf`.
 - Nothing else in the file changed.
