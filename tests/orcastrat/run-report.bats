@@ -96,6 +96,120 @@ section() {
   ' "$file"
 }
 
+# write_tasks: writes $PLAN/M01-first.md with four tasks (M01-T01..M01-T04)
+# exercising tier, re-tiering and escalation/blocked combinations, plus a
+# fenced task heading that must not be counted.
+write_tasks() {
+  printf '%s\n' \
+    '# M01: First' \
+    '' \
+    '- Status: in-progress' \
+    '' \
+    '## Tasks' \
+    '' \
+    '### M01-T01: One' \
+    '' \
+    '- Tier: worker' \
+    '- Status: done' \
+    '' \
+    '### M01-T02: Two' \
+    '' \
+    '- Tier: worker' \
+    '- Status: done' \
+    '- Escalated: worker → worker-heavy (Verify failed)' \
+    '' \
+    '### M01-T03: Three' \
+    '' \
+    '- Tier: worker' \
+    '- Status: blocked' \
+    '- Escalated: worker → worker-heavy (Verify failed)' \
+    '- Escalated: worker-heavy → specialist (STUCK: no idea)' \
+    '- Blocked: STUCK — reviewer FAIL: x' \
+    '' \
+    '### M01-T04: Four' \
+    '' \
+    '- Tier: worker-light' \
+    '- Status: done' \
+    '- Re-tiered: worker-light → worker (batch b1 pilot M01-T01)' \
+    '' \
+    '**Steps**' \
+    '' \
+    '1. Write:' \
+    '' \
+    '   ```markdown' \
+    '   ### M01-T09: Not a task' \
+    '   - Tier: worker' \
+    '   - Status: done' \
+    '   ```' \
+    > "$PLAN/M01-first.md"
+}
+
+# write_failures: writes $PLAN/notes/M01-T02-failures.md and
+# $PLAN/notes/M01-T03-failures.md.
+write_failures() {
+  printf '%s\n' \
+    '# M01-T02 failures' \
+    '' \
+    '## Attempt 1' \
+    '' \
+    '- Tier: worker' \
+    '- Time: 2026-09-20T10:10:00Z' \
+    '- Description: Verify failed' \
+    '- Then: resumed' \
+    '' \
+    '## Attempt 2' \
+    '' \
+    '- Tier: worker' \
+    '- Time: 2026-09-20T10:20:00Z' \
+    '- Description: Verify failed' \
+    '- Then: escalated to worker-heavy' \
+    > "$PLAN/notes/M01-T02-failures.md"
+  printf '%s\n' \
+    '# M01-T03 failures' \
+    '' \
+    '## Attempt 1' \
+    '' \
+    '- Tier: worker' \
+    '- Time: 2026-09-21T09:10:00Z' \
+    '- Description: Verify failed' \
+    '- Then: resumed' \
+    '' \
+    '## Attempt 2' \
+    '' \
+    '- Tier: worker' \
+    '- Time: 2026-09-21T09:20:00Z' \
+    '- Description: Verify failed' \
+    '- Then: escalated to worker-heavy' \
+    '' \
+    '## Attempt 3' \
+    '' \
+    '- Tier: worker-heavy' \
+    '- Time: 2026-09-21T09:30:00Z' \
+    '- Description: API error' \
+    '- Then: resume failed (API error), escalated to specialist' \
+    '' \
+    '## Attempt 4' \
+    '' \
+    '- Tier: specialist' \
+    '- Time: 2026-09-21T09:40:00Z' \
+    '- Description: interrupted attempt' \
+    '- Then: resumed' \
+    '' \
+    '## Attempt 5' \
+    '' \
+    '- Tier: specialist' \
+    '- Time: 2026-09-21T09:50:00Z' \
+    '- Description: STUCK: no idea' \
+    '- Then: blocked (STUCK)' \
+    > "$PLAN/notes/M01-T03-failures.md"
+}
+
+# commit_at <date> <subject> <trailer>: makes an empty commit in $REPO at the
+# given committer/author date, with the given subject and trailer.
+commit_at() {
+  GIT_COMMITTER_DATE="$1" GIT_AUTHOR_DATE="$1" git -C "$REPO" commit --quiet --allow-empty -m "$2" -m "$3"
+}
+
 @test "run-report writes the report and prints its path through print_path" {
   write_log "start 2026-09-20T10:00:00Z plans/demo plan" "end 2026-09-20T10:45:30Z PAUSE GATE"
   run_script "$PLAN"
@@ -372,4 +486,92 @@ section() {
   run section "$REPORT" '## Usage'
   printf '%s\n' "$output" | grep -qxF -- '- Invocation 1: 700 tokens, 0 min of agent time'
   printf '%s\n' "$output" | grep -qxF -- '- Invocation 2: not available'
+}
+
+@test "tasks, attempts, resumes, escalations and STUCK are counted per invocation and for the plan" {
+  write_tasks
+  write_failures
+  commit_at '2026-09-20 10:30:00 +0000' 'chore(plan): M01-T01 done' 'Orcastrat-Task: M01-T01'
+  commit_at '2026-09-20 10:40:00 +0000' 'chore(plan): M01-T02 done' 'Orcastrat-Task: M01-T02'
+  commit_at '2026-09-21 10:00:00 +0000' 'chore(plan): M01-T04 done' 'Orchestratinator-Task: M01-T04'
+  write_log \
+    "start 2026-09-20T10:00:00Z plans/demo plan" \
+    "end 2026-09-20T10:45:30Z PAUSE GATE" \
+    "start 2026-09-21T09:00:00Z plans/demo plan" \
+    "end 2026-09-21T11:30:59Z STOP STUCK"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  S2=$(section "$REPORT" '## Invocation 2: 2026-09-21T09:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$S1" | grep -qxF -- '- Tasks done: 2'
+  printf '%s\n' "$S1" | grep -qxF -- '- Attempts per tier: worker 3, worker-heavy 1'
+  printf '%s\n' "$S1" | grep -qxF -- '- Resumes per tier: worker 1'
+  printf '%s\n' "$S1" | grep -qxF -- '- Escalations per tier: worker 1'
+  printf '%s\n' "$S1" | grep -qxF -- '- Tasks that ended STUCK: 0'
+
+  printf '%s\n' "$S2" | grep -qxF -- '- Tasks done: 1'
+  printf '%s\n' "$S2" | grep -qxF -- '- Attempts per tier: worker 3, worker-heavy 1, specialist 2'
+  printf '%s\n' "$S2" | grep -qxF -- '- Resumes per tier: worker 1, specialist 1'
+  printf '%s\n' "$S2" | grep -qxF -- '- Escalations per tier: worker 1, worker-heavy 1'
+  printf '%s\n' "$S2" | grep -qxF -- '- Tasks that ended STUCK: 1 (M01-T03)'
+
+  printf '%s\n' "$P" | grep -qxF -- '- Tasks done: 3'
+  printf '%s\n' "$P" | grep -qxF -- '- Attempts per tier: worker 6, worker-heavy 2, specialist 2'
+  printf '%s\n' "$P" | grep -qxF -- '- Resumes per tier: worker 2, specialist 1'
+  printf '%s\n' "$P" | grep -qxF -- '- Escalations per tier: worker 2, worker-heavy 1'
+  printf '%s\n' "$P" | grep -qxF -- '- Tasks that ended STUCK: 1 (M01-T03)'
+}
+
+@test "a done task's tier counts only Escalated lines below its last Blocked line" {
+  printf '%s\n' \
+    '# M01: First' \
+    '' \
+    '## Tasks' \
+    '' \
+    '### M01-T05: Five' \
+    '' \
+    '- Tier: worker' \
+    '- Status: done' \
+    '- Escalated: worker → worker-heavy (a)' \
+    '- Escalated: worker-heavy → specialist (b)' \
+    '- Blocked: STUCK — c' \
+    '' \
+    '### M01-T06: Six' \
+    '' \
+    '- Tier: worker' \
+    '- Status: done' \
+    '- Escalated: worker → worker-heavy (d)' \
+    '- Blocked: GAP — e' \
+    '- Escalated: worker → worker-heavy (Verify failed)' \
+    > "$PLAN/M01-first.md"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$P" | grep -qxF -- '- Tasks done: 2'
+  printf '%s\n' "$P" | grep -qxF -- '- Attempts per tier: worker 1, worker-heavy 1'
+  printf '%s\n' "$P" | grep -qxF -- '- Resumes per tier: none'
+  printf '%s\n' "$P" | grep -qxF -- '- Escalations per tier: none'
+  printf '%s\n' "$P" | grep -qxF -- '- Tasks that ended STUCK: 0'
+}
+
+@test "a plan whose Branch doesn't exist has no tasks done per invocation" {
+  write_tasks
+  write_failures
+  commit_at '2026-09-20 10:30:00 +0000' 'chore(plan): M01-T01 done' 'Orcastrat-Task: M01-T01'
+  commit_at '2026-09-20 10:40:00 +0000' 'chore(plan): M01-T02 done' 'Orcastrat-Task: M01-T02'
+  commit_at '2026-09-21 10:00:00 +0000' 'chore(plan): M01-T04 done' 'Orchestratinator-Task: M01-T04'
+  write_log \
+    "start 2026-09-20T10:00:00Z plans/demo plan" \
+    "end 2026-09-20T10:45:30Z PAUSE GATE" \
+    "start 2026-09-21T09:00:00Z plans/demo plan" \
+    "end 2026-09-21T11:30:59Z STOP STUCK"
+  sed 's/^- Branch: main$/- Branch: nope/' "$PLAN/plan.md" > "$PLAN/plan.tmp"
+  mv "$PLAN/plan.tmp" "$PLAN/plan.md"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$S1" | grep -qxF -- '- Tasks done: 0'
+  printf '%s\n' "$P" | grep -qxF -- '- Tasks done: 3'
 }

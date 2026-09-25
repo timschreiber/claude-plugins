@@ -283,7 +283,7 @@ The run report counts merges, containment downgrades, auto-decided questions and
 - Kind: change
 - Tier: worker-heavy
 - Why this tier: fully specified but intricate: a fence-aware task parser applying D84's tier rule, trailer parsing from `git log`, and per-tier counts in two orders.
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M11-T02
 - Files: `plugins/orcastrat/scripts/run-report`, `tests/orcastrat/run-report.bats`

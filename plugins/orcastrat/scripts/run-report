@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # run-report <plan-dir>
 #
-# Writes <plan-dir>/notes/run-report.md from notes/run-log.md and plan.md's
-# "- D<nn>:" lines. One section per run invocation (a `start` line through
-# the next `end` line, or the next `start`, or the end of the log) and a
-# Plan so far section, each giving merges, containment downgrades,
-# auto-decided questions, leftover-background-work warnings, the stops and
-# pauses by reason and the wall-clock time in whole minutes, rounded down,
-# followed by Usage and Model notices sections. Later tasks add more
-# sources, more bullets and more sections.
+# Writes <plan-dir>/notes/run-report.md from notes/run-log.md, plan.md's
+# "- D<nn>:" lines, the milestone files named in plan.md's Milestones table,
+# notes/<task ID>-failures.md failure logs, and the trailer commits
+# (Orcastrat-Task: / Orchestratinator-Task:) on the plan's Branch. One
+# section per run invocation (a `start` line through the next `end` line, or
+# the next `start`, or the end of the log) and a Plan so far section, each
+# giving tasks done, attempts/resumes/escalations per tier, tasks that ended
+# STUCK, merges, containment downgrades, auto-decided questions,
+# leftover-background-work warnings, the stops and pauses by reason and the
+# wall-clock time in whole minutes, rounded down, followed by Usage and
+# Model notices sections. Later tasks add more sources, more bullets and
+# more sections.
 # Prints the report's absolute path through print_path, and nothing else, on
 # success.
 # Exits 0 after writing the report. On a usage error, prints one
@@ -32,6 +36,16 @@ plan_dir=$1
 [ "$(git -C "$plan_dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
   fail "not inside a git work tree: $(print_path "$plan_dir")"
 [ -f "$plan_dir/plan.md" ] || fail "no plan.md in: $(print_path "$plan_dir")"
+
+# branch/ref/has_ref: as recover computes them (recover:98-99), used by
+# commit_records to read trailer commits on the plan's Branch.
+branch=$(sed -n 's/^- Branch:[[:space:]]*//p' "$plan_dir/plan.md" 2>/dev/null | head -n 1 | tr -d '\r' | sed 's/[[:space:]]*$//')
+ref="refs/heads/$branch"
+if [ -n "$branch" ] && git -C "$plan_dir" rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then
+  has_ref=1
+else
+  has_ref=0
+fi
 
 # The report's title: the text after "# Plan: " on plan.md's first line when
 # it starts with that, otherwise the plan directory's last path component
@@ -64,8 +78,185 @@ decision_records() {
   '
 }
 
-# Sources: notes/run-log.md, plan.md's "- D<nn>:" lines.
-records=$(runlog_records; decision_records)
+# task_records: for each Milestones-table row of plan.md whose ID matches
+# ^M[0-9]+$, in table order, when the row's file exists, prints
+# "T<TAB><task ID><TAB><status><TAB><current tier>" at each task heading's
+# (### M<n>-T<n>:) end -- the next heading outside a fence, or the end of
+# the file. Only lines outside fences, starting at column 0, count. The
+# current tier follows D84: the starting tier is the word after "-> " in
+# the task's first "- Re-tiered:" line, or else its first "- Tier:" value;
+# the counted "- Escalated:" lines are those after its last "- Blocked:"
+# line, or all of them when it has none; the current tier is the word
+# after "-> " in the last counted "- Escalated:" line, or else the
+# starting tier. Mirrors recover's fence rule (recover:55-96), as the
+# copies in task-brief and next do (D211).
+task_records() {
+  # shellcheck disable=SC2016
+  local rows_awk='
+    { sub(/\r$/, "") }
+    /^## / { in_table = ($0 == "## Milestones"); next }
+    in_table && /^\|/ {
+      n = split($0, cell, "|")
+      for (i = 1; i <= n; i++) gsub(/^[ \t]+|[ \t]+$/, "", cell[i])
+      id = cell[2]
+      if (id !~ /^M[0-9]+$/) next
+      fi = n
+      file = cell[fi]
+      if (file == "") { fi = n - 1; file = cell[fi] }
+      if (file != "") print file
+    }'
+  # shellcheck disable=SC2016
+  local task_awk='
+    function fence_of(s,   c, n) {
+      c = substr(s, 1, 1)
+      if (c != "`" && c != "~") return ""
+      n = 0
+      while (substr(s, n + 1, 1) == c) n++
+      if (n < 3) return ""
+      return substr(s, 1, n)
+    }
+    function arrow_word(s,   pos, rest, sp) {
+      pos = index(s, "→ ")
+      if (pos == 0) return ""
+      rest = substr(s, pos + length("→ "))
+      sp = index(rest, " ")
+      if (sp == 0) return rest
+      return substr(rest, 1, sp - 1)
+    }
+    function emit(   start_tier, cur_tier, cstart) {
+      if (id == "") return
+      start_tier = retier_seen ? retier_to : tier_val
+      cstart = blocked_seen ? (last_blocked_esc + 1) : 1
+      if (esc_n >= cstart) { cur_tier = esc_to[esc_n] } else { cur_tier = start_tier }
+      printf "T\t%s\t%s\t%s\n", id, status, cur_tier
+    }
+    {
+      sub(/\r$/, "")
+      t = $0
+      sub(/^[ \t]*/, "", t)
+      f = fence_of(t)
+      if (fence_open != "") {
+        rest2 = substr(t, length(f) + 1)
+        sub(/[ \t]*$/, "", rest2)
+        if (f != "" && substr(f, 1, 1) == substr(fence_open, 1, 1) && length(f) >= length(fence_open) && rest2 == "") fence_open = ""
+        next
+      }
+      if (f != "") { fence_open = f; next }
+      if ($0 ~ /^#+ /) {
+        emit()
+        id = ""; status = ""; status_seen = 0
+        tier_val = ""; tier_seen = 0
+        retier_to = ""; retier_seen = 0
+        blocked_seen = 0; last_blocked_esc = 0
+        esc_n = 0
+        delete esc_to
+        if ($0 ~ /^### M[0-9]+-T[0-9]+:/) {
+          id = substr($0, 5)
+          sub(/:.*/, "", id)
+        }
+        next
+      }
+      if (id == "") next
+      if (!status_seen && $0 ~ /^- Status:/) {
+        status_seen = 1
+        v = $0; sub(/^- Status:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); status = v
+      }
+      if (!tier_seen && $0 ~ /^- Tier:/) {
+        tier_seen = 1
+        v = $0; sub(/^- Tier:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); tier_val = v
+      }
+      if (!retier_seen && $0 ~ /^- Re-tiered:/) {
+        retier_seen = 1
+        v = $0; sub(/^- Re-tiered:[ \t]*/, "", v); sub(/[ \t]*$/, "", v)
+        retier_to = arrow_word(v)
+      }
+      if ($0 ~ /^- Escalated:/) {
+        v = $0; sub(/^- Escalated:[ \t]*/, "", v); sub(/[ \t]*$/, "", v)
+        esc_n++
+        esc_to[esc_n] = arrow_word(v)
+      }
+      if ($0 ~ /^- Blocked:/) {
+        blocked_seen = 1
+        last_blocked_esc = esc_n
+      }
+    }
+    END { emit() }'
+  local mfile
+  awk "$rows_awk" "$plan_dir/plan.md" | while IFS= read -r mfile; do
+    [ -n "$mfile" ] || continue
+    [ -f "$plan_dir/$mfile" ] || continue
+    awk "$task_awk" "$plan_dir/$mfile"
+  done
+}
+
+# commit_records: when has_ref is 1, prints
+# "C<TAB><committer epoch><TAB><task ID>" for each message line, carriage
+# return removed, that matches "^(Orcastrat|Orchestratinator)-Task: ", the
+# task ID being the rest of the line, trimmed, and the epoch the number on
+# the last line before it that starts with the byte \001.
+commit_records() {
+  [ "$has_ref" = 1 ] || return 0
+  git -C "$plan_dir" log "$ref" -E --grep='^(Orcastrat|Orchestratinator)-Task: ' --format='%x01%ct%n%B' 2>/dev/null | awk '
+    { sub(/\r$/, "") }
+    /^\001/ { epoch = substr($0, 2); next }
+    /^(Orcastrat|Orchestratinator)-Task: / {
+      v = $0
+      sub(/^(Orcastrat|Orchestratinator)-Task:[ \t]*/, "", v)
+      sub(/[ \t]*$/, "", v)
+      printf "C\t%s\t%s\n", epoch, v
+    }
+  '
+}
+
+# failure_records: for each existing file notes/M*-failures.md, in glob
+# order, the task ID is its base name without "-failures.md"; for each
+# "## Attempt " entry it prints, at the entry's end (the next "## " line, or
+# the end of the file), "F<TAB><Time><TAB><task ID><TAB><Tier><TAB><Then>",
+# the three values taken from the entry's first "- Time: ", "- Tier: " and
+# "- Then: " lines, trimmed, carriage returns removed, empty when missing.
+failure_records() {
+  local f base task_id
+  for f in "$plan_dir"/notes/M*-failures.md; do
+    [ -f "$f" ] || continue
+    base=$(printf '%s\n' "$f" | sed 's#.*/##')
+    task_id=${base%-failures.md}
+    sed 's/\r$//' "$f" | awk -v tid="$task_id" '
+      function emit() {
+        if (started) printf "F\t%s\t%s\t%s\t%s\n", time_v, tid, tier_v, then_v
+      }
+      /^## Attempt / {
+        emit()
+        started = 1
+        time_v = ""; time_seen = 0
+        tier_v = ""; tier_seen = 0
+        then_v = ""; then_seen = 0
+        next
+      }
+      /^## / {
+        emit()
+        started = 0
+        next
+      }
+      started && !time_seen && /^- Time:/ {
+        time_seen = 1
+        v = $0; sub(/^- Time:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); time_v = v
+      }
+      started && !tier_seen && /^- Tier:/ {
+        tier_seen = 1
+        v = $0; sub(/^- Tier:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); tier_v = v
+      }
+      started && !then_seen && /^- Then:/ {
+        then_seen = 1
+        v = $0; sub(/^- Then:[ \t]*/, "", v); sub(/[ \t]*$/, "", v); then_v = v
+      }
+      END { emit() }
+    '
+  done
+}
+
+# Sources: notes/run-log.md, plan.md's "- D<nn>:" lines, the milestone
+# files, the failure logs, and the trailer commits on the plan's Branch.
+records=$(runlog_records; decision_records; task_records; commit_records; failure_records)
 
 # report_awk builds the report from the record lines above, one
 # <kind><TAB><fields> per line. It ignores lines whose kind it doesn't know,
@@ -99,14 +290,120 @@ function inv_of(t,    k) {
   }
   return 0
 }
+function tier_list(cnt, ord, ocnt,    canon, i, j, t, list, done) {
+  split("worker-mini worker-light worker worker-heavy specialist", canon, " ")
+  list = ""
+  for (i = 1; i <= 5; i++) {
+    t = canon[i]
+    if ((t in cnt) && cnt[t] > 0) {
+      list = list (list == "" ? "" : ", ") t " " sprintf("%.0f", cnt[t])
+      done[t] = 1
+    }
+  }
+  for (j = 1; j <= ocnt; j++) {
+    t = ord[j]
+    if (t in done) continue
+    if (!(t in cnt) || cnt[t] <= 0) continue
+    list = list (list == "" ? "" : ", ") t " " sprintf("%.0f", cnt[t])
+    done[t] = 1
+  }
+  if (list == "") return "none"
+  return list
+}
 function bullets(k,    i, list, val, key, count, order, ocount, sum, any_end, j,
-    r, m, a, f, cdown, acnt, wcnt, lk, w2, autoord, warnord, qid, did, txt) {
+    r, m, a, f, cdown, acnt, wcnt, lk, w2, autoord, warnord, qid, did, txt,
+    tdone_n, tdone_ids, tdone_seen, tid, tt,
+    attempts_cnt, attempts_ord, attempts_ocnt,
+    resumes_cnt, resumes_ord, resumes_ocnt,
+    esc_cnt, esc_ord, esc_ocnt,
+    stuck_n, stuck_ids, then_val, ln, suffix, stuck_list) {
   r = 0
   m = 0
   a = 0
   cdown = 0
   acnt = 0
   wcnt = 0
+  tdone_n = 0
+  attempts_ocnt = 0
+  resumes_ocnt = 0
+  esc_ocnt = 0
+  stuck_n = 0
+  if (k > 0) {
+    for (i = 1; i <= commit_n; i++) {
+      if (inv_of(commit_epoch[i]) != k) continue
+      tid = commit_task[i]
+      if (tid in tdone_seen) continue
+      tdone_seen[tid] = 1
+      tdone_n++
+      tdone_ids[tdone_n] = tid
+    }
+  } else {
+    for (i = 1; i <= task_n; i++) {
+      tid = task_id_ord[i]
+      if (task_status[tid] != "done") continue
+      tdone_n++
+      tdone_ids[tdone_n] = tid
+    }
+  }
+  for (i = 1; i <= fail_n; i++) {
+    if (k > 0 && inv_of(epoch(fail_time[i])) != k) continue
+    if (fail_tier[i] != "") {
+      if (!(fail_tier[i] in attempts_cnt)) {
+        attempts_ocnt++
+        attempts_ord[attempts_ocnt] = fail_tier[i]
+        attempts_cnt[fail_tier[i]] = 0
+      }
+      attempts_cnt[fail_tier[i]]++
+      if (fail_then[i] == "resumed") {
+        if (!(fail_tier[i] in resumes_cnt)) {
+          resumes_ocnt++
+          resumes_ord[resumes_ocnt] = fail_tier[i]
+          resumes_cnt[fail_tier[i]] = 0
+        }
+        resumes_cnt[fail_tier[i]]++
+      }
+      if (index(fail_then[i], "escalated to") > 0) {
+        if (!(fail_tier[i] in esc_cnt)) {
+          esc_ocnt++
+          esc_ord[esc_ocnt] = fail_tier[i]
+          esc_cnt[fail_tier[i]] = 0
+        }
+        esc_cnt[fail_tier[i]]++
+      }
+    }
+    then_val = fail_then[i]
+    suffix = "blocked (STUCK)"
+    ln = length(then_val)
+    if (ln >= length(suffix) && substr(then_val, ln - length(suffix) + 1) == suffix) {
+      stuck_n++
+      stuck_ids[stuck_n] = fail_task[i]
+    }
+  }
+  for (i = 1; i <= tdone_n; i++) {
+    tid = tdone_ids[i]
+    if (!(tid in task_tier)) continue
+    tt = task_tier[tid]
+    if (tt == "") continue
+    if (!(tt in attempts_cnt)) {
+      attempts_ocnt++
+      attempts_ord[attempts_ocnt] = tt
+      attempts_cnt[tt] = 0
+    }
+    attempts_cnt[tt]++
+  }
+  print "- Tasks done: " sprintf("%.0f", tdone_n)
+  print "- Attempts per tier: " tier_list(attempts_cnt, attempts_ord, attempts_ocnt)
+  print "- Resumes per tier: " tier_list(resumes_cnt, resumes_ord, resumes_ocnt)
+  print "- Escalations per tier: " tier_list(esc_cnt, esc_ord, esc_ocnt)
+  if (stuck_n > 0) {
+    stuck_list = ""
+    for (i = 1; i <= stuck_n; i++) {
+      stuck_list = stuck_list (i > 1 ? ", " : "") stuck_ids[i]
+    }
+    print "- Tasks that ended STUCK: " sprintf("%.0f", stuck_n) " (" stuck_list ")"
+  } else {
+    print "- Tasks that ended STUCK: 0"
+  }
   for (i = 1; i <= log_n; i++) {
     if (k > 0 && inv_of(log_epoch[i]) != k) continue
     lk = log_key[i]
@@ -222,6 +519,24 @@ substr($0, 1, 1) == "D" {
   did = drest
   sub(/:.*/, "", did)
   dec_text[did] = drest
+}
+substr($0, 1, 1) == "T" {
+  task_n++
+  task_id_ord[task_n] = $2
+  task_status[$2] = $3
+  task_tier[$2] = $4
+}
+substr($0, 1, 1) == "C" {
+  commit_n++
+  commit_epoch[commit_n] = $2 + 0
+  commit_task[commit_n] = $3
+}
+substr($0, 1, 1) == "F" {
+  fail_n++
+  fail_time[fail_n] = $2
+  fail_task[fail_n] = $3
+  fail_tier[fail_n] = $4
+  fail_then[fail_n] = $5
 }
 function usage_line(k, label,    i, w2, tok_sum, ms_sum, cnt, ord, ocnt, agent, j, atok, oms) {
   tok_sum = 0
