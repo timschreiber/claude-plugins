@@ -19,12 +19,39 @@ Options in the arguments:
 
 ## No prototyping or duplicate work
 
-These rules hold while you plan. The one exception is a small job you do directly in step 10: there you implement, verify and commit its tasks as that step says.
+These rules hold while you plan. There are two exceptions: the **Start checks**, which run only the commands and write only the files they name, and a small job you do directly in step 10, where you implement, verify and commit its tasks as that step says.
 
 - Don't implement. Never write or run trial code, scripts, tests or fixtures, in the repository, the scratchpad or any temp directory. Never create git worktrees, branches or commits. Write nothing except the plan directory. Building and testing is the workers' job, and each task's own tests catch mistakes.
 - Don't redo another agent's work: don't re-survey what the milestone's survey note covers; don't re-run a task's Verify, a Milestone verify or a Final verify; don't re-check facts a Decision or a cited note already records.
 - Settle uncertainty in the plan, not by experiment: a detail only running something would settle becomes an exact Step or Done-when for the worker; an unknown fact becomes an `investigate` task; a design choice is a GAP.
 - Use the shell only for short read-only commands (`git log`, `git show`, `git diff`, `git status`, `grep`, `ls`, `cat`).
+
+## Start checks
+
+Run these three checks first, in this order, before anything else in this skill: before step 1's reads, and before any survey or question. When a check ends this skill here, including a script that exits 2 with an `error:` line, tell the user why, quoting that line, and end your reply: write nothing else, so there is no plan directory and no commit. `<repository root>` below is the directory `git rev-parse --show-toplevel` prints.
+
+### Toolchain check
+
+Run items 1 to 4 directly with whatever shell tool the platform gives you (on Windows without Git Bash, the PowerShell tool), never through a script: bash may be missing.
+
+1. **bash.** Run `bash --version`. It passes when the command runs and its first line reports version 3.2 or later.
+2. **git.** Run `git --version`. It passes when the command runs and reports version 2.17 or later, the oldest with `git worktree remove`.
+3. **Repository.** Run `git rev-parse --is-inside-work-tree`. It passes when it prints `true`: the current directory is inside a git work tree, not a bare repository.
+4. **Commit identity.** Run `git config user.name` and `git config user.email`. It passes when each prints a value. Workers commit, so a missing identity would fail every task.
+
+If any of items 1 to 4 fails, end here, before surveying. Tell the user, in one message, `Orcastrat can't start: the toolchain check failed.`, then one line for each failed item, all of them at once: `- <item>: <what the command printed, or that it didn't run>. Fix: <the fix>`. Take the fix from this list, for the platform your environment reports (`win32` is native Windows). A missing bash, or one older than 3.2, ends `plan` too: the instruction-file check runs shipped scripts.
+
+- bash or git, on native Windows: `Install Git for Windows (https://git-scm.com/download/win), which provides both bash and git, then restart Claude Code.`
+- bash, elsewhere: `Install bash 3.2 or later with your system package manager. Minimal containers, such as Alpine-based ones, ship sh without bash.`
+- git, elsewhere: `Install git 2.17 or later with your system package manager.`
+- Repository: `Run git init to make this directory a repository, or start Claude Code inside a git work tree.`
+- Commit identity: `Run git config --global user.name "Your Name" and git config --global user.email "you@example.com".`
+
+Once items 1 to 4 pass:
+
+5. **Exclude line.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-exclude"`. It adds the line `/.orcastrat/` to `.git/info/exclude` when it's missing, so the task worktrees under `.orcastrat/wt/` and the instruction-check files under `.orcastrat/instructions/` never show up in `git status`, and `git clean -fd` never removes them.
+6. **Worktree leftovers.** Run `git worktree prune`, then `git worktree list --porcelain`, then `ls "<repository root>/.orcastrat/wt"`. A directory `<name>` that `ls` prints is left over when no `worktree ` line of `git worktree list` ends with `/.orcastrat/wt/<name>`. If there are any, tell the user in one line: `Left over under .orcastrat/wt/, no longer a git worktree: <names>. Delete them yourself once you don't need them.` Never delete them yourself. If `ls` fails because `<repository root>/.orcastrat/wt` doesn't exist, there is nothing to report. This item never ends the skill.
+7. **Long paths.** Only on native Windows (`win32`): run `git config core.longpaths`. If it doesn't print `true`, warn the user once, in one line, without stopping: `Warning: git's core.longpaths isn't true, so paths longer than 260 characters in nested worktrees can fail. To allow them, run: git config core.longpaths true`. Never change git config yourself.
 
 ## 1. Re-read the ground truth
 
