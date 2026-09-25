@@ -276,7 +276,7 @@ No worker agent mentions retry context, since every retry now arrives as a `Resu
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/reference/plan-format.md`

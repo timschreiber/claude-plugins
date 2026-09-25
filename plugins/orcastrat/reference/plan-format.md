@@ -37,7 +37,7 @@ Default location is `plans/<plan-slug>/` at the repository root.
 - Detailing: upfront | rolling
 - Gates: none | detail | milestone | detail+milestone
 - Parallel: auto | off
-- Max parallel: 3
+- Max parallel: 2
 - Worktree setup: `<command>` | none
 - Status: planned
 
@@ -72,7 +72,7 @@ Default location is `plans/<plan-slug>/` at the repository root.
 | Detailing | `upfront`: every milestone has tasks before the run starts. `rolling`: only the first milestone is detailed; the planner agent details each later milestone when the run reaches it, so its tasks reflect the code and findings that exist by then. |
 | Gates | Where run stops for human review. `detail`: after the planner details a milestone. `milestone`: after each milestone completes. `none`: runs straight through. |
 | Parallel | `auto` (default): run executes a wave's tasks at the same time, each in its own git worktree, whenever the wave has more than one task. `off`: always one task at a time. |
-| Max parallel | Most tasks run at once. Default 3. Each concurrent task runs its own builds and tests, so size this to the machine. |
+| Max parallel | Most tasks run at once. Default 2: two concurrent workers roughly halve the wall-clock time of wide waves while keeping setup, re-verify and machine load modest. Raise it for more speed; each concurrent task runs its own builds and tests, so size this to the machine. |
 | Worktree setup | Command that makes a fresh worktree able to build and verify (for example `npm ci`, or copying an untracked `.env` from the main checkout), run from the worktree root before its worker starts, with the main checkout's absolute path in the environment variable `ORCASTRAT_MAIN` (and, for plans written before the rename, also `ORCHESTRATINATOR_MAIN`). `none` if a plain checkout builds as-is. It may only create files git ignores, or they'd fail the scope check. |
 | Max run time | Optional: `none` (the default, also when the field is missing) or `<n>m` / `<n>h`. Once the run has lasted that long, `run` pauses with reason `LIMIT` before its next serial task or parallel batch. The flag `--max-run-time` beats it. |
 | Max tasks | Optional: `none` (the default, also when the field is missing) or `<n>`. Once `run` has committed that many tasks as `done` in this run, it pauses with reason `LIMIT`. The flag `--max-tasks` beats it. |
@@ -270,7 +270,8 @@ Every task has a **Wave**. Waves define both the order of execution and which ta
   5. One task's Verify exercises code the other task changes.
 - When in doubt, put the tasks in different waves. With `Parallel: auto`, same-wave tasks really do run at the same time: a wrongly parallel pair causes merge conflicts or broken builds, while a wrongly serial pair only costs time.
 - Waves still apply to a batch task (`- Batch: yes`). A batch touching many files interferes with more tasks, so check it against every other task in its wave by the five rules above, and move one of any interfering pair to a later wave.
-- Within a wave, task ID order is the execution order for serial runs, and the order in which parallel results are merged.
+- A wave whose tasks are all tiny, same-kind edits with no logic is planned as one batch task (`- Batch: yes`) rather than as parallel tasks.
+- Within a wave, run dispatches same-tier tasks back to back, so each tier's cached prefix stays warm: it groups the wave's tasks by the tier each runs at, puts the groups in the order their first task appears in task ID order, and keeps task ID order within a group. That is the execution and commit order of a serial wave and the dispatch order of a parallel one. Parallel results are still merged in task ID order.
 - Keep waves as wide as the rules allow. A milestone whose waves are all one task wide is often a sign of tasks that are too big or registration points that should be their own task.
 
 The milestone's Context records its wave shape on one line, for example `Waves: 5 (widths 1, 4, 3, 3, 1)`.
