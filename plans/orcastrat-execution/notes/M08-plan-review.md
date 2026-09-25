@@ -1,0 +1,3 @@
+## Issues
+
+1. M08 — Coverage — The row `docs/orcastrat-execution-spec.md §29 items 7 and 10a: Change 8 and the Stop hook's reason are built in this step → M08-T07` maps "the Stop hook's reason" to M08-T07, but M08-T07 only creates `hooks/hooks.json` to register the hook; it does not write the reason text. The reason (`An Orcastrat run is in progress for <shown>. Run the next script for <shown> ...`) is built in M08-T03 Step 6, and the milestone's own row for the matching requirement (`§25a item 4: the Stop hook's reason points at next → M08-T03`) already attributes it there. This row should cite M08-T03 (at least in addition to M08-T07, which does implement the hook's registration for §29 item 7's "built in this step").
