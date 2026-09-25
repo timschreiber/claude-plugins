@@ -1,6 +1,6 @@
 # M09: Preflight checks and status delegation (Changes 19.6, 16, 20)
 
-- Status: outline
+- Status: blocked
 - Format: 2
 - Goal: Every `plan` and `run` starts with the toolchain check, then the instruction-file check, then the model check, in that order and before anything else. `run` writes its marker only after all three and "Proceed?". The instruction-file check writes `review.md`, `fix-prompt.md` and `ack` inside `.git`, prompts only when findings are new or changed, and never edits instruction files. No skill pins a model. `status` dispatches a new Haiku `status-reader` agent and relays its report.
 - Depends on: M08
