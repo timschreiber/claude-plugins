@@ -1099,7 +1099,7 @@ The `status` skill only dispatches `orcastrat:status-reader` with `Plan: <plan d
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M09-T05, M09-T10, M09-T14
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
