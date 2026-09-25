@@ -8,7 +8,7 @@ setup() {
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
 NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader validator'
 NO_SHELL_AGENTS='plan-reviewer planner merger'
-READING_BUDGET_AGENTS='validator plan-reviewer'
+READING_BUDGET_AGENTS='validator plan-reviewer reviewer'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
 # of <file>, ignoring carriage returns. Prints nothing when the file or the
@@ -424,4 +424,18 @@ EOF
   has_line "$f" '1. [<score>] <category>: <task or milestone ID> — <which check> — <problem, quoting the text involved>'
   run grep -qF 'for what check 11 finds' "$f"
   [ "$status" -ne 0 ]
+}
+
+@test "reviewer scores its findings and writes them to its report file" {
+  local f="$AGENTS/reviewer.md"
+  has_line "$f" '- Keep your reply to the status block. Everything else goes in your report file.'
+  has_line "$f" '- It contradicts a Decision in plan.md, or the Context of the milestone other than a rule quoted in its `Conventions:` block (tag it `contradicts-decision`).'
+  has_line "$f" '- [<score>] <category>: <path:line> — <problem> (<task ID, Coverage row, or D<nn>>)'
+  has_line "$f" 'VERDICT: PASS | FAIL'
+  has_line "$f" 'BLOCKING: <count>'
+  has_line "$f" 'ADVISORY: <count>'
+  run grep -qF 'REASONS:' "$f"
+  [ "$status" -ne 0 ]
+  run grep -qF 'an `Output:` path for your report file' "$f"
+  [ "$status" -eq 0 ]
 }
