@@ -70,7 +70,7 @@ Waves: 5 (widths 3, 2, 2, 2, 1)
 - Kind: change
 - Tier: worker-heavy
 - Why this tier: fully specified but intricate: date-to-epoch arithmetic, assigning records to time spans, and a report layout four later tasks extend.
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/scripts/run-report`, `tests/orcastrat/run-report.bats`

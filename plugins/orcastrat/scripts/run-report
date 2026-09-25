@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# run-report <plan-dir>
+#
+# Writes <plan-dir>/notes/run-report.md from notes/run-log.md. One section
+# per run invocation (a `start` line through the next `end` line, or the
+# next `start`, or the end of the log) and a Plan so far section, each
+# giving the stops and pauses by reason and the wall-clock time in whole
+# minutes, rounded down. Later tasks add more sources, more bullets and more
+# sections.
+# Prints the report's absolute path through print_path, and nothing else, on
+# success.
+# Exits 0 after writing the report. On a usage error, prints one
+# `error: <message>` line on stderr, nothing on stdout, and exits 2 (D55).
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+if [ "$#" -ne 1 ]; then
+  fail 'usage: run-report <plan-dir>'
+fi
+plan_dir=$1
+
+[ -d "$plan_dir" ] || fail "not a directory: $(print_path "$plan_dir")"
+[ "$(git -C "$plan_dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$plan_dir")"
+[ -f "$plan_dir/plan.md" ] || fail "no plan.md in: $(print_path "$plan_dir")"
+
+# The report's title: the text after "# Plan: " on plan.md's first line when
+# it starts with that, otherwise the plan directory's last path component
+# (task-brief's slug= line).
+first_line=$(sed -n '1p' "$plan_dir/plan.md")
+first_line=${first_line%$'\r'}
+case "$first_line" in
+  '# Plan: '*)
+    title=${first_line#'# Plan: '}
+    ;;
+  *)
+    title=$(printf '%s\n' "$plan_dir" | sed -e 's#\\#/#g' -e 's#/*$##' -e 's#.*/##')
+    ;;
+esac
+
+# runlog_records: prints "L<TAB><line>" for each line of notes/run-log.md,
+# in file order, carriage returns removed. Nothing when the file doesn't
+# exist.
+runlog_records() {
+  [ -f "$plan_dir/notes/run-log.md" ] || return 0
+  sed 's/\r$//' "$plan_dir/notes/run-log.md" | awk '{ printf "L\t%s\n", $0 }'
+}
+
+# Sources: notes/run-log.md.
+records=$(runlog_records)
+
+# report_awk builds the report from the record lines above, one
+# <kind><TAB><fields> per line. It ignores lines whose kind it doesn't know,
+# including an empty line.
+# shellcheck disable=SC2016
+report_awk='
+function epoch(ts,    y, m, d, h, mi, s, days) {
+  if (ts !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z$/) return -1
+  y = substr(ts, 1, 4) + 0
+  m = substr(ts, 6, 2) + 0
+  d = substr(ts, 9, 2) + 0
+  h = substr(ts, 12, 2) + 0
+  mi = substr(ts, 15, 2) + 0
+  s = substr(ts, 18, 2) + 0
+  if (m <= 2) { y -= 1; m += 12 }
+  days = 365*y + int(y/4) - int(y/100) + int(y/400) + int((153*(m-3)+2)/5) + d - 719469
+  return days*86400 + h*3600 + mi*60 + s
+}
+function inv_of(t,    k) {
+  if (t < 0) return 0
+  for (k = 1; k <= n; k++) {
+    if (inv_s[k] <= t) {
+      if (inv_has_end[k]) {
+        if (t <= inv_e[k]) return k
+      } else if (k < n) {
+        if (t < inv_s[k + 1]) return k
+      } else {
+        return k
+      }
+    }
+  }
+  return 0
+}
+function bullets(k,    i, list, val, key, count, order, ocount, sum, any_end, j) {
+  if (k > 0) {
+    if (inv_has_end[k] && (inv_mode[k] == "PAUSE" || inv_mode[k] == "STOP")) {
+      list = inv_mode[k] " " inv_reason[k] " 1"
+    } else {
+      list = "none"
+    }
+    if (inv_has_end[k]) {
+      val = sprintf("%.0f", int((inv_e[k] - inv_s[k]) / 60)) " min"
+    } else {
+      val = "unknown"
+    }
+  } else {
+    ocount = 0
+    sum = 0
+    any_end = 0
+    for (i = 1; i <= n; i++) {
+      if (!inv_has_end[i]) continue
+      any_end = 1
+      sum += int((inv_e[i] - inv_s[i]) / 60)
+      if (inv_mode[i] != "PAUSE" && inv_mode[i] != "STOP") continue
+      key = inv_mode[i] " " inv_reason[i]
+      if (!(key in count)) {
+        ocount++
+        order[ocount] = key
+        count[key] = 0
+      }
+      count[key]++
+    }
+    if (ocount == 0) {
+      list = "none"
+    } else {
+      list = ""
+      for (j = 1; j <= ocount; j++) {
+        if (j > 1) list = list ", "
+        list = list order[j] " " sprintf("%.0f", count[order[j]])
+      }
+    }
+    val = any_end ? (sprintf("%.0f", sum) " min") : "unknown"
+  }
+  print "- Stops and pauses: " list
+  print "- Wall-clock time: " val
+}
+substr($0, 1, 1) == "L" {
+  log_n++
+  logline = substr($0, 3)
+  log_line[log_n] = logline
+  split(logline, w, " ")
+  key = w[1]
+  ts = w[2]
+  if (key == "start") {
+    e = epoch(ts)
+    if (e >= 0) {
+      n++
+      inv_s_text[n] = ts
+      inv_s[n] = e
+      inv_has_end[n] = 0
+    }
+  } else if (key == "end") {
+    e = epoch(ts)
+    if (e >= 0 && n > 0 && !inv_has_end[n]) {
+      reason = logline
+      sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", reason)
+      inv_e[n] = e
+      inv_mode[n] = w[3]
+      inv_reason[n] = reason
+      inv_has_end[n] = 1
+    }
+  }
+}
+END {
+  printf "# Run report: %s\n\n", title
+  for (k = 1; k <= n; k++) {
+    printf "## Invocation %d: %s\n\n", k, inv_s_text[k]
+    bullets(k)
+    print ""
+  }
+  print "## Plan so far"
+  print ""
+  bullets(0)
+}'
+
+notes_dir="$plan_dir/notes"
+mkdir -p "$notes_dir" || fail "cannot create: $(print_path "$notes_dir")"
+report="$notes_dir/run-report.md"
+tmp="$report.tmp"
+
+printf '%s\n' "$records" | awk -F '\t' -v title="$title" "$report_awk" > "$tmp"
+
+mv -f "$tmp" "$report" || fail "cannot write the report: $(print_path "$report")"
+
+notes_abs=$(cd "$notes_dir" && pwd) || fail "cannot resolve: $(print_path "$notes_dir")"
+print_path "$notes_abs/run-report.md"
+exit 0
