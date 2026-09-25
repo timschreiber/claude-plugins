@@ -9,7 +9,7 @@
 - Parallel: off
 - Max parallel: 3
 - Worktree setup: none
-- Status: blocked
+- Status: in-progress
 
 ## Milestones
 
@@ -22,7 +22,7 @@
 | M05 | Worker commits, resume, runaway guard (Changes 1, 2, 3) | done | M05-commits-resume-runaway-guard.md |
 | M06 | Task briefs and report files (Changes 7, 9) | done | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | done | M07-parallel-waves.md |
-| M08 | Stop hook (Change 8) | blocked | M08-stop-hook.md |
+| M08 | Stop hook (Change 8) | outline | M08-stop-hook.md |
 | M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | outline | M09-preflight-checks.md |
 | M10 | Scored reviews and the validator (Change 10) | outline | M10-scored-reviews.md |
 | M11 | Run report and rule suggestions (Changes 11, 18) | outline | M11-run-report-and-suggestions.md |
@@ -227,9 +227,8 @@
 - D141: `run`'s preflight removes a stale marker with `git rev-parse --git-dir`, then `rm -f "<that dir>/orcastrat/active-run"`, not with `run-state end`, which would append an `end` line to the crashed run's run log and dirty the tree before the clean-tree check. (source: spec §9 Preflight; `plugins/orcastrat/scripts/run-state:100-106`; `plugins/orcastrat/skills/run/SKILL.md:58`, where `run` already uses `rm`)
 - D142: `run`'s Pause and Stop run `run-state end` only once 2c item 6 has written this run's marker. A Pause or Stop before that (a preflight failure, or 2c item 2's `detail` gate) leaves any marker alone: it belongs to another session. (source: spec §9 Marker, "`run` deletes the marker", and Limit, one active run per checkout)
 - D143: Heartbeat: from 2c item 6 until Pause, Stop or completion, `run` runs `run-state beat` just before each agent dispatch or SendMessage resume (once before the one message that dispatches or resumes a parallel batch), just after each agent returns (once when a parallel batch has returned), and just after each commit it makes. (source: spec §9 Heartbeat)
+- D144: The Stop hook blocks only the session that owns the run (M08 open question, option (a) extended). `run-state start <plan-dir> <session-id>` writes `session=<id>` into the marker; `run`'s command is `run-state start <plan-dir> ${CLAUDE_SESSION_ID}`, a documented skill string substitution Claude Code replaces with the literal ID before the model reads the skill, so it has no `$(...)`. This extends D06's `run-state start` signature and marker lines. `stop-guard` keeps its fast path: with no marker for this checkout it exits 0 without reading stdin. Only when a marker exists does it read stdin and extract `session_id` with `sed`/`grep`, using no other field. It blocks only if that equals the marker's `session=`; a different `session_id`, a marker without `session=` (written before this change), or unparseable stdin (empty, not JSON, or no `session_id`) allows the stop per D140, without touching the loop guard's block count. Windows handling stays as in option (a): `$CLAUDE_PROJECT_DIR` given as `C:\…` has its backslashes turned into `/` with a bash builtin, and a worktree `.git` file's `gitdir:` value may be `C:/…` or relative to `$CLAUDE_PROJECT_DIR`. Tests: the owning session is blocked; a different session in the same checkout is allowed; empty and non-JSON stdin are allowed; a marker without `session=` is allowed. Spec §9 (Change 8) updated to match. (source: user, M08 open question)
 
 ## Open questions
 
-- (M08) [ambiguous] What does `hooks/stop-guard` do with its stdin JSON, and what makes that input "unparseable"? The Stop behavior needs no field from it: the marker is found from `$CLAUDE_PROJECT_DIR` (spec §9), the reason uses the marker's `plan=` line, and the loop guard uses its `heartbeat=`, `blocks=` and `block_heartbeat=` lines (D06, D139). So the hook takes no path from its JSON input for spec §20 item 5's normalization to apply to.
-  Where: spec §9, "before reading stdin or running git" and Fails open, "(missing git, unreadable marker, unparseable input)"; spec §20 item 5, "Hook scripts normalize Windows paths from their JSON input (unescape `\\`; use `cygpath -u` when present)"; M08 Context item 5; M08 Outline, "Windows-escaped paths, and fail-open cases (unreadable marker, unparseable input)"; the Stop input's fields, as `ralph-loop` reads them at `hooks/stop-hook.sh:32` (`session_id`) and `:68` (`transcript_path`).
-  Options: (a) after finding a marker, read stdin, and allow the stop (D140) unless it is a JSON object (first non-space character `{`) containing the key `"session_id"`; use no field from it. Windows handling then covers `$CLAUDE_PROJECT_DIR` given as `C:\…` (backslashes turned into `/` with a bash builtin, so the fast path still starts no process) and a worktree `.git` file's `gitdir:` value (`C:/…` as Git for Windows writes it, or relative to `$CLAUDE_PROJECT_DIR`); the tests use empty and non-JSON stdin as the unparseable cases. (b) Never read stdin: unparseable input can't arise, §20 item 5 has nothing to apply to, and the tests show stdin never changes the result. Recommended: (a), because it keeps every case the spec and the Outline name, and costs one `grep` on stdin only while a run is active.
+None.
