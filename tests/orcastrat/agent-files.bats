@@ -6,8 +6,9 @@ setup() {
 # The agents the list-based tests below cover. The task that brings an agent
 # file up to date adds its name here.
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
-NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader'
+NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader validator'
 NO_SHELL_AGENTS='plan-reviewer planner merger'
+READING_BUDGET_AGENTS='validator'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
 # of <file>, ignoring carriage returns. Prints nothing when the file or the
@@ -130,6 +131,21 @@ write_reviewer_rules() {
 EOF
 }
 
+# write_reading_budget <file>: writes the lines every listed reviewer's and
+# the validator's reading budget section must contain (spec section 11, D76,
+# D200). Its last bullet differs between the reviewers and the validator, so
+# it isn't listed.
+write_reading_budget() {
+  cat > "$1" <<'EOF'
+## Reading budget
+- Read each file once.
+- Read the milestone file, the brief, or the diff whole, and everything else only in part.
+- Read only the Decisions and spec sections the work cites: Grep for `^- D<nn>:` and for the headings named, then read just those line ranges.
+- Check `path:line` citations and literal replacement targets with Grep on the quoted text, not by reading the whole file.
+- Don't read survey notes, and read the plan format only at `${CLAUDE_PLUGIN_ROOT}/reference/plan-format.md`, never a copy of it in the repository.
+EOF
+}
+
 @test "field ignores carriage returns" {
   printf -- '---\r\nname: sample\r\ntools: Read, Bash\r\n---\r\n' > "$BATS_TEST_TMPDIR/sample.md"
   [ "$(field "$BATS_TEST_TMPDIR/sample.md" name)" = 'sample' ]
@@ -199,7 +215,7 @@ EOF
       plan-reviewer) expected='Read, Glob, Grep, Write' ;;
       planner) expected='Read, Glob, Grep, Write, Edit' ;;
       merger) expected='Read, Glob, Grep, Edit' ;;
-      status-reader) expected='Read, Glob, Grep, Bash' ;;
+      status-reader|validator) expected='Read, Glob, Grep, Bash' ;;
       *) expected='not a known non-worker agent' ;;
     esac
     [ "$(field "$AGENTS/$name.md" tools)" = "$expected" ] || bad="$bad $name"
@@ -311,6 +327,8 @@ EOF
   for name in $NON_WORKER_AGENTS; do
     if [ "$name" = status-reader ]; then
       has_line "$AGENTS/$name.md" 'Your reply is at most 20 lines.' || bad="$bad $name"
+    elif [ "$name" = validator ]; then
+      has_line "$AGENTS/$name.md" 'Your reply is at most 5 lines.' || bad="$bad $name"
     else
       has_line "$AGENTS/$name.md" 'Your reply is at most 20 lines. Anything longer goes in a file under the plan directory'"'"'s `notes/`, and your reply gives its path.' || bad="$bad $name"
     fi
@@ -366,4 +384,30 @@ EOF
   has_line "$f" '<plan title> — <plan status>'
   has_line "$f" 'Worktrees: none | <paths left under .orcastrat/wt/ for inspection>'
   has_line "$f" 'Next: <the exact command or action that comes next>'
+}
+
+@test "listed reviewers have the reading budget section" {
+  local bad='' name missing
+  write_reading_budget "$BATS_TEST_TMPDIR/reading-budget"
+  for name in $READING_BUDGET_AGENTS; do
+    missing="$(missing_lines "$AGENTS/$name.md" "$BATS_TEST_TMPDIR/reading-budget")"
+    [ -z "$missing" ] || bad="$bad $name"
+  done
+  echo "missing reading budget:$bad"
+  [ -z "$bad" ]
+}
+
+@test "validator has its model, effort, maxTurns, input lines and reply block" {
+  local f="$AGENTS/validator.md"
+  [ "$(field "$f" name)" = 'validator' ]
+  [ "$(field "$f" model)" = 'sonnet' ]
+  [ "$(field "$f" effort)" = 'medium' ]
+  [ "$(field "$f" maxTurns)" = '20' ]
+  has_line "$f" 'Finding: <the finding, without its score>'
+  has_line "$f" 'Instruction file: <path>'
+  has_line "$f" 'SCORE: <0 to 100>'
+  has_line "$f" 'REASON: <one line: what you confirmed or refuted>'
+  has_line "$f" '- Keep your reply to the status block.'
+  has_line "$f" '- Use the shell only for short read-only commands (`git log`, `git show`, `git diff`, `git status`, `grep`, `ls`, `cat`).'
+  has_line "$f" 'Never read a review report: a file under `<plan dir>/notes/reviews/`, `<plan dir>/notes/<ID>-review.md`, `<plan dir>/notes/<ID>-review-2.md` or `<plan dir>/notes/<ID>-plan-review.md`. They hold the scores the reviewer gave, and you score without them.'
 }
