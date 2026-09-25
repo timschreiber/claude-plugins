@@ -555,6 +555,100 @@ commit_at() {
   printf '%s\n' "$P" | grep -qxF -- '- Tasks that ended STUCK: 0'
 }
 
+@test "review findings are counted per milestone, per invocation and for the plan" {
+  mkdir -p "$PLAN/notes/reviews"
+  printf '%s\n' \
+    '# M01 review' \
+    '' \
+    '## Blocking' \
+    '' \
+    '- [90/85] missing-test: src/a.sh:3 — no test (M01-T01)' \
+    '' \
+    '## Advisory' \
+    '' \
+    '- [60] naming: src/a.sh:9 — unclear name (M01-T01)' \
+    '- [85/40] style: src/b.sh:2 — long line (M01-T02) — validator: not a rule' \
+    '- `src/c.sh:1` — old-style finding (M01-T02)' \
+    > "$PLAN/notes/M01-review.md"
+  printf '%s\n' \
+    '# M01 plan review' \
+    '' \
+    '## Issues' \
+    '' \
+    '1. [80/90] coverage: M01 — check 3 — row unmapped' \
+    '' \
+    '## Advisory' \
+    '' \
+    '1. [50] wording: M01-T02 — check 8 — vague' \
+    > "$PLAN/notes/M01-plan-review.md"
+  printf '%s\n' \
+    '# M02-T01 review' \
+    '' \
+    '## Blocking' \
+    '' \
+    'None.' \
+    '' \
+    '## Advisory' \
+    '' \
+    '- [70] error-handling: src/d.sh:4 — unchecked exit (M02-T01)' \
+    '- [90/none] security: src/d.sh:8 — unsafe eval (M02-T01) — validator: no score' \
+    > "$PLAN/notes/reviews/M02-T01-attempt1.md"
+  git -C "$REPO" add -- "plans/demo plan/notes/M01-review.md" "plans/demo plan/notes/M01-plan-review.md"
+  GIT_COMMITTER_DATE='2026-09-20 10:35:00 +0000' GIT_AUTHOR_DATE='2026-09-20 10:35:00 +0000' git -C "$REPO" commit --quiet -m 'chore(plan): review M01'
+  write_log \
+    "start 2026-09-20T10:00:00Z plans/demo plan" \
+    "end 2026-09-20T10:45:30Z PAUSE GATE" \
+    "start 2026-09-21T09:00:00Z plans/demo plan" \
+    "end 2026-09-21T11:30:59Z STOP GAP"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  S2=$(section "$REPORT" '## Invocation 2: 2026-09-21T09:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$S1" | grep -qxF -- '- Review findings:'
+  printf '%s\n' "$S1" | grep -qxF -- '  - M01: 3 advisory, 2 confirmed, 1 downgraded'
+  ! printf '%s\n' "$S1" | grep -q '^  - M02:'
+  printf '%s\n' "$S2" | grep -qxF -- '- Review findings:'
+  printf '%s\n' "$S2" | grep -qxF -- '  - M02: 2 advisory, 0 confirmed, 1 downgraded'
+  ! printf '%s\n' "$S2" | grep -q '^  - M01:'
+  printf '%s\n' "$P" | grep -qxF -- '- Review findings:'
+  printf '%s\n' "$P" | grep -qxF -- '  - M01: 3 advisory, 2 confirmed, 1 downgraded'
+  printf '%s\n' "$P" | grep -qxF -- '  - M02: 2 advisory, 0 confirmed, 1 downgraded'
+  m01_line=$(printf '%s\n' "$P" | grep -n '^  - M0' | sed -n '1p' | cut -d: -f1)
+  m02_line=$(printf '%s\n' "$P" | grep -n '^  - M0' | sed -n '2p' | cut -d: -f1)
+  [ "$m01_line" -lt "$m02_line" ]
+}
+
+@test "review lines in other shapes are not counted" {
+  printf '%s\n' \
+    '## Blocking' \
+    '' \
+    '- `src/a.sh:3` — missing test (M03-T01, D12)' \
+    '' \
+    '## Advisory' \
+    '' \
+    '- [high] naming: src/b.sh:1 — vague (M03-T01)' \
+    > "$PLAN/notes/M03-review.md"
+  write_log "start 2026-09-20T10:00:00Z plans/demo plan"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$S1" | grep -qxF -- '- Review findings: none'
+  printf '%s\n' "$P" | grep -qxF -- '- Review findings: none'
+}
+
+@test "the bullets come in spec order" {
+  write_log "start 2026-09-20T10:00:00Z plans/demo plan" "end 2026-09-20T10:45:30Z PAUSE GATE"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  S1=$(section "$REPORT" '## Invocation 1: 2026-09-20T10:00:00Z')
+  P=$(section "$REPORT" '## Plan so far')
+  expected=$'- Tasks done\n- Attempts per tier\n- Resumes per tier\n- Escalations per tier\n- Tasks that ended STUCK\n- Merges\n- Containment downgrades\n- Auto-decided questions\n- Review findings\n- Leftover-background-work warnings\n- Stops and pauses\n- Wall-clock time'
+  [ "$(printf '%s\n' "$S1" | grep -o '^- [^:]*')" = "$expected" ]
+  [ "$(printf '%s\n' "$P" | grep -o '^- [^:]*')" = "$expected" ]
+}
+
 @test "a plan whose Branch doesn't exist has no tasks done per invocation" {
   write_tasks
   write_failures

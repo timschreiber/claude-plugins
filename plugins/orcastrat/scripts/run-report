@@ -3,16 +3,17 @@
 #
 # Writes <plan-dir>/notes/run-report.md from notes/run-log.md, plan.md's
 # "- D<nn>:" lines, the milestone files named in plan.md's Milestones table,
-# notes/<task ID>-failures.md failure logs, and the trailer commits
+# notes/<task ID>-failures.md failure logs, the review notes
+# (notes/M*-review*.md, notes/reviews/M*.md), and the trailer commits
 # (Orcastrat-Task: / Orchestratinator-Task:) on the plan's Branch. One
 # section per run invocation (a `start` line through the next `end` line, or
 # the next `start`, or the end of the log) and a Plan so far section, each
 # giving tasks done, attempts/resumes/escalations per tier, tasks that ended
-# STUCK, merges, containment downgrades, auto-decided questions,
-# leftover-background-work warnings, the stops and pauses by reason and the
-# wall-clock time in whole minutes, rounded down, followed by Usage and
-# Model notices sections. Later tasks add more sources, more bullets and
-# more sections.
+# STUCK, merges, containment downgrades, auto-decided questions, review
+# findings per milestone, leftover-background-work warnings, the stops and
+# pauses by reason and the wall-clock time in whole minutes, rounded down,
+# followed by Usage and Model notices sections. Later tasks add more
+# sources, more bullets and more sections.
 # Prints the report's absolute path through print_path, and nothing else, on
 # success.
 # Exits 0 after writing the report. On a usage error, prints one
@@ -254,9 +255,85 @@ failure_records() {
   done
 }
 
+# review_records: for each existing file notes/M*-review*.md and
+# notes/reviews/M*.md, in that glob order, prints
+# "R<TAB><added epoch or empty><TAB><milestone><TAB><advisory><TAB><confirmed><TAB><downgraded>",
+# counting only D182-shaped finding lines. The added epoch is the epoch of
+# the oldest commit on the plan's Branch that added the file
+# (--diff-filter=A), empty when has_ref is 0 or the file was never
+# committed.
+review_records() {
+  local added=""
+  if [ "$has_ref" = 1 ]; then
+    added=$(git -C "$plan_dir" log "$ref" --diff-filter=A --relative --name-only --format='%x01%ct' -- notes 2>/dev/null | awk '
+      /^\001/ { epoch = substr($0, 2); next }
+      $0 == "" { next }
+      { added[$0] = epoch }
+      END { for (p in added) printf "%s\t%s\n", p, added[p] }
+    ')
+  fi
+  (
+    cd "$plan_dir" 2>/dev/null || exit 0
+    local files=() f
+    for f in notes/M*-review*.md; do
+      [ -f "$f" ] && files+=("$f")
+    done
+    for f in notes/reviews/M*.md; do
+      [ -f "$f" ] && files+=("$f")
+    done
+    [ "${#files[@]}" -eq 0 ] && exit 0
+    awk -v added="$added" '
+      BEGIN {
+        an = split(added, aline, "\n")
+        for (ai = 1; ai <= an; ai++) {
+          if (aline[ai] == "") continue
+          split(aline[ai], akv, "\t")
+          added_epoch[akv[1]] = akv[2]
+        }
+      }
+      function emit() {
+        if (fname == "") return
+        e = (fname in added_epoch) ? added_epoch[fname] : ""
+        printf "R\t%s\t%s\t%s\t%s\t%s\n", e, milestone, advisory, confirmed, downgraded
+      }
+      FNR == 1 {
+        emit()
+        fname = FILENAME
+        base = fname
+        sub(/^.*\//, "", base)
+        milestone = base
+        match(milestone, /^M[0-9]+/)
+        milestone = substr(milestone, RSTART, RLENGTH)
+        in_blocking = 0
+        in_advisory = 0
+        advisory = 0
+        confirmed = 0
+        downgraded = 0
+      }
+      { sub(/\r$/, "") }
+      /^## / {
+        if ($0 == "## Blocking" || $0 == "## Issues") { in_blocking = 1; in_advisory = 0; next }
+        if ($0 == "## Advisory") { in_advisory = 1; in_blocking = 0; next }
+        in_blocking = 0
+        in_advisory = 0
+        next
+      }
+      in_blocking && $0 ~ /^(- |[0-9]+\. )\[[0-9]+(\/([0-9]+|none))?\] [a-z0-9][a-z0-9-]*: / {
+        if ($0 ~ /^(- |[0-9]+\. )\[[0-9]+\/[0-9]+\] /) confirmed++
+      }
+      in_advisory && $0 ~ /^(- |[0-9]+\. )\[[0-9]+(\/([0-9]+|none))?\] [a-z0-9][a-z0-9-]*: / {
+        advisory++
+        if (index($0, " — validator: ") > 0) downgraded++
+      }
+      END { emit() }
+    ' "${files[@]}"
+  )
+}
+
 # Sources: notes/run-log.md, plan.md's "- D<nn>:" lines, the milestone
-# files, the failure logs, and the trailer commits on the plan's Branch.
-records=$(runlog_records; decision_records; task_records; commit_records; failure_records)
+# files, the failure logs, the review notes, and the trailer commits on the
+# plan's Branch.
+records=$(runlog_records; decision_records; task_records; commit_records; failure_records; review_records)
 
 # report_awk builds the report from the record lines above, one
 # <kind><TAB><fields> per line. It ignores lines whose kind it doesn't know,
@@ -310,13 +387,20 @@ function tier_list(cnt, ord, ocnt,    canon, i, j, t, list, done) {
   if (list == "") return "none"
   return list
 }
+function milestone_num(mid,   s) {
+  s = mid
+  sub(/^M/, "", s)
+  return s + 0
+}
 function bullets(k,    i, list, val, key, count, order, ocount, sum, any_end, j,
     r, m, a, f, cdown, acnt, wcnt, lk, w2, autoord, warnord, qid, did, txt,
     tdone_n, tdone_ids, tdone_seen, tid, tt,
     attempts_cnt, attempts_ord, attempts_ocnt,
     resumes_cnt, resumes_ord, resumes_ocnt,
     esc_cnt, esc_ord, esc_ocnt,
-    stuck_n, stuck_ids, then_val, ln, suffix, stuck_list) {
+    stuck_n, stuck_ids, then_val, ln, suffix, stuck_list,
+    rf_adv, rf_conf, rf_down, rf_seen, rf_ord, rf_ordn, rf_mid, rf_any,
+    rf_lines, rf_j, rf_keyv, rf_keyn) {
   r = 0
   m = 0
   a = 0
@@ -439,6 +523,48 @@ function bullets(k,    i, list, val, key, count, order, ocount, sum, any_end, j,
     }
     print "  - " qid ": " txt
   }
+  rf_ordn = 0
+  for (i = 1; i <= rev_n; i++) {
+    if (k > 0) {
+      if (rev_epoch[i] == "") {
+        if (k != n) continue
+      } else {
+        if (inv_of(rev_epoch[i] + 0) != k) continue
+      }
+    }
+    rf_mid = rev_milestone[i]
+    if (!(rf_mid in rf_seen)) {
+      rf_seen[rf_mid] = 1
+      rf_ordn++
+      rf_ord[rf_ordn] = rf_mid
+      rf_adv[rf_mid] = 0
+      rf_conf[rf_mid] = 0
+      rf_down[rf_mid] = 0
+    }
+    rf_adv[rf_mid] += rev_adv[i]
+    rf_conf[rf_mid] += rev_conf[i]
+    rf_down[rf_mid] += rev_down[i]
+  }
+  for (i = 2; i <= rf_ordn; i++) {
+    rf_keyv = rf_ord[i]
+    rf_keyn = milestone_num(rf_keyv)
+    rf_j = i - 1
+    while (rf_j >= 1 && milestone_num(rf_ord[rf_j]) > rf_keyn) {
+      rf_ord[rf_j + 1] = rf_ord[rf_j]
+      rf_j--
+    }
+    rf_ord[rf_j + 1] = rf_keyv
+  }
+  rf_any = 0
+  rf_lines = ""
+  for (i = 1; i <= rf_ordn; i++) {
+    rf_mid = rf_ord[i]
+    if (rf_adv[rf_mid] == 0 && rf_conf[rf_mid] == 0 && rf_down[rf_mid] == 0) continue
+    rf_any = 1
+    rf_lines = rf_lines "  - " rf_mid ": " sprintf("%.0f", rf_adv[rf_mid]) " advisory, " sprintf("%.0f", rf_conf[rf_mid]) " confirmed, " sprintf("%.0f", rf_down[rf_mid]) " downgraded\n"
+  }
+  print "- Review findings:" (rf_any ? "" : " none")
+  if (rf_any) printf "%s", rf_lines
   print "- Leftover-background-work warnings: " sprintf("%.0f", wcnt)
   for (j = 1; j <= wcnt; j++) {
     print "  - " warnord[j]
@@ -537,6 +663,14 @@ substr($0, 1, 1) == "F" {
   fail_task[fail_n] = $3
   fail_tier[fail_n] = $4
   fail_then[fail_n] = $5
+}
+substr($0, 1, 1) == "R" {
+  rev_n++
+  rev_epoch[rev_n] = $2
+  rev_milestone[rev_n] = $3
+  rev_adv[rev_n] = $4 + 0
+  rev_conf[rev_n] = $5 + 0
+  rev_down[rev_n] = $6 + 0
 }
 function usage_line(k, label,    i, w2, tok_sum, ms_sum, cnt, ord, ocnt, agent, j, atok, oms) {
   tok_sum = 0

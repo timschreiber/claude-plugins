@@ -409,7 +409,7 @@ The run report gives tasks done, attempts, resumes and escalations per tier, and
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 4
 - Depends on: M11-T03
 - Files: `plugins/orcastrat/scripts/run-report`, `tests/orcastrat/run-report.bats`
