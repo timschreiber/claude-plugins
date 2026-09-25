@@ -18,7 +18,7 @@ Arguments: `$ARGUMENTS`
 - `--max-parallel <N>`: override the plan's Max parallel for this run.
 - `--yes`: approval given in advance, for unattended or non-interactive runs. Without it, you ask before executing anything (2b). Under it, the instruction-file check and the model check never ask either (see **Start checks**).
 
-You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md, milestone files, the notes files this skill names (a task's failure log, `notes/run-log.md`, and the review reports that **Validate a review** rewrites), and the instruction-check files `.orcastrat/instructions/review.md` and `fix-prompt.md` (see **Start checks**), and only the fields and lines this skill names.
+You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md, milestone files, the notes files this skill names (a task's failure log, `notes/run-log.md`, `notes/instruction-suggestions.md`, and the review reports that **Validate a review** rewrites), and the instruction-check files `.orcastrat/instructions/review.md` and `fix-prompt.md` (see **Start checks**), and only the fields and lines this skill names.
 
 ## Operating rules for long runs
 
@@ -389,7 +389,14 @@ Keep every task branch: the items below delete each one once its task is settled
    ```
    If it reports `BLOCKING` above 0, **validate the review** (see Definitions) in its `## Blocking` section, with those five lines as the lines you sent the reviewer, before you commit it. Read nothing else of the report. Skip the commit, or check scope and commit, as in item 2, with `git commit -m "chore(plan): re-review <ID>"`.
 6. If the re-review's result is `BLOCKING` above 0, after validation or as the committed review result, mark the milestone `blocked` and go to **Stop** with reason `REVIEW`. There is only one fix round per milestone.
-7. Set the milestone to `done` in its file and in the plan.md table. Commit: `chore(plan): complete <ID>`.
+7. **Suggestions, then completion.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/suggest-check" "<plan dir>"`. It prints `OK`, or one line `<category> <milestone IDs>` for each finding category that the reviews of two or more milestones use and that `<plan dir>/notes/instruction-suggestions.md` has no suggestion for yet. For each such line, in order, add one suggestion:
+   - Read that category's findings, and nothing else of the review notes: Grep `<plan dir>/notes` for the pattern `\] <category>: `, output mode content.
+   - Find whether `CLAUDE.md` is flagged for leanness. With no `.orcastrat/instructions/review.md`, it isn't. Otherwise Grep that file for `^## ` and for ``^- `CLAUDE\.md:[0-9]`` with line numbers: it is flagged when a match of the second pattern lies below the `## Findings` line and above the next `## ` line.
+   - Its kind is `hook` when the rule must hold every time and a script can check it, otherwise `rule`. When `CLAUDE.md` is flagged, its kind is `hook` whenever a script can check the rule.
+   - Draft its wording from those findings: for a `rule`, the lines to add to `CLAUDE.md`, as a short instruction; for a `hook`, the event it runs on, what its script checks, and what it does when the check fails.
+   - Append it to `<plan dir>/notes/instruction-suggestions.md`, first writing the line `# Instruction suggestions` and an empty line when the file doesn't exist: the heading `## <category>`, an empty line, the lines `- Milestones: <the milestone IDs as suggest-check printed them>`, `- Kind: rule` or `- Kind: hook`, `- Target: CLAUDE.md`, `- Leanness: flagged; a hook or skill is preferred` or `- Leanness: not flagged`, and `- Draft:`, then an empty line, the draft in a code fence whose info string is `text`, and an empty line.
+
+   Never apply a suggestion: don't edit `CLAUDE.md`, any other instruction file, or any hook. Then set the milestone to `done` in its file and in the plan.md table, and commit: `git add -A`, then `git commit -m "chore(plan): complete <ID>"`, so the commit carries any new suggestion.
 8. If a milestone limit is in effect (see Definitions) and this run has now completed that many milestones, go to **Pause** with reason `LIMIT`. If `--milestone` was given, go to **Pause** with reason `MILESTONE`. If Gates includes `milestone`, go to **Pause** with reason `GATE`, telling the user to review and rerun.
 9. Otherwise continue with the next milestone.
 
