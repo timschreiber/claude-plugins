@@ -607,10 +607,10 @@ commit_at() {
   P=$(section "$REPORT" '## Plan so far')
   printf '%s\n' "$S1" | grep -qxF -- '- Review findings:'
   printf '%s\n' "$S1" | grep -qxF -- '  - M01: 3 advisory, 2 confirmed, 1 downgraded'
-  ! printf '%s\n' "$S1" | grep -q '^  - M02:'
+  [ -z "$(printf '%s\n' "$S1" | grep '^  - M02:')" ]
   printf '%s\n' "$S2" | grep -qxF -- '- Review findings:'
   printf '%s\n' "$S2" | grep -qxF -- '  - M02: 2 advisory, 0 confirmed, 1 downgraded'
-  ! printf '%s\n' "$S2" | grep -q '^  - M01:'
+  [ -z "$(printf '%s\n' "$S2" | grep '^  - M01:')" ]
   printf '%s\n' "$P" | grep -qxF -- '- Review findings:'
   printf '%s\n' "$P" | grep -qxF -- '  - M01: 3 advisory, 2 confirmed, 1 downgraded'
   printf '%s\n' "$P" | grep -qxF -- '  - M02: 2 advisory, 0 confirmed, 1 downgraded'

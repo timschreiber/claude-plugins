@@ -883,7 +883,7 @@ The plan format's directory listing names `notes/run-report.md` and `notes/instr
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 6
 - Depends on: M11-T04, M11-T05
 - Files: `tests/orcastrat/run-report.bats`
