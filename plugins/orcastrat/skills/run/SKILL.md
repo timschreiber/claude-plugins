@@ -184,7 +184,7 @@ Before each wave, run **next** (see Definitions); repeat until its `wave:` line 
 
 Choose the mode for this wave:
 
-- **Parallel** if the wave set has two or more tasks, the plan's Parallel is `auto`, and `--serial` wasn't given.
+- **Parallel** if the wave set has two or more tasks, the plan's Parallel is `auto`, `--serial` wasn't given, and no containment failure has switched this run to serial (3e item 3).
 - **Serial** otherwise.
 
 If a task limit is in effect (see Definitions), trim the wave set to the number of tasks still allowed in this run, keeping its first tasks in dispatch order.
@@ -228,36 +228,33 @@ For each task in the wave set, in dispatch order (see Definitions), first **chec
 
 ### 3e. Parallel wave
 
-Let **BASE** be `git rev-parse HEAD` on the plan branch now. Process the wave set in batches of at most Max parallel tasks (or `--max-parallel`), in task ID order. Before each batch, **check the limits** (see Definitions). For each batch:
+Let **BASE** be `git rev-parse HEAD` in MAIN now: the wave's starting commit. Cut the wave set, in **dispatch order** (see Definitions), into batches of at most Max parallel tasks (or `--max-parallel`). Every batch starts from BASE, and nothing in MAIN changes until item 7: the workers work and commit in their worktrees, and each task's failure-log entries go in the failure log inside its worktree. Before each batch, **check the limits** (see Definitions). For each batch:
 
-1. **Create worktrees.** For each task: `git worktree add -b <task branch> "<WT_ROOT>/<task ID>" <BASE>`. If Worktree setup isn't `none`, run it there: `cd "<worktree>" && ORCASTRAT_MAIN="<MAIN>" ORCHESTRATINATOR_MAIN="<MAIN>" <setup command>`; the old name is set too, for setup commands in plans written before the rename. A failure here → go to **Stop** with reason SETUP; it's an environment problem, not a task problem.
-2. **Dispatch all of the batch's workers at once**: first generate each task's **brief** (see Definitions), then make one call per task to the worker agent for its tier (see Definitions), all in a single message, so they run concurrently. Each gets exactly:
+1. **Create worktrees.** Each task's worktree is `<WT_ROOT>/worktrees/<task ID>`. For each task: `git worktree add -b <task branch> "<WT_ROOT>/worktrees/<task ID>" <BASE>`. If Worktree setup isn't `none`, run it there: `cd "<worktree>" && ORCASTRAT_MAIN="<MAIN>" ORCHESTRATINATOR_MAIN="<MAIN>" <setup command>`; the old name is set too, for setup commands in plans written before the rename. A failure here → go to **Stop** with reason SETUP; it's an environment problem, not a task problem.
+2. **Dispatch all of the batch's workers at once**: first generate each task's **brief** (see Definitions), then make one call per task to the worker agent for its current tier (see Definitions), all in a single message, so they run concurrently. Each gets exactly:
    ```
    Brief: <the path task-brief printed>
    Report: <worktree>/<report file>
    Worktree: <absolute worktree path>
    ```
-   plus the retry lines on a retry. In a parallel wave the report path is under the task's worktree, since the worker never writes in the main checkout.
-3. **For each report**, in task ID order, working inside that task's worktree:
-   - First, apply the checks of 3d item 2 to that worktree, with BASE as the recorded HEAD: `git -C "<worktree>" branch --show-current` must print the task branch (otherwise **Stop** with reason STRAY); run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<worktree>" <BASE>` (anything but `OK` → **Stop** with reason PUSHED); and if `git -C "<worktree>" log --oneline <BASE>..HEAD` prints any commit, run `git -C "<worktree>" reset --soft <BASE>` and remember the `- Process:` line. Add that line when you record the task in item 8, or together with its `- Escalated:` or `- Blocked:` line.
-   - No `STATUS:` line in the reply → the worker returned no report: queue a retry (item 5), with the reason `no report`.
-   - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record it for **Block with GAP**, with block reason `VACUOUS`. Leave its worktree for inspection.
-   - `DONE` or `DONE_WITH_CONCERNS` on a task with `- Fails first: yes`, with the RED line missing or `N/A`, or with no **RED evidence** in the report file under the worktree (see Definitions) → queue a retry (item 5), with the reason `RED not confirmed (Fails first: yes)`.
-   - Any other `BLOCKED` / `GAP` → record it for **Block with GAP**. Leave its worktree for inspection.
-   - `BLOCKED` / `STUCK` → queue a retry (item 5).
-   - Any other `DONE` or `DONE_WITH_CONCERNS` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files, then the task's report file (see Definitions), each as its own double-quoted argument; anything but `OK` → record a SCOPE block with the printed paths and leave the worktree. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory (command, `review`, or both; the reviewer also gets the `Worktree:` line, and after `DONE_WITH_CONCERNS` its `Report:` line names the report file under the worktree). Failure → queue a retry (item 5). Success → commit the task in the worktree: `git -C "<worktree>" add -A`, then `git -C "<worktree>" commit -m '<task's Commit message>' -m "Orcastrat-Task: <task ID>"`, writing each `'` in the message as `'\''`.
-4. **Guard the main checkout.** `git status --porcelain` in MAIN must still be empty. If a worker wrote outside its worktree, stop everything: go to **Stop** with reason STRAY, listing the paths. Leave all worktrees.
-5. **Retries.** A parallel task gets at most one retry, one tier up the ladder, in a fresh worktree, with no resume. For each queued retry:
-   - If the task has already been retried in this run, or its current tier (see Definitions) is already `specialist`: mark it `blocked` with `- Blocked: STUCK | VERIFY | REVIEW — <one line>`, and leave its worktree for the user to inspect. Finish the wave's other tasks first (item 6, Integrate, onward), then go to **Stop**.
-   - Otherwise, remove the attempt's worktree and branch. Add `- Escalated: <from> → <to> (<one-line reason>)` under the task, leaving its Tier field unchanged, plus any `- Process:` line you remembered for this attempt. Commit those lines in MAIN before dispatching again, so the next scope check never sees them: `git add "<milestone file path>"`, then `git commit -m "chore(plan): <task ID> attempt 1 failed"`, with no `Orcastrat-Task:` trailer.
-
-   Then run the retries as their own batch, the same way, in fresh worktrees from BASE, each dispatched to the worker agent for its next tier with these lines appended:
-   ```
-   Retry: previous attempt by <tier> failed. You are starting from a clean state.
-   Reason: <worker's NOTE, reviewer's REASONS, "Verify failed", "RED not confirmed (Fails first: yes)", or "no report">
-   Verify tail:
-   <the lines verify printed after its log= line, if a command failed>
-   ```
+   plus the line `Failures: <worktree>/<failure log>` when that file exists. In a parallel wave the report path is under the task's worktree, since the worker never writes in the main checkout. Note the agent ID each dispatch returns, for a resume.
+3. **Containment check**, when the batch's workers have returned, and again whenever resumed workers have replied (item 5). In MAIN, `git status --porcelain` must print nothing, `git branch --show-current` must print the plan's Branch, and `git rev-parse HEAD` must print BASE. If any of these fails, a worker wrote outside its worktree. Don't go to **Stop**:
+   - If `git branch --show-current` doesn't print the plan's Branch, run `git switch --force <Branch>`. Then run `git reset --hard <BASE>` and `git clean -fd`.
+   - Discard every worktree of this wave: for each, `git worktree remove --force "<worktree>"` and `git branch -D <task branch>`.
+   - Tell the user, in one line: `Parallel mode is off for the rest of this run: a worker in wave <n> wrote outside its worktree.`
+   - Run the rest of this run serially, as if `--serial` had been given, starting with this whole wave set, which runs again through the serial wave (**3d**).
+4. **Check each report**, in task ID order, inside the task's worktree:
+   - First apply the checks of 3d item 2 to the worktree, against BASE: `git -C "<worktree>" branch --show-current` must print the task branch (otherwise go to **Stop** with reason STRAY), and `bash "${CLAUDE_PLUGIN_ROOT}/scripts/push-check" "<worktree>" <BASE>` must print `OK` (anything else → **Stop** with reason PUSHED, listing those lines).
+   - No `STATUS:` line in the reply → the worker returned no report: a **failed attempt in the wave** (item 5), with the description `no report (turn limit reached)`.
+   - `RED: PASSED-EARLY` on a task with `- Fails first: yes` → record the task for **Block with GAP**, with block reason `VACUOUS`.
+   - `DONE` or `DONE_WITH_CONCERNS` on a task with `- Fails first: yes`, with the RED line missing or `N/A`, or with no **RED evidence** in the report file under the worktree (see Definitions) → failed attempt in the wave, with the description `RED not confirmed`.
+   - Any other `BLOCKED` / `GAP` → record the task for **Block with GAP**.
+   - `BLOCKED` / `STUCK` → failed attempt in the wave, with the description `STUCK: <NOTE>`.
+   - Any other `DONE` or `DONE_WITH_CONCERNS` → check scope with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scope-check" "<worktree>" <BASE> "<path>" ...`, passing each path in the task's Files, then the task's report file and failure log (see Definitions), each as its own double-quoted argument. Anything but `OK` → failed attempt in the wave, with the description `scope violation: <the printed paths, comma-separated>`. Otherwise verify in the worktree as in 3d item 5, with the worktree as the directory: the command, `review`, or both, and the reviewer after `DONE_WITH_CONCERNS`. The reviewer also gets the `Worktree:` line, and after `DONE_WITH_CONCERNS` its `Report:` line names the report file under the worktree. A failure → failed attempt in the wave, with the description 3d item 5 gives it. On success, if `git -C "<worktree>" status --porcelain` lists a path outside the plan directory, commit those paths for the worker: `git -C "<worktree>" add -A -- ":(exclude)<plan dir>"`, then `git -C "<worktree>" commit -m '<task ID>: <the task's Commit message>'`, writing each `'` in the message as `'\''`. The task is then **ready to integrate**.
+5. **Failed attempt in the wave.** Find the attempt number `<n>` as Definitions says, but counted in the failure log inside the worktree, `<worktree>/<failure log>`, and find the task's current tier and rung (see Definitions). Every **failure-log entry** for this task goes in that file.
+   - **Resume** when the last entry of the worktree's failure log doesn't say `- Then: resumed`. For a scope violation, first reset the worktree, keeping the report and the failure log: run `mkdir -p "<WT_ROOT>/hold"`; with `cp`, copy `<worktree>/<report file>` to `"<WT_ROOT>/hold/<task ID>.md"` and `<worktree>/<failure log>` to `"<WT_ROOT>/hold/<task ID>-failures.md"`; run `git -C "<worktree>" reset --hard <BASE>` and `git -C "<worktree>" clean -fd`; run `mkdir -p "<worktree>/<plan dir>/notes/reports"`, copy both held files back to where they came from, and run `rm -rf "<WT_ROOT>/hold"`. Then append the failure-log entry, with Then `resumed`. Once item 4 has checked every report of the batch, send all of the batch's resumes at once, one SendMessage call per task in a single message, each addressed to the agent ID its dispatch returned, with the message **Failed attempt** item 1 gives, except that its `Report:` line is `Report: <worktree>/<report file>`. If a call returns an error, change that entry's Then line to `resume failed (<error>), escalated to <next tier>`, or to `resume failed (<error>), blocked (STUCK)` when the rung is 3 or the current tier is `specialist`, and the task leaves the wave. When the resumed workers have replied, run the containment check (item 3), then check each resumed task's report as in item 4.
+   - Otherwise the task **leaves the wave**. Append its failure-log entry, with Then `escalated to <next tier>` when the rung is below 3 and the current tier isn't `specialist` (the next tier is one up the ladder, see **Failed attempt**), or `blocked (STUCK)` otherwise. Leave its worktree: item 11 or item 12 settles the task once the wave is integrated.
+6. Once every task of the batch is ready to integrate, has left the wave, or is recorded for a block, go on with the next batch.
 
 When every task in the wave set has either committed in its worktree or ended in a block:
 
