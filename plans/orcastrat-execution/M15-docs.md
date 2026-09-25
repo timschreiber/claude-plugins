@@ -40,3 +40,5 @@ Governing sources: spec §28 (Docs), §24 (Change 23), §23 item 2 (Change 22), 
 - README: the interview, write-back, `--skip-interview`; targeted Verify; the instruction-file check and what to do about its findings; "During a run"; the cast table with allowlists.
 - CHANGELOG *Added*, *Changed* and *Removed* entries per §28, with the inventory, model-pin grep, and dispatch sizes.
 - CLAUDE.md updates per D26.
+- A-M02-5 (from `notes/M16-survey.md`): re-verify every `path:line` in `notes/M02-T02.md`'s inventory against HEAD before copying it into the CHANGELOG; at least the `skills/plan/SKILL.md:163` row has drifted.
+- A-M01-3 (from `notes/M16-survey.md`): the README's "Upgrading from Orchestratinator" auto-migration paragraph states the Claude Code version and trigger conditions recorded in `notes/M01-T01.md`.

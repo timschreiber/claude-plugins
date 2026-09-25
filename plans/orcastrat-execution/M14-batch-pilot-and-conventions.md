@@ -27,3 +27,4 @@ Governing sources: spec §16 (Change 15), §18 (Change 17); Decisions D15, D16, 
 - `plan`, `planner`: when to use `Batch: <id>`, and writing the Conventions block. `plan-reviewer`: Batch-form checks, and the advisory Conventions check.
 - `run`: the pilot scheduling, re-tiering, and starting-rung rules.
 - A `task-brief` bats test that a Context with a Conventions block appears in the brief.
+- A-M05-2 (from `notes/M16-survey.md`): `reference/plan-format.md`'s ladder sentence says "at most two tiers above its planned Tier"; when adding `Re-tiered:`, change "its planned Tier" to "its starting tier (its `- Re-tiered:` tier, if any, otherwise its planned Tier)" (D31, D84).
