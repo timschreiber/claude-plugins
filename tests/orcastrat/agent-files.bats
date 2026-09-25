@@ -8,7 +8,7 @@ setup() {
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
 NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader validator'
 NO_SHELL_AGENTS='plan-reviewer planner merger'
-READING_BUDGET_AGENTS='validator plan-reviewer reviewer'
+READING_BUDGET_AGENTS='validator plan-reviewer reviewer milestone-reviewer'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
 # of <file>, ignoring carriage returns. Prints nothing when the file or the
@@ -438,4 +438,14 @@ EOF
   [ "$status" -ne 0 ]
   run grep -qF 'an `Output:` path for your report file' "$f"
   [ "$status" -eq 0 ]
+}
+
+@test "milestone-reviewer scores its findings" {
+  local f="$AGENTS/milestone-reviewer.md"
+  has_line "$f" '- Keep your reply to the status block. Everything else goes in your report file.'
+  has_line "$f" '3. `plan.md`: its header, its `## Out of scope` section if it has one, and the Decisions the milestone cites, found with Grep.'
+  has_line "$f" '- It contradicts a Decision in plan.md, or the Context of the milestone other than a rule quoted in its `Conventions:` block (tag it `contradicts-decision`).'
+  has_line "$f" '- [<score>] <category>: <path:line> — <problem> (<task ID, Coverage row, or D<nn>>)'
+  run grep -qF 'Only findings that would cause real problems count as blocking.' "$f"
+  [ "$status" -ne 0 ]
 }

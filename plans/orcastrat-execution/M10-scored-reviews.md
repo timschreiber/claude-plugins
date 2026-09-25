@@ -806,7 +806,7 @@ The plan format lists `validator` among its readers, lists the per-task reviewer
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M10-T01, M10-T04, M10-T06
 - Files: `plugins/orcastrat/agents/milestone-reviewer.md`, `tests/orcastrat/agent-files.bats`
