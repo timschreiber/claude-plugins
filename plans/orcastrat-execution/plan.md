@@ -26,7 +26,7 @@
 | M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | done | M09-preflight-checks.md |
 | M10 | Scored reviews and the validator (Change 10) | done | M10-scored-reviews.md |
 | M11 | Run report and rule suggestions (Changes 11, 18) | done | M11-run-report-and-suggestions.md |
-| M12 | The decider (Change 12) | ready | M12-decider.md |
+| M12 | The decider (Change 12) | in-progress | M12-decider.md |
 | M13 | Targeted Verify and the planning interview (Changes 13, 14) | outline | M13-targeted-verify-and-interview.md |
 | M14 | Batch pilot and conventions excerpts (Changes 15, 17) | outline | M14-batch-pilot-and-conventions.md |
 | M16 | Resolve the advisory review findings (M01–M14) | outline | M16-advisory-fixes.md |
