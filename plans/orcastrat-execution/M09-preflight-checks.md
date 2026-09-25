@@ -137,7 +137,7 @@ Waves: 6 (widths 6, 4, 3, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: M02-T05, M02-T06
 - Files: `plugins/orcastrat/scripts/ensure-exclude`, `tests/orcastrat/ensure-exclude.bats`
