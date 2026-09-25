@@ -697,7 +697,7 @@ A new bats file checks that no skill's frontmatter has a `model:` line and that 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M09-T06, M09-T07
 - Files: `plugins/orcastrat/skills/status/SKILL.md`

@@ -7,28 +7,11 @@ argument-hint: "<plan dir>"
 
 # Status
 
-Argument: `$ARGUMENTS` (the plan directory). If missing, list the directories under `plans/` that contain a `plan.md` and ask which one.
+Argument: `$ARGUMENTS` (the plan directory, optional).
 
-This is read-only. Do not edit any file, and do not run any git command other than `git status --porcelain`, `git log --oneline -5`, and `git worktree list`.
+This is read-only, and you do none of the reading yourself: a Haiku subagent does it, so this skill never switches your session's model.
 
-Read `plan.md`, then the milestone file of every milestone that is `in-progress` or `blocked`. Do not read the others. Then find the plan's failure logs with the Glob pattern `<plan dir>/notes/*-failures.md`, and count the lines starting `## Attempt ` in each with Grep's count mode. Read nothing else under `notes/`.
+1. Invoke the agent `orcastrat:status-reader` with exactly one line: `Plan: <plan dir>`, with the directory the argument names, or `Plan: none` when there is no argument.
+2. Relay its reply to the user verbatim, as your whole reply: add nothing, drop nothing, and don't reformat it.
 
-Reply in this shape and nothing more:
-
-```
-<plan title> — <plan status>
-Milestones: <done>/<total> done  (<n> outline, <n> ready, <n> in-progress, <n> blocked)
-Current: <milestone ID and title>, <done>/<total> tasks done, wave <n> of <count>
-Blocked: <item, reason, one-line detail>        (omit if none)
-Failures: <task ID> (<n> failed attempts), ...   (omit if none)
-Open questions: <count>, listed below            (omit if none)
-Working tree: clean | <n> uncommitted paths
-Worktrees: none | <paths left under .git/orcastrat/ for inspection>
-Next: <the exact command or action that comes next>
-```
-
-Then list open questions, one per line, with their tags.
-
-For **Failures**, list every task that has a failure log, `<plan dir>/notes/<task ID>-failures.md`, whatever its status, with `<n>` the number of lines starting `## Attempt ` in that log.
-
-For **Next**, choose exactly one: rerun `/orcastrat:run <dir>`; resolve the block (say which); answer the open questions and record them under Decisions; commit or discard uncommitted changes; or nothing, the plan is complete.
+Read no file and run no command yourself.
