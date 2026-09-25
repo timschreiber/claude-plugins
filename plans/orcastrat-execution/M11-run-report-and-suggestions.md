@@ -1,6 +1,6 @@
 # M11: Run report and rule suggestions (Changes 11, 18)
 
-- Status: ready
+- Status: in-progress
 - Format: 2
 - Goal: `run-report` builds `plans/<slug>/notes/run-report.md` from recorded files and history, with bats tests. `run` runs it at every Pause, Stop and completion, and commits the report. When a finding category appears in the reviews of two or more milestones, `run`'s milestone-end step appends a suggested CLAUDE.md rule or hook to `notes/instruction-suggestions.md`, and the run report lists it. Suggestions are never applied.
 - Depends on: M10
