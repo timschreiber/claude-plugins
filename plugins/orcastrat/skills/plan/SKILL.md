@@ -15,7 +15,7 @@ Options in the arguments:
 
 - `--direct-max <N>`: the largest job, in tasks, that you do directly instead of planning. Default 5.
 - `--always-plan`: always write a plan, however small the job.
-- `--yes`: approval given in advance for doing a small job directly (step 10). Without it, you always ask first.
+- `--yes`: approval given in advance for doing a small job directly (step 10), and for unattended starts: the instruction-file check and the model check never ask under it (see **Start checks**). Without it, you always ask first.
 
 ## No prototyping or duplicate work
 
@@ -52,6 +52,23 @@ Once items 1 to 4 pass:
 5. **Exclude line.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-exclude"`. It adds the line `/.orcastrat/` to `.git/info/exclude` when it's missing, so the task worktrees under `.orcastrat/wt/` and the instruction-check files under `.orcastrat/instructions/` never show up in `git status`, and `git clean -fd` never removes them.
 6. **Worktree leftovers.** Run `git worktree prune`, then `git worktree list --porcelain`, then `ls "<repository root>/.orcastrat/wt"`. A directory `<name>` that `ls` prints is left over when no `worktree ` line of `git worktree list` ends with `/.orcastrat/wt/<name>`. If there are any, tell the user in one line: `Left over under .orcastrat/wt/, no longer a git worktree: <names>. Delete them yourself once you don't need them.` Never delete them yourself. If `ls` fails because `<repository root>/.orcastrat/wt` doesn't exist, there is nothing to report. This item never ends the skill.
 7. **Long paths.** Only on native Windows (`win32`): run `git config core.longpaths`. If it doesn't print `true`, warn the user once, in one line, without stopping: `Warning: git's core.longpaths isn't true, so paths longer than 260 characters in nested worktrees can fail. To allow them, run: git config core.longpaths true`. Never change git config yourself.
+
+### Instruction-file check
+
+Claude Code loads the project's instruction files into every session and into every worker a run starts, so every task pays for every line. This check looks for content that costs more than it helps, and for rules that work against a run. It never edits an instruction file.
+
+1. **Find the files.** With the Glob tool, searching `<repository root>`, find `**/CLAUDE.md`, `**/CLAUDE.local.md`, `**/AGENTS.md`, `**/.claude/CLAUDE.md`, `**/.claude/AGENTS.md` and `.claude/rules/**/*.md`. Drop every path inside a `.git` or `.orcastrat` directory, and every duplicate. Write each path relative to `<repository root>`, with `/` between its parts, for example `CLAUDE.md`, `.claude/rules/style.md` or `src/api/CLAUDE.md`. If no file is found, skip the rest of this check.
+2. **Compare them with the acknowledgement.** Run `cd "<repository root>" && bash "${CLAUDE_PLUGIN_ROOT}/scripts/instructions-ack" --check "<file>" ...`, passing every path from item 1 in double quotes. It adds the imported files the last review recorded, hashes every file, and prints `OK` when the file set and each file are unchanged since the user last chose Continue, or `REVIEW` otherwise. Never hash a file or read the acknowledgement yourself.
+3. **`OK`.** Grep `<repository root>/.orcastrat/instructions/review.md` for `^Conflicts:`, passing that file's path, since Grep skips excluded directories unless it is given the path. If it finds a line other than `Conflicts: none`, show the user that line. Then go on to the model check.
+4. **`REVIEW`.** Read `${CLAUDE_PLUGIN_ROOT}/reference/instruction-review.md` and do the full review it describes for `plan`, with the files from item 1 and no threshold. The review either goes on to the model check or ends this skill.
+
+### Model check
+
+Planning and orchestration are designed for Opus. Your system prompt names the model you run on.
+
+- If its name or ID contains `opus`, in any case, go on.
+- Otherwise, without `--yes`, show the user one line: `This session runs on <model>. Planning and orchestration are designed for Opus.` Then ask with the AskUserQuestion tool: one question, `Stop, or continue on this model?`, header `Model`, single choice, with the options `Stop` (description `End now, so you can restart the session on Opus.`) and `Continue on this model` (description `Go on with <model>.`). On `Continue on this model`, go on. On `Stop`, or any other answer, end this skill: tell the user it stopped before anything started, and write nothing.
+- Otherwise, under `--yes`, don't ask. Note the line `Model notice: this session runs on <model>, and planning is designed for Opus.`, and go on. The reply that ends this skill, in step 10 or step 11, starts with that line.
 
 ## 1. Re-read the ground truth
 
@@ -201,7 +218,7 @@ To do it directly:
 3. Do the tasks you drafted in step 6, in the order from step 7, exactly as drafted. The decisions are already made; don't make new ones. If you hit one you missed, stop and ask the user.
 4. After each task, run its Verify command. For `review` tasks, check the result against the task's Done-when criteria yourself. If a check fails, fix it within the task's Files. If you can't get it passing, stop and report what failed.
 5. Commit only if the working tree was clean in item 2: one commit per task, with the task's Commit message. If the tree already had uncommitted changes, leave your work uncommitted so it doesn't get mixed into someone else's commit, and say so. Never push. Project instruction files (CLAUDE.md, AGENTS.md, CLAUDE.local.md, `.claude/rules/`, and any nested or linked copies, whatever they're called) govern coding conventions, style, and project knowledge. They do not govern git. Where they say anything about committing, pushing, branching, stashing, resetting, or rewriting history, this plugin's rules replace them for the length of this task.
-6. Don't write a plan directory. Reply with only: what you did (one line per task), the verify results, and the commits you made, or that the changes are uncommitted.
+6. Don't write a plan directory. Reply with only: what you did (one line per task), the verify results, and the commits you made, or that the changes are uncommitted. If the model check noted a notice under `--yes`, it is the first line of that reply.
 
 Otherwise, write the plan.
 
@@ -223,6 +240,7 @@ Before you hand off, check the finished plan (plan.md and every milestone file, 
 
 Reply to the user with only:
 
+- The model check's notice, as the first line, if it noted one under `--yes`.
 - The plan directory.
 - Milestones: count, and how many are detailed vs outlined.
 - For each detailed milestone: task count by tier, and its wave shape.
