@@ -23,7 +23,7 @@
 | M06 | Task briefs and report files (Changes 7, 9) | done | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | done | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | done | M08-stop-hook.md |
-| M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | ready | M09-preflight-checks.md |
+| M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | in-progress | M09-preflight-checks.md |
 | M10 | Scored reviews and the validator (Change 10) | outline | M10-scored-reviews.md |
 | M11 | Run report and rule suggestions (Changes 11, 18) | outline | M11-run-report-and-suggestions.md |
 | M12 | The decider (Change 12) | outline | M12-decider.md |
