@@ -25,7 +25,7 @@
 | M08 | Stop hook (Change 8) | done | M08-stop-hook.md |
 | M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | done | M09-preflight-checks.md |
 | M10 | Scored reviews and the validator (Change 10) | done | M10-scored-reviews.md |
-| M11 | Run report and rule suggestions (Changes 11, 18) | outline | M11-run-report-and-suggestions.md |
+| M11 | Run report and rule suggestions (Changes 11, 18) | ready | M11-run-report-and-suggestions.md |
 | M12 | The decider (Change 12) | outline | M12-decider.md |
 | M13 | Targeted Verify and the planning interview (Changes 13, 14) | outline | M13-targeted-verify-and-interview.md |
 | M14 | Batch pilot and conventions excerpts (Changes 15, 17) | outline | M14-batch-pilot-and-conventions.md |
@@ -36,7 +36,7 @@
 
 - `docs/orcastrat-execution-spec.md` preamble: goal, replaces the isolation and best-practices specs → M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, M13, M14, M15
 - `docs/orcastrat-execution-spec.md` §1.1: known mechanisms only → M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, M13, M14
-- `docs/orcastrat-execution-spec.md` §1.2: plan format is a contract, every reader updated per milestone → M04, M05, M06, M07, M09, M10, M12, M13, M14
+- `docs/orcastrat-execution-spec.md` §1.2: plan format is a contract, every reader updated per milestone → M04, M05, M06, M07, M09, M10, M11, M12, M13, M14
 - `docs/orcastrat-execution-spec.md` §1.3: no design decisions below the plan; decider only recommends → M05, M12
 - `docs/orcastrat-execution-spec.md` §1.4: frontmatter is valid YAML → M01, M04, M07, M09, M10, M12
 - `docs/orcastrat-execution-spec.md` §1.5: cost is display-only → M05, M11
@@ -69,11 +69,13 @@
 - `docs/orcastrat-execution-spec.md` §20: Change 19 item 6, preflight toolchain check → M09
 - `docs/orcastrat-execution-spec.md` §20: Change 19 item 10, README prerequisites → M15
 - `docs/orcastrat-execution-spec.md` §21: Change 20, `status` delegation, no model pins, Opus check → M09
+- `docs/orcastrat-execution-spec.md` §21: Change 20 item 2, the `--yes` model notice shown in the run report (D42) → M11
 - `docs/orcastrat-execution-spec.md` §22: Change 21, agent prefix hygiene and allowlists → M04, M06, M07, M09, M10, M12
 - `docs/orcastrat-execution-spec.md` §23: Change 22, same-tier dispatch order → M07
 - `docs/orcastrat-execution-spec.md` §23: Change 22, README "During a run" → M15
 - `docs/orcastrat-execution-spec.md` §24: Change 23, README Prerequisites → M15
 - `docs/orcastrat-execution-spec.md` §25: Change 24, rename to Orcastrat → M01
+- `docs/orcastrat-execution-spec.md` §25: Change 24 item 4, `run-report` accepts both `Orcastrat-Task:` and `Orchestratinator-Task:` → M11
 - `docs/orcastrat-execution-spec.md` §25a: Change 25, cheap resume: the `next` script, reading it instead of plan files, steps resumed from git → M06; the Stop hook reason → M08; tokens per invocation in the run report → M11; README → M15
 - `docs/orcastrat-execution-spec.md` §26: out of scope → out of scope (D38)
 - `docs/orcastrat-execution-spec.md` §27: dropped or deferred → out of scope (D39)
@@ -306,6 +308,9 @@
 - D208: `run` runs `run-report` just after `run-state end` in Pause item 1, Stop item 1 and Finish item 2, only when that `run-state end` ran (D142); an exit 2 there is quoted in the Pause or Stop report and never starts another Stop; in a serial Stop that leaves plan files uncommitted, the report stays uncommitted with them. (source: user, M11 question 5, option a)
 - D209: The Change 18 suggestion step is option (a) of M11 question 6, recorded in `notes/M11-decisions.md`, except that `suggest-check` only detects and counts categories: `run` drafts the rule or hook wording. (source: user, M11 question 6, option a with that change)
 - D210: `run` checks a commit subject taken from a task field before committing; an empty or missing subject stops with SETUP naming the task, never a commit with no subject line. Built in M16, with a bats or fixture test for a missing or empty Commit field. Commit `8c54c4a` (M10-T05, subject missing) stays as is: no rebase, since it would move every later commit and orphan the `refs/orcastrat/` refs. (source: user, at the M11 stop)
+- D211: `run-report <plan-dir>` writes `<plan-dir>/notes/run-report.md` through a `.tmp` file and `mv`, prints its absolute path through `print_path` and nothing else, and fails per D55 plus `no plan.md in:`. It reads history from `refs/heads/<Branch>` as `recover` does (none when that ref doesn't resolve), gives times in whole minutes rounded down (as `run-state elapsed`), and writes no generation time, so a rerun with no new records writes the same bytes. Its task parser carries a fifth copy of recover's `fence_of`, which D192's comments and drift test (M16) cover too. (source: D43, D55, D57, D89, D112, D192; spec §25a item 3)
+- D212: At Pause, Stop and completion, `run` appends its noted run-log lines just after `run-state end` and before `run-report`, so the report counts them; each line keeps the UTC time it was noted with, and `run-report` places it by that time, not by its position in the log. (source: D81, D204, D207, D208)
+- D213: `suggest-check` prints categories and milestone IDs in `LC_ALL=C sort` order, and reads the `## <category>` headings of `instruction-suggestions.md` outside code fences. To draft the wording (D209's exception), `run` reads only that category's finding lines, with one Grep of `<plan dir>/notes` for `\] <category>: `; a new `instruction-suggestions.md` starts with `# Instruction suggestions`. (source: D209; D104, reading notes only through Grep)
 
 ## Open questions
 
