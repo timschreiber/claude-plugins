@@ -424,7 +424,7 @@ Waves: 5 (widths 2, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M08-T03, M08-T06
 - Files: `plugins/orcastrat/hooks/hooks.json`
