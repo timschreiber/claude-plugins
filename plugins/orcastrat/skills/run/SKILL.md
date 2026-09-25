@@ -73,6 +73,39 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
 - **Limits**: the run time limit is `--max-run-time`, or else the plan's `Max run time` header field; the task limit is `--max-tasks`, or else `Max tasks`; the milestone limit is `--max-milestones`, or else `Max milestones`. A missing field, or `none`, means no limit. A run time of `<n>m` is n minutes, and `<n>h` is n × 60 minutes.
 - **Check the limits**: if a run time limit is in effect, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" elapsed`, which prints the whole minutes since this run started; if that is at least the limit, go to **Pause** with reason `LIMIT`. If a task limit is in effect and this run has already committed that many tasks as `done`, go to **Pause** with reason `LIMIT`. Check them before each new serial task (3d) and before each parallel batch (3e). The milestone limit is checked in 3f item 8.
 
+## Start checks
+
+Run these three checks first, in this order, before anything else in this skill: before step 1's reads, before any survey or question, before `Proceed?`, and before 2c item 6 writes the marker. When a check ends the run here, including a script that exits 2 (see Definitions, **Scripts**), report the reason and stop there: skip the **Stop** section's steps, and write and commit nothing, so there is no marker, no `run-state end`, no plan-file change and no commit.
+
+### Toolchain check
+
+Run items 1 to 4 directly with whatever shell tool the platform gives you (on Windows without Git Bash, the PowerShell tool), never through a script: bash may be missing.
+
+1. **bash.** Run `bash --version`. It passes when the command runs and its first line reports version 3.2 or later.
+2. **git.** Run `git --version`. It passes when the command runs and reports version 2.17 or later, the oldest with `git worktree remove`.
+3. **Repository.** Run `git rev-parse --is-inside-work-tree`. It passes when it prints `true`: the current directory is inside a git work tree, not a bare repository.
+4. **Commit identity.** Run `git config user.name` and `git config user.email`. It passes when each prints a value. Workers commit, so a missing identity would fail every task.
+
+If any of items 1 to 4 fails, end the run with reason SETUP. Tell the user, in one message, `Orcastrat can't start: the toolchain check failed.`, then one line for each failed item, all of them at once: `- <item>: <what the command printed, or that it didn't run>. Fix: <the fix>`. Take the fix from this list, for the platform your environment reports (`win32` is native Windows):
+
+- bash or git, on native Windows: `Install Git for Windows (https://git-scm.com/download/win), which provides both bash and git, then restart Claude Code.`
+- bash, elsewhere: `Install bash 3.2 or later with your system package manager. Minimal containers, such as Alpine-based ones, ship sh without bash.`
+- git, elsewhere: `Install git 2.17 or later with your system package manager.`
+- Repository: `Run git init to make this directory a repository, or start Claude Code inside a git work tree.`
+- Commit identity: `Run git config --global user.name "Your Name" and git config --global user.email "you@example.com".`
+
+Once items 1 to 4 pass:
+
+5. **Where the run stands.** Run **next** (see Definitions).
+6. **Active run.** Read the `marker:` line of **next**, this checkout's active-run marker. A run writes it in 2c item 6 and removes it at its **Pause**, **Stop** or completion.
+   - `marker: none`: go on.
+   - `marker: stale`: its heartbeat is more than an hour old, or unreadable, so a crashed session left it. Remove it, which is a write: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" drop`. It deletes the marker without adding an `end` line to the crashed run's run log. Tell the user in one line: `Removed a stale run marker left by a crashed session.` Then go on.
+   - `marker: active <n>m`: another run is active in this checkout, and its last heartbeat was <n> minutes ago. Only one run may be active per checkout. End the run here, before anything changes, and skip the rest of the start checks: item 7's advice to commit or discard would touch the other run's changes. Tell the user in one line that another Orcastrat run is active in this checkout, naming its marker, `<the directory git rev-parse --git-dir prints>/orcastrat/active-run`, and saying that a later run removes it once its heartbeat is more than an hour old. Runs in other worktrees of this repository have their own markers and never stop this one.
+7. **Working tree is clean.** `git status --porcelain` prints nothing: no uncommitted changes, and no untracked files outside `.gitignore`. It may print one other thing, a **detailed but uncommitted milestone**: the `milestone:` line of **next** says `ready`, and every path printed is `<plan dir>/plan.md`, that milestone's file, one of its survey notes `<plan dir>/notes/<ID>-survey*.md`, or its plan-review report `<plan dir>/notes/<ID>-plan-review.md`; 2c item 2 finishes that milestone. If it prints anything else, end the run with reason SETUP and list the paths it printed: the user must commit or discard them first. Uncommitted changes in a task's Files are never treated as an interrupted attempt: they may be the user's own edits, which a reset and clean would destroy. A failed attempt is cleaned with `git clean -fd`, which would otherwise delete the user's untracked files.
+8. **Exclude line.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-exclude"`. It adds the line `/.orcastrat/` to `.git/info/exclude` when it's missing, so the task worktrees under `.orcastrat/wt/` and the instruction-check files under `.orcastrat/instructions/` never show up in `git status`, and `git clean -fd` never removes them.
+9. **Worktree leftovers.** Run `git worktree prune`, then `git worktree list --porcelain`, then `ls "<MAIN>/.orcastrat/wt"`. A directory `<name>` that `ls` prints is left over when no `worktree ` line of `git worktree list` ends with `/.orcastrat/wt/<name>`. If there are any, tell the user in one line: `Left over under .orcastrat/wt/, no longer a git worktree: <names>. Delete them yourself once you don't need them.` Never delete them yourself. If `ls` fails because `<MAIN>/.orcastrat/wt` doesn't exist, there is nothing to report. This item never ends the run.
+10. **Long paths.** Only on native Windows (`win32`): run `git config core.longpaths`. If it doesn't print `true`, warn the user once, in one line, without stopping: `Warning: git's core.longpaths isn't true, so paths longer than 260 characters in nested worktrees can fail. To allow them, run: git config core.longpaths true`. Never change git config yourself.
+
 ## 1. Re-read the ground truth
 
 Read these now:
@@ -80,7 +113,7 @@ Read these now:
 1. `CLAUDE.md` and `AGENTS.md` at the repository root, in full. If one is a symlink to the other, or they have identical content, read it once.
 2. The plan format, in full: `${CLAUDE_PLUGIN_ROOT}/reference/plan-format.md`.
 3. The **plan header** (see Definitions). Not the rest of plan.md: never its Decisions.
-4. Where the run stands: run **next** (see Definitions), and keep its nine lines for the preflight.
+4. Where the run stands: the nine lines of **next** from item 5 of the toolchain check (see **Start checks**). Keep them for the preflight.
 
 ## 2. Preflight
 
@@ -88,17 +121,12 @@ Read these now:
 
 These only read, except where an item says it writes. Stop and report to the user if any fails.
 
-1. **Active run.** Read the `marker:` line of **next**, this checkout's active-run marker. A run writes it in 2c item 6 and removes it at its **Pause**, **Stop** or completion.
-   - `marker: none`: go on.
-   - `marker: stale`: its heartbeat is more than an hour old, or unreadable, so a crashed session left it. Remove it, which is a write: run `git rev-parse --git-dir`, then `rm -f "<the directory it printed>/orcastrat/active-run"`. Don't use the `run-state` script for this: it would add an `end` line to the crashed run's run log. Tell the user in one line: `Removed a stale run marker left by a crashed session.` Then go on.
-   - `marker: active <n>m`: another run is active in this checkout, and its last heartbeat was <n> minutes ago. Only one run may be active per checkout. Stop here, before anything changes, and tell the user in one line that another Orcastrat run is active in this checkout, naming its marker, `<the directory git rev-parse --git-dir prints>/orcastrat/active-run`, and saying that a later run removes it once its heartbeat is more than an hour old. Runs in other worktrees of this repository have their own markers and never stop this one.
-2. **Working tree is clean.** `git status --porcelain` prints nothing: no uncommitted changes, and no untracked files outside `.gitignore`. It may print one other thing, a **detailed but uncommitted milestone**: the `milestone:` line of **next** says `ready`, and every path printed is `<plan dir>/plan.md`, that milestone's file, one of its survey notes `<plan dir>/notes/<ID>-survey*.md`, or its plan-review report `<plan dir>/notes/<ID>-plan-review.md`; 2c item 2 finishes that milestone. If it prints anything else, stop with reason SETUP and list the paths it printed: the user must commit or discard them first. Uncommitted changes in a task's Files are never treated as an interrupted attempt: they may be the user's own edits, which a reset and clean would destroy. A failed attempt is cleaned with `git clean -fd`, which would otherwise delete the user's untracked files.
-3. **Plan status.** If the `plan:` line of **next** says `complete`, report that and stop. If it says `blocked`, stop and tell the user to resolve the recorded block first (see the plugin README).
-4. **Open blocks.** If the `blocked:` line of **next** isn't `blocked: none`, stop and report the IDs it lists.
-5. **Leftover worktrees.** If the `worktrees:` line of **next** isn't `worktrees: 0`, `<WT_ROOT>/worktrees/` holds task worktrees from an earlier run: list them to the user from `git worktree list`, and stop. Don't delete them: they may hold work the user wants to inspect. The user removes them with `git worktree remove` and deletes their branches.
-6. **Branch.** If the plan's Branch exists but isn't checked out, stop and ask.
-7. **Interrupted-run recovery.** Read the `recover:` line of **next**: the output of the `recover` script, with its lines joined by `; `. It is `OK`, or one line per affected `todo` task. A `done <task ID>` line means the task's trailer, `Orcastrat-Task:` or the pre-rename `Orchestratinator-Task:`, is already in the Branch's history: the task was integrated before an interruption, but its status wasn't recorded. Note those tasks; you'll mark them `done` in 2c. An `interrupted <task ID>` line means a worker committed for that task but the run ended before its status commit: 2c item 3 resets that attempt and redispatches the task. If `recover` prints more than one `interrupted` line, or the subject that `git log -1 --format=%s` prints doesn't start with `<task ID>: ` for the interrupted task, stop with reason SETUP and list the lines.
-8. **Pre-rename leftovers.** If a directory named `orchestratinator/` exists in the directory `git rev-parse --git-dir` prints or in the one `git rev-parse --git-common-dir` prints, run `git worktree prune` (the other write in these checks, besides item 1's) and tell the user in one line that the old `orchestratinator/` directory can be deleted. Never delete it yourself. This check never stops the run.
+1. **Plan status.** If the `plan:` line of **next** says `complete`, report that and stop. If it says `blocked`, stop and tell the user to resolve the recorded block first (see the plugin README).
+2. **Open blocks.** If the `blocked:` line of **next** isn't `blocked: none`, stop and report the IDs it lists.
+3. **Leftover worktrees.** If the `worktrees:` line of **next** isn't `worktrees: 0`, `<WT_ROOT>/worktrees/` holds task worktrees from an earlier run: list them to the user from `git worktree list`, and stop. Don't delete them: they may hold work the user wants to inspect. The user removes them with `git worktree remove` and deletes their branches.
+4. **Branch.** If the plan's Branch exists but isn't checked out, stop and ask.
+5. **Interrupted-run recovery.** Read the `recover:` line of **next**: the output of the `recover` script, with its lines joined by `; `. It is `OK`, or one line per affected `todo` task. A `done <task ID>` line means the task's trailer, `Orcastrat-Task:` or the pre-rename `Orchestratinator-Task:`, is already in the Branch's history: the task was integrated before an interruption, but its status wasn't recorded. Note those tasks; you'll mark them `done` in 2c. An `interrupted <task ID>` line means a worker committed for that task but the run ended before its status commit: 2c item 3 resets that attempt and redispatches the task. If `recover` prints more than one `interrupted` line, or the subject that `git log -1 --format=%s` prints doesn't start with `<task ID>: ` for the interrupted task, stop with reason SETUP and list the lines.
+6. **Pre-rename leftovers.** If a directory named `orchestratinator/` exists in the directory `git rev-parse --git-dir` prints or in the one `git rev-parse --git-common-dir` prints, run `git worktree prune` (the one write in these checks) and tell the user in one line that the old `orchestratinator/` directory can be deleted. Never delete it yourself. This check never stops the run.
 
 ### 2b. Ask for approval
 
@@ -109,7 +137,7 @@ Nothing is executed without the user's explicit approval, and nothing in the rep
 - For the next milestone, if it's detailed: the wave **next** names, with its tasks and tiers, and whether waves will run in parallel (and Max parallel) or serially.
 - Where this run will stop on its own: gates, `--milestone`, the limits in effect (see Definitions), or the end of the plan.
 - Any tasks you'll mark `done` because of interrupted-run recovery, and any interrupted attempt you will reset and redispatch.
-- A detailed but uncommitted milestone (2a item 2), which you will plan-review, validate and commit without running the planner again.
+- A detailed but uncommitted milestone (the toolchain check's item 7), which you will plan-review, validate and commit without running the planner again.
 
 Then ask: `Proceed?` and wait for the answer.
 
@@ -123,8 +151,8 @@ If `--yes` was given, the user approved in advance: show the summary and continu
 ### 2c. Prepare
 
 1. **Branch.** If the plan's Branch doesn't exist, create it: `git switch -c <branch>`.
-2. **Detailed milestone.** If 2a item 2 accepted a detailed but uncommitted milestone, finish it before anything else in 2c changes a file, without running the planner again: invoke `orcastrat:plan-reviewer` and handle its result as in 3a item 5, unless `<plan dir>/notes/<ID>-plan-review.md` was among the paths 2a item 2 listed; then run the validation checklist on the milestone, and on any failure mark it `blocked` with the failures and go to **Stop**; then check scope and commit as in 3a items 6 and 7 (`chore(plan): detail <ID>`). If Gates includes `detail`, go to **Pause** with reason `GATE`, telling the user to review the milestone file and rerun.
-3. **Interrupted attempt.** For an `interrupted <task ID>` line from 2a item 7:
+2. **Detailed milestone.** If the toolchain check's item 7 accepted a detailed but uncommitted milestone, finish it before anything else in 2c changes a file, without running the planner again: invoke `orcastrat:plan-reviewer` and handle its result as in 3a item 5, unless `<plan dir>/notes/<ID>-plan-review.md` was among the paths the toolchain check's item 7 listed; then run the validation checklist on the milestone, and on any failure mark it `blocked` with the failures and go to **Stop**; then check scope and commit as in 3a items 6 and 7 (`chore(plan): detail <ID>`). If Gates includes `detail`, go to **Pause** with reason `GATE`, telling the user to review the milestone file and rerun.
+3. **Interrupted attempt.** For an `interrupted <task ID>` line from 2a item 5:
    - Find its BASE, the commit just below the task's worker commits at the tip of the Branch: `git log -1 --format=%H --invert-grep --grep="^<task ID>: "`.
    - If the task has an `- Interrupted:` line below its last `- Blocked:` line (or any `- Interrupted:` line, if it has no `- Blocked:` line), this is its second interruption: handle it as a **Failed attempt** with the description `interrupted attempt`.
    - Otherwise, find its attempt number `<n>` and current tier (see Definitions). **Discard the attempt**. Append its **failure-log entry**, with Description `interrupted attempt`, Hypothesis and Fixes tried `none reported`, Then `redispatched at <tier> (interrupted)`, and Error `none`. Add `- Interrupted: attempt <n> at <tier>` under the task. Then `git add -A` and `git commit -m "chore(plan): <task ID> attempt <n> interrupted"`, with no `Orcastrat-Task:` trailer. The wave loop dispatches the task again, at the same tier.
