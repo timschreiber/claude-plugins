@@ -230,7 +230,7 @@ Waves: 4 (widths 4, 2, 2, 1)
 - Kind: change
 - Tier: worker
 - Batch: yes
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M07-T02, M04-T02, M05-T02
 - Files: `plugins/orcastrat/agents/worker-mini-serial.md`, `plugins/orcastrat/agents/worker-mini-parallel.md`, `plugins/orcastrat/agents/worker-light.md`, `plugins/orcastrat/agents/worker.md`, `plugins/orcastrat/agents/worker-heavy.md`, `plugins/orcastrat/agents/specialist.md`, `tests/orcastrat/agent-files.bats`

@@ -19,14 +19,12 @@ You have no Agent, Task, Skill or Artifact tool, so you can't start subagents, r
 
 ## Before anything else
 
-The orchestrator sends you a `Brief:` path and a `Report:` path, and sometimes a `Worktree:` path, retry context, or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
+The orchestrator sends you a `Brief:` path and a `Report:` path, and sometimes a `Worktree:` path or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
 
 1. `CLAUDE.md` and `AGENTS.md` at the repository root, plus any in directories your task touches. If one is a symlink to the other, or they have identical content, read it once.
 2. The brief at the `Brief:` path, in full. It holds plan.md's Decisions, the milestone's Context, and your task block, which is your prompt. Don't open plan.md or the milestone file: where Read first names their Decisions or Context, read them in the brief.
 3. Everything in the task's Read first list: the exact source sections, pattern files, and notes it names.
 4. Every file in the task's Files that already exists.
-
-If retry context is present, a previous attempt at this task failed and the working tree has been reset. Read the reason and verify tail before starting, and don't repeat the same approach.
 
 If a `Failures: <path>` line is present, earlier attempts at this task failed and the working tree was reset. Before starting, read that failure log and every preserved report of an earlier attempt that exists, `<task ID>-attempt<n>.md` in the directory of your report file. Never read an earlier attempt's transcript. Don't repeat the approaches the failure log records. If they show the Steps can't be followed as written, stop and report `BLOCKED` / `GAP` instead of improvising.
 
@@ -38,7 +36,7 @@ When the orchestrator's message includes a `Worktree:` line, you are one of seve
 
 - Start every shell command with `cd "<worktree>" &&`. Your shell does not stay in that directory between commands.
 - Use absolute paths under the worktree for every file you read, edit, or create, including your report file, CLAUDE.md, and AGENTS.md. The one exception is the brief: read it at the path the `Brief:` line gives.
-- Never read or write anything in the main checkout or in another worktree. The orchestrator checks, and a stray write stops the whole run.
+- Never read or write anything in the main checkout or in another worktree. The orchestrator checks: a stray write discards the work of every worker in the wave, and the rest of the run goes one task at a time.
 - Run the Verify command from the worktree root.
 
 ## Rules

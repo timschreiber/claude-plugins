@@ -78,7 +78,7 @@ EOF
 # failure log, resumes and the report lines (spec sections 2 to 4).
 write_worker_rules() {
   cat > "$1" <<'EOF'
-The orchestrator sends you a `Brief:` path and a `Report:` path, and sometimes a `Worktree:` path, retry context, or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
+The orchestrator sends you a `Brief:` path and a `Report:` path, and sometimes a `Worktree:` path or a `Failures:` line. Re-read these now, in this order, even if you think you know them:
 If a `Failures: <path>` line is present, earlier attempts at this task failed and the working tree was reset. Before starting, read that failure log and every preserved report of an earlier attempt that exists, `<task ID>-attempt<n>.md` in the directory of your report file. Never read an earlier attempt's transcript. Don't repeat the approaches the failure log records. If they show the Steps can't be followed as written, stop and report `BLOCKED` / `GAP` instead of improvising.
 If the orchestrator resumes you with a message starting `Resume:`, your attempt failed. Read its `Reason:` line and any `Verify tail:` lines, fix the failure, and report again in the same format. Continue from your own work, unless the message says the tree was reset: then your changes are gone, and you start again from the task's first Step. A resume is a new attempt, so your count of failed Verify runs starts again at 0.
 - Don't edit plan.md or milestone files.
@@ -336,4 +336,16 @@ EOF
   has_line "$f" 'Conflicted: <path>'
   has_line "$f" 'STATUS: RESOLVED | UNRESOLVED'
   has_line "$f" 'NOTE: <one line; for UNRESOLVED, why>'
+}
+
+@test "worker agents expect no retry context and describe the serial fallback" {
+  local bad='' name
+  for name in $WORKER_AGENTS; do
+    if grep -qF 'retry context' "$AGENTS/$name.md"; then
+      bad="$bad $name"
+    fi
+    has_line "$AGENTS/$name.md" "- Never read or write anything in the main checkout or in another worktree. The orchestrator checks: a stray write discards the work of every worker in the wave, and the rest of the run goes one task at a time." || bad="$bad $name"
+  done
+  echo "bad:$bad"
+  [ -z "$bad" ]
 }
