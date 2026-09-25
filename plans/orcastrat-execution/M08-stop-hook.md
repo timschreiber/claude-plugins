@@ -1,6 +1,6 @@
 # M08: Stop hook (Change 8)
 
-- Status: outline
+- Status: blocked
 - Format: 2
 - Goal: The plugin ships a `Stop` hook, `hooks/hooks.json` plus the bash script `hooks/stop-guard`, with bats tests. While this checkout has an active-run marker, the hook blocks Claude from ending its turn, with the spec's reason text. It exits immediately when there is no marker, releases after 3 blocks without a heartbeat change, and fails open on any error. `run` keeps the marker's heartbeat fresh, removes stale markers in preflight, and refuses a second active run in the same checkout.
 - Depends on: M07
