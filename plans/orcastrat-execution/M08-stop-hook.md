@@ -258,7 +258,7 @@ Waves: 5 (widths 2, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M05-T01, M08-T01, M08-T02
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
