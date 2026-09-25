@@ -10,6 +10,13 @@
 # {"decision":"block","reason":"<reason>"} and exiting 0, and allows by
 # exiting 0 with nothing on stdout (D138). It never runs git, and any error
 # allows the stop (D140). Bash 3.2 compatible.
+#
+# The loop guard counts consecutive blocks in blocks= and block_heartbeat=,
+# restarting at 0 when the heartbeat differs from the one recorded at the
+# last block; at a count of 3 it allows the stop, deletes the marker and
+# writes active-run.released with one line saying why (D06, D139). A
+# heartbeat or count that isn't a whole number, or a failed write, allows
+# the stop and leaves the marker unchanged (D140).
 
 dir=${CLAUDE_PROJECT_DIR:-}
 [ -n "$dir" ] || exit 0
@@ -56,6 +63,47 @@ done 2>/dev/null < "$marker" || exit 0
 [ "$has_session" = 1 ] || exit 0
 [ "$session" = "$session_id" ] || exit 0
 [ -n "$plan" ] || exit 0
+
+case "$heartbeat" in
+  '' | *[!0-9]*) exit 0 ;;
+esac
+case "$blocks" in
+  '' | *[!0-9]*) exit 0 ;;
+esac
+
+if [ "$block_heartbeat" = "$heartbeat" ]; then
+  count=$((10#$blocks))
+else
+  count=0
+fi
+
+if [ "$count" -ge 3 ]; then
+  printf 'released %s after 3 blocked stops with no heartbeat change; plan %s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$plan" > "$marker.released" 2>/dev/null || exit 0
+  rm -f "$marker" 2>/dev/null
+  exit 0
+fi
+
+tmp="$marker.tmp"
+(
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%$'\r'}
+    case "$line" in
+      blocks=*) printf 'blocks=%s\n' "$((count + 1))" ;;
+      block_heartbeat=*) printf 'block_heartbeat=%s\n' "$heartbeat" ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$marker" > "$tmp"
+) 2>/dev/null
+if [ $? -ne 0 ]; then
+  rm -f "$tmp" 2>/dev/null
+  exit 0
+fi
+mv -f "$tmp" "$marker" 2>/dev/null
+if [ $? -ne 0 ]; then
+  rm -f "$tmp" 2>/dev/null
+  exit 0
+fi
 
 shown=$(print_path "$plan") || exit 0
 [ -n "$shown" ] || exit 0

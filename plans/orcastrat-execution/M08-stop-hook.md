@@ -322,7 +322,7 @@ Waves: 5 (widths 2, 2, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M08-T03
 - Files: `plugins/orcastrat/hooks/stop-guard`, `tests/orcastrat/stop-guard.bats`

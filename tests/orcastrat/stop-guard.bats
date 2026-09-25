@@ -215,3 +215,132 @@ STUB
   [ "$status" -eq 0 ]
   [ "$output" = '{"decision":"block","reason":"An Orcastrat run is in progress for cygpath-stub [-m] [plans\\my \"q\" plan]. Run the next script for cygpath-stub [-m] [plans\\my \"q\" plan] and continue the run from the step it names. If you meant to pause or stop, follow run'"'"'s Pause or Stop section, which removes the marker."}' ]
 }
+
+@test "a block counts itself and records the heartbeat" {
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+  [ "$(sed -n '1p' "$MARKER")" = "plan=plans/my plan" ]
+  [ "$(sed -n '2p' "$MARKER")" = "started=1000" ]
+  [ "$(sed -n '3p' "$MARKER")" = "heartbeat=5000" ]
+  [ "$(sed -n '4p' "$MARKER")" = "blocks=1" ]
+  [ "$(sed -n '5p' "$MARKER")" = "block_heartbeat=5000" ]
+  [ "$(sed -n '6p' "$MARKER")" = "session=$OWNER" ]
+  [ ! -e "$MARKER.tmp" ]
+}
+
+@test "three stops in a row with no heartbeat change are blocked and the fourth is allowed" {
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  for i in 1 2 3; do
+    run_hook "$(hook_input "$OWNER")"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$(block_json "plans/my plan")" ]
+    [ -z "$stderr" ]
+  done
+  [ "$(sed -n '4p' "$MARKER")" = "blocks=3" ]
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ ! -e "$MARKER" ]
+  [ ! -e "$MARKER.tmp" ]
+  [ "$(wc -l < "$MARKER.released")" -eq 1 ]
+  grep -qE '^released [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z after 3 blocked stops with no heartbeat change; plan plans/my plan$' "$MARKER.released"
+}
+
+@test "the stop after a release is allowed and recreates no marker" {
+  write_marker "plans/my plan" 5000 3 5000 "$OWNER"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ ! -e "$MARKER" ]
+  [ "$(wc -l < "$MARKER.released")" -eq 1 ]
+}
+
+@test "a heartbeat change since the last block restarts the count" {
+  write_marker "plans/my plan" 6000 3 5000 "$OWNER"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+  [ "$(sed -n '3p' "$MARKER")" = "heartbeat=6000" ]
+  [ "$(sed -n '4p' "$MARKER")" = "blocks=1" ]
+  [ "$(sed -n '5p' "$MARKER")" = "block_heartbeat=6000" ]
+}
+
+@test "a heartbeat or block count that isn't a whole number is allowed and leaves the marker unchanged" {
+  local before
+  write_marker "plans/my plan" '' 0 '' "$OWNER"
+  before=$(cat "$MARKER")
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+
+  write_marker "plans/my plan" abc 0 '' "$OWNER"
+  before=$(cat "$MARKER")
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+
+  write_marker "plans/my plan" -5 0 '' "$OWNER"
+  before=$(cat "$MARKER")
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+
+  write_marker "plans/my plan" 5000 '' '' "$OWNER"
+  before=$(cat "$MARKER")
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+
+  write_marker "plans/my plan" 5000 x '' "$OWNER"
+  before=$(cat "$MARKER")
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+}
+
+@test "a failed marker write is allowed and leaves the marker unchanged" {
+  write_marker "plans/my plan" 5000 1 5000 "$OWNER"
+  mkdir "$MARKER.tmp"
+  local before
+  before=$(cat "$MARKER")
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+  [ -d "$MARKER.tmp" ]
+}
+
+@test "a different session leaves the block count as it was" {
+  write_marker "plans/my plan" 5000 2 5000 "$OWNER"
+  run_hook "$(hook_input "$OTHER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ "$(sed -n '4p' "$MARKER")" = "blocks=2" ]
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+  [ "$(sed -n '4p' "$MARKER")" = "blocks=3" ]
+}
