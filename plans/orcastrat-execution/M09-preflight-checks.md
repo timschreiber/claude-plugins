@@ -380,7 +380,7 @@ Waves: 6 (widths 6, 4, 3, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: M02-T05
 - Files: `tests/orcastrat/skill-files.bats`, `plugins/orcastrat/skills/plan/SKILL.md`, `plugins/orcastrat/skills/run/SKILL.md`, `plugins/orcastrat/skills/status/SKILL.md`

@@ -3,7 +3,6 @@ name: plan
 description: Turn a spec, a phased prompt, a long free-form prompt, or any mix of sources into an Orcastrat plan directory of milestones and small tiered tasks, ready for /orcastrat:run. Jobs too small to be worth delegating are done directly instead. Only run when the user explicitly invokes it.
 disable-model-invocation: true
 argument-hint: "<sources: file paths and/or instructions> [--into plans/<slug>] [--direct-max 5] [--always-plan] [--yes]"
-model: opus
 ---
 
 # Plan

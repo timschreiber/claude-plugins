@@ -3,7 +3,6 @@ name: status
 description: Summarize an Orcastrat plan's progress, blocks, open questions, and next step, without changing anything. Only run when the user explicitly invokes it.
 disable-model-invocation: true
 argument-hint: "<plan dir>"
-model: haiku
 ---
 
 # Status
