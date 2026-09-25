@@ -31,3 +31,4 @@ Governing sources: the `## Advisory` sections of `notes/M01-review.md` through `
 - A-M10-4 (`notes/M10-review.md` Advisory 4): `run` 3d item 7 says the status commit carries the report file and failure log; name the review files too.
 - A-M10-5 (`notes/M10-review.md` Advisory 5): on a re-review, the `validator` can't read `notes/<ID>-review.md`, so `milestone-reviewer` must restate the first-review finding's text in full in any "not fixed" candidate.
 - A-M10-6 (`notes/M10-review.md` Advisory 6): `review-rubric.bats`'s `a copy that differs by one character is caught` never runs the agent-comparison loop against a drifted agent copy; make it do so.
+- A-RUN-1 (D210, the M11 stop): `run` checks a commit subject taken from a task field before committing; an empty or missing subject stops with SETUP naming the task, never a commit with no subject line. A bats or fixture test covers a missing or empty Commit field.

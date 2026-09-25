@@ -33,3 +33,4 @@ Governing sources: spec §13 (Change 12), §1.3, §22 item 3 (`decider` allowlis
 - `run`: dispatch the decider on every worker and planner GAP; auto-decide handling; the limit and pause; the stop-report content.
 - `run` flags and `reference/plan-format.md`: `--auto-decide`, `Auto-decide: off | local`, `Max auto-decisions: <n>`.
 - `plan` skill: state that planning questions are always answered by the user, and that `plan` never uses the decider.
+- Run log (D206): when `run` records an auto-decided Decision, it appends `auto-decided <UTC> <question-id> D<nn>` to `notes/run-log.md`, as D81 says; `run-report` (M11) lists those lines.
