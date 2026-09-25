@@ -16,9 +16,9 @@ Arguments: `$ARGUMENTS`
 - `--max-milestones <N>`: pause cleanly, with reason `LIMIT`, once N milestones have completed in this run, reviews included. Beats the plan's `Max milestones` header field.
 - `--serial`: run one task at a time for this run, whatever the plan's Parallel setting.
 - `--max-parallel <N>`: override the plan's Max parallel for this run.
-- `--yes`: approval given in advance, for unattended or non-interactive runs. Without it, you ask before executing anything (2b).
+- `--yes`: approval given in advance, for unattended or non-interactive runs. Without it, you ask before executing anything (2b). Under it, the instruction-file check and the model check never ask either (see **Start checks**).
 
-You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md, milestone files, and the notes files this skill names (a task's failure log and `notes/run-log.md`), and only the fields and lines this skill names.
+You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md, milestone files, the notes files this skill names (a task's failure log and `notes/run-log.md`), and the instruction-check files `.orcastrat/instructions/review.md` and `fix-prompt.md` (see **Start checks**), and only the fields and lines this skill names.
 
 ## Operating rules for long runs
 
@@ -106,6 +106,23 @@ Once items 1 to 4 pass:
 9. **Worktree leftovers.** Run `git worktree prune`, then `git worktree list --porcelain`, then `ls "<MAIN>/.orcastrat/wt"`. A directory `<name>` that `ls` prints is left over when no `worktree ` line of `git worktree list` ends with `/.orcastrat/wt/<name>`. If there are any, tell the user in one line: `Left over under .orcastrat/wt/, no longer a git worktree: <names>. Delete them yourself once you don't need them.` Never delete them yourself. If `ls` fails because `<MAIN>/.orcastrat/wt` doesn't exist, there is nothing to report. This item never ends the run.
 10. **Long paths.** Only on native Windows (`win32`): run `git config core.longpaths`. If it doesn't print `true`, warn the user once, in one line, without stopping: `Warning: git's core.longpaths isn't true, so paths longer than 260 characters in nested worktrees can fail. To allow them, run: git config core.longpaths true`. Never change git config yourself.
 
+### Instruction-file check
+
+Claude Code loads the project's instruction files into this session and into every worker, so every task pays for every line. This check looks for content that costs more than it helps, and for rules that work against a run. It never edits an instruction file.
+
+1. **Find the files.** With the Glob tool, searching `<MAIN>`, find `**/CLAUDE.md`, `**/CLAUDE.local.md`, `**/AGENTS.md`, `**/.claude/CLAUDE.md`, `**/.claude/AGENTS.md` and `.claude/rules/**/*.md`. Drop every path inside a `.git` or `.orcastrat` directory, and every duplicate. Write each path relative to `<MAIN>`, with `/` between its parts, for example `CLAUDE.md`, `.claude/rules/style.md` or `src/api/CLAUDE.md`. If no file is found, skip the rest of this check.
+2. **Compare them with the acknowledgement.** Run `cd "<MAIN>" && bash "${CLAUDE_PLUGIN_ROOT}/scripts/instructions-ack" --check "<file>" ...`, passing every path from item 1 in double quotes. It adds the imported files the last review recorded, hashes every file, and prints `OK` when the file set and each file are unchanged since the user last chose Continue, or `REVIEW` otherwise. Never hash a file or read the acknowledgement yourself.
+3. **`OK`.** Grep `<MAIN>/.orcastrat/instructions/review.md` for `^Conflicts:`, passing that file's path, since Grep skips excluded directories unless it is given the path. If it finds a line other than `Conflicts: none`, show the user that line. Then go on to the model check.
+4. **`REVIEW`.** Read `${CLAUDE_PLUGIN_ROOT}/reference/instruction-review.md` and do the full review it describes for `run`, with the files from item 1 and `<MAIN>` as the repository root. The review either goes on to the model check or ends the run.
+
+### Model check
+
+Planning and orchestration are designed for Opus. Your system prompt names the model you run on.
+
+- If its name or ID contains `opus`, in any case, go on.
+- Otherwise, without `--yes`, show the user one line: `This session runs on <model>. Planning and orchestration are designed for Opus.` Then ask with the AskUserQuestion tool: one question, `Stop, or continue on this model?`, header `Model`, single choice, with the options `Stop` (description `End now, so you can restart the session on Opus.`) and `Continue on this model` (description `Go on with <model>.`). On `Continue on this model`, go on. On `Stop`, or any other answer, end the run: tell the user it stopped before anything started, and write and commit nothing.
+- Otherwise, under `--yes`, don't ask. Note the line `model-notice <UTC> <model ID>`, with the current UTC time from `date -u +%Y-%m-%dT%H:%M:%SZ` and the model ID your system prompt gives, and go on. 2c item 6 appends it to the run log.
+
 ## 1. Re-read the ground truth
 
 Read these now:
@@ -158,7 +175,7 @@ If `--yes` was given, the user approved in advance: show the summary and continu
    - Otherwise, find its attempt number `<n>` and current tier (see Definitions). **Discard the attempt**. Append its **failure-log entry**, with Description `interrupted attempt`, Hypothesis and Fixes tried `none reported`, Then `redispatched at <tier> (interrupted)`, and Error `none`. Add `- Interrupted: attempt <n> at <tier>` under the task. Then `git add -A` and `git commit -m "chore(plan): <task ID> attempt <n> interrupted"`, with no `Orcastrat-Task:` trailer. The wave loop dispatches the task again, at the same tier.
 4. **Recovery.** Mark the tasks noted in 2a as `done`.
 5. **Status.** Set the plan's Status to `in-progress`.
-6. **Run state.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" start "<plan dir>" "${CLAUDE_SESSION_ID}"`. Claude Code writes this session's ID into that command before you read this skill, so run it as you see it. It writes this checkout's active-run marker, holding this session's ID, and appends a `start` line to `<plan dir>/notes/run-log.md`. From now until a **Pause**, a **Stop** or completion, the plugin's Stop hook sends this session back to work whenever it tries to end its turn, telling you to run **next** and continue from the step it names. Keep the heartbeat from here on (see Operating rules).
+6. **Run state.** Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" start "<plan dir>" "${CLAUDE_SESSION_ID}"`. Claude Code writes this session's ID into that command before you read this skill, so run it as you see it. It writes this checkout's active-run marker, holding this session's ID, and appends a `start` line to `<plan dir>/notes/run-log.md`. From now until a **Pause**, a **Stop** or completion, the plugin's Stop hook sends this session back to work whenever it tries to end its turn, telling you to run **next** and continue from the step it names. Keep the heartbeat from here on (see Operating rules). If the model check noted a `model-notice` line, append it now to `<plan dir>/notes/run-log.md`, below the `start` line, so item 7's commit carries it.
 7. Commit: `git add -A`, then `git commit -m "chore(plan): start run"`.
 
 ## 3. Milestone loop
