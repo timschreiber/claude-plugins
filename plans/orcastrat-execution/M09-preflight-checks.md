@@ -548,7 +548,7 @@ A new bats file checks that no skill's frontmatter has a `model:` line and that 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M09-T03
 - Files: `plugins/orcastrat/reference/instruction-review.md`, `plugins/orcastrat/reference/plan-format.md`

@@ -77,6 +77,7 @@ Default location is `plans/<plan-slug>/` at the repository root.
 | Max run time | Optional: `none` (the default, also when the field is missing) or `<n>m` / `<n>h`. Once the run has lasted that long, `run` pauses with reason `LIMIT` before its next serial task or parallel batch. The flag `--max-run-time` beats it. |
 | Max tasks | Optional: `none` (the default, also when the field is missing) or `<n>`. Once `run` has committed that many tasks as `done` in this run, it pauses with reason `LIMIT`. The flag `--max-tasks` beats it. |
 | Max milestones | Optional: `none` (the default, also when the field is missing) or `<n>`. Once that many milestones have completed in this run, milestone reviews included, `run` pauses with reason `LIMIT`. The flag `--max-milestones` beats it. `Max milestones: 1` gives a natural point to `/clear` between milestones. |
+| Instructions max lines | Optional: absent by default, meaning no threshold, or `<n>`. When it is set, `run`'s instruction-file check adds a size finding once the instruction files it loads hold more than `<n>` lines in total. `plan` never uses it: its checks run before plan.md exists. |
 | Status | `planned`, `in-progress`, `complete`, or `blocked`. |
 
 ### Survey
