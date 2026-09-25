@@ -23,7 +23,7 @@
 | M06 | Task briefs and report files (Changes 7, 9) | done | M06-briefs-and-reports.md |
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | done | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | done | M08-stop-hook.md |
-| M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | outline | M09-preflight-checks.md |
+| M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | ready | M09-preflight-checks.md |
 | M10 | Scored reviews and the validator (Change 10) | outline | M10-scored-reviews.md |
 | M11 | Run report and rule suggestions (Changes 11, 18) | outline | M11-run-report-and-suggestions.md |
 | M12 | The decider (Change 12) | outline | M12-decider.md |
@@ -35,11 +35,11 @@
 
 - `docs/orcastrat-execution-spec.md` preamble: goal, replaces the isolation and best-practices specs → M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, M13, M14, M15
 - `docs/orcastrat-execution-spec.md` §1.1: known mechanisms only → M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, M13, M14
-- `docs/orcastrat-execution-spec.md` §1.2: plan format is a contract, every reader updated per milestone → M04, M05, M06, M07, M10, M12, M13, M14
+- `docs/orcastrat-execution-spec.md` §1.2: plan format is a contract, every reader updated per milestone → M04, M05, M06, M07, M09, M10, M12, M13, M14
 - `docs/orcastrat-execution-spec.md` §1.3: no design decisions below the plan; decider only recommends → M05, M12
 - `docs/orcastrat-execution-spec.md` §1.4: frontmatter is valid YAML → M01, M04, M07, M09, M10, M12
 - `docs/orcastrat-execution-spec.md` §1.5: cost is display-only → M05, M11
-- `docs/orcastrat-execution-spec.md` §1.6: shipped runtime portable → M02, M03, M06, M08, M11
+- `docs/orcastrat-execution-spec.md` §1.6: shipped runtime portable → M02, M03, M06, M08, M09, M11
 - `docs/orcastrat-execution-spec.md` §2: Change 1, workers commit; clean tree; BASE; scope check; status commit with trailer; failed-attempt reset; push check; soft-reset guard removed → M05
 - `docs/orcastrat-execution-spec.md` §3: Change 2, resume once before escalating, with fallback → M05
 - `docs/orcastrat-execution-spec.md` §4: Change 3, three-rung ladder, failed-attempt definition, worker breaker, failure log, escalation context, limits, status Failures line → M05
@@ -255,6 +255,13 @@
 - D167: `status-reader` has no `maxTurns` or `effort` line (as `merger`), writes nothing, and caps its reply with the line `Your reply is at most 20 lines.` instead of the notes-file line. The `status` skill sends it `Plan: <plan dir>`, or `Plan: none` when no directory was given; then it lists the plan directories under `plans/` and asks for a rerun naming one. Its `Worktrees:` line lists paths under `.orcastrat/wt/` (D153). (source: spec §21 item 1; spec §22 item 3, "reply inline and write nothing"; D153; D158; `plugins/orcastrat/agents/merger.md:1-7`)
 - D168: The skill `model:` inventory for M15's CHANGELOG is the one `notes/M09-survey.md` records ("Investigate task" section): `model: opus` at `plugins/orcastrat/skills/plan/SKILL.md:6` and `plugins/orcastrat/skills/run/SKILL.md:6`, `model: haiku` at `plugins/orcastrat/skills/status/SKILL.md:6`. M09 has no investigate task for it. (source: `notes/M09-survey.md`; D66 item 2)
 - D169: A missing bash, or bash older than 3.2, stops the preflight of both `plan` and `run`, which report the missing prerequisite with its per-platform fix; spec §20 item 6's exception ("a missing or old bash only warns in `plan`") no longer applies, so `plan` never goes on without bash and its instruction-file check always has `ensure-exclude` and `instructions-ack`. As in D150, the stop writes and commits nothing. (source: user, M09 question, option c)
+- D170: Under `--yes`, `run` appends its `model-notice` line (D42) in 2c item 6, just below the `start` line `run-state start` writes, so 2c item 7's start-run commit carries it: 2c item 2's detail commit allows no other path, and 2c item 3 resets the tree. A run that ends before 2c item 6 logs no notice, as it logs no `start` line. (source: D149; D81; `plugins/orcastrat/skills/run/SKILL.md:127-135`)
+- D171: The quick instruction-file search is the Glob patterns `**/CLAUDE.md`, `**/CLAUDE.local.md`, `**/AGENTS.md`, `**/.claude/CLAUDE.md`, `**/.claude/AGENTS.md` and `.claude/rules/**/*.md` from the repository root, dropping paths inside `.git` or `.orcastrat` (task worktrees are nested copies, D153). Paths go to `instructions-ack` relative to the root with `/` separators, run as `cd "<root>" && bash …`, so `plan` and `run` record the same strings; imports outside the repository are absolute, with `/`. (source: D147; D153; D161, "the path as given"; spec §17 item 9)
+- D172: The three checks form a `## Start checks` section directly above `## 1. Re-read the ground truth` in `plan` and `run`. `run`'s toolchain check runs `next` as item 5, then 2a's active-run and clean-tree checks as items 6 and 7 (a stale marker removed with `run-state drop`); 2a keeps its other six items, renumbered 1–6. A start check that ends `run` skips its Stop section, so nothing is written or committed. (source: spec §17 item 1; spec §20 item 6; D150; D155)
+- D173: `hold save` creates the key's directory even when no path exists, and `hold restore` skips a pair whose held file doesn't exist, so `nothing held for:` means only that the key's directory is missing. A failed copy exits 2 with `cannot copy: <path>`. (source: D162, "each existing", "each held file of the pairs"; `run` Definitions, "skip any step that copies or reads a file that doesn't exist"; `plugins/orcastrat/scripts/verify:43`)
+- D174: In a parallel wave, a task blocked with GAP, VACUOUS or STUCK gets its `refs/orcastrat/discarded/<task ID>-<n>` ref when its worktree is removed (D163), `<n>` being 1 plus its worktree failure log's entries (GAP, VACUOUS) or their count (STUCK). When settled, its held report is written back as `notes/reports/<task ID>-attempt<n>.md` with its failure log, its branch is deleted, and its `- Blocked:` line names the sha and ref, as a serial block's does. No worktree stays for the user. (source: D163, "as serial blocks do"; D85; D127)
+- D175: The full instruction review always writes both `review.md` and `fix-prompt.md` (the one line `No instruction-file findings: nothing to clean up.` with no findings); the size finding counts only the set's files, not `~/.claude/CLAUDE.md`; and any answer other than `Continue` or `Continue on this model` to a start check's question is a Stop. (source: spec §17 items 2, 4, 5 and 8; D164; `plugins/orcastrat/skills/run/SKILL.md:120`, "Anything else, including no answer, means don't run")
+- D176: `plan`'s `## No prototyping or duplicate work` names two exceptions, the Start checks (their own commands and files only) and step 10, refining D71's "one exception". (source: D71; D151; D166)
 
 ## Open questions
 
