@@ -72,7 +72,7 @@ Determine the milestones:
 - **Detailing: `upfront`** when the whole job can be specified now: roughly 40 tasks or fewer, and nothing depends on what execution will discover.
 - **Detailing: `rolling`** otherwise. Detail M01 fully now; outline every later milestone (Goal, Depends on, Milestone verify, Survey, Context, Outline). The planner agent details each one when the run reaches it, working from a survey of the code that a scout writes first. Set each outline's Survey to `scout`, or to `scout-heavy` when understanding that milestone's code means tracing intricate logic.
 - **Gates:** default to `detail` for `rolling` plans, so the user reviews every milestone the planner writes before it runs, and `none` for `upfront` plans. If the user asked for something else, use that.
-- **Parallel:** default to `auto` with Max parallel `3`, so waves run concurrently whenever they can. Use `off` only if the user asks, or if tasks can't run side by side on one machine at all (for example, every verification needs the same single database or port and the plan can't give each its own).
+- **Parallel:** default to `auto` with Max parallel `2`, so waves run concurrently whenever they can. Use `off` only if the user asks, or if tasks can't run side by side on one machine at all (for example, every verification needs the same single database or port and the plan can't give each its own).
 - **Worktree setup:** parallel tasks run in fresh git worktrees, which contain only committed files. Work out what a fresh checkout of this repository needs before it can build and run the plan's Verify commands: dependency installs, generated files, untracked config such as `.env`. Write that as one command, run from the worktree root, that creates only git-ignored files; it can reach the main checkout through `$ORCASTRAT_MAIN`. Use `none` if a plain checkout builds as-is. If you can't tell, that is an insufficient-information question for step 5.
 
 ## 5. Find every problem and ask about it
@@ -128,7 +128,8 @@ For each detailed milestone:
 2. Assign Waves: wave 1 is every task with no unfinished dependency; each later wave holds tasks whose dependencies are all in earlier waves.
 3. Check every pair of tasks within each wave against the five interference rules in "Sequence and parallelism". Move one task of any interfering pair to a later wave. When in doubt, separate them.
 4. Look for false serialization. If a shared registration point (a DI registry, module list, manifest) is what forces tasks apart, consider making the registration its own small task after the others, so the rest of the work can share a wave.
-5. Record the wave shape in the milestone's Context: `Waves: <count> (widths ...)`.
+5. Look for waves whose tasks are all tiny, same-kind edits with no logic, and plan each such wave as one batch task (`- Batch: yes`) rather than as parallel tasks, as the plan format's "Sequence and parallelism" says.
+6. Record the wave shape in the milestone's Context: `Waves: <count> (widths ...)`.
 
 ## 8. Self-check
 

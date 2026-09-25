@@ -332,7 +332,7 @@ The plan format gives `Max parallel: 2` as the default for new plans (D29), says
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 3
 - Depends on: M07-T04
 - Files: `plugins/orcastrat/skills/plan/SKILL.md`, `plugins/orcastrat/agents/planner.md`

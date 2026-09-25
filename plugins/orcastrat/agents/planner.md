@@ -82,7 +82,7 @@ The expected behavior must come from the sources or Decisions. If it doesn't, it
 
 ## Sequence and find the parallelism
 
-Set Depends on for every task, then assign Waves: wave 1 is every task with no unfinished dependency, and each later wave holds tasks whose dependencies are all in earlier waves. Check every pair within a wave against the five interference rules in "Sequence and parallelism", and move one of any interfering pair to a later wave; when in doubt, separate them. If a shared registration point is what forces tasks apart, make the registration its own small task after the others. Record the wave shape in Context: `Waves: <count> (widths ...)`.
+Set Depends on for every task, then assign Waves: wave 1 is every task with no unfinished dependency, and each later wave holds tasks whose dependencies are all in earlier waves. Check every pair within a wave against the five interference rules in "Sequence and parallelism", and move one of any interfering pair to a later wave; when in doubt, separate them. If a shared registration point is what forces tasks apart, make the registration its own small task after the others. If a wave's tasks are all tiny, same-kind edits with no logic, make them one batch task (`- Batch: yes`) rather than parallel tasks, as the plan format's "Sequence and parallelism" says. Record the wave shape in Context: `Waves: <count> (widths ...)`.
 
 ## Build the Coverage
 
