@@ -6,7 +6,7 @@ setup() {
 # The agents the list-based tests below cover. The task that brings an agent
 # file up to date adds its name here.
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
-NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger'
+NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader'
 NO_SHELL_AGENTS='plan-reviewer planner merger'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
@@ -199,6 +199,7 @@ EOF
       plan-reviewer) expected='Read, Glob, Grep, Write' ;;
       planner) expected='Read, Glob, Grep, Write, Edit' ;;
       merger) expected='Read, Glob, Grep, Edit' ;;
+      status-reader) expected='Read, Glob, Grep, Bash' ;;
       *) expected='not a known non-worker agent' ;;
     esac
     [ "$(field "$AGENTS/$name.md" tools)" = "$expected" ] || bad="$bad $name"
@@ -308,7 +309,11 @@ EOF
 @test "non-worker agents cap their reply at 20 lines" {
   local bad='' name
   for name in $NON_WORKER_AGENTS; do
-    has_line "$AGENTS/$name.md" 'Your reply is at most 20 lines. Anything longer goes in a file under the plan directory'"'"'s `notes/`, and your reply gives its path.' || bad="$bad $name"
+    if [ "$name" = status-reader ]; then
+      has_line "$AGENTS/$name.md" 'Your reply is at most 20 lines.' || bad="$bad $name"
+    else
+      has_line "$AGENTS/$name.md" 'Your reply is at most 20 lines. Anything longer goes in a file under the plan directory'"'"'s `notes/`, and your reply gives its path.' || bad="$bad $name"
+    fi
   done
   echo "no reply cap in:$bad"
   [ -z "$bad" ]
@@ -348,4 +353,17 @@ EOF
   done
   echo "bad:$bad"
   [ -z "$bad" ]
+}
+
+@test "status-reader has its model, no effort or maxTurns, its input line, its commands and its reply block" {
+  local f="$AGENTS/status-reader.md"
+  [ "$(field "$f" name)" = 'status-reader' ]
+  [ "$(field "$f" model)" = 'haiku' ]
+  [ -z "$(field "$f" effort)" ]
+  [ -z "$(field "$f" maxTurns)" ]
+  has_line "$f" 'Plan: <plan dir>'
+  has_line "$f" '- Use the shell only for these read-only commands: `git status --porcelain`, `git worktree list`, and `git log`.'
+  has_line "$f" '<plan title> — <plan status>'
+  has_line "$f" 'Worktrees: none | <paths left under .orcastrat/wt/ for inspection>'
+  has_line "$f" 'Next: <the exact command or action that comes next>'
 }

@@ -428,7 +428,7 @@ A new bats file checks that no skill's frontmatter has a `model:` line and that 
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: M02-T05
 - Files: `plugins/orcastrat/agents/status-reader.md`, `tests/orcastrat/agent-files.bats`
