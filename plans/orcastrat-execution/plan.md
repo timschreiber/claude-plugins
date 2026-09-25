@@ -24,7 +24,7 @@
 | M07 | Parallel waves and dispatch order (Changes 5, 22) | done | M07-parallel-waves.md |
 | M08 | Stop hook (Change 8) | done | M08-stop-hook.md |
 | M09 | Preflight checks and status delegation (Changes 19.6, 16, 20) | done | M09-preflight-checks.md |
-| M10 | Scored reviews and the validator (Change 10) | outline | M10-scored-reviews.md |
+| M10 | Scored reviews and the validator (Change 10) | ready | M10-scored-reviews.md |
 | M11 | Run report and rule suggestions (Changes 11, 18) | outline | M11-run-report-and-suggestions.md |
 | M12 | The decider (Change 12) | outline | M12-decider.md |
 | M13 | Targeted Verify and the planning interview (Changes 13, 14) | outline | M13-targeted-verify-and-interview.md |
@@ -293,6 +293,12 @@
 - D195: A-M04-5: the six worker agents' bounds example becomes generic ("the task's own Verify command or scripts may already establish this"), not this repo's `run-bats.sh`; amends D73's wording. (source: user, M16 question, option a)
 - D196: A-M08-2: `stop-guard` builds the reason and escaped JSON first, then writes the marker, then prints, so any failure before the write leaves the block count unchanged (spec §9 Fails open, D140). Supersedes M08-T05 Step 5's order. (source: user, M16 question, option a)
 - D197: A-M08-5: when the marker's `session=` equals this session's ID, `run`'s active-run check treats the marker as its own and continues. M15's README documents `run-state drop` for resuming from a different session within the hour. (source: user, M16 question, option a)
+- D198: A finding's category tag is a short kebab-case topic the reviewer picks, as in spec §11's examples, except the fixed tags D183 and D184 name. Whether a finding blocks is shown by its section (`## Blocking`, `## Issues`), not its tag; plan-reviewer findings outside D183's categories, including check 6's other parts, are advisory. (source: spec §11, "Everything else is advisory"; spec §19 item 1; D182–D184)
+- D199: `run` passes a task's review files for attempts 1 to its current attempt number to `scope-check`, `hold save` and `hold restore` (a resume leaves the earlier attempt's review file uncommitted; a missing path is harmless to both scripts), and the parallel leftover commit excludes `<plan dir>/notes/reviews`. A merge-failed task's review files aren't restored, as its report isn't. (source: D181; D52; D162; D173; `plugins/orcastrat/skills/run/SKILL.md:341`)
+- D200: The Reading budget section is M10's Context text in all four scoring agents. The brief is read whole, like the milestone file, and "a repo copy of a file the milestone is changing" is the plan format, read only at `${CLAUDE_PLUGIN_ROOT}`. `milestone-reviewer` reads plan.md's header, `## Out of scope` and cited Decisions; `plan-reviewer` its header, this milestone's Coverage rows, Open questions and cited Decisions. (source: spec §11, Reading budget; D76; the cached `plan-reviewer`, D67)
+- D201: The validator gets the lines the reviewer was sent except `Output:`, whose file holds the reviewer's scores, and never reads a review report. `run` and `plan` send an `Instruction file:` line for each path in the finding whose file name is `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md`, or under `.claude/rules/`. A rule no cited file states doesn't count toward the score. (source: spec §11, "not given the reviewer's score", "confirms that the file actually states that rule", rubric anchor 0; D147; D182)
+- D202: `reference/review-rubric.md` holds a short header, then the rubric block between its own `<!-- rubric:start -->` and `<!-- rubric:end -->` lines; each scoring agent carries that block directly above its `## Report` heading, and `review-rubric.bats` compares the lines between the markers, carriage returns stripped. (source: D21)
+- D203: The per-task reviewer's `VERDICT` is `FAIL` exactly when its `## Blocking` section has a finding; `plan-reviewer` keeps its `STATUS`/`ISSUES` reply. `run` validates on the reviewer's `FAIL`, the milestone-reviewer's `BLOCKING` above 0 and the plan-reviewer's `ISSUES`, before it commits the review report. (source: D182; D104; spec §11)
 
 ## Open questions
 
