@@ -3,7 +3,7 @@
 - Status: outline
 - Format: 2
 - Goal: The plugin README documents everything §28 lists, including the Prerequisites section (Change 23, placed before Install), "During a run" (Change 22), the Windows notes (D08), and the cast table with models, efforts and tool allowlists. The CHANGELOG's Unreleased section has the *Added*, *Changed* and *Removed* entries from §28, including the runtime inventory, the model-pin grep, and the before and after dispatch sizes. CLAUDE.md describes the plugin as it now is. `Validate-All.ps1` and the bats tests pass.
-- Depends on: M14
+- Depends on: M16
 - Milestone verify: `pwsh -NoProfile -File ./scripts/Validate-All.ps1 && bash scripts/run-bats.sh`
 - Survey: scout
 
@@ -42,3 +42,4 @@ Governing sources: spec §28 (Docs), §24 (Change 23), §23 item 2 (Change 22), 
 - CLAUDE.md updates per D26.
 - A-M02-5 (from `notes/M16-survey.md`): re-verify every `path:line` in `notes/M02-T02.md`'s inventory against HEAD before copying it into the CHANGELOG; at least the `skills/plan/SKILL.md:163` row has drifted.
 - A-M01-3 (from `notes/M16-survey.md`): the README's "Upgrading from Orchestratinator" auto-migration paragraph states the Claude Code version and trigger conditions recorded in `notes/M01-T01.md`.
+- README: a session can resume its own interrupted run at once (D197); resuming from a different session within the hour needs `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" drop` first.
