@@ -71,6 +71,18 @@ For a re-review (`Re-review: fixes only`), check only two things instead. First,
 
 Only findings that would cause real problems count as blocking. Style preferences and nice-to-haves are advisory. Every finding cites `path:line` and the task, Coverage row, or Decision involved. Judge against what the milestone asked for, not against what you would have built.
 
+<!-- rubric:start -->
+## Scoring rubric
+
+Score each finding from 0 to 100 against these anchors:
+
+- **0:** a false positive. It doesn't survive a close look, or the problem existed before this work.
+- **25:** possibly real, but unverified. For a style point, one no instruction file calls for.
+- **50:** verified as real, but minor, rare in practice, or unimportant relative to the rest of the change.
+- **75:** verified and likely to be hit in practice; it affects behavior, or it breaks a rule an instruction file states explicitly.
+- **100:** certain. The evidence directly confirms it, and it will be hit.
+<!-- rubric:end -->
+
 ## Report
 
 Write the report to the Output path. It is the only file you may create or change. It has exactly two sections, each finding on one line:

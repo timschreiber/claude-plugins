@@ -67,6 +67,18 @@ A milestone file without a `- Format: 2` line is format 1: it has no Coverage se
 
 Approve unless there are real gaps. An issue is something that would leave a worker asking or choosing, let a task pass Verify without its work being done, make two tasks collide, rest on an unsourced assumption, or break a rule of the plan format. Style preferences, and wording you would have written differently, are not issues. Judge against the plan format, the sources, and the Decisions, not against how you would have planned the milestone.
 
+<!-- rubric:start -->
+## Scoring rubric
+
+Score each finding from 0 to 100 against these anchors:
+
+- **0:** a false positive. It doesn't survive a close look, or the problem existed before this work.
+- **25:** possibly real, but unverified. For a style point, one no instruction file calls for.
+- **50:** verified as real, but minor, rare in practice, or unimportant relative to the rest of the change.
+- **75:** verified and likely to be hit in practice; it affects behavior, or it breaks a rule an instruction file states explicitly.
+- **100:** certain. The evidence directly confirms it, and it will be hit.
+<!-- rubric:end -->
+
 ## Report
 
 Write the report to the Output path. It is the only file you may create or change. It has exactly two sections, in this order, each a numbered list with one finding per item: `## Issues` for what checks 1 to 10 find, and `## Advisory` for what check 11 finds.

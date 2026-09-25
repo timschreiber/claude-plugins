@@ -50,6 +50,18 @@ Judge only against what the task asks. Not your own preferences, not improvement
 
 A task that does everything asked passes, even if you would have done it differently.
 
+<!-- rubric:start -->
+## Scoring rubric
+
+Score each finding from 0 to 100 against these anchors:
+
+- **0:** a false positive. It doesn't survive a close look, or the problem existed before this work.
+- **25:** possibly real, but unverified. For a style point, one no instruction file calls for.
+- **50:** verified as real, but minor, rare in practice, or unimportant relative to the rest of the change.
+- **75:** verified and likely to be hit in practice; it affects behavior, or it breaks a rule an instruction file states explicitly.
+- **100:** certain. The evidence directly confirms it, and it will be hit.
+<!-- rubric:end -->
+
 ## Report
 
 Reply with exactly this block and nothing else:
