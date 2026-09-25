@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>
+# run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason> | drop
 #
 # Manages the active-run marker, <git-dir>/orcastrat/active-run, where
 # <git-dir> is this checkout's `git rev-parse --git-dir` (D06). The marker
@@ -17,6 +17,9 @@
 #   end <mode> <reason>  appends "end <UTC> <mode> <reason>" to the run log of
 #                        the marker's plan and deletes the marker. With no
 #                        marker it does nothing (D88, D89).
+#   drop                 deletes this checkout's marker without writing to
+#                        the run log, for a stale marker a crashed session
+#                        left. With no marker it does nothing (D159).
 #
 # <UTC> is `date -u +%Y-%m-%dT%H:%M:%SZ`. <plan-dir> is stored as given, and
 # the run log is found relative to the current directory. On success only
@@ -32,7 +35,7 @@ fail() {
   exit 2
 }
 
-usage='usage: run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>'
+usage='usage: run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason> | drop'
 
 [ "$#" -ge 1 ] || fail "$usage"
 cmd=$1
@@ -51,6 +54,9 @@ case "$cmd" in
       PAUSE|STOP|COMPLETE) ;;
       *) fail "unknown end mode: $1" ;;
     esac
+    ;;
+  drop)
+    [ "$#" -eq 0 ] || fail 'usage: run-state drop'
     ;;
   *)
     fail "unknown subcommand: $cmd"
@@ -106,6 +112,9 @@ case "$cmd" in
     plan_dir=$(marker_value plan)
     mkdir -p "$plan_dir/notes"
     printf 'end %s %s %s\n' "$(utc_now)" "$1" "$2" >> "$plan_dir/notes/run-log.md"
+    rm -f "$marker"
+    ;;
+  drop)
     rm -f "$marker"
     ;;
 esac

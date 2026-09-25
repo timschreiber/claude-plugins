@@ -176,7 +176,7 @@ line_count() {
   run_script
   [ "$status" -eq 2 ]
   [ -z "$output" ]
-  [ "$stderr" = "error: usage: run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason>" ]
+  [ "$stderr" = "error: usage: run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason> | drop" ]
 }
 
 @test "run-state exits 2 for an unknown subcommand" {
@@ -205,6 +205,12 @@ line_count() {
   run_script end STOP
   [ "$status" -eq 2 ]
   [ "$stderr" = "error: usage: run-state end <PAUSE|STOP|COMPLETE> <reason>" ]
+  run_script start "plans/my plan" S-1
+  run_script drop extra
+  [ "$status" -eq 2 ]
+  [ -z "$output" ]
+  [ "$stderr" = "error: usage: run-state drop" ]
+  [ -f "$MARKER" ]
 }
 
 @test "start writes the session ID it is given" {
@@ -243,6 +249,9 @@ line_count() {
   run_script end STOP GAP
   [ "$status" -eq 2 ]
   [ -z "$output" ]
+  run_script drop
+  [ "$status" -eq 2 ]
+  [ -z "$output" ]
 }
 
 @test "beat and elapsed exit 2 with no marker" {
@@ -254,4 +263,34 @@ line_count() {
   [ "$status" -eq 2 ]
   [ -z "$output" ]
   [ "$stderr" = "error: no active run" ]
+}
+
+@test "drop deletes the marker without writing to the run log" {
+  run_script start "plans/my plan" S-1
+  run_script drop
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ ! -e "$MARKER" ]
+  [ "$(line_count "$LOG")" = "1" ]
+}
+
+@test "drop with no marker exits 0 and prints nothing" {
+  run_script drop
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ ! -e "$LOG" ]
+}
+
+@test "drop in a linked worktree leaves the main checkout's marker" {
+  write_marker 1000 1000 0 ''
+  git worktree add --quiet -b task "$BATS_TEST_TMPDIR/task tree"
+  mkdir -p "$BATS_TEST_TMPDIR/task tree/plans/my plan"
+  cd "$BATS_TEST_TMPDIR/task tree"
+  run_script start "plans/my plan" S-2
+  run_script drop
+  [ "$status" -eq 0 ]
+  [ ! -e "$(git rev-parse --absolute-git-dir)/orcastrat/active-run" ]
+  [ -f "$MARKER" ]
 }
