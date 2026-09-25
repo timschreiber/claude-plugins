@@ -24,9 +24,8 @@
 #     status blocked, in file order, or blocked: none
 #   open-questions: <count> of lines starting "- " under "## Open questions"
 #   recover: <plan-dir>'s recover output lines, joined by "; "
-#   worktrees: <count> of leftover task worktrees in the plan's worktrees
-#     directory, WT_ROOT/worktrees (directories directly under it that hold
-#     a .git file)
+#   worktrees: <count> of leftover task worktrees in .orcastrat/wt/ at the
+#     plan checkout's top level (directories directly under it that hold a .git file)
 #   marker: none | active <heartbeat age in minutes>m | stale, read from
 #     the plan checkout's own git dir's orcastrat/active-run file; stale
 #     when the heartbeat is unreadable or more than 3600 seconds old
@@ -224,15 +223,10 @@ if [ -n "$current_id" ] && [ -n "$current_file" ] && [ -f "$plan_dir/$current_fi
 fi
 wave_n=$(printf '%s\n' "$wave_line" | awk '{print $2}')
 
-# worktrees: the number of directories directly under WT_ROOT/worktrees that
-# hold a .git file, where WT_ROOT is <common>/orcastrat/<slug> (verify's
-# slug and common-dir resolution, with <plan-dir> in place of <dir>).
-slug=$(printf '%s\n' "$plan_dir" | sed -e 's#\\#/#g' -e 's#/*$##' -e 's#.*/##')
-common=$(git -C "$plan_dir" rev-parse --git-common-dir)
-common_abs=$(cd "$plan_dir" && cd "$common" && pwd) ||
-  fail "cannot resolve the git common dir of: $(print_path "$plan_dir")"
-wt_root="$common_abs/orcastrat/$slug"
-wt_dir="$wt_root/worktrees"
+# worktrees: the number of directories directly under .orcastrat/wt/ at the plan checkout's top level that hold a .git file (D153).
+top=$(git -C "$plan_dir" rev-parse --show-toplevel) ||
+  fail "cannot resolve the top level of: $(print_path "$plan_dir")"
+wt_dir="$top/.orcastrat/wt"
 worktree_count=0
 if [ -d "$wt_dir" ]; then
   for entry in "$wt_dir"/*; do

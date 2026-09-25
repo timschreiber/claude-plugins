@@ -338,7 +338,7 @@ Waves: 6 (widths 6, 4, 3, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: M07-T01
 - Files: `plugins/orcastrat/scripts/next`, `tests/orcastrat/next.bats`

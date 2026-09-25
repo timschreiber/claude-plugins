@@ -374,18 +374,27 @@ mid_wave_plan() {
   [ "$(out_line recover)" = 'recover: done M01-T01; interrupted M01-T02' ]
 }
 
-@test "worktrees counts only task worktrees in the plan's worktrees directory" {
+@test "worktrees counts only task worktrees in .orcastrat/wt" {
   fresh_plan
-  WT="$REPO/.git/orcastrat/demo plan"
-  git -C "$REPO" worktree add --quiet -b task-one "$WT/worktrees/M01-T01"
-  git -C "$REPO" worktree add --quiet -b task-two "$WT/worktrees/M01-T02"
-  git -C "$REPO" worktree add --quiet -b task-three "$WT/M01-T03"
-  mkdir -p "$WT/logs" "$WT/hold" "$WT/briefs" "$WT/worktrees/stray dir"
+  git -C "$REPO" worktree add --quiet -b task-one "$REPO/.orcastrat/wt/M01-T01"
+  git -C "$REPO" worktree add --quiet -b task-two "$REPO/.orcastrat/wt/M01-T02"
+  git -C "$REPO" worktree add --quiet -b task-three "$REPO/.git/orcastrat/demo plan/worktrees/M01-T03"
+  mkdir -p "$REPO/.orcastrat/wt/stray dir" "$REPO/.orcastrat/instructions"
   git -C "$REPO" worktree add --quiet -b other "$BATS_TEST_TMPDIR/other tree"
   run_script "$PLAN"
   [ "$status" -eq 0 ]
   [ -z "$stderr" ]
   [ "$(out_line worktrees)" = 'worktrees: 2' ]
+}
+
+@test "worktrees is counted at the top level for a relative <plan-dir>" {
+  fresh_plan
+  git -C "$REPO" worktree add --quiet -b task-one "$REPO/.orcastrat/wt/M01-T01"
+  cd "$REPO"
+  run_script "plans/demo plan"
+  [ "$status" -eq 0 ]
+  [ -z "$stderr" ]
+  [ "$(out_line worktrees)" = 'worktrees: 1' ]
 }
 
 @test "marker is active with its heartbeat age in whole minutes" {
