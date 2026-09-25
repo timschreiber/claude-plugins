@@ -68,3 +68,11 @@ has_stripped_line() {
   run grep -qiE '^ *(reviewer )?score:' "$f"
   [ "$status" -ne 0 ]
 }
+
+@test "run's validator dispatch carries the finding without its score" {
+  local f="$SKILLS/run/SKILL.md"
+  has_stripped_line "$f" 'Finding: <the candidate line, without its list marker and without its leading [<score>] >'
+  has_stripped_line "$f" '<each line you sent the reviewer, in the same order, except its Output: line>'
+  run grep -qiE '^ *(reviewer )?score:' "$f"
+  [ "$status" -ne 0 ]
+}

@@ -879,7 +879,7 @@ The plan format lists `validator` among its readers, lists the per-task reviewer
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M10-T01, M10-T03, M10-T06, M10-T07
 - Files: `plugins/orcastrat/skills/run/SKILL.md`, `tests/orcastrat/skill-files.bats`
