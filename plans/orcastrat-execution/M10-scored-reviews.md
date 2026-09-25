@@ -1,6 +1,6 @@
 # M10: Scored reviews and the validator (Change 10)
 
-- Status: in-progress
+- Status: done
 - Format: 2
 - Goal: `reviewer`, `milestone-reviewer` and `plan-reviewer` score every finding on the anchored rubric and tag it with a category. Only findings at 80 or above, with a citation and in a blocking category, become blocking candidates. A new `validator` agent scores each candidate independently, without seeing the reviewer's score. Only candidates the validator also scores at 80 or above have any effect, in `run` and in `plan`. Everything else is recorded as advisory. The rubric is defined once and copied verbatim into every scoring agent, with a bats drift test.
 - Depends on: M09
