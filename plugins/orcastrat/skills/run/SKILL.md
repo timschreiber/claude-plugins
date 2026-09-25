@@ -256,13 +256,35 @@ Let **BASE** be `git rev-parse HEAD` in MAIN now: the wave's starting commit. Cu
    - Otherwise the task **leaves the wave**. Append its failure-log entry, with Then `escalated to <next tier>` when the rung is below 3 and the current tier isn't `specialist` (the next tier is one up the ladder, see **Failed attempt**), or `blocked (STUCK)` otherwise. Leave its worktree: item 11 or item 12 settles the task once the wave is integrated.
 6. Once every task of the batch is ready to integrate, has left the wave, or is recorded for a block, go on with the next batch.
 
-When every task in the wave set has either committed in its worktree or ended in a block:
+When every batch is done:
 
-6. **Integrate.** Before cherry-picking a task, confirm `git log --oneline <BASE>..<task branch>` shows exactly one commit and that it carries the task's Orcastrat-Task trailer. If not, mark the task `blocked` with `- Blocked: MERGE — branch has <n> commits` and don't integrate it. Then integrate the committed tasks into the plan branch, in task ID order: `git cherry-pick <task branch>` in MAIN. If a cherry-pick conflicts, run `git cherry-pick --abort`, mark that task `blocked` with `- Blocked: MERGE — <files>` (the plan put interfering tasks in one wave), and skip integrating any later task of this wave.
-7. **Re-verify the combined result.** If two or more tasks were integrated, Verify each integrated task's Verify command again in MAIN (see Definitions), deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, and go to **Stop** without rolling back: the user decides.
-8. **Record.** Set each integrated task to `done`, add any `- Process:` line you remembered for it in item 3, and commit: `chore(plan): <milestone ID> wave <n> done (<task IDs>)`.
-9. **Clean up** each integrated task: `git worktree remove "<worktree>"` and `git branch -D <task branch>`. If removal fails (on Windows a process can hold a file lock), leave it, mention it in your report, and continue. Worktrees of blocked tasks stay for the user.
-10. If any task in the wave ended blocked, go to **Stop**, after integrating everything that succeeded.
+7. **Integrate** each task that is ready to integrate, one at a time, in task ID order, onto the plan branch in MAIN. First run `git rev-parse HEAD` in MAIN and note the sha as the task's PRE. Then run `cd "<MAIN>" && bash "${CLAUDE_PLUGIN_ROOT}/scripts/integrate" <task branch> <BASE>`. It cherry-picks every commit in `<BASE>..<task branch>`, so a task may have several commits.
+   - `OK` → the task is integrated.
+   - `CONFLICT`, then the conflicted files, one per line → the cherry-pick is left in progress: resolve it with the merger (item 8).
+8. **Merger.** Generate the task's **brief** again, and the brief of each task of this wave already integrated whose Files include a conflicted file (see Definitions). Invoke the agent `orcastrat:merger` with exactly:
+   ```
+   Merge: <task ID>
+   Brief: <the path task-brief printed for the task>
+   ```
+   plus one line `Merged: <the path task-brief printed for it>` for each of those integrated tasks, in task ID order, and one line `Conflicted: <MAIN>/<conflicted file>` for each conflicted file. The merge has failed when any of these holds:
+   - its reply says `STATUS: UNRESOLVED`, or has no `STATUS:` line;
+   - `git diff --name-only` in MAIN prints a path that isn't a conflicted file;
+   - `git ls-files --others --exclude-standard` in MAIN prints anything;
+   - Grep finds the pattern `^(<<<<<<<|>>>>>>>) ` in a conflicted file.
+
+   Otherwise continue the cherry-pick in MAIN: `git add -- "<conflicted file>" ...`, naming every conflicted file, then `git -c core.editor=true cherry-pick --continue`. If it stops on another conflict in the same range, `git diff --name-only --diff-filter=U` lists the new conflicted files: invoke a new merger for them, the same way. If it fails without a conflict (for example, a commit became empty), the merge has failed. Once the cherry-pick has completed, Verify the task's Verify command in MAIN (see Definitions), if it has one; a failure means the merge has failed. Otherwise the task is integrated.
+
+   When the merge has failed, run `git cherry-pick --abort`; if that fails because no cherry-pick is in progress, run `git reset --hard <PRE>` instead. Then run `git clean -fd`. The task is **merge-failed**. That isn't a failed attempt, and it doesn't stop the run: go on with the next task in item 7.
+9. **Re-verify the combined result.** If two or more tasks were integrated, Verify each integrated task's Verify command again in MAIN (see Definitions), deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, write the wave's blocks (item 12), and go to **Stop** without rolling back: the user decides.
+10. **Record** each integrated task, in task ID order. Run `mkdir -p "<MAIN>/<plan dir>/notes/reports"`. With `cp`, copy `<worktree>/<report file>` to `<MAIN>/<report file>`, and `<worktree>/<failure log>` to `<MAIN>/<failure log>`. Set the task's Status to `done`. Then `git add -A` and `git commit -m "chore(plan): <task ID> done" -m "Orcastrat-Task: <task ID>"`. Then clean it up: `git worktree remove --force "<worktree>"` and `git branch -D <task branch>`. If removal fails (on Windows a process can hold a file lock), leave it, mention it in your report, and continue.
+11. **Escalations and merge failures**, in task ID order:
+    - A task that **left the wave** with Then `escalated to <next tier>` (item 5): run `mkdir -p "<MAIN>/<plan dir>/notes/reports"`; with `cp`, copy `<worktree>/<report file>` to `<MAIN>/<plan dir>/notes/reports/<task ID>-attempt<n>.md`, where `<n>` is the failed attempt's number, and `<worktree>/<failure log>` to `<MAIN>/<failure log>`; then remove its worktree and branch as in item 10. Add `- Escalated: <current tier> → <next tier> (<the description>)` under the task, below its other lines, leaving its Tier field unchanged. Then `git add -A` and `git commit -m "chore(plan): <task ID> attempt <n> failed"`, with no `Orcastrat-Task:` trailer. Then run the task through the serial wave (**3d**) from item 1, without checking the limits: it dispatches a fresh worker at the next tier, with the `Failures:` line.
+    - A **merge-failed** task (item 8): with `cp`, copy `<worktree>/<failure log>` to `<MAIN>/<failure log>`, then remove its worktree and branch as in item 10. If its Verify includes a command, Verify it in MAIN (see Definitions). If that passes, its changes are already in the integrated result: set its Status to `done`, add `- Process: already integrated` under it, append the line `already-integrated <UTC> <task ID>` to `<plan dir>/notes/run-log.md`, with the current UTC time from `date -u +%Y-%m-%dT%H:%M:%SZ`, then `git add -A` and `git commit -m "chore(plan): <task ID> done" -m "Orcastrat-Task: <task ID>"`, and dispatch no worker. Otherwise rerun it through the serial wave (**3d**) from item 1, without checking the limits, on top of the integrated result, at the tier that succeeded in its worktree, which is its current tier. The rerun adds no `- Escalated:` line and no failure-log entry.
+12. **Blocks**, in task ID order, once item 11 is done, or just before any **Stop** that item 9 or item 11 reaches, so that Stop's commit records them:
+    - A task recorded for **Block with GAP** (item 4, reason `GAP` or `VACUOUS`): write its block as **Block with GAP** says for parallel mode, and leave its worktree for the user.
+    - A task that **left the wave** with Then `blocked (STUCK)` (item 5): run `git rev-parse <task branch>` and note the sha it prints. Run `git update-ref refs/orcastrat/discarded/<task ID>-<n> <task branch>`, where `<n>` is the failed attempt's number. Copy its report and failure log into MAIN, and remove its worktree and branch, as in item 11. Mark the task `blocked` with `- Blocked: STUCK — <the description>; discarded attempt <sha>, kept at refs/orcastrat/discarded/<task ID>-<n>`.
+
+    If any task of the wave ended blocked, go to **Stop**, reporting each blocked task with its reason.
 
 ### 3f. Finish the milestone
 
