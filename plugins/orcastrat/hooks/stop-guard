@@ -17,11 +17,28 @@
 # writes active-run.released with one line saying why (D06, D139). A
 # heartbeat or count that isn't a whole number, or a failed write, allows
 # the stop and leaves the marker unchanged (D140).
+#
+# $CLAUDE_PROJECT_DIR may be written with backslashes (C:\...), which become
+# /; when .git is a file (a linked worktree), its gitdir: line names the git
+# dir, as /..., <drive>:/... or a path relative to $CLAUDE_PROJECT_DIR, read
+# with sed before stdin; only $CLAUDE_PROJECT_DIR/.git is looked at, never a
+# parent directory's (D144, D145, D146).
 
 dir=${CLAUDE_PROJECT_DIR:-}
 [ -n "$dir" ] || exit 0
+dir=${dir//\\//}
 if [ -d "$dir/.git" ]; then
   git_dir="$dir/.git"
+elif [ -f "$dir/.git" ]; then
+  gd=$(sed -n 's/^gitdir:[[:space:]]*//p' "$dir/.git" 2>/dev/null)
+  gd=${gd%%$'\n'*}
+  gd=${gd%$'\r'}
+  gd=${gd//\\//}
+  [ -n "$gd" ] || exit 0
+  case "$gd" in
+    /*|[A-Za-z]:/*) git_dir=$gd ;;
+    *) git_dir="$dir/$gd" ;;
+  esac
 else
   exit 0
 fi

@@ -344,3 +344,91 @@ STUB
   [ -z "$stderr" ]
   [ "$(sed -n '4p' "$MARKER")" = "blocks=3" ]
 }
+
+@test "a linked worktree's session is blocked by the worktree's own marker" {
+  git -C "$REPO" worktree add --quiet -b task "$BATS_TEST_TMPDIR/task tree"
+  PROJECT="$BATS_TEST_TMPDIR/task tree"
+  MARKER="$(git -C "$PROJECT" rev-parse --absolute-git-dir)/orcastrat/active-run"
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+  [ ! -e "$REPO/.git/orcastrat/active-run" ]
+}
+
+@test "the main checkout's marker doesn't affect a linked worktree" {
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  local before
+  before=$(cat "$MARKER")
+  git -C "$REPO" worktree add --quiet -b task "$BATS_TEST_TMPDIR/task tree"
+  make_call_stubs "$BATS_TEST_TMPDIR/call-bin" "$BATS_TEST_TMPDIR/calls"
+  run --separate-stderr env CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/task tree" PATH="$BATS_TEST_TMPDIR/call-bin:$PATH" bash "$SCRIPT" <<< "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+  [ ! -e "$BATS_TEST_TMPDIR/calls" ]
+  [ "$(cat "$MARKER")" = "$before" ]
+}
+
+@test "a .git file with a relative gitdir and a CRLF line ending is followed" {
+  PROJECT="$BATS_TEST_TMPDIR/proj"
+  mkdir -p "$PROJECT"
+  printf 'gitdir: ../gitdirs/proj\r\n' > "$PROJECT/.git"
+  MARKER="$BATS_TEST_TMPDIR/gitdirs/proj/orcastrat/active-run"
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+}
+
+@test "a .git file without a gitdir line is allowed" {
+  PROJECT="$BATS_TEST_TMPDIR/proj"
+  mkdir -p "$PROJECT"
+  printf 'not a gitdir line\n' > "$PROJECT/.git"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$stderr" ]
+}
+
+@test "a CLAUDE_PROJECT_DIR written with backslashes is followed" {
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  PROJECT="${REPO//\//\\}"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+}
+
+@test "drive-letter paths in CLAUDE_PROJECT_DIR and in a .git file are followed" {
+  command -v cygpath >/dev/null 2>&1 || skip "cygpath is not available"
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  PROJECT="$(cygpath -w "$REPO")"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+  PROJECT="$(cygpath -m "$REPO")"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+
+  PROJECT="$BATS_TEST_TMPDIR/proj"
+  mkdir -p "$PROJECT"
+  MARKER="$BATS_TEST_TMPDIR/gitdirs/proj/orcastrat/active-run"
+  write_marker "plans/my plan" 5000 0 '' "$OWNER"
+  printf 'gitdir: %s\n' "$(cygpath -m "$BATS_TEST_TMPDIR/gitdirs/proj")" > "$PROJECT/.git"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+
+  printf 'gitdir: %s\n' "$(cygpath -w "$BATS_TEST_TMPDIR/gitdirs/proj")" > "$PROJECT/.git"
+  run_hook "$(hook_input "$OWNER")"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(block_json "plans/my plan")" ]
+  [ -z "$stderr" ]
+}
