@@ -701,7 +701,7 @@ The run report ends with a `## Suggestions` section listing each suggestion in `
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
