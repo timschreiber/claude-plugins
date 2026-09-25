@@ -31,7 +31,7 @@ Governing sources: spec §6 (Change 5), §23 item 1 (Change 22), §22 items 1–
 - Skill and agent text contains no `$(`: every command they tell Claude to run is one line (spec §20 item 3).
 - The run executing this plan is the installed, pre-rename plugin (D37). Editing the repository's `run` skill and agent files changes nothing in that run. No task in this milestone runs `run` or dispatches an agent.
 
-Waves: 4 (widths 4, 2, 2, 1)
+Waves: 6 (widths 4, 2, 2, 1, 1, 1)
 
 ## Coverage
 
@@ -641,4 +641,111 @@ The plan format gives `Max parallel: 2` as the default for new plans (D29), says
 **Done when**
 
 - The history rule names the merge and containment resets; **Failed attempt** says a parallel task follows 3e item 5 until it leaves the wave; **Block with GAP** says 3e item 12 writes parallel GAP and VACUOUS blocks; `MERGE` appears nowhere in the file.
+- Nothing else in the file changed.
+
+### M07-T10: run commits every in-scope path a parallel worker left, plan directory included
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 5
+- Depends on: M07-T07, M07-T09
+- Files: `plugins/orcastrat/skills/run/SKILL.md`
+- Verify: `grep -qF 'add -A -- ":(exclude)<report file>" ":(exclude)<failure log>"' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'diff --cached --name-only' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'such as an investigate task' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF '"<worktree>" add -A -- ":(exclude)<plan dir>"' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF '$(' plugins/orcastrat/skills/run/SKILL.md`
+- Fails first: no (skill text with no test; the Verify greps fail until the edit is made)
+- Commit: `fix(orcastrat): run commits every in-scope path a parallel worker left, plan directory included`
+- Origin: review
+
+**Objective**
+
+In `run`'s parallel wave, 3e item 4 commits every uncommitted path in the task's worktree except its report file and failure log, so an in-scope path in the plan directory, such as an investigate task's note, is integrated instead of deleted with the worktree (D136).
+
+**Read first**
+
+- plan.md Decisions D121, D131 and D136
+- `plugins/orcastrat/skills/run/SKILL.md` section `## Definitions`, the **Report file** and **Failure log** entry
+- `plugins/orcastrat/skills/run/SKILL.md` section 3e, item 4 (its last bullet) and item 10
+
+**Interfaces**
+
+- Consumes: `**ready to integrate**` (M07-T07)
+- Produces: none
+
+**Steps**
+
+1. In `plugins/orcastrat/skills/run/SKILL.md`, section 3e, item 4, last bullet (the one starting ``- Any other `DONE` or `DONE_WITH_CONCERNS` → check scope``), replace this text, which is the end of that bullet's line:
+
+   ```text
+   On success, if `git -C "<worktree>" status --porcelain` lists a path outside the plan directory, commit those paths for the worker: `git -C "<worktree>" add -A -- ":(exclude)<plan dir>"`, then `git -C "<worktree>" commit -m '<task ID>: <the task's Commit message>'`, writing each `'` in the message as `'\''`. The task is then **ready to integrate**.
+   ```
+
+   with this text, on the same line:
+
+   ```text
+   On success, commit what the worker left, for the worker, since integration cherry-picks only commits: run `git -C "<worktree>" add -A -- ":(exclude)<report file>" ":(exclude)<failure log>"`, which stages every uncommitted path except those two. The scope check passed, so each staged path is in the task's Files, including any in the plan directory, such as an investigate task's note, which would otherwise be lost when the worktree is removed. If `git -C "<worktree>" diff --cached --name-only` then prints anything, run `git -C "<worktree>" commit -m '<task ID>: <the task's Commit message>'`, writing each `'` in the message as `'\''`. The report file and failure log stay uncommitted: the task's status commit carries them (item 10). The task is then **ready to integrate**.
+   ```
+
+2. Run Verify.
+
+**Done when**
+
+- 3e item 4 stages with the two `:(exclude)` pathspecs for the report file and failure log, and commits only when `git -C "<worktree>" diff --cached --name-only` prints anything.
+- The worktree command `git -C "<worktree>" add -A -- ":(exclude)<plan dir>"` is gone; 3d item 6's `git add -A -- ":(exclude)<plan dir>"` in MAIN is unchanged.
+- Nothing else in the file changed.
+
+### M07-T11: run records the integrated tasks and settles the wave when the combined re-verify fails
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 6
+- Depends on: M07-T07, M07-T08, M07-T10
+- Files: `plugins/orcastrat/skills/run/SKILL.md`
+- Verify: `grep -qF 'But settle the wave before you go to **Stop**, so that the next run can resume from git.' plugins/orcastrat/skills/run/SKILL.md && grep -qF '**Record** each integrated task whose Verify command passed, or that has no command' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'up to and including its commit' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'integrated task whose Verify command failed, in task ID order' plugins/orcastrat/skills/run/SKILL.md && grep -qF 'Its commits stay on the plan branch: say so in the Stop report.' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF 'On failure, mark the failing task' plugins/orcastrat/skills/run/SKILL.md && ! grep -qF '$(' plugins/orcastrat/skills/run/SKILL.md`
+- Fails first: no (skill text with no test; the Verify greps fail until the edit is made)
+- Commit: `fix(orcastrat): run records integrated tasks and settles the wave before a re-verify Stop`
+- Origin: review
+
+**Objective**
+
+When 3e item 9's combined re-verify fails, `run` records every integrated task whose Verify passed with its own status commit, settles the wave's escalated and merge-failed tasks without dispatching them, and blocks each failing task with its report and failure log in MAIN before it goes to Stop, so the next run can resume from git (D137).
+
+**Read first**
+
+- `docs/orcastrat-execution-spec.md` §6 item 6
+- plan.md Decisions D120, D132 and D137
+- `plugins/orcastrat/skills/run/SKILL.md` section 3e, items 9 to 12
+
+**Interfaces**
+
+- Consumes: `**leaves the wave**` (M07-T07)
+- Consumes: `**merge-failed**` (M07-T08)
+- Consumes: `12. **Blocks**` (M07-T08)
+- Produces: none
+
+**Steps**
+
+1. In `plugins/orcastrat/skills/run/SKILL.md`, section 3e, replace this whole line, item 9:
+
+   ```text
+   9. **Re-verify the combined result.** If two or more tasks were integrated, Verify each integrated task's Verify command again in MAIN (see Definitions), deduplicated. A task can pass alone and fail once its wave-mates land. On failure, mark the failing task `blocked` with `- Blocked: VERIFY — failed after wave integration`, write the wave's blocks (item 12), and go to **Stop** without rolling back: the user decides.
+   ```
+
+   with these six lines, which keep item 9's place directly above the line starting `10. **Record**`. Each of the last five lines starts with three spaces, which are part of the literal content:
+
+   ```text
+   9. **Re-verify the combined result.** If two or more tasks were integrated, Verify each integrated task's Verify command again in MAIN (see Definitions), deduplicated. A task can pass alone and fail once its wave-mates land. On failure, don't roll back: the user decides. But settle the wave before you go to **Stop**, so that the next run can resume from git. In this order:
+      - **Record** each integrated task whose Verify command passed, or that has no command, as item 10 says, in task ID order. Each gets its status commit with the `Orcastrat-Task:` trailer, so `recover` finds it `done`.
+      - For each task that left the wave to be escalated (item 5), in task ID order, do what item 11's first bullet says, up to and including its commit, but don't run the task through **3d**: the next run dispatches it at the next tier.
+      - For each **merge-failed** task (item 8), in task ID order, copy its failure log into MAIN and remove its worktree and branch, as item 11's second bullet says, but don't Verify or rerun it. It stays `todo`, and the next run reruns it.
+      - For each integrated task whose Verify command failed, in task ID order, copy its report file and failure log into MAIN and remove its worktree and branch, as item 10 says, without setting it `done` or committing. Then mark it `blocked` with `- Blocked: VERIFY — failed after wave integration`. Its commits stay on the plan branch: say so in the Stop report.
+      - Write the wave's blocks (item 12), then go to **Stop**. Stop's commit records the VERIFY blocks, with their reports and failure logs.
+   ```
+
+2. Run Verify.
+
+**Done when**
+
+- 3e item 9 ends with the five bullets of Step 1, in that order, directly followed by the line starting `10. **Record**`.
+- The sentence `On failure, mark the failing task` is gone, and items 10 to 12 are unchanged.
 - Nothing else in the file changed.
