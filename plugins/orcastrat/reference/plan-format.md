@@ -8,6 +8,7 @@ A plan is a directory. It is the contract between:
 - **plan-reviewer** (agent), which checks each detailed milestone against it before it runs,
 - **milestone-reviewer** (agent), which reviews each finished milestone against it,
 - **validator** (agent), which scores each blocking review finding again, without seeing the reviewer's score, before it has any effect,
+- **decider** (agent), which recommends an answer to each GAP during a run and labels it `local` or `stop`,
 - **workers** and **reviewer** (agents), which read their task from it, through a brief that run's `task-brief` script copies out of it.
 
 All state lives in these files, never in anyone's context. That is what lets a run survive context compaction, interruption, and multi-day execution: anyone can pick up from the files alone.
@@ -19,7 +20,7 @@ plans/<plan-slug>/
 ├── plan.md                # index: header, settings, milestones, coverage, decisions, open questions
 ├── sources/               # verbatim copies of any input that isn't already a file in the repo
 │   └── prompt.md
-├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), plan reviews (<milestone-id>-plan-review.md), per-task reviews (reviews/<task-id>-attempt<n>.md), worker reports (reports/<task-id>.md), failure logs (<task-id>-failures.md), the run log (run-log.md), the run report (run-report.md), and instruction suggestions (instruction-suggestions.md)
+├── notes/                 # investigate-task findings (<task-id>.md), scout surveys (<milestone-id>-survey*.md), milestone reviews (<milestone-id>-review.md, <milestone-id>-review-2.md), plan reviews (<milestone-id>-plan-review.md), per-task reviews (reviews/<task-id>-attempt<n>.md), worker reports (reports/<task-id>.md), failure logs (<task-id>-failures.md), the run log (run-log.md), the run report (run-report.md), instruction suggestions (instruction-suggestions.md), and the decider's recommendations (decisions/<question-id>.md)
 ├── M01-<slug>.md          # one file per milestone
 └── M02-<slug>.md
 ```
@@ -79,6 +80,8 @@ Default location is `plans/<plan-slug>/` at the repository root.
 | Max tasks | Optional: `none` (the default, also when the field is missing) or `<n>`. Once `run` has committed that many tasks as `done` in this run, it pauses with reason `LIMIT`. The flag `--max-tasks` beats it. |
 | Max milestones | Optional: `none` (the default, also when the field is missing) or `<n>`. Once that many milestones have completed in this run, milestone reviews included, `run` pauses with reason `LIMIT`. The flag `--max-milestones` beats it. `Max milestones: 1` gives a natural point to `/clear` between milestones. |
 | Instructions max lines | Optional: absent by default, meaning no threshold, or `<n>`. When it is set, `run`'s instruction-file check adds a size finding once the instruction files it loads hold more than `<n>` lines in total. `plan` never uses it: its checks run before plan.md exists. |
+| Auto-decide | Optional: `off` (the default, also when the field is missing) or `local`. During a run, the `decider` agent recommends an answer to every GAP, from a worker or the planner, and labels it `local` or `stop`. With `local`, `run` records a `local` recommendation as a Decision and continues; any other answer stops the run as a GAP, with the recommendation and label in the stop report, as `off` always does. The flag `--auto-decide` sets `local` for one run. `plan` never uses the decider: planning questions are always answered by the user. |
+| Max auto-decisions | Optional: `5` (the default, also when the field is missing) or `<n>`. Once `run` has recorded that many auto-decided Decisions in one run invocation, it pauses with reason `LIMIT`. It applies only while Auto-decide is `local`, and it has no flag. |
 | Status | `planned`, `in-progress`, `complete`, or `blocked`. |
 
 ### Survey
@@ -94,6 +97,8 @@ Only meaningful while a milestone is an `outline`. Before the planner details it
 Decisions are the only place a design decision may come from besides the sources themselves. Workers and the planner read them. A decision made once, including a user's answer to a GAP, applies to every later task.
 
 Open questions are tagged with the milestone or task they block. `rolling` plans may carry open questions for outlined milestones; `upfront` plans may not have any.
+
+During a run, each question of a GAP gets an ID, `<task ID>-q<n>` for a worker's and `<milestone ID>-q<n>` for the planner's, and the `decider` writes its reasoning for it to `notes/decisions/<question-id>.md`. A question `run` auto-decides becomes the Decision `- D<nn> [<milestone ID>]: <RECOMMENDATION> (→ <plan dir>/notes/decisions/<question-id>.md; source: auto-decided (<question-id>))`, whose milestone is its scope. A question it doesn't auto-decide stays in Open questions, as `- (<task or milestone ID>) <question>`, with the line `  Decider: <RECOMMENDATION> — <REASON> (<LABEL>; <plan dir>/notes/decisions/<question-id>.md)` below its own lines.
 
 #### Assumptions
 
