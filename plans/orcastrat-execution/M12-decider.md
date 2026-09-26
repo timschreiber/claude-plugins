@@ -392,7 +392,7 @@ The `plan` skill says that planning questions are always answered by the user, a
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 2
 - Depends on: none
 - Files: `plugins/orcastrat/skills/run/SKILL.md`

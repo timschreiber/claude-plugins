@@ -2,7 +2,7 @@
 name: run
 description: Execute an Orcastrat plan. Works through milestones in order, has the planner agent detail outlined milestones, and runs each wave of tasks through the worker for each task's tier, in parallel git worktrees when the wave allows it. Verifies every task itself, commits each one, and records progress in the plan files. Only run when the user explicitly invokes it.
 disable-model-invocation: true
-argument-hint: "<plan dir> [--milestone M03] [--max-tasks 20] [--max-run-time 2h] [--max-milestones 1] [--serial] [--max-parallel 4] [--yes]"
+argument-hint: "<plan dir> [--milestone M03] [--max-tasks 20] [--max-run-time 2h] [--max-milestones 1] [--serial] [--max-parallel 4] [--auto-decide] [--yes]"
 ---
 
 # Run
@@ -16,6 +16,7 @@ Arguments: `$ARGUMENTS`
 - `--max-milestones <N>`: pause cleanly, with reason `LIMIT`, once N milestones have completed in this run, reviews included. Beats the plan's `Max milestones` header field.
 - `--serial`: run one task at a time for this run, whatever the plan's Parallel setting.
 - `--max-parallel <N>`: override the plan's Max parallel for this run.
+- `--auto-decide`: set Auto-decide to `local` for this run, whatever the plan's `Auto-decide` header field says, so that the decider's `local` recommendations are recorded as Decisions and the run continues (see **Auto-decide**). It takes no value. `Max auto-decisions` has no flag.
 - `--yes`: approval given in advance, for unattended or non-interactive runs. Without it, you ask before executing anything (2b). Under it, the instruction-file check and the model check never ask either (see **Start checks**).
 
 You are the orchestrator. You dispatch, verify, integrate, commit, and record. **You never write, edit, or fix code yourself**, not even one line. If something needs fixing, that is a retry or a stop. The only files you edit are plan.md, milestone files, the notes files this skill names (a task's failure log, `notes/run-log.md`, `notes/instruction-suggestions.md`, and the review reports that **Validate a review** rewrites), and the instruction-check files `.orcastrat/instructions/review.md` and `fix-prompt.md` (see **Start checks**), and only the fields and lines this skill names.
@@ -83,8 +84,10 @@ You are the orchestrator. You dispatch, verify, integrate, commit, and record. *
   - Error: none
   ```
   When Verify failed, the last line is `- Error:` instead, followed by the lines `verify` printed after its `log=` line, inside a `text` code fence.
-- **Limits**: the run time limit is `--max-run-time`, or else the plan's `Max run time` header field; the task limit is `--max-tasks`, or else `Max tasks`; the milestone limit is `--max-milestones`, or else `Max milestones`. A missing field, or `none`, means no limit. A run time of `<n>m` is n minutes, and `<n>h` is n × 60 minutes.
-- **Check the limits**: if a run time limit is in effect, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" elapsed`, which prints the whole minutes since this run started; if that is at least the limit, go to **Pause** with reason `LIMIT`. If a task limit is in effect and this run has already committed that many tasks as `done`, go to **Pause** with reason `LIMIT`. Check them before each new serial task (3d) and before each parallel batch (3e). The milestone limit is checked in 3f item 8.
+- **Limits**: the run time limit is `--max-run-time`, or else the plan's `Max run time` header field; the task limit is `--max-tasks`, or else `Max tasks`; the milestone limit is `--max-milestones`, or else `Max milestones`. A missing field, or `none`, means no limit. A run time of `<n>m` is n minutes, and `<n>h` is n × 60 minutes. The auto-decision limit is Max auto-decisions (see **Auto-decide**), in effect only while Auto-decide is `local`.
+- **Check the limits**: if a run time limit is in effect, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" elapsed`, which prints the whole minutes since this run started; if that is at least the limit, go to **Pause** with reason `LIMIT`. If a task limit is in effect and this run has already committed that many tasks as `done`, go to **Pause** with reason `LIMIT`. If the auto-decision limit is in effect and the **auto-decision count** (see below) is at least Max auto-decisions, go to **Pause** with reason `LIMIT`, saying in its report that the auto-decision limit was reached. Check them before each new serial task (3d), before each parallel batch (3e), and before invoking the planner again once all of its questions were auto-decided (3a item 4). The milestone limit is checked in 3f item 8.
+- **Auto-decide**: `local` when `--auto-decide` was given, or when the plan header's `Auto-decide` field says `local`; otherwise `off`, which is also its value when the field is missing. **Max auto-decisions** is the plan header's `Max auto-decisions` field, or 5 when that field is missing.
+- **Auto-decision count**: how many questions this run invocation has auto-decided. Grep `<plan dir>/notes/run-log.md` for `^(start|auto-decided) ` with line numbers, output mode content, and count the lines starting `auto-decided` below the last line starting `start`; with no such line, it is 0. Never keep the count in memory: each auto-decided question's `auto-decided` line goes into the run log in the same commit as its Decision, so the file always holds it.
 
 ## Start checks
 
@@ -444,7 +447,7 @@ A `RED: PASSED-EARLY` report on a task with `- Fails first: yes` gets the same h
 
 ## Pause
 
-A clean, intentional stop, with one of these reasons: `GATE` (a `detail` or `milestone` gate), `MILESTONE` (`--milestone`), or `LIMIT` (the run time, task or milestone limit; see Definitions).
+A clean, intentional stop, with one of these reasons: `GATE` (a `detail` or `milestone` gate), `MILESTONE` (`--milestone`), or `LIMIT` (the run time, task, milestone or auto-decision limit; see Definitions).
 
 1. If 2c item 6 has written this run's marker, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" end PAUSE <reason>`. It deletes the active-run marker and appends an `end` line to `<plan dir>/notes/run-log.md`. Then append the run-log lines you have noted (see **After every agent returns**), and write the **run report** (see Definitions). A Pause before 2c item 6 (the `detail` gate in 2c item 2) skips this step and leaves any marker alone: it isn't this run's.
 2. Commit the pending plan-file changes, that line and the run report included: `git add "<plan dir>"`, then `git commit -m "chore(plan): pause at <where>"`. The main checkout must be clean when you finish, and no task worktrees should remain.
