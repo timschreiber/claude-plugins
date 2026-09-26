@@ -2,6 +2,16 @@
 
 Sep 25, 2026 · @Tim
 
+> **Resolved by the spike.** The plugin is now named `planandtier` (the spec's placeholder was `tiered`), and the spike answered all eight probes; see `planandtier-spike-findings.md`. The design below is kept as written. Where it differs, the built plugin follows these changes:
+>
+> - **Allowed pairs:** `sonnet` and `opus`, each at `low`, `medium`, `high` or `xhigh`. No Haiku (it ignores effort and is unreliable for coding), `max` or Fable.
+> - **Plan text:** H2 reads the plan file at `tool_input.planFilePath` first, because `tool_input.plan` can be stale after a retry. H3 reads `tool_response.plan`.
+> - **P8:** the model launches the workflow on H3's injected instruction alone, in auto mode.
+> - **Workflow matching:** H4 matches `tool_input.name === "planandtier:execute-plan"`. Hook-set `args` arrive as an object, so the script has no `JSON.parse` fallback.
+> - **Per-call effort works,** so no per-effort worker files.
+> - **State is kept until the session ends** (H6 no longer deletes it at launch), so a halted run can be relaunched. The guards give up after a few blocks.
+> - **Also added:** an opt-out line (`Tiered execution: off`), a cap of three H2 denials, and `Workflow` disallowed for workers.
+
 ## Summary and goals
 
 A Claude Code plugin that turns an approved plan-mode plan into serial subagent execution, each task at the model and effort chosen during planning. Planning uses built-in plan mode unchanged. Execution runs as a saved plugin workflow, and hooks make the hand-off automatic.

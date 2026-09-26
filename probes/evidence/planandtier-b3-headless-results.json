@@ -1,0 +1,62 @@
+{
+  "generated": "2026-09-26T02:24:58.556Z",
+  "claudeCodeVersion": "2.1.283",
+  "mode": "headless claude -p, permission_mode auto",
+  "setup": "hand-written approved state file for a fixed --session-id; real plugin plus probe-plugin with PROBE_OBSERVE=1",
+  "modelSentToolInput": {
+    "name": "planandtier:execute-plan"
+  },
+  "toolInputAfterHook": {
+    "keys": [
+      "name",
+      "args",
+      "script"
+    ],
+    "tasks": [
+      {
+        "id": "T01",
+        "model": "sonnet",
+        "effort": "low"
+      },
+      {
+        "id": "T02",
+        "model": "sonnet",
+        "effort": "medium"
+      },
+      {
+        "id": "T03",
+        "model": "opus",
+        "effort": "low"
+      }
+    ]
+  },
+  "recordedWorkerEffort": [
+    "low",
+    "medium",
+    "low"
+  ],
+  "effortMatchesTags": true,
+  "workflowStatus": "complete",
+  "taskStatuses": [
+    {
+      "id": "T01",
+      "status": "done"
+    },
+    {
+      "id": "T02",
+      "status": "done"
+    },
+    {
+      "id": "T03",
+      "status": "done"
+    }
+  ],
+  "filesCreated": [
+    "add.js",
+    "add.test.js",
+    "hello.txt",
+    "summary.txt"
+  ],
+  "summaryTxt": "hello planandtier\nadd(2,3)=5\n",
+  "stateFileAfterRun": "deleted by the SessionEnd hook when the headless session exited"
+}
