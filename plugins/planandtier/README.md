@@ -38,9 +38,9 @@ instead of a task block. Without a task block or that line, the plan cannot be a
 
 ### Relaunching
 
-The approved tasks are kept until the session ends. If the workflow halts, fix the cause and ask Claude
-to run the `planandtier:execute-plan` workflow again. The plugin supplies the same tasks, and earlier
-tasks run again unless Claude resumes the halted run.
+The approved tasks are kept until the session ends. If the workflow halts, fix the cause and type
+`/planandtier:execute-plan`, or ask Claude to run that workflow. The plugin supplies the same tasks
+either way. Earlier tasks run again, so a rerun of a plan that already finished repeats all of it.
 
 ## What it does
 
