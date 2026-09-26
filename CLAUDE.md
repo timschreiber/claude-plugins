@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Claude Code plugin marketplace (`timschreiber`). It publishes two plugins,
+A Claude Code plugin marketplace (`timschreiber`). It publishes three plugins,
 cataloged in `.claude-plugin/marketplace.json`:
 
 - `denoizinator-net`: a `PreToolUse` hook that rewrites `dotnet`/`msbuild`
@@ -15,6 +15,12 @@ cataloged in `.claude-plugin/marketplace.json`:
   that can do it. Pure Markdown, with no hooks, scripts, or shared code. Its
   own README documents the design, and `reference/plan-format.md` is the plan
   format every skill and agent parses.
+- `planandtier`: hooks, a saved workflow and a worker agent that turn an
+  approved plan-mode plan into serial subagent execution, each task at the
+  model and effort chosen during planning. The hooks are Node scripts under
+  `plugins/planandtier/scripts/`, tested with `node --test tests/planandtier/`.
+  The design and the measurements behind it are in `docs/planandtier/`, with
+  evidence under `probes/evidence/planandtier-*`.
 
 Java tooling (`denoizinator-java`) was removed from scope.
 `shared/denoizinator-core/` remains the source of truth for cross-plugin code

@@ -9,7 +9,12 @@ after you approve. There is nothing to type after approval.
 
 ## Install
 
-Not in the marketplace catalog yet. Load it from a checkout of this repo:
+```bash
+claude plugin marketplace add timschreiber/claude-plugins
+claude plugin install planandtier@timschreiber
+```
+
+To try it from a checkout of this repo instead:
 
 ```powershell
 claude --plugin-dir ./plugins/planandtier
