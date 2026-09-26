@@ -26,7 +26,7 @@ Governing sources: spec §13 (Change 12), §1.3, §8 (the retry's fresh brief), 
 - Skill and reference text contains no `$(`: `tests/orcastrat/skill-files.bats` checks it.
 - In a bats test body, never negate a command with `!` except on its last line: bats runs the body under `set -e`, which ignores a negated command. Use `run <command>` and then `[ "$status" -ne 0 ]` instead (M11-T11).
 
-Waves: 6 (widths 4, 1, 1, 1, 1, 1)
+Waves: 8 (widths 4, 1, 1, 1, 1, 1, 1, 1)
 
 ## Coverage
 
@@ -718,4 +718,144 @@ When the planner reports a GAP, `run` has the decider answer each of its questio
 
 - `bash scripts/run-bats.sh tests/orcastrat/skill-files.bats` reports 10 tests and no failure, and the Verify greps pass.
 - 3a item 4 has its two sub-bullets, item 5's GAP bullet resets the table row, and 3f item 4's line `` - `BLOCKED` / `GAP`: handle it as in 3a item 4.`` is unchanged.
+- Nothing else in either file changed.
+
+### M12-T10: run decides a stopped wave's GAPs once, before its escalations
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 7
+- Depends on: M12-T08
+- Files: `plugins/orcastrat/skills/run/SKILL.md`, `tests/orcastrat/skill-files.bats`
+- Verify: `bash scripts/run-bats.sh tests/orcastrat/skill-files.bats`
+- Fails first: yes
+- Commit: `fix(orcastrat): run decides a stopped wave's GAPs once, before its escalations`
+- Origin: review
+
+**Objective**
+
+In 3e item 9's Stop path, the bullet "Decide the wave's GAPs" is a sibling bullet of item 9, indented three spaces, directly after the bullet that records the passing tasks and before the escalations bullet, so the wave's GAPs are decided once, before its escalations (D224, D231; `notes/M12-review.md` Blocking 2).
+
+**Read first**
+
+- plan.md Decisions D224 and D231
+- `plugins/orcastrat/skills/run/SKILL.md` lines 371–377 (3e item 9 and its bullets)
+- `tests/orcastrat/skill-files.bats` (whole file)
+
+**Interfaces**
+
+- Consumes: `3e item 11's first paragraph: deciding the wave's GAPs` (M12-T08)
+- Consumes: `SKILLS` (existing, `tests/orcastrat/skill-files.bats:3`)
+- Produces: `3e item 9 bullet "   - Decide the wave's GAPs, ..." directly below its "   - **Record** each integrated task whose Verify command passed" bullet`
+
+**Steps**
+
+1. At the end of `tests/orcastrat/skill-files.bats`, after one empty line, add this test:
+
+   ```bash
+   @test "run decides a stopped wave's GAPs once, right after recording its passing tasks" {
+     local f="$SKILLS/run/SKILL.md"
+     local want="   - Decide the wave's GAPs, as item 11's first paragraph says."
+     tr -d '\r' < "$f" | awk -v want="$want" '
+       index(prev, "   - **Record** each integrated task whose Verify command passed") == 1 && index($0, want) == 1 { found = 1 }
+       { prev = $0 }
+       END { exit !found }
+     '
+     run grep -qE '^ {4,}- Decide the wave' "$f"
+     [ "$status" -ne 0 ]
+   }
+   ```
+
+2. Run Verify and confirm it fails.
+3. In `plugins/orcastrat/skills/run/SKILL.md`, section `### 3e. Parallel wave`, item 9, find the line that starts with six spaces and then `- Decide the wave's GAPs, as item 11's first paragraph says.` It sits between the bullet starting `   - For each integrated task whose Verify command failed,` and the bullet starting `   - Write the wave's blocks (item 12)`. Delete that line, leaving no empty line in its place.
+4. Directly below the line that starts `   - **Record** each integrated task whose Verify command passed`, insert this line. It starts with exactly three spaces, not six: in the fence below, the line has six leading spaces, and the first three are the list indentation that the milestone Context says to remove.
+
+   ```text
+      - Decide the wave's GAPs, as item 11's first paragraph says. An auto-decided task stays `todo`, and the next run retries it.
+   ```
+
+5. Run Verify and confirm all 11 tests pass.
+
+**Done when**
+
+- `bash scripts/run-bats.sh tests/orcastrat/skill-files.bats` reports 11 tests and no failure.
+- Item 9's bullets are, in this order: `**Record**` (passing tasks), `Decide the wave's GAPs`, the escalations bullet, the merge-failed bullet, the Verify-failed bullet, and `Write the wave's blocks (item 12)`. Every one of them starts with exactly three spaces.
+- The file holds the `Decide the wave's GAPs` line exactly once.
+- Nothing else in either file changed.
+
+### M12-T11: run records each auto-decided question before judging the next
+
+- Kind: change
+- Tier: worker
+- Status: todo
+- Wave: 8
+- Depends on: M12-T06, M12-T08, M12-T09, M12-T10
+- Files: `plugins/orcastrat/skills/run/SKILL.md`, `tests/orcastrat/skill-files.bats`
+- Verify: `bash scripts/run-bats.sh tests/orcastrat/skill-files.bats`
+- Fails first: yes
+- Commit: `fix(orcastrat): run records each auto-decided question before judging the next`
+- Origin: review
+
+**Objective**
+
+**Decide GAP questions** judges one question at a time, and 3a item 4 and 3e item 11 record each auto-decided question, commit included, before they judge the next. Each question's **auto-decision count** then includes the questions recorded before it, so one GAP's questions can never take the count past Max auto-decisions (D218, D223, D230; `notes/M12-review.md` Blocking 1).
+
+**Read first**
+
+- plan.md Decisions D218, D223 and D230
+- `plugins/orcastrat/skills/run/SKILL.md` lines 90–110 (**Auto-decision count**, **Decide GAP questions** and **Record an auto-decided question**)
+- `plugins/orcastrat/skills/run/SKILL.md` section `### 3a. Detail it if it's an outline`, item 4
+- `plugins/orcastrat/skills/run/SKILL.md` section `### 3e. Parallel wave`, item 11's first paragraph
+- `tests/orcastrat/skill-files.bats` (whole file)
+
+**Interfaces**
+
+- Consumes: `**Decide GAP questions** and **Record an auto-decided question** in plugins/orcastrat/skills/run/SKILL.md Definitions` (M12-T06)
+- Consumes: `3e item 11's first paragraph: deciding the wave's GAPs` (M12-T08)
+- Consumes: `3a item 4: deciding the planner's GAP questions` (M12-T09)
+- Consumes: `SKILLS` (existing, `tests/orcastrat/skill-files.bats:3`)
+- Produces: `**Decide GAP questions** item 4: one question at a time, each auto-decided one recorded before the next is judged`
+
+**Steps**
+
+1. At the end of `tests/orcastrat/skill-files.bats`, after one empty line, add this test:
+
+   ```bash
+   @test "run records each auto-decided question before judging the next" {
+     local f="$SKILLS/run/SKILL.md"
+     grep -qF '4. Take the questions in the order given, one at a time. A question is **auto-decided**' "$f"
+     grep -qF 'Read the count afresh for each question, and finish handling an auto-decided question, up to and including its **record an auto-decided question** commit, before you judge the next one' "$f"
+     grep -qF 'and **record an auto-decided question** (see Definitions) for each one that is auto-decided before you judge the next.' "$f"
+     grep -qF 'and for each task whose question is auto-decided, before you judge the next question:' "$f"
+     run grep -qF 'Then, in the same order, **record an auto-decided question**' "$f"
+     [ "$status" -ne 0 ]
+   }
+   ```
+
+2. Run Verify and confirm it fails.
+3. In `plugins/orcastrat/skills/run/SKILL.md`, in the **Decide GAP questions** item 4, replace `4. Take the questions in the order given. A question` with `4. Take the questions in the order given, one at a time. A question`. In the same item, replace `The place that decides the questions says what to do with each auto-decided one, including when to **record an auto-decided question**.` with this text:
+
+   ```text
+   Read the count afresh for each question, and finish handling an auto-decided question, up to and including its **record an auto-decided question** commit, before you judge the next one: that commit's `auto-decided` line is what the next question's count sees, so one GAP's questions never take the count past Max auto-decisions. The place that decides the questions says what else to do with each auto-decided one.
+   ```
+
+4. In section `### 3a. Detail it if it's an outline`, item 4, replace `Then, in the same order, **record an auto-decided question** (see Definitions) for each one that is auto-decided.` with this text:
+
+   ```text
+   Then, as **Decide GAP questions** item 4 says, take its questions one at a time, in the same order, and **record an auto-decided question** (see Definitions) for each one that is auto-decided before you judge the next.
+   ```
+
+5. In section `### 3e. Parallel wave`, item 11, replace `for those tasks' questions, each with its task ID as its From. Then, in task ID order, for each task whose question is auto-decided:` with this text:
+
+   ```text
+   for those tasks' questions, in task ID order, each with its task ID as its From. Then, as **Decide GAP questions** item 4 says, take the questions one at a time, and for each task whose question is auto-decided, before you judge the next question:
+   ```
+
+6. Run Verify and confirm all 12 tests pass.
+
+**Done when**
+
+- `bash scripts/run-bats.sh tests/orcastrat/skill-files.bats` reports 12 tests and no failure.
+- The three replaced passages read as Steps 3 to 5 give them, each still on the same line as before, and the text around each is unchanged.
 - Nothing else in either file changed.
