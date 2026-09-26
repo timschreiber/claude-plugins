@@ -97,3 +97,9 @@ has_stripped_line() {
   run grep -qF 'gets the same handling, with block reason `VACUOUS` instead of `GAP`' "$f"
   [ "$status" -ne 0 ]
 }
+
+@test "run stops with the planner questions the decider left open" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF 'If none of this GAP'"'"'s questions is left in Open questions, every one was auto-decided' "$f"
+  grep -qF 'Otherwise, set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.' "$f"
+}

@@ -659,7 +659,7 @@ In a parallel wave, `run` sends the questions of the wave's GAP tasks to the dec
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 6
 - Depends on: M12-T05, M12-T06
 - Files: `plugins/orcastrat/skills/run/SKILL.md`, `tests/orcastrat/skill-files.bats`

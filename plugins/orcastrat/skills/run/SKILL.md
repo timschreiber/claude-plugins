@@ -237,7 +237,9 @@ If the `next:` line of **next** says `survey <ID>` or `detail <ID>`, the milesto
    Milestone: <ID>
    ```
 3. If it reports `SCOUT`, and this milestone hasn't had a follow-up scout round yet in this run: invoke `orcastrat:scout` (or `scout-heavy`, if the planner asked for it) with the planner's QUESTIONS as a numbered brief, followed by the line `Output: <plan dir>/notes/<ID>-survey-2.md`. Then invoke the planner again, exactly as in item 2. If it reports `SCOUT` a second time, invoke it once more with the extra line `No more scout rounds: read what you still need yourself.`
-4. If it reports `BLOCKED` / `GAP`: it has written its questions (insufficient information, ambiguity, or contradiction) to plan.md's Open questions. Set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.
+4. If it reports `BLOCKED` / `GAP`: it has written its questions (insufficient information, ambiguity, or contradiction) to plan.md's Open questions, each a line starting `- (<ID>) ` with its indented lines below it. **Decide GAP questions** (see Definitions) for them, with the milestone ID as their From: Grep plan.md for `^- \(<ID>\) `, output mode content, and take each matching line, in order, without its `- (<ID>) ` prefix, as a question. Then, in the same order, **record an auto-decided question** (see Definitions) for each one that is auto-decided.
+   - If none of this GAP's questions is left in Open questions, every one was auto-decided (Grep for `^- \(<ID>\) ` finds no line): **check the limits** (see Definitions), then invoke the planner again with exactly the lines of the call that reported the GAP, item 2's two lines or 3f item 4's three, and handle its report as that call's report is handled. A GAP from item 5's fix pass is the exception: item 5 has restored the milestone's outline, so go back to item 2 instead.
+   - Otherwise, set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.
 5. If it reports `DONE`: **Plan review.** Invoke the agent `orcastrat:plan-reviewer` with exactly:
    ```
    Plan: <plan dir>
@@ -251,7 +253,7 @@ If the `next:` line of **next** says `survey <ID>` or `detail <ID>`, the milesto
    Plan review: <plan dir>/notes/<ID>-plan-review.md
    ```
    There is one fix pass and no second review.
-   - `BLOCKED` / `GAP`: discard the detailed milestone file, restoring its committed outline: `git checkout -- "<milestone file path>"`. Then handle it as in item 4. The plan-review report stays, and the Stop commits it.
+   - `BLOCKED` / `GAP`: discard the detailed milestone file, restoring its committed outline: `git checkout -- "<milestone file path>"`. Set the milestone's Status in plan.md's Milestones table back to `outline`, so that the table and the file agree. Then handle it as in item 4, which goes back to item 2 once every question is auto-decided. The plan-review report stays, and the next commit carries it.
    - `DONE`: go on.
 
    Once the plan review reports `APPROVED` or leaves no validated finding, or the fix pass reports `DONE`, run the validation checklist on the milestone. Any failure → mark it `blocked` with the failures and go to **Stop**.
@@ -489,5 +491,5 @@ A problem the user must resolve.
 
 1. If 2c item 6 has written this run's marker, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-state" end STOP <reason>`, with the reason you report in item 3. It deletes the active-run marker and appends an `end` line to `<plan dir>/notes/run-log.md`. Then append the run-log lines you have noted (see **After every agent returns**), and write the **run report** (see Definitions). A Stop before 2c item 6 (a failed preflight check, or a Stop in 2c items 1 to 5) skips this step and leaves any marker alone: it isn't this run's.
 2. Plan-file changes (blocked statuses, open questions, a blocked task's report and failure log, that `end` line, and the run report) are committed on their own: `git add <plan dir>` and `git commit -m "chore(plan): blocked at <where>"`. In serial mode, if task code is in the main working tree, leave all of it uncommitted, plan files included, for the user to inspect.
-3. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, VACUOUS, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP or VACUOUS, quote the question exactly. For STUCK, say the task most likely needs replanning, not another run. For a blocked attempt kept under `refs/orcastrat/discarded/`, name its ref.
+3. Report: where, the reason (GAP, STUCK, SCOPE, VERIFY, REVIEW, VACUOUS, STRAY, PUSHED, SETUP, VALIDATION), the one-line detail, what the user needs to decide or fix, and the path of every worktree left for inspection. For a GAP, quote each question exactly, with its `Decider:` line below it. For VACUOUS, quote the question exactly. For STUCK, say the task most likely needs replanning, not another run. For a blocked attempt kept under `refs/orcastrat/discarded/`, name its ref.
 4. Stop. Don't continue with anything else.
