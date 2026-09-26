@@ -1,0 +1,13 @@
+{
+  "name": "planandtier",
+  "displayName": "Plan and Tier",
+  "description": "Turns an approved plan-mode plan into serial subagent execution, each task at the model and effort chosen during planning.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/planandtier",
+  "repository": "https://github.com/timschreiber/claude-plugins",
+  "license": "Apache-2.0",
+  "keywords": ["planning", "workflows", "subagents", "token-efficiency"]
+}

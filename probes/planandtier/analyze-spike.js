@@ -1,0 +1,159 @@
+// Turns the spike plugin's probe.log into probes/evidence/planandtier-spike-results.json.
+//
+//   node probes/planandtier/analyze-spike.js <path-to-probe.log> [path-to-observations.json]
+//
+// Facts the hooks can see (P1, P2, P4, and parts of P3/P5/P6) are judged from the log.
+// Facts only a human can see (whether the model echoed the marker, what /workflows
+// reports per task) come from observations.json, which commands.md describes.
+// A probe with neither is reported "needs-observation", never guessed.
+'use strict'
+
+const fs = require('fs')
+const path = require('path')
+
+const [logPath, obsPath] = process.argv.slice(2)
+if (!logPath) {
+  console.error('usage: node analyze-spike.js <probe.log> [observations.json]')
+  process.exit(2)
+}
+
+const records = fs
+  .readFileSync(logPath, 'utf8')
+  .split('\n')
+  .filter(Boolean)
+  .map(line => JSON.parse(line))
+  .map(r => {
+    let input = null
+    try {
+      input = JSON.parse(r.stdin)
+    } catch {}
+    return { tag: r.tag, pluginDataSet: r.pluginDataSet, raw: r.stdin, input }
+  })
+const obs = obsPath ? JSON.parse(fs.readFileSync(obsPath, 'utf8')) : {}
+
+const byTag = tag => records.filter(r => r.tag === tag)
+const keys = r => (r?.input ? Object.keys(r.input).sort() : null)
+const toolInputKeys = r => (r?.input?.tool_input ? Object.keys(r.input.tool_input).sort() : null)
+
+const results = {}
+
+// P1: permission_mode is present on UserPromptSubmit, and correct in and out of plan mode.
+const ups = byTag('ups')
+const modes = [...new Set(ups.map(r => r.input?.permission_mode))]
+results.P1 = {
+  verdict: modes.includes('plan') && modes.some(m => m && m !== 'plan') ? 'pass' : 'fail',
+  detail: 'permission_mode values seen on UserPromptSubmit (undefined = field absent)',
+  modesSeen: modes.map(m => m ?? null),
+  recordCount: ups.length,
+  stdinKeys: keys(ups[0]),
+}
+
+// P2: PreToolUse and PostToolUse both fire for ExitPlanMode, plan text is present, and the
+// deny made the model revise (a second PreToolUse whose plan contains the requested line).
+const preExit = byTag('pre-exit')
+const postExit = byTag('post-exit')
+const planOf = r => r?.input?.tool_input?.plan
+results.P2 = {
+  verdict:
+    preExit.length >= 2 && postExit.length >= 1 && typeof planOf(preExit[0]) === 'string' &&
+    String(planOf(preExit[preExit.length - 1])).includes('probe-revised')
+      ? 'pass'
+      : 'fail',
+  detail: 'expects >=2 pre-exit (deny, then revised), >=1 post-exit, plan text in tool_input.plan',
+  preExitCount: preExit.length,
+  postExitCount: postExit.length,
+  permissionRequestCount: byTag('perm-exit').length,
+  planFieldPresent: preExit.map(r => typeof planOf(r) === 'string'),
+  preExitToolInputKeys: toolInputKeys(preExit[0]),
+  revisedPlanContainsLine: preExit.map(r => String(planOf(r)).includes('probe-revised')),
+}
+
+// P3: the hook side is only "post-exit fired"; the marker echo is a human observation.
+results.P3 = {
+  verdict: obs.P3_marker_echoed === undefined ? 'needs-observation' : obs.P3_marker_echoed ? 'pass' : 'fail',
+  detail: 'observations.P3_marker_echoed: did the first response after approval begin with ZEBRA-PLANANDTIER',
+  postExitFired: postExit.length > 0,
+}
+
+// P4: PreToolUse fires for Workflow; the log shows the input field names.
+const preWf = byTag('pre-wf')
+results.P4 = {
+  verdict: preWf.length > 0 ? 'pass' : 'fail',
+  detail: 'tool_input field names the Workflow call carried',
+  preWfCount: preWf.length,
+  toolInputKeys: toolInputKeys(preWf[0]),
+  toolName: preWf[0]?.input?.tool_name ?? null,
+  emitted: byTag('pre-wf:emitted').length > 0,
+}
+
+// P5: hook-supplied args reach the script as an object. The script returns argsType; the
+// PostToolUse record may carry it, otherwise it comes from /workflows via observations.
+const postWf = byTag('post-wf')
+const argsTypeInLog = postWf.map(r => /argsType\W+(object|string|undefined)/.exec(r.raw)?.[1]).find(Boolean)
+const argsType = argsTypeInLog ?? obs.P5_args_typeof
+results.P5 = {
+  verdict: argsType === undefined ? 'needs-observation' : argsType === 'object' ? 'pass' : 'fail',
+  detail: 'typeof args inside the script (from the post-wf record, else observations.P5_args_typeof)',
+  argsType: argsType ?? null,
+  postWfCount: postWf.length,
+  postWfFailCount: byTag('post-wf-fail').length,
+}
+
+// P6, P7: per-call effort applied? Subagent hook records are logged raw for whatever
+// model/effort fields they carry; the authoritative reading is /workflows, via observations.
+const subs = [...byTag('sub-start'), ...byTag('sub-stop')]
+const mentions = subs.filter(r => /"(model|effort)"/.test(r.raw)).length
+const reported = obs.reported ?? {}
+const rows = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07']
+const expected = {
+  T01: 'low', T02: 'high', T03: 'low', T04: 'medium', T05: 'high', T06: 'xhigh', T07: 'max',
+}
+const check = ids =>
+  ids.some(id => reported[id] === undefined)
+    ? 'needs-observation'
+    : ids.every(id => reported[id] === expected[id])
+      ? 'pass'
+      : 'mismatch'
+results.P6 = {
+  verdict: check(['T01', 'T02']),
+  detail: 'observations.reported[Txx]: effort /workflows or agent details shows for the sonnet tasks',
+  reported: { T01: reported.T01 ?? null, T02: reported.T02 ?? null },
+  subagentRecordsWithModelOrEffort: mentions,
+  subagentStartCount: byTag('sub-start').length,
+  subagentStopCount: byTag('sub-stop').length,
+}
+results.P7 = {
+  verdict: check(['T03', 'T04', 'T05', 'T06', 'T07']),
+  detail: 'observations.reported[Txx]: effort shown for each haiku task; mismatch rows show how it clamps',
+  reported: Object.fromEntries(['T03', 'T04', 'T05', 'T06', 'T07'].map(id => [id, reported[id] ?? null])),
+  expected: Object.fromEntries(['T03', 'T04', 'T05', 'T06', 'T07'].map(id => [id, expected[id]])),
+}
+
+// P8: with only H3-style context and no typed command, the model launched the workflow.
+results.P8 = {
+  verdict:
+    !postExit.length || !preWf.length
+      ? 'fail'
+      : obs.P8_typed_a_command_or_prompted === undefined
+        ? 'needs-observation'
+        : obs.P8_typed_a_command_or_prompted
+          ? 'fail'
+          : 'pass',
+  detail: 'workflow launched after post-exit with no user command; observations.P8_typed_a_command_or_prompted',
+  launchedAfterApproval: postExit.length > 0 && preWf.length > 0,
+}
+
+const out = {
+  generated: obs.generated ?? null,
+  claudeCodeVersion: obs.claudeCodeVersion ?? null,
+  logPath: path.basename(logPath),
+  recordCount: records.length,
+  pluginDataSet: records.some(r => r.pluginDataSet),
+  results,
+  records: records.map(r => ({ tag: r.tag, input: r.input ?? r.raw })),
+}
+
+const dest = path.join(__dirname, '..', 'evidence', 'planandtier-spike-results.json')
+fs.writeFileSync(dest, JSON.stringify(out, null, 2) + '\n')
+console.log(`wrote ${path.relative(process.cwd(), dest)} (${records.length} records)`)
+for (const [p, r] of Object.entries(results)) console.log(`${p}: ${r.verdict}`)

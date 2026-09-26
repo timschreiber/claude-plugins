@@ -19,6 +19,8 @@ without an evidence file behind it.
 | `hook-alternation/` | Does `if` accept `\|` alternation, e.g. `"Bash(dotnet *)\|Bash(msbuild:*)"`? | Whether one filtered handler can replace the unfiltered one | **Run.** `hook-alternation/alternation-coverage.json`, 12 records/11 calls. See `docs/hook-behavior-findings.md` §13 |
 | `Probe-FrameworkBuild.ps1` | MSBuild.exe/vstest.console.exe/nuget.exe tool resolution, quiet-flag acceptance, restore vs build volume, vstest exit codes, solution vs per-project banners | Whether `msbuild`/`vstest.console` can be added to the routing table | **Run.** `evidence/framework-build-results.json`, 100 records. See `docs/framework-build-findings.md` |
 
+| `planandtier/` | Do the hooks, `updatedInput` args and per-call `effort` that `docs/planandtier/planandtier-spike-spec.md` relies on (P1–P8) work? | Whether planandtier is built as designed or falls back to hook-driven dispatch | Not run |
+
 ## Run order
 
 The hook probe first. If `if` filters turn out not to reach compound commands,
