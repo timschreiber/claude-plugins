@@ -722,3 +722,15 @@ EOF
   expected=$'## Invocation 1: 2026-09-20T10:00:00Z\n## Plan so far\n## Usage\n## Model notices\n## Suggestions'
   [ "$(grep '^## ' "$REPORT")" = "$expected" ]
 }
+
+@test "an auto-decided Decision with a milestone tag is listed with its text" {
+  local tagged='- D10 [M02]: Use a lock file. (→ plans/demo plan/notes/decisions/M02-T05-q1.md; source: auto-decided (M02-T05-q1))'
+  awk -v line="$tagged" '{ print } $0 == "- D02: Use the second option. (source: decider)" { print line }' "$PLAN/plan.md" > "$PLAN/plan.new"
+  mv "$PLAN/plan.new" "$PLAN/plan.md"
+  write_log "start 2026-09-21T09:00:00Z plans/demo plan" "auto-decided 2026-09-21T09:50:00Z M02-T05-q1 D10" "end 2026-09-21T11:30:59Z STOP GAP"
+  run_script "$PLAN"
+  [ "$status" -eq 0 ]
+  P=$(section "$REPORT" '## Plan so far')
+  printf '%s\n' "$P" | grep -qxF -- '- Auto-decided questions: 1'
+  printf '%s\n' "$P" | grep -qxF -- "  - M02-T05-q1: ${tagged#- }"
+}

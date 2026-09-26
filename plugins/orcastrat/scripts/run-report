@@ -72,10 +72,11 @@ runlog_records() {
 
 # decision_records: prints "D<TAB><line without its leading \"- \">" for
 # each line of plan.md, carriage return removed, that matches
-# "^- D[0-9]+:".
+# "^- D[0-9]+( \[M[0-9]+\])?:": a Decision, with or without the milestone
+# tag of an auto-decided one (D225).
 decision_records() {
   sed 's/\r$//' "$plan_dir/plan.md" | awk '
-    /^- D[0-9]+:/ { printf "D\t%s\n", substr($0, 3) }
+    /^- D[0-9]+( \[M[0-9]+\])?:/ { printf "D\t%s\n", substr($0, 3) }
   '
 }
 
@@ -686,6 +687,7 @@ substr($0, 1, 1) == "D" {
   drest = substr($0, 3)
   did = drest
   sub(/:.*/, "", did)
+  sub(/ .*/, "", did)
   dec_text[did] = drest
 }
 substr($0, 1, 1) == "T" {
