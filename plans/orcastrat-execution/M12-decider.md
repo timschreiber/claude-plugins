@@ -72,7 +72,7 @@ Waves: 6 (widths 4, 1, 1, 1, 1, 1)
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/agents/decider.md`, `tests/orcastrat/agent-files.bats`

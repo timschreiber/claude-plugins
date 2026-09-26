@@ -6,8 +6,8 @@ setup() {
 # The agents the list-based tests below cover. The task that brings an agent
 # file up to date adds its name here.
 WORKER_AGENTS='worker-mini-serial worker-mini-parallel worker-light worker worker-heavy specialist'
-NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader validator'
-NO_SHELL_AGENTS='plan-reviewer planner merger'
+NON_WORKER_AGENTS='scout scout-heavy reviewer milestone-reviewer plan-reviewer planner merger status-reader validator decider'
+NO_SHELL_AGENTS='plan-reviewer planner merger decider'
 READING_BUDGET_AGENTS='validator plan-reviewer reviewer milestone-reviewer'
 
 # field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
@@ -212,7 +212,7 @@ EOF
     case "$name" in
       scout) expected='Read, Glob, Grep, Bash, Write, WebFetch, WebSearch' ;;
       scout-heavy|reviewer|milestone-reviewer) expected='Read, Glob, Grep, Bash, Write' ;;
-      plan-reviewer) expected='Read, Glob, Grep, Write' ;;
+      plan-reviewer|decider) expected='Read, Glob, Grep, Write' ;;
       planner) expected='Read, Glob, Grep, Write, Edit' ;;
       merger) expected='Read, Glob, Grep, Edit' ;;
       status-reader|validator) expected='Read, Glob, Grep, Bash' ;;
@@ -448,4 +448,27 @@ EOF
   has_line "$f" '- [<score>] <category>: <path:line> — <problem> (<task ID, Coverage row, or D<nn>>)'
   run grep -qF 'Only findings that would cause real problems count as blocking.' "$f"
   [ "$status" -ne 0 ]
+}
+
+@test "decider has its model, effort, maxTurns, input lines, rules and reply block" {
+  local f="$AGENTS/decider.md"
+  [ "$(field "$f" name)" = 'decider' ]
+  [ "$(field "$f" model)" = 'opus' ]
+  [ "$(field "$f" effort)" = 'high' ]
+  [ "$(field "$f" maxTurns)" = '40' ]
+  has_line "$f" 'Plan: <plan dir>'
+  has_line "$f" 'Question ID: <question-id>'
+  has_line "$f" 'From: <task ID or milestone ID>'
+  has_line "$f" 'Question: <the question>'
+  has_line "$f" 'Brief: <the task'"'"'s brief path>'
+  has_line "$f" 'Output: <plan dir>/notes/decisions/<question-id>.md'
+  has_line "$f" '- Don'"'"'t implement. Never write or run trial code, scripts, tests or fixtures, in the repository, the scratchpad or any temp directory. Never create git worktrees, branches or commits. Write nothing except your own output file. Building and testing is the workers'"'"' job, and each task'"'"'s own tests catch mistakes.'
+  has_line "$f" '- You have no shell. Read files with Read, Glob and Grep.'
+  has_line "$f" '1. Answer only the question asked. Never revise a task, change the plan'"'"'s structure, or chain decisions: if answering it needs another decision first, your recommendation is `no recommendation`.'
+  has_line "$f" '   - `local`: the decision is confined to one milestone'"'"'s implementation, and easy to reverse.'
+  has_line "$f" '   - `stop`: the decision crosses milestones, or touches interfaces other milestones consume, data formats, public APIs, security, or licensing.'
+  has_line "$f" 'RECOMMENDATION: <the decision in one line, worded to stand alone as a plan.md Decision> | no recommendation'
+  has_line "$f" 'REASON: <one line>'
+  has_line "$f" 'LABEL: local | stop'
+  has_line "$f" 'OUTPUT: <the Output path>'
 }
