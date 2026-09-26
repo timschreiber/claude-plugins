@@ -1,0 +1,92 @@
+{
+  "generated": "2026-09-26T03:24:11.672Z",
+  "claudeCodeVersion": "2.1.283",
+  "setup": "interactive session, real plugin plus probe-plugin with PROBE_OBSERVE=1; plan mode, then approved with manual permissions (session mode became default)",
+  "hookSequence": [
+    "ups(plan)",
+    "pre-exit(plan)",
+    "perm-exit(plan)",
+    "post-exit(default)",
+    "pre-wf(default)",
+    "post-wf(default)",
+    "ups(default)"
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "model": "sonnet",
+      "effort": "low"
+    },
+    {
+      "id": "T02",
+      "model": "sonnet",
+      "effort": "low"
+    },
+    {
+      "id": "T03",
+      "model": "opus",
+      "effort": "low"
+    }
+  ],
+  "workflow": {
+    "status": "completed",
+    "result": "complete",
+    "taskStatuses": [
+      "done",
+      "done",
+      "done"
+    ],
+    "agentCount": 3,
+    "durationMs": 39038
+  },
+  "recordedWorkerEffort": [
+    "low",
+    "low",
+    "low"
+  ],
+  "effortMatchesTags": true,
+  "workers": [
+    {
+      "id": "T01",
+      "requestedModel": "sonnet",
+      "modelInTranscript": "claude-sonnet-5",
+      "bashCalls": 1,
+      "requestNonInteractive": false
+    },
+    {
+      "id": "T02",
+      "requestedModel": "sonnet",
+      "modelInTranscript": "claude-sonnet-5",
+      "bashCalls": 1,
+      "requestNonInteractive": false
+    },
+    {
+      "id": "T03",
+      "requestedModel": "opus",
+      "modelInTranscript": "claude-opus-5-5",
+      "bashCalls": 1,
+      "requestNonInteractive": false
+    }
+  ],
+  "modelsMatchTags": true,
+  "generatedFiles": [
+    "README.md",
+    "add.js",
+    "add.test.js",
+    "hello.txt",
+    "summary.txt"
+  ],
+  "nodeTest": "3 pass, 0 fail (run by the assistant after the session)",
+  "userReported": {
+    "approvalOptions": "auto mode / manually approve / tell Claude what to change; chose manually approve",
+    "launch": "Claude asked for approval to start the workflow; approved it; choices not remembered",
+    "workerPrompts": "user believes all worker prompts reached them; not counted",
+    "declineCheck": "not run",
+    "other": "everything seemed to go smoothly"
+  },
+  "notRecoverable": [
+    "the wording and choices of the workflow review dialog",
+    "whether that dialog shows the injected tasks",
+    "the number and text of worker permission prompts (approvals are not written to the transcript)"
+  ]
+}

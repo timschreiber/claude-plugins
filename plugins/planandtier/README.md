@@ -80,9 +80,10 @@ cannot start agents or workflows.
 
 - **Workers see only their prompt.** They do not see the plan or the conversation, so a vague prompt gives
   a vague result.
-- **Auto mode** worked in testing. Other permission modes can stall a worker on a permission prompt; add
-  allow rules for the tools your tasks use.
-- **First run per project** may show an approval prompt for the workflow.
+- **Auto mode and manual permissions** both worked in testing. With manual permissions, expect an approval
+  prompt when the workflow launches, and permission prompts from workers as they edit files or run
+  commands. Allow rules for the tools your tasks use will reduce them. If nobody can approve (a
+  non-interactive session), a worker that needs permission fails, and the workflow stops at that task.
 - **The state is deleted at session end**, so a resumed session cannot relaunch the old plan.
 - **The model launches the workflow.** The plugin tells it to and blocks other work until it does, but it
   cannot launch the workflow itself. If Claude never does, the guard steps aside after a few blocks.
