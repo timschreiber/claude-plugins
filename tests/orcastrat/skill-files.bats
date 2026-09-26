@@ -76,3 +76,17 @@ has_stripped_line() {
   run grep -qiE '^ *(reviewer )?score:' "$f"
   [ "$status" -ne 0 ]
 }
+
+@test "run takes a decider reply without a recommendation as no recommendation" {
+  local f="$SKILLS/run/SKILL.md"
+  has_stripped_line "$f" 'Question ID: <question-id>'
+  has_stripped_line "$f" 'From: <From>'
+  has_stripped_line "$f" 'Output: <plan dir>/notes/decisions/<question-id>.md'
+  grep -qF 'or its reply has no `RECOMMENDATION:` line (for example, it hit its turn limit), its recommendation is `no recommendation`, and nothing is applied.' "$f"
+}
+
+@test "run records no auto-decision past the limit" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF 'and the **auto-decision count** is below Max auto-decisions.' "$f"
+  grep -qF 'and a `local` recommendation that comes up once the count has reached Max auto-decisions: each of them stops the run as a GAP' "$f"
+}
