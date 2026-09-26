@@ -1,0 +1,9 @@
+{
+  "name": "planandtier-probe",
+  "description": "Development-time probe for planandtier: logs raw hook input to probe.log. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}

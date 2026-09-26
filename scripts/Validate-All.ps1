@@ -36,6 +36,13 @@ Write-Host '== shared asset drift'
 & (Join-Path $PSScriptRoot 'Sync-Shared.ps1') -Check
 if ($LASTEXITCODE -ne 0) { $failed = $true }
 
+Write-Host '== planandtier tests'
+# node --test takes file paths, and pwsh does not expand globs, so list the files here.
+$planandtierTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/planandtier') -Filter '*.test.js' |
+    ForEach-Object { $_.FullName }
+node --test @planandtierTests
+if ($LASTEXITCODE -ne 0) { $failed = $true }
+
 if ($failed) { exit 1 }
 
 Write-Host 'all checks passed'

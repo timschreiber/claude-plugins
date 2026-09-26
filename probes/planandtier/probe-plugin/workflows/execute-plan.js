@@ -50,7 +50,7 @@ for (const task of tasks) {
       label: task.id,
       model: task.model,
       effort: task.effort,
-      agentType: 'planandtier:worker',
+      agentType: 'planandtier-probe:worker',
       schema: resultSchema,
     })
     results.push({ id: task.id, model: task.model, effort: task.effort, ...(result ?? { status: 'stopped' }) })

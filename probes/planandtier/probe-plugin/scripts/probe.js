@@ -73,6 +73,10 @@ async function main() {
     return
   }
 
+  // PROBE_OBSERVE=1 makes the probe a pure logger, so it can run beside the real plugin
+  // without denying plans, injecting context or rewriting the Workflow call.
+  if (process.env.PROBE_OBSERVE === '1') return
+
   if (tag === 'pre-exit') {
     // P2: deny the first ExitPlanMode of each session, so the log shows whether a deny
     // makes the model revise the plan.
@@ -91,13 +95,13 @@ async function main() {
       hookEventName: 'PostToolUse',
       additionalContext:
         'PROBE-P3: begin your next message with the word ZEBRA-PLANANDTIER, then launch the ' +
-        'saved workflow planandtier:execute-plan with the Workflow tool.',
+        'saved workflow planandtier-probe:execute-plan with the Workflow tool.',
     })
   } else if (tag === 'pre-wf') {
     // P4, P5: replace args with the P6/P7 matrix. The original input is spread because
     // updatedInput replaces the whole tool input.
     const toolInput = input.tool_input || {}
-    if (!JSON.stringify(toolInput).includes('execute-plan')) return
+    if (toolInput.name !== 'planandtier-probe:execute-plan') return
     const updatedInput = { ...toolInput, args: { tasks: MATRIX } }
     log({ tag: 'pre-wf:emitted', pluginDataSet: Boolean(process.env.CLAUDE_PLUGIN_DATA), stdin: JSON.stringify(updatedInput) })
     emit({ hookEventName: 'PreToolUse', updatedInput })

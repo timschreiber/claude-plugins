@@ -16,7 +16,7 @@ from the saved probe log.
 | What | Where |
 |---|---|
 | Setup and the interactive Claude session | A **throwaway repo** at `%TEMP%\tier-spike`. The setup script below creates it. Do not run the session in claude-plugins: the probe logs every prompt, and the session edits files. |
-| The plugin being tested | Loaded from this repo (`plugins/planandtier`, branch `planandtier`) by the `--plugin-dir` path. Nothing is installed or copied. |
+| The plugin being tested | Loaded from this repo (`probes/planandtier/probe-plugin`, branch `planandtier`) by the `--plugin-dir` path. Nothing is installed or copied. |
 | The analyze script | Run from the **claude-plugins repo root**, after you `/exit`. It is already in this repo at `probes/planandtier/analyze-spike.js`. |
 
 ## Setup (about 1 minute)
@@ -26,7 +26,7 @@ Claude there:
 
 ```powershell
 # 1. Clear any old probe log so the results are clean
-Remove-Item "$HOME\.claude\plugins\data\planandtier-inline\probe.log" -ErrorAction SilentlyContinue
+Remove-Item "$HOME\.claude\plugins\data\planandtier-probe-inline\probe.log" -ErrorAction SilentlyContinue
 
 # 2. Make a throwaway repo
 $dir = "$env:TEMP\tier-spike"
@@ -39,12 +39,12 @@ git init -q
 git add -A; git commit -qm init
 
 # 3. Start Claude Code in plan mode with the probe plugin loaded
-claude --permission-mode plan --plugin-dir C:\Users\timsc\Source\Repos\GitHub\timschreiber\claude-plugins\plugins\planandtier
+claude --permission-mode plan --plugin-dir C:\Users\timsc\Source\Repos\GitHub\timschreiber\claude-plugins\probes\planandtier\probe-plugin
 ```
 
 If it asks whether you trust the folder, say yes.
 
-The probe log is written to `~\.claude\plugins\data\planandtier-inline\probe.log`. Claude Code
+The probe log is written to `~\.claude\plugins\data\planandtier-probe-inline\probe.log`. Claude Code
 sets `CLAUDE_PLUGIN_DATA` itself for `--plugin-dir` loads, so setting it in your shell does nothing.
 
 ## Steps in the session
@@ -111,7 +111,7 @@ Write an `observations.json` anywhere (for example on your Desktop) and run the 
   confirm launching the workflow before doing it. A plain tool-permission click is `false`.
 
 ```powershell
-node probes/planandtier/analyze-spike.js "$HOME\.claude\plugins\data\planandtier-inline\probe.log" <path>\observations.json
+node probes/planandtier/analyze-spike.js "$HOME\.claude\plugins\data\planandtier-probe-inline\probe.log" <path>\observations.json
 ```
 
 This rewrites `probes/evidence/planandtier-spike-results.json` and prints a verdict for each

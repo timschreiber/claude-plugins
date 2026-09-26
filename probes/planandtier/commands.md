@@ -19,10 +19,10 @@ tool. The interactive steps are in `docs/planandtier/planandtier-spike-interacti
 
 ```powershell
 cd <throwaway-repo>
-claude --plugin-dir <this-repo>/plugins/planandtier
+claude --plugin-dir <this-repo>/probes/planandtier/probe-plugin
 ```
 
-The probe log is `~/.claude/plugins/data/planandtier-inline/probe.log`. Claude Code
+The probe log is `~/.claude/plugins/data/planandtier-probe-inline/probe.log`. Claude Code
 sets `CLAUDE_PLUGIN_DATA` itself for `--plugin-dir` loads, so setting it in your shell does nothing.
 Delete the log first if you want a clean run.
 
@@ -31,7 +31,7 @@ Delete the log first if you want a clean run.
 2. The first `ExitPlanMode` is **denied on purpose** by the probe (P2). Let the model revise the
    plan and call it again.
 3. Approve the plan. From here, **type nothing.** The probe injects a reminder to begin with
-   `ZEBRA-PLANANDTIER` and launch `planandtier:execute-plan` (P3, P8).
+   `ZEBRA-PLANANDTIER` and launch `planandtier-probe:execute-plan` (P3, P8).
 4. If Claude Code asks you to approve running the workflow, approve it and note it below.
 5. Wait for the seven tasks to finish.
 
@@ -55,7 +55,7 @@ Delete the log first if you want a clean run.
 ## Analyze
 
 ```powershell
-node probes/planandtier/analyze-spike.js ~/.claude/plugins/data/planandtier-inline/probe.log <path>\observations.json
+node probes/planandtier/analyze-spike.js ~/.claude/plugins/data/planandtier-probe-inline/probe.log <path>\observations.json
 ```
 
 Writes `probes/evidence/planandtier-spike-results.json`. Effort per task (P6, P7) is read from

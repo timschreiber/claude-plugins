@@ -122,7 +122,7 @@ const expected = {
 }
 // Interactive sessions also log SubagentStop records with no agent_type; only the
 // workflow's workers count.
-const stops = byTag('sub-stop').filter(r => r.input?.agent_type === 'planandtier:worker')
+const stops = byTag('sub-stop').filter(r => String(r.input?.agent_type).endsWith(':worker'))
 const reported = {}
 ids.forEach((id, i) => {
   const stop = stops[i]?.input
