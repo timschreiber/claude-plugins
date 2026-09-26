@@ -103,3 +103,15 @@ has_stripped_line() {
   grep -qF 'If none of this GAP'"'"'s questions is left in Open questions, every one was auto-decided' "$f"
   grep -qF 'Otherwise, set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.' "$f"
 }
+
+@test "run decides a stopped wave's GAPs once, right after recording its passing tasks" {
+  local f="$SKILLS/run/SKILL.md"
+  local want="   - Decide the wave's GAPs, as item 11's first paragraph says."
+  tr -d '\r' < "$f" | awk -v want="$want" '
+    index(prev, "   - **Record** each integrated task whose Verify command passed") == 1 && index($0, want) == 1 { found = 1 }
+    { prev = $0 }
+    END { exit !found }
+  '
+  run grep -qE '^ {4,}- Decide the wave' "$f"
+  [ "$status" -ne 0 ]
+}

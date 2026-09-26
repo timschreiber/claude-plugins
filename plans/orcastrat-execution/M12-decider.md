@@ -724,7 +724,7 @@ When the planner reports a GAP, `run` has the decider answer each of its questio
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 7
 - Depends on: M12-T08
 - Files: `plugins/orcastrat/skills/run/SKILL.md`, `tests/orcastrat/skill-files.bats`
