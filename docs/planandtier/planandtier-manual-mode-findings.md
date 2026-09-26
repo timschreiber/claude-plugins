@@ -41,18 +41,16 @@ is confirmed from the record rather than from the worker's own report.
   and no one to grant write access, the first worker reported `failed` with the reason. The workflow
   halted at T01, and T02 never ran. It did not hang.
 
-## Not recovered
+## Decided: the launch dialog does not need to show the tasks
 
-Three details were not captured, and the records cannot supply them:
+The tasks are reviewed where the plan is presented for approval, in the plan's `json tiered-tasks` block, so
+the workflow review dialog does not need to show them again. Whether it does was not recorded and is not
+needed. The plugin does not add a second summary.
 
-1. The wording and choices on the review dialog. The design notes say plugin workflows are offered a
-   "don't ask again" choice, but that was not seen in this run.
-2. Whether the dialog shows the tasks the hook injected, or only the call as the model made it. This
-   matters because it decides whether you can see what will run before you approve it.
-3. What declining the dialog does. From the code, H4 has already marked the launch by then and no
-   failure event follows, so the state would stay `launched` and a later `/planandtier:execute-plan` would
-   still work. This has not been run.
+## Not recovered, and not needed
 
-An optional short check would settle 1 to 3. It needs only a session with a pre-written approved state,
-so it costs no tasks: start Claude in default mode, type `/planandtier:execute-plan`, read the dialog, and
-decline it.
+- The wording and choices on the review dialog. The design notes say plugin workflows are offered a
+  "don't ask again" choice, but that was not seen in this run.
+- What declining the dialog does. From the code, H4 has already marked the launch by then and no failure
+  event follows, so the state would stay `launched` and a later `/planandtier:execute-plan` would still work.
+  This has not been run.
