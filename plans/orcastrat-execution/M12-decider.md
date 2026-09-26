@@ -608,7 +608,7 @@ The `plan` skill says that planning questions are always answered by the user, a
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 5
 - Depends on: M12-T06, M12-T07
 - Files: `plugins/orcastrat/skills/run/SKILL.md`
