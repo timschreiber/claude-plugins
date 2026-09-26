@@ -115,3 +115,13 @@ has_stripped_line() {
   run grep -qE '^ {4,}- Decide the wave' "$f"
   [ "$status" -ne 0 ]
 }
+
+@test "run records each auto-decided question before judging the next" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF '4. Take the questions in the order given, one at a time. A question is **auto-decided**' "$f"
+  grep -qF 'Read the count afresh for each question, and finish handling an auto-decided question, up to and including its **record an auto-decided question** commit, before you judge the next one' "$f"
+  grep -qF 'and **record an auto-decided question** (see Definitions) for each one that is auto-decided before you judge the next.' "$f"
+  grep -qF 'and for each task whose question is auto-decided, before you judge the next question:' "$f"
+  run grep -qF 'Then, in the same order, **record an auto-decided question**' "$f"
+  [ "$status" -ne 0 ]
+}

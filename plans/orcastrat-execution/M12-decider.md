@@ -788,7 +788,7 @@ In 3e item 9's Stop path, the bullet "Decide the wave's GAPs" is a sibling bulle
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 8
 - Depends on: M12-T06, M12-T08, M12-T09, M12-T10
 - Files: `plugins/orcastrat/skills/run/SKILL.md`, `tests/orcastrat/skill-files.bats`
