@@ -5,6 +5,23 @@
     "name": "Tim Schreiber",
     "url": "https://github.com/timschreiber"
   },
+  "_parked" : [
+    {
+      "name": "orchestratinator",
+      "displayName": "Orchestratinator",
+      "source": "./plugins/orchestratinator",
+      "description": "Big asks. Small tasks. Right-sized models. Turns a spec or long prompt into small tasks tagged with the cheapest model and effort that can do each one, then runs them through tiered subagents, in parallel where safe, verifying and committing every task.",
+      "author": {
+        "name": "Tim Schreiber"
+      },
+      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator",
+      "repository": "https://github.com/timschreiber/claude-plugins",
+      "license": "Apache-2.0",
+      "category": "dev",
+      "tags": ["planning", "orchestration", "subagents", "token-efficiency"],
+      "keywords": ["planning", "orchestration", "subagents", "parallel", "worktrees"]
+    }
+  ],
   "plugins": [
     {
       "name": "denoizinator-net",
@@ -20,21 +37,6 @@
       "category": "dev",
       "tags": ["dotnet", "msbuild", "testing", "token-efficiency"],
       "keywords": ["dotnet", "csharp", "msbuild", "xunit", "context"]
-    },
-    {
-      "name": "orchestratinator",
-      "displayName": "Orchestratinator",
-      "source": "./plugins/orchestratinator",
-      "description": "Big asks. Small tasks. Right-sized models. Turns a spec or long prompt into small tasks tagged with the cheapest model and effort that can do each one, then runs them through tiered subagents, in parallel where safe, verifying and committing every task.",
-      "author": {
-        "name": "Tim Schreiber"
-      },
-      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator",
-      "repository": "https://github.com/timschreiber/claude-plugins",
-      "license": "Apache-2.0",
-      "category": "dev",
-      "tags": ["planning", "orchestration", "subagents", "token-efficiency"],
-      "keywords": ["planning", "orchestration", "subagents", "parallel", "worktrees"]
     },
     {
       "name": "planandtier",
