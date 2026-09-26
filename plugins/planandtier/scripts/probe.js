@@ -22,6 +22,24 @@ const MATRIX = [
     'and whether you can call the Agent tool (yes or no).',
 }))
 
+// PROBE_MATRIX=pairs swaps in the sonnet/opus x low..xhigh matrix, to check the allowed pairs.
+if (process.env.PROBE_MATRIX === 'pairs') {
+  MATRIX.length = 0
+  for (const model of ['sonnet', 'opus']) {
+    for (const effort of ['low', 'medium', 'high', 'xhigh']) {
+      MATRIX.push({
+        id: `T0${MATRIX.length + 1}`,
+        title: `${model} ${effort}`,
+        model,
+        effort,
+        prompt:
+          'Reply with status "done". In summary, state the exact model name you are running as ' +
+          'and whether you can call the Agent tool (yes or no).',
+      })
+    }
+  }
+}
+
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'planandtier-probe')
 
 function readStdin() {

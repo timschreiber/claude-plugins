@@ -90,12 +90,25 @@ not proof, so this is unconfirmed either way.
   its `tool_response` does not carry the workflow's result. This matters for H6: the state
   file is cleared at launch, as the spec already assumes.
 
+## Allowed pairs (follow-up run)
+
+A third headless run, `PROBE_MATRIX=pairs`, tried every Sonnet and Opus pair at `low`,
+`medium`, `high` and `xhigh`. Evidence: `probes/evidence/planandtier-effort-pairs-results.json`.
+
+All eight tasks ran to `done`. Each `SubagentStop` recorded exactly the effort requested, so
+none was clamped or inherited (the session ran at `high`), and each worker reported the
+requested model (Sonnet 5 or Opus 5.5). All eight said they could not call the Agent tool.
+`max` and Fable were not tried.
+
 ## Decisions these findings support
 
 - **Build as designed.** P2–P6 and P8 passed, so the spec's fallback architecture (hook-driven
   Agent dispatch) and per-effort worker files are not needed.
 - **Read the plan from `planFilePath`** in H2 and H3, per P2.
-- **Allowed pairs.** Haiku carries no effort. Sonnet and Opus take the range the spec lists;
-  that has been shown for Sonnet only, at `low` and `high`.
+- **Allowed pairs (decided by the maintainer):** `sonnet` and `opus`, each at `low`, `medium`,
+  `high` or `xhigh`. No Haiku, no `max`, no Fable. Haiku is out because it fails or leaves
+  work out on coding tasks, and it ignored effort anyway (P7). The eight pairs are all
+  verified above. Intended use: Sonnet `low` for extremely mechanical tasks; Opus `xhigh` only
+  for rare cases of extreme reasoning.
 - **H3's wording** can follow the probe's: name the workflow and say to launch it with the
   Workflow tool. It worked once; the real tests should confirm it holds.

@@ -1,0 +1,98 @@
+{
+  "generated": "2026-09-25T22:05:19-04:00",
+  "claudeCodeVersion": "2.1.283",
+  "matrix": "PROBE_MATRIX=pairs, headless",
+  "argsType": "object",
+  "tasksFromArgs": true,
+  "allApplied": true,
+  "rows": [
+    {
+      "id": "T01",
+      "requested": {
+        "model": "sonnet",
+        "effort": "low"
+      },
+      "recordedEffort": "low",
+      "status": "done",
+      "modelReported": "Sonnet 5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T02",
+      "requested": {
+        "model": "sonnet",
+        "effort": "medium"
+      },
+      "recordedEffort": "medium",
+      "status": "done",
+      "modelReported": "Sonnet 5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T03",
+      "requested": {
+        "model": "sonnet",
+        "effort": "high"
+      },
+      "recordedEffort": "high",
+      "status": "done",
+      "modelReported": "Sonnet 5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T04",
+      "requested": {
+        "model": "sonnet",
+        "effort": "xhigh"
+      },
+      "recordedEffort": "xhigh",
+      "status": "done",
+      "modelReported": "Sonnet 5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T05",
+      "requested": {
+        "model": "opus",
+        "effort": "low"
+      },
+      "recordedEffort": "low",
+      "status": "done",
+      "modelReported": "Opus 5.5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T06",
+      "requested": {
+        "model": "opus",
+        "effort": "medium"
+      },
+      "recordedEffort": "medium",
+      "status": "done",
+      "modelReported": "Opus 5.5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T07",
+      "requested": {
+        "model": "opus",
+        "effort": "high"
+      },
+      "recordedEffort": "high",
+      "status": "done",
+      "modelReported": "Opus 5.5",
+      "sessionEffort": "high"
+    },
+    {
+      "id": "T08",
+      "requested": {
+        "model": "opus",
+        "effort": "xhigh"
+      },
+      "recordedEffort": "xhigh",
+      "status": "done",
+      "modelReported": "Opus 5.5",
+      "sessionEffort": "high"
+    }
+  ]
+}
