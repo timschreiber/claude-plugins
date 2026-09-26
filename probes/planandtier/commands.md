@@ -2,9 +2,10 @@
 
 Answers P1–P8 from `docs/planandtier/planandtier-spike-spec.md`.
 
-**Already measured headless** (`claude -p`, see `docs/planandtier/planandtier-spike-findings.md`):
-P1, P4, P5, P6, P7. **Still needs one interactive session:** P2, P3, P8, because headless
-sessions have no `ExitPlanMode` tool.
+All eight probes have been run once (see `docs/planandtier/planandtier-spike-findings.md`). This checklist
+is kept to re-verify after Claude Code upgrades. Headless sessions (`claude -p`) can measure P1 and
+P4–P7; P2, P3 and P8 need an interactive session, because headless sessions have no `ExitPlanMode`
+tool. The interactive steps are in `docs/planandtier/planandtier-spike-interactive-run.md`.
 
 ## Environment
 

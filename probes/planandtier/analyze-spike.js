@@ -1,6 +1,6 @@
 // Turns the spike plugin's probe.log into probes/evidence/planandtier-spike-results.json.
 //
-//   node probes/planandtier/analyze-spike.js <path-to-probe.log> [path-to-observations.json]
+//   node probes/planandtier/analyze-spike.js <probe.log> [observations.json] [output-file-name]
 //
 // Facts the hooks can see (P1, P2, P4, and parts of P3/P5/P6) are judged from the log.
 // Facts only a human can see (whether the model echoed the marker, what /workflows
@@ -53,14 +53,25 @@ results.P1 = {
 const preExit = byTag('pre-exit')
 const postExit = byTag('post-exit')
 const planOf = r => r?.input?.tool_input?.plan
+const planFileOf = r => r?.input?.tool_input?.planFilePath
+// tool_input.plan can be stale: the model may edit the plan file after a deny and resend the
+// old text. The file at planFilePath is the authoritative copy.
+const lastPre = preExit[preExit.length - 1]
+let revisedInFile = null
+try {
+  revisedInFile = fs.readFileSync(planFileOf(lastPre), 'utf8').includes('probe-revised')
+} catch {}
 results.P2 = {
   verdict:
     preExit.length === 0 && postExit.length === 0
       ? 'needs-observation' // ExitPlanMode never ran; headless (-p) sessions do not expose it
       : preExit.length >= 2 && postExit.length >= 1 && typeof planOf(preExit[0]) === 'string' &&
-          String(planOf(preExit[preExit.length - 1])).includes('probe-revised')
+          (revisedInFile || String(planOf(lastPre)).includes('probe-revised'))
         ? 'pass'
         : 'fail',
+  revisedInFile,
+  revisedInLastPlanParam: String(planOf(lastPre)).includes('probe-revised'),
+  planFilePath: planFileOf(preExit[0]) ?? null,
   detail: 'expects >=2 pre-exit (deny, then revised), >=1 post-exit, plan text in tool_input.plan',
   preExitCount: preExit.length,
   postExitCount: postExit.length,
@@ -109,7 +120,9 @@ const ids = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07']
 const expected = {
   T01: 'low', T02: 'high', T03: 'low', T04: 'medium', T05: 'high', T06: 'xhigh', T07: 'max',
 }
-const stops = byTag('sub-stop')
+// Interactive sessions also log SubagentStop records with no agent_type; only the
+// workflow's workers count.
+const stops = byTag('sub-stop').filter(r => r.input?.agent_type === 'planandtier:worker')
 const reported = {}
 ids.forEach((id, i) => {
   const stop = stops[i]?.input
@@ -175,7 +188,7 @@ const out = {
   records: records.map(r => ({ tag: r.tag, input: r.input ?? r.raw })),
 }
 
-const dest = path.join(__dirname, '..', 'evidence', 'planandtier-spike-results.json')
+const dest = path.join(__dirname, '..', 'evidence', process.argv[4] ?? 'planandtier-spike-results.json')
 fs.writeFileSync(dest, JSON.stringify(out, null, 2) + '\n')
 console.log(`wrote ${path.relative(process.cwd(), dest)} (${records.length} records)`)
 for (const [p, r] of Object.entries(results)) console.log(`${p}: ${r.verdict}`)
