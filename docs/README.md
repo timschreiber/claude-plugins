@@ -8,6 +8,8 @@ Findings. Every number traces to an evidence file under `probes/evidence/`.
 | `hook-behavior-findings.md` | Measured Claude Code hook behaviour. |
 | `dotnet-test-runner-findings.md` | Derived from `probes/evidence/probe-results.json` (207 runs). |
 | `framework-build-findings.md` | Derived from `probes/evidence/framework-build-results.json` (100 records). |
+| `planandtier/planandtier-spike-spec.md` | The planandtier design and its spike plan. |
+| `planandtier/planandtier-spike-findings.md` | Derived from `probes/evidence/planandtier-spike-results.json` (22 hook records). |
 
 Probes live in `probes/`. See `probes/README.md` for what each one answers and
 which spec decision it unblocks. Regenerate findings by re-running the probe,

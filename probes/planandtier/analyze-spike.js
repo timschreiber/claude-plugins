@@ -55,10 +55,12 @@ const postExit = byTag('post-exit')
 const planOf = r => r?.input?.tool_input?.plan
 results.P2 = {
   verdict:
-    preExit.length >= 2 && postExit.length >= 1 && typeof planOf(preExit[0]) === 'string' &&
-    String(planOf(preExit[preExit.length - 1])).includes('probe-revised')
-      ? 'pass'
-      : 'fail',
+    preExit.length === 0 && postExit.length === 0
+      ? 'needs-observation' // ExitPlanMode never ran; headless (-p) sessions do not expose it
+      : preExit.length >= 2 && postExit.length >= 1 && typeof planOf(preExit[0]) === 'string' &&
+          String(planOf(preExit[preExit.length - 1])).includes('probe-revised')
+        ? 'pass'
+        : 'fail',
   detail: 'expects >=2 pre-exit (deny, then revised), >=1 post-exit, plan text in tool_input.plan',
   preExitCount: preExit.length,
   postExitCount: postExit.length,
@@ -101,40 +103,60 @@ results.P5 = {
 
 // P6, P7: per-call effort applied? Subagent hook records are logged raw for whatever
 // model/effort fields they carry; the authoritative reading is /workflows, via observations.
-const subs = [...byTag('sub-start'), ...byTag('sub-stop')]
-const mentions = subs.filter(r => /"(model|effort)"/.test(r.raw)).length
-const reported = obs.reported ?? {}
-const rows = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07']
+// SubagentStop carries `effort: {level}` and `agent_type`. The matrix runs serially, so the
+// nth stop record is task Tn. Effort absent from a record is reported as "none".
+const ids = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07']
 const expected = {
   T01: 'low', T02: 'high', T03: 'low', T04: 'medium', T05: 'high', T06: 'xhigh', T07: 'max',
 }
-const check = ids =>
-  ids.some(id => reported[id] === undefined)
-    ? 'needs-observation'
-    : ids.every(id => reported[id] === expected[id])
-      ? 'pass'
-      : 'mismatch'
+const stops = byTag('sub-stop')
+const reported = {}
+ids.forEach((id, i) => {
+  const stop = stops[i]?.input
+  if (stop) reported[id] = stop.effort?.level ?? 'none'
+  else if (obs.reported?.[id] !== undefined) reported[id] = obs.reported[id]
+})
+const sessionEffort = byTag('post-wf')[0]?.input?.effort?.level ?? byTag('pre-wf')[0]?.input?.effort?.level ?? null
+const workerType = [...new Set(stops.map(r => r.input?.agent_type))]
 results.P6 = {
-  verdict: check(['T01', 'T02']),
-  detail: 'observations.reported[Txx]: effort /workflows or agent details shows for the sonnet tasks',
+  verdict: ['T01', 'T02'].some(id => reported[id] === undefined)
+    ? 'needs-observation'
+    : ['T01', 'T02'].every(id => reported[id] === expected[id])
+      ? 'pass'
+      : 'fail',
+  detail:
+    'effort recorded on SubagentStop for the sonnet tasks; session effort is the value they would inherit if per-call effort were ignored',
   reported: { T01: reported.T01 ?? null, T02: reported.T02 ?? null },
-  subagentRecordsWithModelOrEffort: mentions,
+  sessionEffort,
+  agentTypesSeen: workerType,
   subagentStartCount: byTag('sub-start').length,
-  subagentStopCount: byTag('sub-stop').length,
+  subagentStopCount: stops.length,
 }
+const haikuIds = ['T03', 'T04', 'T05', 'T06', 'T07']
+const haikuReported = haikuIds.map(id => reported[id])
 results.P7 = {
-  verdict: check(['T03', 'T04', 'T05', 'T06', 'T07']),
-  detail: 'observations.reported[Txx]: effort shown for each haiku task; mismatch rows show how it clamps',
-  reported: Object.fromEntries(['T03', 'T04', 'T05', 'T06', 'T07'].map(id => [id, reported[id] ?? null])),
-  expected: Object.fromEntries(['T03', 'T04', 'T05', 'T06', 'T07'].map(id => [id, expected[id]])),
+  verdict: haikuReported.some(v => v === undefined)
+    ? 'needs-observation'
+    : haikuIds.every(id => reported[id] === expected[id])
+      ? 'pass'
+      : haikuReported.every(v => v === 'none')
+        ? 'ignored'
+        : 'mismatch',
+  detail:
+    'effort recorded on SubagentStop for each haiku task. pass = applied; ignored = accepted without error but never reported; mismatch = reported values differ from requested',
+  reported: Object.fromEntries(haikuIds.map(id => [id, reported[id] ?? null])),
+  expected: Object.fromEntries(haikuIds.map(id => [id, expected[id]])),
+  allStatusDone: obs.P7_all_tasks_done ?? null,
 }
 
 // P8: with only H3-style context and no typed command, the model launched the workflow.
 results.P8 = {
   verdict:
-    !postExit.length || !preWf.length
-      ? 'fail'
-      : obs.P8_typed_a_command_or_prompted === undefined
+    !postExit.length
+      ? 'needs-observation' // no approval happened, so nothing could have launched the workflow
+      : !preWf.length
+        ? 'fail'
+        : obs.P8_typed_a_command_or_prompted === undefined
         ? 'needs-observation'
         : obs.P8_typed_a_command_or_prompted
           ? 'fail'
