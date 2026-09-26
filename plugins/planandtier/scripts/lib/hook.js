@@ -30,7 +30,7 @@ async function readInput() {
   const raw = await readStdin()
   try {
     const input = JSON.parse(raw)
-    return input !== null && typeof input === 'object' ? input : null
+    return input !== null && typeof input === 'object' && !Array.isArray(input) ? input : null
   } catch {
     debug(`unparseable stdin: ${raw.slice(0, 200)}`)
     return null

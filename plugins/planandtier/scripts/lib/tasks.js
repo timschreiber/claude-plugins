@@ -97,18 +97,19 @@ function validate(obj) {
   return errors
 }
 
-// parsePlan(text) -> {ok, tasks, optOut, errors}
+// parsePlan(text) -> {ok, tasks, optOut, errors, missingBlock}
 //   ok + optOut: the plan opted out of tiering; tasks is empty
 //   ok, not optOut: tasks holds the validated tasks, with only the known keys
-//   not ok: errors lists every problem
+//   not ok: errors lists every problem; missingBlock is true when the plan has no block
+//   and no opt-out line at all, so the caller can show the full rules
 function parsePlan(text) {
-  const fail = errors => ({ ok: false, tasks: [], optOut: false, errors })
+  const fail = (errors, missingBlock = false) => ({ ok: false, tasks: [], optOut: false, errors, missingBlock })
   if (typeof text !== 'string' || text.trim() === '') return fail(['the plan text is empty or unavailable'])
 
   const { blocks, optOut } = extractBlock(text)
   if (blocks.length === 0) {
-    if (optOut) return { ok: true, tasks: [], optOut: true, errors: [] }
-    return fail([`no fenced "${BLOCK_INFO}" block found`])
+    if (optOut) return { ok: true, tasks: [], optOut: true, errors: [], missingBlock: false }
+    return fail([`no fenced "${BLOCK_INFO}" block found`], true)
   }
   if (blocks.length > 1) {
     return fail([`found ${blocks.length} "${BLOCK_INFO}" blocks; exactly one is allowed`])
@@ -125,7 +126,7 @@ function parsePlan(text) {
   if (errors.length > 0) return fail(errors)
 
   const tasks = obj.tasks.map(t => Object.fromEntries(TASK_KEYS.map(k => [k, t[k]])))
-  return { ok: true, tasks, optOut: false, errors: [] }
+  return { ok: true, tasks, optOut: false, errors: [], missingBlock: false }
 }
 
 module.exports = { ALLOWED, BLOCK_INFO, OPT_OUT_LINE, extractBlock, validate, parsePlan }

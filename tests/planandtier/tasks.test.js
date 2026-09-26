@@ -96,6 +96,13 @@ test('no block and no opt-out is an error', () => {
   assert.match(r.errors[0], /no fenced "json tiered-tasks" block found/)
 })
 
+test('missingBlock is true only when there is no block and no opt-out line', () => {
+  assert.equal(parsePlan('# Plan\n\nProse.\n').missingBlock, true)
+  assert.equal(parsePlan('```json tiered-tasks\n{"tasks": []}\n```').missingBlock, false)
+  assert.equal(parsePlan(`${OPT_OUT_LINE}\n`).missingBlock, false)
+  assert.equal(parsePlan('').missingBlock, false)
+})
+
 test('two blocks are an error', () => {
   const r = parsePlan(plan({ tasks: [task(1)] }, '\n' + fenced({ tasks: [task(1)] })))
   assert.equal(r.ok, false)
