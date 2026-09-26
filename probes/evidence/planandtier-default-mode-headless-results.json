@@ -1,0 +1,32 @@
+{
+  "generated": "2026-09-26T03:14:48.208Z",
+  "claudeCodeVersion": "2.1.283",
+  "setup": "headless claude -p, --permission-mode default, hand-written approved state (2 tasks), real plugin plus probe-plugin with PROBE_OBSERVE=1",
+  "runWithoutAllowRule": {
+    "workflowToolResult": [
+      "\"Review dynamic workflow before running\""
+    ],
+    "hooksSeen": [
+      "UserPromptSubmit",
+      "PreToolUse Workflow"
+    ],
+    "noPostToolUse": true,
+    "noPostToolUseFailure": true,
+    "workflowStarted": false,
+    "note": "the Workflow call stopped at the review gate; a non-interactive session cannot approve it"
+  },
+  "runWithAllowedToolsWorkflow": {
+    "allowedTools": "Workflow",
+    "workflowStatus": "halted",
+    "haltedAt": "T01",
+    "taskResults": [
+      {
+        "id": "T01",
+        "status": "failed",
+        "summary": "hello.txt was not created. Both the Bash redirect (echo > hello.txt) and the Write tool were denied for lack of write permission to the working directory, and hello.txt does not exist. I did not try to get around the permission block. Verification (cat hello.txt) was not run. Write permission to the repository root is needed before this can be retried."
+      }
+    ],
+    "subagentsStarted": 1,
+    "note": "the worker was denied write access with no one to approve, reported failed, and the workflow halted; T02 never ran"
+  }
+}
