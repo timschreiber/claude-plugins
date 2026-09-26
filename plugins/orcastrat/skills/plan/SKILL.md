@@ -140,6 +140,8 @@ Then wait. Do not write the plan, or any part of it, until the user answers. If 
 
 Never resolve a contradiction or an ambiguity yourself, even when one side looks obviously right. You may recommend; the user decides.
 
+**Planning questions are always answered by the user.** `plan` never auto-decides a question and never uses the `decider` agent, whatever a plan's `Auto-decide` field says and even under `--yes`: the decider and auto-decide exist only for GAPs during `/orcastrat:run`. Present every question and wait for the answers, as above.
+
 For outlined milestones in a `rolling` plan, you may defer a question to Open questions only if it genuinely can't be answered until earlier milestones run (it depends on an investigation's findings, or on code that doesn't exist yet). Everything the user could answer now, ask now.
 
 The plan exists so that no worker ever makes a design decision. A problem you leave open becomes a guess by a smaller model.

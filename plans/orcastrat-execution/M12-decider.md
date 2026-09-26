@@ -350,7 +350,7 @@ The plan format names the `decider` among the plan's readers and its `notes/deci
 
 - Kind: change
 - Tier: worker
-- Status: todo
+- Status: done
 - Wave: 1
 - Depends on: none
 - Files: `plugins/orcastrat/skills/plan/SKILL.md`
