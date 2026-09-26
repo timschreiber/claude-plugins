@@ -90,3 +90,10 @@ has_stripped_line() {
   grep -qF 'and the **auto-decision count** is below Max auto-decisions.' "$f"
   grep -qF 'and a `local` recommendation that comes up once the count has reached Max auto-decisions: each of them stops the run as a GAP' "$f"
 }
+
+@test "run never sends a VACUOUS block to the decider" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF 'Never retry or escalate it, and never send it to the decider:' "$f"
+  run grep -qF 'gets the same handling, with block reason `VACUOUS` instead of `GAP`' "$f"
+  [ "$status" -ne 0 ]
+}
