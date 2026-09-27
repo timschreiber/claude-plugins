@@ -14,6 +14,7 @@ Findings. Every number traces to an evidence file under `probes/evidence/`.
 | (evidence, not a doc) | `probes/evidence/planandtier-b3-headless-results.json`: the built plugin running a 3-task plan headless. |
 | `planandtier/planandtier-e2e-findings.md` | Derived from `probes/evidence/planandtier-e2e-results.json`: the built plugin in an interactive session. |
 | `planandtier/planandtier-manual-mode-findings.md` | Derived from `probes/evidence/planandtier-default-mode-headless-results.json` and `planandtier-manual-mode-results.json`: the plugin without auto mode. |
+| `planandtier/planandtier-dialog-findings.md` | Derived from `probes/evidence/planandtier-launch-shapes-results.json` (4 cells), `planandtier-dialog-shapes-observations.json` and `planandtier-dialog-shapes-probe.log` (6 plans): the launch rejection and the plan dialog's limit. |
 
 Probes live in `probes/`. See `probes/README.md` for what each one answers and
 which spec decision it unblocks. Regenerate findings by re-running the probe,
