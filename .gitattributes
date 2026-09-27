@@ -1,0 +1,3 @@
+# Plugin and probe files are used verbatim from a git clone; keep them LF on every platform.
+plugins/planandtier/** text eol=lf
+probes/planandtier/** text eol=lf
