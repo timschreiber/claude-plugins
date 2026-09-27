@@ -1,5 +1,5 @@
-// The only parser and validator for a plan's tiered-tasks block. H2 and H3 both call
-// parsePlan(); nothing else in the plugin reads plan text.
+// The only parser and validator for a plan's tiered-tasks block, and the only code that reads or
+// rewrites plan text. H2 and H3 reach it through sidecar.js resolvePlan(), which adds the file work.
 'use strict'
 
 const EFFORTS = ['low', 'medium', 'high', 'xhigh']
@@ -10,32 +10,56 @@ const MAX_TITLE = 100
 const BLOCK_INFO = 'json tiered-tasks'
 const OPT_OUT_LINE = 'Tiered execution: off'
 
+// H2 replaces a valid block with a generated section: a table of the tasks plus the name and hash
+// of the tasks file that now holds the block. The markers let a later block replace the section.
+const SECTION_START = '<!-- planandtier:tasks -->'
+const SECTION_END = '<!-- /planandtier:tasks -->'
+const TASKS_FILE_LINE = /^Tasks file: `(.+)` \(sha256 `([0-9a-f]{16})`\)$/
+
 const list = items => items.join(', ').replace(/, ([^,]*)$/, ' or $1')
 
 // Scans the plan line by line, tracking fenced code blocks, so a tiered-tasks fence quoted
 // inside another fence (as an example) is content, not a block. Returns the bodies of the
-// top-level `json tiered-tasks` blocks and whether the opt-out line appears outside any fence.
+// top-level `json tiered-tasks` blocks with their line ranges (fence lines included), whether
+// the opt-out line appears outside any fence, and the generated sections outside any fence.
 function extractBlock(text) {
   const blocks = []
+  const ranges = []
+  const sections = []
   let optOut = false
-  let open = null // {char, length, info, body[]}
+  let open = null // {char, length, info, start, body[]}
+  let section = null // {start, end, file, hash}
 
-  for (const line of String(text).split(/\r?\n/)) {
+  const lines = String(text).split(/\r?\n/)
+  lines.forEach((line, i) => {
     const fence = /^ {0,3}(`{3,}|~{3,})\s*(.*?)\s*$/.exec(line)
     if (open) {
       if (fence && fence[1][0] === open.char && fence[1].length >= open.length && fence[2] === '') {
-        if (open.info === BLOCK_INFO) blocks.push(open.body.join('\n'))
+        if (open.info === BLOCK_INFO) {
+          blocks.push(open.body.join('\n'))
+          ranges.push({ start: open.start, end: i })
+        }
         open = null
       } else {
         open.body.push(line)
       }
+    } else if (section) {
+      const ref = TASKS_FILE_LINE.exec(line.trim())
+      if (ref && section.file === null) Object.assign(section, { file: ref[1], hash: ref[2] })
+      if (line.trim() === SECTION_END) {
+        sections.push({ ...section, end: i })
+        section = null
+      }
     } else if (fence) {
-      open = { char: fence[1][0], length: fence[1].length, info: fence[2], body: [] }
+      open = { char: fence[1][0], length: fence[1].length, info: fence[2], start: i, body: [] }
+    } else if (line.trim() === SECTION_START) {
+      section = { start: i, end: null, file: null, hash: null }
     } else if (line.trim() === OPT_OUT_LINE) {
       optOut = true
     }
-  }
-  return { blocks, optOut }
+  })
+  if (section) sections.push({ ...section, end: lines.length - 1 }) // unclosed: runs to the end
+  return { blocks, ranges, optOut, sections }
 }
 
 // Returns the list of problems with a parsed block; empty means valid. Collects every
@@ -97,16 +121,41 @@ function validate(obj) {
   return errors
 }
 
-// parsePlan(text) -> {ok, tasks, optOut, errors, missingBlock}
+// parseBlock(body) -> {ok, tasks, errors}: one block's JSON text, parsed and validated.
+// tasks carry only the known keys.
+function parseBlock(body) {
+  let obj
+  try {
+    obj = JSON.parse(body)
+  } catch (e) {
+    return { ok: false, tasks: [], errors: [`the block is not valid JSON: ${e.message}`] }
+  }
+  const errors = validate(obj)
+  if (errors.length > 0) return { ok: false, tasks: [], errors }
+  const tasks = obj.tasks.map(t => Object.fromEntries(TASK_KEYS.map(k => [k, t[k]])))
+  return { ok: true, tasks, errors: [] }
+}
+
+// parsePlan(text) -> {ok, tasks, optOut, errors, missingBlock, section?}
 //   ok + optOut: the plan opted out of tiering; tasks is empty
 //   ok, not optOut: tasks holds the validated tasks, with only the known keys
-//   not ok: errors lists every problem; missingBlock is true when the plan has no block
-//   and no opt-out line at all, so the caller can show the full rules
+//   not ok: errors lists every problem; missingBlock is true when the plan has no block, no
+//   generated section and no opt-out line at all, so the caller can show the full rules
+//   section {file, hash}: the plan has no block but one generated section naming its tasks file.
+//   Loading that file is file work, so the result is not ok until resolvePlan() loads it.
 function parsePlan(text) {
   const fail = (errors, missingBlock = false) => ({ ok: false, tasks: [], optOut: false, errors, missingBlock })
   if (typeof text !== 'string' || text.trim() === '') return fail(['the plan text is empty or unavailable'])
 
-  const { blocks, optOut } = extractBlock(text)
+  const { blocks, optOut, sections } = extractBlock(text)
+  if (blocks.length === 0 && sections.length > 0) {
+    const redo = `write the complete "${BLOCK_INFO}" block into the plan again, in place of the table`
+    if (optOut) return fail([`the plan has both a planandtier task table and the line "${OPT_OUT_LINE}"; keep only one`])
+    if (sections.length > 1) return fail([`found ${sections.length} planandtier task tables; ${redo}`])
+    const { file, hash } = sections[0]
+    if (file === null) return fail([`the planandtier task table has no valid "Tasks file:" line; ${redo}`])
+    return { ...fail([`the plan's tasks are in ${file}, which has not been loaded`]), section: { file, hash } }
+  }
   if (blocks.length === 0) {
     if (optOut) return { ok: true, tasks: [], optOut: true, errors: [], missingBlock: false }
     return fail([`no fenced "${BLOCK_INFO}" block found`], true)
@@ -116,17 +165,49 @@ function parsePlan(text) {
   }
   if (optOut) return fail([`the plan has both a "${BLOCK_INFO}" block and the line "${OPT_OUT_LINE}"; keep only one`])
 
-  let obj
-  try {
-    obj = JSON.parse(blocks[0])
-  } catch (e) {
-    return fail([`the block is not valid JSON: ${e.message}`])
-  }
-  const errors = validate(obj)
-  if (errors.length > 0) return fail(errors)
-
-  const tasks = obj.tasks.map(t => Object.fromEntries(TASK_KEYS.map(k => [k, t[k]])))
-  return { ok: true, tasks, optOut: false, errors: [], missingBlock: false }
+  const parsed = parseBlock(blocks[0])
+  if (!parsed.ok) return fail(parsed.errors)
+  return { ok: true, tasks: parsed.tasks, optOut: false, errors: [], missingBlock: false }
 }
 
-module.exports = { ALLOWED, BLOCK_INFO, OPT_OUT_LINE, extractBlock, validate, parsePlan }
+const thousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+// The generated section, as lines without line endings.
+function renderSection(tasks, file, hash) {
+  const row = t =>
+    `| ${t.id} | ${t.title.replace(/\|/g, '\\|')} | ${t.model} | ${t.effort} | ${thousands(t.prompt.length)} chars |`
+  return [
+    SECTION_START,
+    `Tasks file: \`${file}\` (sha256 \`${hash}\`)`,
+    '',
+    '| ID | Title | Model | Effort | Prompt |',
+    '|---|---|---|---|---|',
+    ...tasks.map(row),
+    '',
+    'Open the tasks file to read each prompt before approving.',
+    SECTION_END,
+  ]
+}
+
+// Returns the plan with its one task block (fence lines included) replaced by `sectionLines` and
+// every earlier generated section removed. Keeps the plan's line endings: CRLF if it has any,
+// else LF. Returns null when the plan does not have exactly one block.
+function replaceBlock(text, sectionLines) {
+  const { ranges, sections } = extractBlock(text)
+  if (ranges.length !== 1) return null
+  const [block] = ranges
+  const eol = String(text).includes('\r\n') ? '\r\n' : '\n'
+  const inSection = i => sections.some(s => i >= s.start && i <= s.end)
+  const out = []
+  String(text).split(/\r?\n/).forEach((line, i) => {
+    if (i === block.start) out.push(...sectionLines)
+    else if (i > block.start && i <= block.end) return
+    else if (!inSection(i)) out.push(line)
+  })
+  return out.join(eol)
+}
+
+module.exports = {
+  ALLOWED, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
+  extractBlock, validate, parseBlock, parsePlan, renderSection, replaceBlock,
+}

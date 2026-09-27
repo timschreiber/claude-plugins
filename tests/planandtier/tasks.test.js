@@ -2,7 +2,9 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { extractBlock, validate, parsePlan, OPT_OUT_LINE } = require('../../plugins/planandtier/scripts/lib/tasks.js')
+const {
+  extractBlock, validate, parseBlock, parsePlan, renderSection, replaceBlock, OPT_OUT_LINE, SECTION_START, SECTION_END,
+} = require('../../plugins/planandtier/scripts/lib/tasks.js')
 
 const task = (n, over = {}) => ({
   id: `T${String(n).padStart(2, '0')}`,
@@ -161,4 +163,75 @@ test('an empty or non-string plan is an error, not a crash', () => {
 test('returned tasks carry only the known keys', () => {
   const r = parsePlan(plan({ tasks: [task(1)] }))
   assert.deepEqual(Object.keys(r.tasks[0]), ['id', 'title', 'model', 'effort', 'prompt'])
+})
+
+// ---- generated sections ------------------------------------------------------------
+
+const HASH = '0123456789abcdef'
+const section = (file = '/plans/p.tasks.json', hash = HASH) => renderSection([task(1)], file, hash).join('\n')
+
+test('parseBlock parses and validates one block body', () => {
+  assert.deepEqual(parseBlock(JSON.stringify({ tasks: [task(1)] })), { ok: true, tasks: [task(1)], errors: [] })
+  assert.match(parseBlock('{').errors[0], /not valid JSON/)
+  assert.match(parseBlock('{"tasks": []}').errors[0], /non-empty "tasks" array/)
+})
+
+test('renderSection lists every task, escapes pipes in titles and counts prompt characters', () => {
+  const lines = renderSection([task(1, { title: 'a | b', prompt: 'x'.repeat(1234) + ' Verify: ok' }), task(2)], 'C:\\p.tasks.json', HASH)
+  assert.equal(lines[0], SECTION_START)
+  assert.equal(lines[1], 'Tasks file: `C:\\p.tasks.json` (sha256 `0123456789abcdef`)')
+  assert.equal(lines[5], '| T01 | a \\| b | sonnet | medium | 1,245 chars |')
+  assert.match(lines[6], /^\| T02 \| Task 2 \| sonnet \| medium \| \d+ chars \|$/)
+  assert.equal(lines.at(-1), SECTION_END)
+  assert.ok(lines.every(l => l.length < 200))
+})
+
+test('extractBlock finds a generated section and its tasks file outside fences only', () => {
+  const { sections } = extractBlock(`# Plan\n\n${section()}\n`)
+  assert.equal(sections.length, 1)
+  assert.deepEqual({ file: sections[0].file, hash: sections[0].hash }, { file: '/plans/p.tasks.json', hash: HASH })
+  assert.equal(extractBlock('```markdown\n' + section() + '\n```\n').sections.length, 0)
+})
+
+test('a plan with only a section reports it for loading', () => {
+  const r = parsePlan(`# Plan\n\n## Tasks\n\n${section()}\n`)
+  assert.equal(r.ok, false)
+  assert.equal(r.missingBlock, false)
+  assert.deepEqual(r.section, { file: '/plans/p.tasks.json', hash: HASH })
+})
+
+test('a section that cannot be loaded is an error that says to write the block again', () => {
+  const noRef = parsePlan(`${SECTION_START}\n| T01 | x |\n${SECTION_END}\n`)
+  assert.match(noRef.errors[0], /no valid "Tasks file:" line; write the complete "json tiered-tasks" block/)
+  assert.equal(noRef.section, undefined)
+  assert.match(parsePlan(`${section()}\n\n${section()}\n`).errors[0], /found 2 planandtier task tables/)
+  assert.match(parsePlan(`${OPT_OUT_LINE}\n\n${section()}\n`).errors[0], /both a planandtier task table and the line/)
+})
+
+test('a block next to an old section wins', () => {
+  const r = parsePlan(`${section()}\n\n${fenced({ tasks: [task(1), task(2)] })}\n`)
+  assert.equal(r.ok, true)
+  assert.equal(r.tasks.length, 2)
+  assert.equal(r.section, undefined)
+})
+
+test('replaceBlock swaps the block for the section, fences included, and removes old sections', () => {
+  const text = `# Plan\n\n${section('/old.json')}\n\n## Tasks\n\n${fenced({ tasks: [task(1)] })}\n\nAfter.\n`
+  const out = replaceBlock(text, ['NEW-1', 'NEW-2'])
+  assert.equal(out, '# Plan\n\n\n## Tasks\n\nNEW-1\nNEW-2\n\nAfter.\n')
+})
+
+test('replaceBlock keeps CRLF line endings', () => {
+  const text = `# Plan\r\n\r\n${fenced({ tasks: [task(1)] }).replace(/\n/g, '\r\n')}\r\nAfter.\r\n`
+  assert.equal(replaceBlock(text, ['NEW']), '# Plan\r\n\r\nNEW\r\nAfter.\r\n')
+})
+
+test('replaceBlock returns null unless the plan has exactly one block', () => {
+  assert.equal(replaceBlock('# Plan\n', ['NEW']), null)
+  assert.equal(replaceBlock(`${fenced({ tasks: [task(1)] })}\n${fenced({ tasks: [task(1)] })}\n`, ['NEW']), null)
+})
+
+test('the replaced plan parses back to its section', () => {
+  const out = replaceBlock(plan({ tasks: [task(1)] }), renderSection([task(1)], '/p.tasks.json', HASH))
+  assert.deepEqual(parsePlan(out).section, { file: '/p.tasks.json', hash: HASH })
 })
