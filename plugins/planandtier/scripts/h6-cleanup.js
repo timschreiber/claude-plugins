@@ -1,7 +1,7 @@
 // H6: keeps the state file honest.
 //   launched  PostToolUse Workflow: the workflow started, so mark the state "launched", which
-//             stands the guards down. This is the only place a launch is recorded: a call
-//             rejected after H4 or declined at the review fires no event, and stays "approved".
+//             stands the guards down. This is the only place a launch is recorded, so a call
+//             rejected after H4 or declined at the review leaves the state "approved".
 //   failure   PostToolUseFailure Workflow: a launch that failed goes back to "approved", so the
 //             guards apply again and the model must relaunch. Tasks are kept for the relaunch.
 //   end       SessionEnd: delete the session's state file.

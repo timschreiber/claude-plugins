@@ -464,7 +464,7 @@ test('H6 launched ignores other workflows, planning, no state and subagents', ()
 test('a launch rejected after H4 keeps the guards on until the guard gives up', () => {
   state.write(S, approvedState())
   hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
-  // No PostToolUse or PostToolUseFailure follows a rejected or declined launch.
+  // The workflow never starts, so no PostToolUse marks the launch.
   for (let i = 0; i < 3; i++) {
     hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
     assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).json.hookSpecificOutput.permissionDecision, 'deny')

@@ -32,7 +32,10 @@ Requirements:
    `json tiered-tasks` block: one entry per task, each with a model, an effort, and a self-contained
    prompt. If the block is invalid, `ExitPlanMode` is denied with the problems listed, and Claude fixes
    the plan and tries again. You never see an invalid plan.
-3. Read the plan and approve it. This was tested with auto mode.
+3. Read the plan and approve it. The approval dialog shows a table of the tasks (title, model, effort
+   and prompt length) instead of the block, because it cannot show a plan with very long lines. The full
+   prompts are in the tasks file the table names, next to the plan (`<plan>.tasks.json`). Open it to read
+   them before you approve. This was tested with auto mode.
 4. Claude launches the `planandtier:execute-plan` workflow. Watch it with `/workflows`. It stops at the
    first task that fails.
 
@@ -65,11 +68,11 @@ Six hooks do the work:
 | Hook | Job |
 |---|---|
 | Rules (H1) | Adds the tiering rules to the conversation in plan mode |
-| Gate (H2) | Denies `ExitPlanMode` until the plan file's task block validates, up to three times |
-| Hand-off (H3) | On approval, saves the tasks and tells Claude to launch the workflow |
+| Gate (H2) | Denies `ExitPlanMode` until the plan file's task block validates, up to three times, then moves the block to the tasks file and leaves a table |
+| Hand-off (H3) | On approval, loads the tasks from the tasks file, saves them and tells Claude to launch the workflow |
 | Arguments (H4) | Replaces the workflow's arguments with the saved tasks, so no model retypes them |
 | Guard (H5) | Blocks edits and shell commands from the main thread until the workflow launches, and gives up after a few blocks |
-| Cleanup (H6) | Reverts a failed launch and deletes the state when the session ends |
+| Cleanup (H6) | Marks the launch once Claude Code confirms it, reverts a failed launch, and deletes the state when the session ends |
 
 The workflow runs each task with the `planandtier:worker` agent at the task's model and effort. Workers
 cannot start agents or workflows.
@@ -91,13 +94,19 @@ cannot start agents or workflows.
   non-interactive session), a worker that needs permission fails, and the workflow stops at that task.
 - **The state is deleted at session end**, so a resumed session cannot relaunch the old plan.
 - **The model launches the workflow.** The plugin tells it to and blocks other work until it does, but it
-  cannot launch the workflow itself. If Claude never does, the guard steps aside after a few blocks.
+  cannot launch the workflow itself. If Claude never does, the guard steps aside after a few blocks. The
+  guard also stays on after a launch that was rejected or that you declined at the workflow review, so
+  Claude tries again once or twice before the guard steps aside.
+- **You approve a table, not the prompts.** The prompts are in the tasks file. If the tasks file is changed
+  after the table was written, the plan does not run, and Claude says so.
 
 ## Configuration notes
 
-- State lives in `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside your repo. Nothing is written
-  to the project.
-- Set `PLANANDTIER_DEBUG=1` to log hook errors to `planandtier-debug.log` in the temp directory.
+- State lives in `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside your repo. The tasks file sits
+  next to the plan file in Claude Code's plans directory and is kept as a record of what ran. Nothing is
+  written to the project.
+- Set `PLANANDTIER_DEBUG=1` to log hook errors and every state change to `planandtier-debug.log` in the
+  temp directory.
 - The design, and the measurements behind it, are in
   [the spec](https://github.com/timschreiber/claude-plugins/blob/main/docs/planandtier/planandtier-spike-spec.md)
   and [the findings](https://github.com/timschreiber/claude-plugins/blob/main/docs/planandtier/planandtier-spike-findings.md).

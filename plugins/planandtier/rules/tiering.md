@@ -31,6 +31,12 @@ you choose for it. Plan as usual (explore, research, design), then end the plan 
 `ExitPlanMode` is denied until the block validates, and the denial tells you what to fix. The block
 is what gets executed: the prose is for the user, so keep the two consistent.
 
+Once the block validates, the plugin moves it to a tasks file next to the plan (`<plan>.tasks.json`)
+and puts a table of the tasks in its place, between `<!-- planandtier:tasks -->` lines. The user
+approves the plan with that table and can open the tasks file to read the prompts. If the user asks for
+changes to the tasks, write a complete new `json tiered-tasks` block under `## Tasks`: the plugin
+replaces the old table when you call `ExitPlanMode` again. Never edit the table or the tasks file by hand.
+
 | Field | Rule |
 |---|---|
 | `id` | `T01`, `T02`, ... in execution order, no gaps |
