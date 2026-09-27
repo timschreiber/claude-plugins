@@ -21,7 +21,7 @@ function readStdin() {
 function debug(message) {
   if (!process.env.PLANANDTIER_DEBUG) return
   try {
-    fs.appendFileSync(path.join(os.tmpdir(), 'planandtier-debug.log'), `${message}\n`)
+    fs.appendFileSync(path.join(os.tmpdir(), 'planandtier-debug.log'), `${new Date().toISOString()} ${message}\n`)
   } catch {}
 }
 

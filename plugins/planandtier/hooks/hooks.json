@@ -39,6 +39,12 @@
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h3-post-approval.js\"", "timeout": 15 }
         ]
+      },
+      {
+        "matcher": "Workflow",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h6-cleanup.js\" launched", "timeout": 15 }
+        ]
       }
     ],
     "PostToolUseFailure": [

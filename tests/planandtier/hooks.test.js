@@ -345,7 +345,12 @@ test('H4 replaces args with the stored tasks, keeps the rest of the input, and n
     },
   })
   assert.ok(!r.stdout.includes('permissionDecision'))
-  assert.equal(state.read(S).phase, 'launched')
+})
+
+test('H4 leaves the state alone: only a confirmed launch changes it', () => {
+  state.write(S, approvedState({ guardDenials: 2 }))
+  hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
+  assert.deepEqual(state.read(S), approvedState({ guardDenials: 2 }))
 })
 
 test('H4 overrides args the model passed', () => {
@@ -359,7 +364,7 @@ test('H4 also injects the tasks on a relaunch (launched) and after the guard gav
     state.write(S, approvedState({ phase }))
     const r = hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
     assert.equal(r.json.hookSpecificOutput.updatedInput.args.tasks.length, 2, phase)
-    assert.equal(state.read(S).phase, 'launched')
+    assert.equal(state.read(S).phase, phase)
   }
 })
 
@@ -429,6 +434,58 @@ test('H5 stop is silent unless the state is approved', () => {
 
 // ---- H6 ----------------------------------------------------------------------------
 
+const wfPost = (extra = {}) => ({ session_id: S, tool_name: 'Workflow', tool_input: { name: WORKFLOW }, ...extra })
+
+test('H6 launched marks a confirmed launch and resets the guard count', () => {
+  for (const phase of ['approved', 'abandoned', 'launched']) {
+    state.write(S, approvedState({ phase, guardDenials: 2 }))
+    hook('h6-cleanup.js', wfPost(), ['launched'])
+    const s = state.read(S)
+    assert.equal(s.phase, 'launched', phase)
+    assert.equal(s.guardDenials, 0)
+    assert.equal(s.tasks.length, 2)
+    assert.ok(!Number.isNaN(Date.parse(s.launchedAt)))
+  }
+})
+
+test('H6 launched ignores other workflows, planning, no state and subagents', () => {
+  state.write(S, approvedState())
+  hook('h6-cleanup.js', wfPost({ tool_input: { name: 'other:thing' } }), ['launched'])
+  hook('h6-cleanup.js', wfPost({ agent_id: 'a1' }), ['launched'])
+  assert.equal(state.read(S).phase, 'approved')
+  state.write(S, approvedState({ phase: 'planning', tasks: [] }))
+  hook('h6-cleanup.js', wfPost(), ['launched'])
+  assert.equal(state.read(S).phase, 'planning')
+  state.remove(S)
+  hook('h6-cleanup.js', wfPost(), ['launched'])
+  assert.equal(state.read(S), null)
+})
+
+test('a launch rejected after H4 keeps the guards on until the guard gives up', () => {
+  state.write(S, approvedState())
+  hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
+  // No PostToolUse or PostToolUseFailure follows a rejected or declined launch.
+  for (let i = 0; i < 3; i++) {
+    hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
+    assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).json.hookSpecificOutput.permissionDecision, 'deny')
+  }
+  assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
+  assert.equal(state.read(S).phase, 'abandoned')
+})
+
+test('state changes are logged with a timestamp only when PLANANDTIER_DEBUG is set', () => {
+  const env = { TEMP: dir, TMP: dir, TMPDIR: dir }
+  const log = path.join(dir, 'planandtier-debug.log')
+  state.write(S, approvedState())
+  hook('h6-cleanup.js', wfPost(), ['launched'], env)
+  assert.equal(fs.existsSync(log), false)
+  hook('h6-cleanup.js', wfPost(), ['launched'], { ...env, PLANANDTIER_DEBUG: '1' })
+  hook('h6-cleanup.js', { session_id: S }, ['end'], { ...env, PLANANDTIER_DEBUG: '1' })
+  const lines = fs.readFileSync(log, 'utf8').trim().split('\n')
+  assert.match(lines[0], /^\d{4}-\d\d-\d\dT\S+Z state sess-1: phase=launched denials=0 guardDenials=0$/)
+  assert.match(lines[1], /state sess-1: removed$/)
+})
+
 test('H6 failure reverts a launched state to approved and keeps the tasks', () => {
   state.write(S, approvedState({ phase: 'launched', guardDenials: 2 }))
   hook('h6-cleanup.js', { session_id: S, tool_name: 'Workflow', tool_input: { name: WORKFLOW } }, ['failure'])
@@ -497,7 +554,9 @@ test('every hook exits 0 when the data directory is unwritable', () => {
 test('hooks.json is valid and every command names a script that exists', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 9)
+  assert.equal(commands.length, 10)
+  const launched = config.hooks.PostToolUse.find(g => g.matcher === 'Workflow')
+  assert.match(launched.hooks[0].command, /h6-cleanup\.js" launched$/)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)

@@ -3,6 +3,10 @@
 // updatedInput replaces the whole tool input, so the original input is spread first.
 // It never sets permissionDecision: updatedInput alone is honored, and "allow" would bypass
 // the user's permission prompt.
+// It does not change the state. The call can still be rejected after this hook runs (a CRLF
+// script failed schema validation) or declined at the workflow review, and neither fires a
+// failure event, so only H6's PostToolUse marks the launch. Leaving guardDenials alone keeps a
+// launch that always fails from resetting the guard on every attempt.
 'use strict'
 
 const state = require('./lib/state.js')
@@ -19,12 +23,6 @@ run(async () => {
   const current = state.read(input.session_id)
   if (!current || current.phase === 'planning' || !Array.isArray(current.tasks) || current.tasks.length === 0) return
 
-  state.write(input.session_id, {
-    ...current,
-    phase: 'launched',
-    launchedAt: new Date().toISOString(),
-    guardDenials: 0,
-  })
   emit({
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',

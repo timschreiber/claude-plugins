@@ -6,6 +6,7 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { debug } = require('./hook.js')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -37,6 +38,7 @@ function write(sessionId, state) {
     const tmp = `${file}.${process.pid}.tmp`
     fs.writeFileSync(tmp, JSON.stringify(state, null, 2))
     fs.renameSync(tmp, file)
+    debug(`state ${path.basename(file, '.json')}: phase=${state?.phase} denials=${state?.denials ?? 0} guardDenials=${state?.guardDenials ?? 0}`)
     return true
   } catch {
     return false
@@ -47,6 +49,7 @@ function remove(sessionId) {
   try {
     const file = fileFor(sessionId)
     if (file) fs.rmSync(file, { force: true })
+    if (file) debug(`state ${path.basename(file, '.json')}: removed`)
   } catch {}
 }
 
