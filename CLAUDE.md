@@ -18,7 +18,8 @@ cataloged in `.claude-plugin/marketplace.json`:
 - `planandtier`: hooks, a saved workflow and a worker agent that turn an
   approved plan-mode plan into serial subagent execution, each task at the
   model and effort chosen during planning. The hooks are Node scripts under
-  `plugins/planandtier/scripts/`, tested with `node --test tests/planandtier/`.
+  `plugins/planandtier/scripts/`, tested with
+  `node --test tests/planandtier/*.test.js`.
   The design and the measurements behind it are in `docs/planandtier/`, with
   evidence under `probes/evidence/planandtier-*`.
 
@@ -48,6 +49,11 @@ findings doc without adding the evidence file behind it.
 # Run the rewriter's unit tests (pure PowerShell, no .NET needed)
 Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 
+# Run planandtier's hook and library tests. Pass the files, not the directory:
+# on Node 24, `node --test tests/planandtier/` treats the directory as one file
+# and fails. Node expands the glob itself, so this works in pwsh too.
+node --test tests/planandtier/*.test.js
+
 # Scaffold a new plugin
 ./scripts/New-Plugin.ps1 -Name denoizinator-python `
                          -DisplayName 'Denoizinator for Python' `
@@ -60,9 +66,9 @@ claude --plugin-dir ./plugins/denoizinator-net
 ```
 
 CI (`.github/workflows/validate.yml`) runs `claude plugin validate .`, validates
-each `plugins/*/` directory, and runs `Sync-Shared.ps1 -Check`. It does not run
-Pester — run `CommandSegmentation.Tests.ps1` yourself before pushing changes to
-the segmenter.
+each `plugins/*/` directory, runs `Sync-Shared.ps1 -Check`, and runs the
+planandtier tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
+yourself before pushing changes to the segmenter.
 
 There is no build step; plugins are PowerShell scripts + JSON/Markdown consumed
 directly by Claude Code.
