@@ -40,6 +40,24 @@ if (process.env.PROBE_MATRIX === 'pairs') {
   }
 }
 
+// PROBE_MATRIX=shape-* swaps in one task whose prompt has a given shape, to find which input
+// Claude Code rejects at launch ("script contains control characters"). Run by launch-shapes.js.
+const SHAPES = {
+  'shape-single': 'Reply with status "done" and summary "ok".',
+  'shape-multiline': ['Reply with status "done".', 'In summary, write ok.', 'Do nothing else.'].join('\n'),
+  'shape-emdash': 'Reply with status "done" — and summary "ok".',
+}
+if (Object.hasOwn(SHAPES, process.env.PROBE_MATRIX ?? '')) {
+  MATRIX.length = 0
+  MATRIX.push({
+    id: 'T01',
+    title: process.env.PROBE_MATRIX.replace('-', ' '),
+    model: 'sonnet',
+    effort: 'low',
+    prompt: SHAPES[process.env.PROBE_MATRIX],
+  })
+}
+
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'planandtier-probe')
 
 function readStdin() {
@@ -57,6 +75,50 @@ function log(record) {
   fs.appendFileSync(path.join(dataDir, 'probe.log'), JSON.stringify(record) + '\n')
 }
 
+// Logs the plan file's shape as the dialog will receive it, since the model may not copy a
+// shape exactly. Lengths are measured on LF-normalized text.
+function measurePlan(planFile) {
+  try {
+    if (typeof planFile !== 'string') return
+    const text = fs.readFileSync(planFile, 'utf8')
+    const lines = text.replace(/\r\n/g, '\n').split('\n')
+    const heading = lines.find(l => l.startsWith('# Shape ')) ?? null
+    log({
+      tag: 'pre-exit:measure',
+      shape: heading && heading.slice('# Shape '.length).trim(),
+      bytes: Buffer.byteLength(text),
+      chars: text.length,
+      lines: lines.length,
+      longestLine: Math.max(...lines.map(l => l.length)),
+      fences: lines.filter(l => /^\s{0,3}(```|~~~)/.test(l)).length,
+    })
+  } catch (e) {
+    log({ tag: 'pre-exit:measure', error: String(e) })
+  }
+}
+
+// Moves the lines between the SIDECAR-START and SIDECAR-END markers to <plan>.sidecar.md and
+// leaves one SIDECAR-REPLACED line in their place. Only plans holding SIDECAR-TEST are touched.
+function moveSidecarBlock(planFile) {
+  try {
+    if (typeof planFile !== 'string') return
+    const text = fs.readFileSync(planFile, 'utf8')
+    if (!text.includes('<!-- SIDECAR-TEST -->')) return
+    const start = text.indexOf('<!-- SIDECAR-START -->')
+    const end = text.indexOf('<!-- SIDECAR-END -->')
+    if (start < 0 || end < start) return
+    const bodyStart = text.indexOf('\n', start) + 1
+    fs.writeFileSync(planFile + '.sidecar.md', text.slice(bodyStart, end))
+    fs.writeFileSync(
+      planFile,
+      text.slice(0, bodyStart) + 'SIDECAR-REPLACED: a hook moved this block to a sidecar file.\n' + text.slice(end)
+    )
+    log({ tag: 'pre-exit:sidecar', moved: true, planFile })
+  } catch (e) {
+    log({ tag: 'pre-exit:sidecar', moved: false, error: String(e) })
+  }
+}
+
 function emit(hookSpecificOutput) {
   process.stdout.write(JSON.stringify({ hookSpecificOutput }))
 }
@@ -70,6 +132,17 @@ async function main() {
   try {
     input = JSON.parse(raw)
   } catch {
+    return
+  }
+
+  // PROBE_DIALOG=1 is for dialog-shapes-run.md: the probe never denies or injects anything. On
+  // ExitPlanMode it moves a marked block out of the plan file into a sidecar, to see whether the
+  // approval dialog shows the file as the hook left it.
+  if (process.env.PROBE_DIALOG === '1') {
+    if (tag === 'pre-exit') {
+      measurePlan(input.tool_input?.planFilePath)
+      moveSidecarBlock(input.tool_input?.planFilePath)
+    }
     return
   }
 

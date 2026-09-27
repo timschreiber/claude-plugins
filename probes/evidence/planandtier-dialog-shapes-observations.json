@@ -1,0 +1,36 @@
+{
+  "generated": "2026-09-27T11:38:39Z",
+  "claudeCodeVersion": "2.1.283",
+  "terminal": {
+    "columns": 152,
+    "rows": null
+  },
+  "shapes": {
+    "S1": {
+      "shown": true,
+      "note": "said couldn't show it at first, but then self-corrected and displayed"
+    },
+    "S2": {
+      "shown": true,
+      "note": "displayed on first attempt"
+    },
+    "S3": {
+      "shown": false,
+      "note": "Ready to code?\r\nHere is Claude's plan:\r\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\r\n(the plan is too large to be shown in full — approval is withheld; send feedback asking for a shorter plan, or press Esc)"
+    },
+    "S4": {
+      "shown": false,
+      "note": "Same as S3"
+    },
+    "S5": {
+      "shown": true,
+      "note": "displayed on first attempt"
+    },
+    "S6": {
+      "shown": true,
+      "showedReplacement": true,
+      "note": "Ready to code?\r\n\r\nHere is Claude's plan:\r\n╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\r\nShape S6\r\n\r\nTiered execution: off\r\n\r\n<!-- SIDECAR-TEST -->\r\n<!-- SIDECAR-START -->\r\nSIDECAR-REPLACED: a hook moved this block to a sidecar file.\r\n<!-- SIDECAR-END -->"
+    }
+  },
+  "notes": "Filled in afterwards from sources, not observed directly: generated = time of the last ExitPlanMode rejection in the probe session transcript (0336d0da-a550-471f-aa6c-0098de446d0b); claudeCodeVersion = the version field of that transcript; terminal.columns = length of the dialog divider line in the S3 and S6 notes (152 in both); rows not recorded. S6.shown set to true because its note records the dialog rendering the plan with no withheld message."
+}
