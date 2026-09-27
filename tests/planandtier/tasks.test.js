@@ -203,9 +203,13 @@ test('a plan with only a section reports it for loading', () => {
 test('a section that cannot be loaded is an error that says to write the block again', () => {
   const noRef = parsePlan(`${SECTION_START}\n| T01 | x |\n${SECTION_END}\n`)
   assert.match(noRef.errors[0], /no valid "Tasks file:" line; write the complete "json tiered-tasks" block/)
-  assert.equal(noRef.section, undefined)
-  assert.match(parsePlan(`${section()}\n\n${section()}\n`).errors[0], /found 2 planandtier task tables/)
-  assert.match(parsePlan(`${OPT_OUT_LINE}\n\n${section()}\n`).errors[0], /both a planandtier task table and the line/)
+  assert.equal(noRef.section, null)
+  const two = parsePlan(`${section()}\n\n${section()}\n`)
+  assert.match(two.errors[0], /found 2 planandtier task tables/)
+  assert.equal(two.section, null)
+  const both = parsePlan(`${OPT_OUT_LINE}\n\n${section()}\n`)
+  assert.match(both.errors[0], /both a planandtier task table and the line/)
+  assert.equal(both.optOut, false)
 })
 
 test('a block next to an old section wins', () => {

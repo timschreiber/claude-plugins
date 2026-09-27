@@ -9,6 +9,8 @@ const path = require('path')
 
 const PLUGIN = path.join(__dirname, '..', '..', 'plugins', 'planandtier')
 const state = require(path.join(PLUGIN, 'scripts', 'lib', 'state.js'))
+const sidecar = require(path.join(PLUGIN, 'scripts', 'lib', 'sidecar.js'))
+const { extractBlock, parsePlan } = require(path.join(PLUGIN, 'scripts', 'lib', 'tasks.js'))
 const RULES = fs.readFileSync(path.join(PLUGIN, 'rules', 'tiering.md'), 'utf8')
 const OPT_OUT = 'Tiered execution: off'
 const WORKFLOW = 'planandtier:execute-plan'
@@ -156,6 +158,78 @@ test('H2 ignores subagents', () => {
   assert.equal(hook('h2-gate-exit-plan.js', input).stdout, '')
 })
 
+// ---- H2: the tasks file --------------------------------------------------------------
+
+const TASKS_FILE = () => path.join(dir, 'plan.tasks.json')
+const blockBody = text => extractBlock(text).blocks[0]
+
+test('H2 moves a valid block to the tasks file and leaves the table in the plan', () => {
+  const file = writePlanFile(VALID)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(VALID, file)).stdout, '')
+  assert.equal(fs.readFileSync(TASKS_FILE(), 'utf8'), blockBody(VALID))
+  const plan = fs.readFileSync(file, 'utf8')
+  assert.ok(plan.startsWith('# Plan\n\nProse.\n\n## Tasks\n\n<!-- planandtier:tasks -->\n'))
+  assert.ok(!plan.includes('tiered-tasks'))
+  assert.ok(plan.includes('| T02 | Task 2 | opus | high |'))
+  assert.equal(parsePlan(plan).section.hash, sidecar.hashOf(blockBody(VALID)))
+})
+
+test('H2 does not move a block it did not read from the plan file', () => {
+  const missing = path.join(dir, 'nope.md')
+  hook('h2-gate-exit-plan.js', exitPre(VALID, missing))
+  assert.equal(fs.existsSync(missing), false)
+  const empty = writePlanFile('')
+  hook('h2-gate-exit-plan.js', exitPre(VALID, empty))
+  assert.equal(fs.readFileSync(empty, 'utf8'), '')
+  assert.deepEqual(fs.readdirSync(dir).filter(f => f.endsWith('.tasks.json')), [])
+})
+
+test('H2 leaves an invalid or opted-out plan untouched', () => {
+  for (const text of [INVALID, NO_BLOCK, `# Plan\n\n${OPT_OUT}\n`]) {
+    const file = writePlanFile(text)
+    hook('h2-gate-exit-plan.js', exitPre(text, file))
+    assert.equal(fs.readFileSync(file, 'utf8'), text)
+    assert.equal(fs.existsSync(TASKS_FILE()), false)
+  }
+})
+
+test('H2 passes a resubmitted plan with its table silently and leaves it as it is', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  const moved = fs.readFileSync(file, 'utf8')
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre('stale', file)).stdout, '')
+  assert.equal(fs.readFileSync(file, 'utf8'), moved)
+  assert.equal(state.read(S), null)
+})
+
+test('H2 denies a table whose tasks file changed or is missing, and says to write the block again', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  fs.appendFileSync(TASKS_FILE(), ' ')
+  const changed = hook('h2-gate-exit-plan.js', exitPre('stale', file)).json.hookSpecificOutput
+  assert.equal(changed.permissionDecision, 'deny')
+  assert.match(changed.permissionDecisionReason, /has changed since its table was written/)
+  assert.match(changed.permissionDecisionReason, /Write the complete "json tiered-tasks" block into the plan file/)
+  assert.equal(state.read(S).denials, 1)
+  fs.rmSync(TASKS_FILE())
+  const missing = hook('h2-gate-exit-plan.js', exitPre('stale', file)).json.hookSpecificOutput
+  assert.match(missing.permissionDecisionReason, /is missing or unreadable/)
+})
+
+test('H2 replaces an old table when the model writes a new block', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  const newBlock = '```json tiered-tasks\n' + JSON.stringify({ tasks: [task(1, { title: 'Redone' })] }) + '\n```\n'
+  const edited = fs.readFileSync(file, 'utf8') + '\n' + newBlock
+  fs.writeFileSync(file, edited)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(edited, file)).stdout, '')
+  const plan = fs.readFileSync(file, 'utf8')
+  assert.equal(extractBlock(plan).sections.length, 1)
+  assert.ok(plan.includes('| T01 | Redone |'))
+  assert.ok(!plan.includes('| T02 |'))
+  assert.equal(sidecar.resolvePlan(plan).tasks[0].title, 'Redone')
+})
+
 // ---- H3 ----------------------------------------------------------------------------
 
 test('H3 saves the approved tasks and tells the model to launch the workflow', () => {
@@ -172,6 +246,36 @@ test('H3 saves the approved tasks and tells the model to launch the workflow', (
   assert.match(out.additionalContext, /3 tiered tasks \(T01 to T03\)/)
   assert.match(out.additionalContext, /Workflow tool with name "planandtier:execute-plan" and no args/)
   assert.match(out.additionalContext, /do not edit files/)
+})
+
+test('H3 reads the plan file over tool_response.plan', () => {
+  writePlanFile(VALID)
+  hook('h3-post-approval.js', exitPost(INVALID))
+  assert.equal(state.read(S).tasks.length, 3)
+})
+
+test('H3 loads the tasks from the tasks file H2 wrote and records it', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  const r = hook('h3-post-approval.js', exitPost(VALID))
+  const s = state.read(S)
+  assert.deepEqual(s.tasks, parsePlan(VALID).tasks)
+  assert.equal(s.tasksFile, TASKS_FILE())
+  assert.equal(s.tasksHash, sidecar.hashOf(blockBody(VALID)))
+  assert.match(r.json.hookSpecificOutput.additionalContext, /3 tiered tasks/)
+})
+
+test('H3 runs nothing when the tasks file changed after the table was shown', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  fs.appendFileSync(TASKS_FILE(), ' ')
+  state.write(S, approvedState())
+  const out = hook('h3-post-approval.js', exitPost(VALID)).json.hookSpecificOutput.additionalContext
+  assert.match(out, /tasks could not be loaded, so nothing will run/)
+  assert.match(out, /has changed since its table was written/)
+  assert.match(out, /Do not implement the plan yourself/)
+  assert.ok(!out.includes('Your next action'))
+  assert.equal(state.read(S), null)
 })
 
 test('H3 uses tool_response.plan over a stale tool_input.plan', () => {

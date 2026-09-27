@@ -141,8 +141,9 @@ function parseBlock(body) {
 //   ok, not optOut: tasks holds the validated tasks, with only the known keys
 //   not ok: errors lists every problem; missingBlock is true when the plan has no block, no
 //   generated section and no opt-out line at all, so the caller can show the full rules
-//   section {file, hash}: the plan has no block but one generated section naming its tasks file.
-//   Loading that file is file work, so the result is not ok until resolvePlan() loads it.
+//   section: present only when the plan has no block but has a generated section. It is
+//   {file, hash} when there is one usable section; loading that file is file work, so the result
+//   is not ok until resolvePlan() loads it. It is null when the sections cannot be used.
 function parsePlan(text) {
   const fail = (errors, missingBlock = false) => ({ ok: false, tasks: [], optOut: false, errors, missingBlock })
   if (typeof text !== 'string' || text.trim() === '') return fail(['the plan text is empty or unavailable'])
@@ -150,10 +151,11 @@ function parsePlan(text) {
   const { blocks, optOut, sections } = extractBlock(text)
   if (blocks.length === 0 && sections.length > 0) {
     const redo = `write the complete "${BLOCK_INFO}" block into the plan again, in place of the table`
-    if (optOut) return fail([`the plan has both a planandtier task table and the line "${OPT_OUT_LINE}"; keep only one`])
-    if (sections.length > 1) return fail([`found ${sections.length} planandtier task tables; ${redo}`])
+    const unusable = error => ({ ...fail([error]), section: null })
+    if (optOut) return unusable(`the plan has both a planandtier task table and the line "${OPT_OUT_LINE}"; keep only one`)
+    if (sections.length > 1) return unusable(`found ${sections.length} planandtier task tables; ${redo}`)
     const { file, hash } = sections[0]
-    if (file === null) return fail([`the planandtier task table has no valid "Tasks file:" line; ${redo}`])
+    if (file === null) return unusable(`the planandtier task table has no valid "Tasks file:" line; ${redo}`)
     return { ...fail([`the plan's tasks are in ${file}, which has not been loaded`]), section: { file, hash } }
   }
   if (blocks.length === 0) {
