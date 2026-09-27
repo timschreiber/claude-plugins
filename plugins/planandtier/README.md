@@ -51,7 +51,7 @@ either way. Earlier tasks run again, so a rerun of a plan that already finished 
 
 | Pair | Meant for |
 |---|---|
-| `sonnet` / `low` | Extremely mechanical work: literal file content, renames, one-line edits |
+| `sonnet` / `low` | Extremely mechanical work: literal find-and-replace edits to existing files |
 | `sonnet` / `medium` | The default: fully specified work |
 | `sonnet` / `high` | Fully specified but intricate work |
 | `sonnet` / `xhigh` | Intricate and wide work across several files |

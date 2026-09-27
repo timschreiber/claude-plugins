@@ -48,7 +48,7 @@ a cheaper pair that needs retries costs more than the right one.
 
 | Pair | Use for |
 |---|---|
-| `sonnet` / `low` | Extremely mechanical work: the prompt contains the literal final content (exact lines of code or config, exact file text), renames, one-line edits. Transcription plus a check. |
+| `sonnet` / `low` | Extremely mechanical work, expressed as literal find-and-replace pairs against existing files. Transcription plus a check. Full rules in the section below. |
 | `sonnet` / `medium` | **The default.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
 | `sonnet` / `high` | Fully specified but intricate: parsers, state machines, numeric code, many edge cases. |
 | `sonnet` / `xhigh` | Fully specified, intricate and wide: interacting edge cases across several files, where `high` is likely to miss one. |
@@ -60,6 +60,28 @@ a cheaper pair that needs retries costs more than the right one.
 If more than about one task in ten is `opus` / `high` or above, the plan is under-specified: settle the
 design decisions during planning and put the answers in the prompts, so workers execute rather than decide.
 
+### `sonnet` / `low`: find-and-replace only
+
+Extremely mechanical work, expressed as one or more literal find-and-replace pairs. For each edit, the
+task's prompt states the exact file, the exact existing text to match (`old_str`), and the exact text
+to replace it with (`new_str`). A single task may contain multiple such pairs across one or a few
+files — do not fragment mechanical work into one task per pair. Each `old_str` must include enough
+surrounding context to match exactly one location in its file; the planner must verify this (e.g. by
+grep) before finalizing the plan, not leave it for the worker to discover.
+
+This tier no longer covers writing a new file from scratch — even fully-known new-file content isn't a
+replacement against existing text, so it belongs to `sonnet` / `medium` or above.
+
+Renames are not a separate case. A rename qualifies for this tier only when the planner has enumerated
+the complete, closed set of reference sites — the file's own path plus every import, config entry,
+build script line, test fixture, etc. that names it — as its own replacement pair, and has confirmed
+(e.g. via a verified grep) that the set is exhaustive. If the planner cannot be confident the set of
+references is closed — dynamically constructed paths, reflection, generated code, string
+interpolation, or a codebase where a plain search might miss variants — the rename is not mechanical:
+it moves to `sonnet` / `medium` or higher, and its `Verify:` step must do more than confirm a build
+passes — it needs a check that would catch a missed reference (e.g. a repo-wide search for the old
+name returning nothing outside comments/history).
+
 ## Writing task prompts
 
 A worker sees only its own prompt and the repository, never this plan or this conversation. It
@@ -68,6 +90,8 @@ gets the project's CLAUDE.md automatically. So each prompt must:
 - Name the files and spec sections to read first, including AGENTS.md or a spec if the project has one.
 - State exact names, signatures, behavior and error handling, and name the tests with their cases. Leave
   no design decisions to the worker.
+- For a `sonnet` / `low` task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
+  describing the changes, followed by the `Verify:` step.
 - Cover one coherent piece of work, roughly one commit, touching a few files.
 - End with a `Verify:` step: a command or check that fails if the task is incomplete, such as a build,
   a named test run or a grep for the expected change.
