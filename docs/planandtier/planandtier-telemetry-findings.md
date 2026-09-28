@@ -69,8 +69,22 @@ An interactive run on 2026-09-28 (15:54, Claude Code 2.1.283, planandtier instal
 - **The commits carried both lines** (`Planandtier-Task:` and `Planandtier-Plan: a71be78eff4fa160`), and each
   attempt's cost was $0.06 to $0.10.
 
+## The fixes, in a live run
+
+A rerun of the same guide at 16:15 with the fixes installed (`b8a88f5`). Evidence:
+`probes/evidence/planandtier-agents-20260928-161554-session-output.txt`, `-telemetry.jsonl` and `-git-log.txt`.
+
+- **Each attempt's line appeared at the next Stop,** as `Stop says: planandtier: T01 on sonnet-low done:
+  121k tokens (74% cache reads), ~$0.10. Run so far: ~$0.10.`, and likewise for T02 and T03. T01's line came
+  with the turn in which Claude dispatched T02, as designed.
+- **The summary appeared once, after T03's line, and its planning row included the rejected round.** Two
+  planning records were written: $0.2669 under the rejected plan's id `2aec8543166cc607`, then $0.0222 under
+  the approved `cf4186f4e2383e8b`. The `run` record followed at approval, and the summary showed planning at
+  ~$0.29 and a total of ~$0.66.
+- **The rest held:** the rejection feedback reached the code (`greet.js` returns `"Howdy, " + name + "!"`),
+  the three tasks ran on `claude-sonnet-5-5` with nothing typed, and each commit carries both lines.
+
 ## Not measured
 
-- The per-attempt line at the next Stop, in a live run. The run guides check it.
 - Opus workers, or a main session using `opusplan`. Pricing is per message model, so a mixed session is
   priced message by message; no transcript here mixed models.

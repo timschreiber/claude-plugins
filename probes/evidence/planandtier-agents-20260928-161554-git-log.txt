@@ -1,0 +1,23 @@
+d9851ff Add node:test tests for greet
+Planandtier-Task: T03
+
+Planandtier-Plan: cf4186f4e2383e8b
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+7ce3f01 Add greet.js exporting greet(name)
+Planandtier-Task: T02
+
+Planandtier-Plan: cf4186f4e2383e8b
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+113aa38 Mark README status as ready
+Planandtier-Task: T01
+
+Planandtier-Plan: cf4186f4e2383e8b
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+0fd5453 init
+
