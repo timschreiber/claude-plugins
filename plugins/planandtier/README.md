@@ -4,8 +4,8 @@ Plan in plan mode, approve, and watch. Each task in the approved plan runs as it
 time, on the model and effort chosen for it during planning, and commits its own work. A task that fails
 is rolled back and retried on a stronger tier.
 
-You use plan mode as you always do. The plugin adds a task list to the end of the plan and runs it after
-you approve. There is nothing to type after approval.
+You use plan mode as you always do, after typing `/planandtier:arm` once in the session. The plugin adds
+a task list to the end of the plan and runs it after you approve. There is nothing to type after approval.
 
 For a project too big for one plan (milestones, parallel work, planned reviews), use
 [Orchestratinator](https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator)
@@ -24,27 +24,33 @@ To try it from a checkout of this repo instead:
 claude --plugin-dir ./plugins/planandtier
 ```
 
+Installing it changes nothing on its own: every session starts unarmed, and an unarmed session plans and
+works exactly as if the plugin were not installed. So it can stay installed everywhere.
+
 Requirements:
 - **Node 20 or later** on the PATH. The hooks are Node scripts.
-- **Git.** A tiered plan runs in a Git repository with a clean working tree: each task is a commit, and a
-  failed attempt is reset to the commit before it.
+- **Git, with a user name and email.** A tiered plan runs in a Git repository with a clean working tree:
+  each task is a commit, and a failed attempt is reset to the commit before it. The repository needs a
+  commit identity (`user.name` and `user.email`, set globally or in the repository), or the plan is refused.
 
 Tested on Claude Code 2.1.283.
 
 ## How to use
 
-1. **Commit or stash your changes.** A tiered plan cannot be approved while the working tree has
+1. **Arm the session: type `/planandtier:arm`.** Claude confirms it in one line. Arming lasts for the
+   session; `/clear` starts a new, unarmed one.
+2. **Commit or stash your changes.** A tiered plan cannot be approved while the working tree has
    uncommitted changes, and Claude tells you if that is the case.
-2. **Start a plan as usual, in plan mode.** The plugin adds its tiering rules to the conversation.
-3. **Claude plans** and ends the plan with a `## Tasks` section holding a `json tiered-tasks` block: one
+3. **Start a plan as usual, in plan mode.** The plugin adds its tiering rules to the conversation.
+4. **Claude plans** and ends the plan with a `## Tasks` section holding a `json tiered-tasks` block: one
    entry per task, each with a model, an effort and a self-contained prompt. If the block is invalid,
    `ExitPlanMode` is denied with the problems listed, and Claude fixes the plan and tries again. You never
    see an invalid plan.
-4. **Read the plan and approve it.** The approval dialog shows a table of the tasks (title, model, effort and
+5. **Read the plan and approve it.** The approval dialog shows a table of the tasks (title, model, effort and
    prompt length) instead of the block, because it cannot show a plan with very long lines. The full prompts
    are in the tasks file the table names, next to the plan (`<plan>.tasks.json`). Open it to read them
    before you approve.
-5. **Watch.** Claude dispatches each task to the agent for its tier. The worker runs in the background and
+6. **Watch.** Claude dispatches each task to the agent for its tier. The worker runs in the background and
    Claude ends its turn; when the worker's report arrives, the plugin gives Claude the next step, so the run
    carries on with nothing typed. The worker does the task, runs its `Verify:` step and, if it passed,
    commits with the task's title and a `Planandtier-Task: T02` trailer. When every task is done, Claude says
@@ -62,9 +68,15 @@ attempt's changes stay in the working tree for you to inspect.
 If you interrupt a run, just say "continue": the plugin tells Claude where the run stands and what to
 dispatch next. The run lasts until the session ends. The tasks that finished are already committed.
 
+### Disarming
+
+Type `/planandtier:disarm` to turn the plugin off for the rest of the session. If a run is in progress, it
+stops: nothing more is dispatched, and Claude tells you which tasks are done and committed and which did
+not run. A worker already running finishes, but its work is not checked or rolled back.
+
 ### Opting out
 
-For a normal, untiered plan, ask for one. Claude then puts the line `Tiered execution: off` in the plan
+In an armed session, for a normal, untiered plan, ask for one. Claude then puts the line `Tiered execution: off` in the plan
 instead of a task block, and nothing about Git is required. Without a task block or that line, the plan
 cannot be approved.
 
@@ -90,14 +102,17 @@ definition. Workers cannot start agents or workflows.
 
 ## How it works
 
+Every hook does nothing in an unarmed session, except H1 handling the arm and disarm commands and H6
+cleaning up.
+
 | Hook | Job |
 |---|---|
-| Rules (H1) | Adds the tiering rules in plan mode. During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
-| Gate (H2) | Denies `ExitPlanMode` until the task block validates and the Git tree is clean, then moves the block to the tasks file and leaves a table |
+| Rules (H1) | Arms and disarms the session when you type the commands. Adds the tiering rules in plan mode. During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
+| Gate (H2) | Denies `ExitPlanMode` until the task block validates and the repository can run it (a commit, a commit identity and a clean tree), then moves the block to the tasks file and leaves a table |
 | Hand-off (H3) | On approval, starts the run and gives Claude the first dispatch |
 | Dispatch (H4) | Lets through only the expected dispatch; when the worker finishes, reads its report, checks its commit, and decides the next dispatch, a retry after a reset, or a stop |
 | Guard (H5) | Blocks main-thread file edits and stopping while a task is due, and gives up after a few blocks |
-| Cleanup (H6) | Deletes the run's state when the session ends |
+| Cleanup (H6) | Deletes the run's state and the arming flag when the session ends |
 
 ## What it does not do
 
@@ -123,7 +138,9 @@ definition. Workers cannot start agents or workflows.
 
 ## Configuration notes
 
-- The run's state lives in `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside your repo. The tasks
+- The run's state lives in `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside your repo, and
+  the arming flag beside it in `<session_id>.armed`. Both are deleted when the session ends, and any left
+  behind are removed after 7 days. The tasks
   file sits next to the plan file in Claude Code's plans directory and is kept as a record of what ran.
   The only changes to your repository are the tasks' own commits.
 - Set `PLANANDTIER_DEBUG=1` to log hook errors and every state change to `planandtier-debug.log` in the

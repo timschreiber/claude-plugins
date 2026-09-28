@@ -18,7 +18,9 @@ cataloged in `.claude-plugin/marketplace.json`:
 - `planandtier`: hooks and seven tier agents (`<model>-<effort>`) that turn an
   approved plan-mode plan into serial subagent execution, each task at the
   model and effort chosen during planning and committed by its worker, with
-  failed attempts reset and retried a tier up. It needs Git and a clean tree.
+  failed attempts reset and retried a tier up. It needs Git (a commit
+  identity and a clean tree). Every hook is silent until the user types
+  `/planandtier:arm` in the session; `/planandtier:disarm` turns it off.
   The hooks are Node scripts under `plugins/planandtier/scripts/`, tested with
   `node --test tests/planandtier/*.test.js` (the tests need `git`).
   The design and the measurements behind it are in `docs/planandtier/`, with

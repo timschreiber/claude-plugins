@@ -11,6 +11,7 @@ Tested on Claude Code 2.1.283 (Windows).
 
 - [What it is](#what-it-is)
 - [Requirements and installation](#requirements-and-installation)
+- [Arming](#arming)
 - [The lifecycle of a plan](#the-lifecycle-of-a-plan)
 - [The task block](#the-task-block)
 - [Model and effort tiers](#model-and-effort-tiers)
@@ -35,7 +36,8 @@ planandtier turns an approved plan-mode plan into serial subagent execution. Eac
 as its own subagent, one at a time, on the model and effort chosen for it while planning, and commits its
 own work.
 
-The user's experience is plain plan mode: plan, approve, watch. The plugin adds four things:
+The plugin is off in every session until the user types `/planandtier:arm` (see [Arming](#arming)). After
+that, the user's experience is plain plan mode: plan, approve, watch. The plugin adds four things:
 
 1. **Tiering rules while planning.** In plan mode, Claude is told to end the plan with a machine-readable
    task list, with a model, an effort and a self-contained prompt for each task.
@@ -70,8 +72,9 @@ run through plugin agents, one per tier, the way
 ## Requirements and installation
 
 - **Node 20 or later** on the `PATH`. Every hook is a Node script.
-- **Git.** A tiered plan must be planned and run in a Git repository that has at least one commit and a
-  clean working tree. An opted-out plan has no such requirement.
+- **Git.** A tiered plan must be planned and run in a Git repository that has at least one commit, a
+  commit identity (`user.name` and `user.email`, from any config level) and a clean working tree. An
+  opted-out plan has no such requirement.
 - For the tested behavior, `CLAUDE_CODE_EFFORT_LEVEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` should be
   unset. Either would override the agents' effort or model.
 
@@ -90,10 +93,44 @@ claude --plugin-dir ./plugins/planandtier
 /reload-plugins
 ```
 
-The plugin's state is one JSON file per session under the plugin's data directory (see
-[Session state](#session-state)). It also writes a tasks file next to each approved plan's file, and
-shortens that plan file (see [The tasks file](#the-tasks-file)). The only changes to the project are the
-tasks' own commits.
+The plugin's state is one JSON file per session under the plugin's data directory, plus an arming flag
+beside it (see [Session state](#session-state)). It also writes a tasks file next to each approved plan's
+file, and shortens that plan file (see [The tasks file](#the-tasks-file)). The only changes to the
+project are the tasks' own commits.
+
+## Arming
+
+Installing the plugin changes nothing on its own. Every session starts **unarmed**, and in an unarmed
+session every hook returns at once without output, so Claude Code behaves as if the plugin were not
+installed. The plugin can therefore stay installed everywhere, and how Claude was launched does not matter.
+
+| Command | Effect |
+|---|---|
+| `/planandtier:arm` | Arms the session: writes `sessions/<session_id>.armed` beside the state file. Typed in plan mode, it also adds the tiering rules at once. |
+| `/planandtier:disarm` | Disarms the session: removes the flag. A `running` or `paused` run is marked `abandoned` with its notice cleared, so nothing more is dispatched; any other state is deleted. |
+
+Both are skills in [`skills/`](../../plugins/planandtier/skills/) with `disable-model-invocation: true`, so
+only the user can run them. **H1 does the work**, not the skill: `UserPromptSubmit` receives the raw typed
+text (measured; see [Evidence](#evidence)), and H1 matches `/planandtier:arm` or `/planandtier:disarm` at
+the start of the prompt. It sets or clears the flag and prints a note starting with `planandtier:`. The
+skill body only tells Claude to report that note in one line, or to say planandtier did not respond if
+there is none. So Claude never claims the session is armed when the hook did not run.
+
+The notes:
+
+| Situation | Note |
+|---|---|
+| Armed | `planandtier: armed for this session.` and what that means, then the rules if in plan mode |
+| Already armed | `planandtier: already armed for this session; nothing changed.` |
+| The flag could not be written | `planandtier: arming failed, …` The session stays unarmed. |
+| Disarmed, no run | `planandtier: disarmed for this session.` |
+| Disarmed during a run | Which tasks are done and committed (with their commits and tiers), which are not, and, if a worker is still running, that it will not be checked or rolled back. Claude is told not to dispatch more tasks. |
+| Not armed | `planandtier: was not armed for this session; nothing changed.` |
+
+A worker still running when the session is disarmed finishes, but H4 no longer judges it: whatever it
+commits or leaves in the working tree stays. The flag lasts for the session: H6 deletes it at
+`SessionEnd`, `/clear` starts a new session id (and so an unarmed session), and flags left behind are
+pruned after 7 days.
 
 ## The lifecycle of a plan
 
@@ -103,6 +140,8 @@ sequenceDiagram
     participant M as Main session
     participant H as Plugin hooks
     participant A as Tier agent
+    U->>M: /planandtier:arm
+    H-->>M: H1 arms the session
     U->>M: Prompt in plan mode
     H-->>M: H1 adds the tiering rules
     M->>M: Explores, writes the plan and its tiered-tasks block
@@ -123,13 +162,14 @@ sequenceDiagram
     H-->>M: All tasks done (or the run stopped)
 ```
 
+0. **Arming.** The user types `/planandtier:arm`. Until then, none of what follows happens.
 1. **Planning.** In plan mode, H1 adds the rules in [`rules/tiering.md`](../../plugins/planandtier/rules/tiering.md)
    to the conversation. Claude plans as usual, including any Explore or Plan research, and ends the plan
    with a `## Tasks` section holding one `json tiered-tasks` block.
 2. **Gate.** When Claude calls `ExitPlanMode`, H2 reads the plan file and validates the block. If it is
    invalid, the call is denied with every problem listed, and Claude fixes the plan file and calls
-   `ExitPlanMode` again. If the directory is not a Git repository or has uncommitted changes, the call is
-   denied and Claude tells the user. Once both are fine, H2 moves the block to the tasks file and puts a
+   `ExitPlanMode` again. If the directory is not a Git repository, has no commit identity or has
+   uncommitted changes, the call is denied and Claude tells the user. Once both are fine, H2 moves the block to the tasks file and puts a
    table of the tasks in its place, because the approval dialog cannot show a plan with very long lines.
 3. **Approval.** The user reads the plan, with the table, and approves it. The prompts are in the tasks
    file the table names. A rejected plan triggers nothing: Claude revises it and offers it again.
@@ -139,7 +179,7 @@ sequenceDiagram
    background, so Claude ends its turn. The worker does its task and commits. When it stops, H4 checks the
    result and moves the run on, and when the worker's report arrives, H1 gives Claude the next call: the
    next task, a retry one tier up after a reset, or the end of the run. See [The run](#the-run).
-6. **Session end.** H6 deletes the session's state file.
+6. **Session end.** H6 deletes the session's state file and its arming flag.
 
 ## The task block
 
@@ -383,8 +423,22 @@ Every hook ignores calls made by subagents (any input with an `agent_id`), so wo
 never gated, guarded or given the rules. H4's `stop` mode is the exception: `SubagentStop` comes from the
 subagent itself.
 
+**Every hook is gated on arming.** Unless the session's flag exists, each hook returns without output:
+
+| Hook | In an unarmed session |
+|---|---|
+| H1 | Handles `/planandtier:arm` and `/planandtier:disarm` only. No rules, no `enter` output, no run notes. |
+| H2 | Silent: every plan goes to the dialog unchanged. |
+| H3 | Silent: nothing is saved. |
+| H4 | Silent in every mode, even for `planandtier:*` agents. `SubagentStop`'s `session_id` is the main session's, so a worker still running at a disarm is not judged. |
+| H5 | Silent. |
+| H6 | Still deletes the session's state and flag at `SessionEnd`. |
+
 ### H1: rules
 
+- On `UserPromptSubmit`, a prompt that starts with `/planandtier:arm` or `/planandtier:disarm` arms or
+  disarms the session and prints the note (see [Arming](#arming)). This is the only thing H1 does in an
+  unarmed session. Everything below needs the session armed.
 - On `UserPromptSubmit` in plan mode, it prints the text of `rules/tiering.md`, which Claude Code adds as
   context. It fires on every prompt submitted in plan mode.
 - On `PostToolUse` for `EnterPlanMode`, it returns the rules as `additionalContext`. This covers Claude
@@ -406,8 +460,10 @@ Runs before every main-thread `ExitPlanMode` call.
    back to `tool_input.plan`. The file comes first because `tool_input.plan` is whatever Claude sent and
    was measured to be stale after a retry.
 2. Parses it with `resolvePlan()`. The opt-out line passes silently.
-3. For a valid tiered plan, checks the Git working directory (`cwd`): it must be inside a repository that
-   has a commit, with no uncommitted changes (`git status --porcelain` empty; ignored files do not count).
+3. For a valid tiered plan, checks the Git working directory (`cwd`) with `git.problem()`: it must be
+   inside a repository that has a commit and a commit identity (`git var GIT_COMMITTER_IDENT` succeeds),
+   with no uncommitted changes (`git status --porcelain` empty; ignored files do not count). Without an
+   identity every worker's commit would fail and use up its retries, so the plan is refused up front.
    Otherwise it denies, names the problem, and tells Claude not to call `ExitPlanMode` again until the user
    has fixed it. These denials are never passed through and do not count toward the cap.
 4. A valid plan read from the plan file then has its block moved to the tasks file (see
@@ -493,7 +549,7 @@ is in flight.
 
 ### H6: cleanup
 
-On `SessionEnd` it deletes the session's state file. A run does not outlive its session; the tasks that
+On `SessionEnd` it deletes the session's state file and its arming flag. A run does not outlive its session; the tasks that
 finished are already committed.
 
 ## The run
@@ -573,13 +629,16 @@ Earlier tasks' commits are kept, because the recorded HEAD is after them.
 ### Continuing and stopping
 
 If the user interrupts the run, the state stays `running`. On the user's next message, H1 tells Claude
-where the run stands and gives the next dispatch, so "continue" resumes it at the task that was due. If the
-user wants to stop, Claude does not dispatch, and H5 steps aside after a few blocks.
+where the run stands and gives the next dispatch, so "continue" resumes it at the task that was due. To
+stop it, the user types `/planandtier:disarm`: the run is marked `abandoned` and Claude is told what is
+done and what is not (see [Arming](#arming)). If the user just asks Claude to stop, Claude does not
+dispatch, and H5 steps aside after a few blocks.
 
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
-If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
+The arming flag is a separate file beside it, `<session_id>.armed` (its content is the time it was armed),
+so the run state's own removals never disarm the session. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
 Code sets `CLAUDE_PLUGIN_DATA` itself, to `~/.claude/plugins/data/planandtier-inline`.
 
 During a run the file looks like this:
@@ -623,7 +682,8 @@ stateDiagram-v2
     running --> running: H4, next task or retry
     running --> complete: H4, last task done
     running --> halted: H4, retries used up or a fatal problem
-    running --> abandoned: H5, guard gives up
+    running --> abandoned: H5, guard gives up; H1, disarmed
+    paused --> abandoned: H1, disarmed
     running --> [*]: H6 session end
     complete --> [*]: H6 session end
     halted --> [*]: H6 session end
@@ -632,17 +692,18 @@ stateDiagram-v2
 
 | Phase | Set by | Meaning | Guards | Dispatches accepted |
 |---|---|---|---|---|
-| (no file) | H3 opt-out or invalid, H6 end | Idle. | Off | No |
+| (no file) | H3 opt-out or invalid, H1 disarm outside a run, H6 end | Idle. | Off | No |
 | `planning` | H2, on a denial with no earlier state | Holds only the denial count. | Off | No |
 | `paused` | H3 | Approved, waiting for a clean tree. | Off | No |
 | `running` | H3; H1 for a paused run | Tasks in progress. | **On** while no task is in flight | Only the expected one |
 | `complete` | H4 | Every task committed. | Off | No |
 | `halted` | H4 | Stopped at a task; see `halt`. | Off | No |
-| `abandoned` | H5, after giving up | Claude stopped dispatching. | Off | No |
+| `abandoned` | H5, after giving up; H1, on a disarm | Claude stopped dispatching, or the user disarmed. | Off | No |
 
 Approving a new plan replaces the state. State writes are atomic (a temp file, then a rename). Session ids
 are reduced to letters, digits, `_` and `-` before being used as file names. A corrupt or unreadable file
-reads as no state. Each approval prunes session and temp files not modified in 7 days.
+reads as no state. Each approval and each arming prunes session files, flags and temp files not modified in
+7 days.
 
 ## The tier agents
 
@@ -680,7 +741,8 @@ Rules every hook follows, enforced by [`lib/hook.js`](../../plugins/planandtier/
 
 - **Never fail loudly.** Every error, including an uncaught exception or unhandled rejection, is swallowed
   and the exit code stays 0. Empty, malformed or non-object stdin produces no output.
-- **Degrade to ordinary Claude Code.** If the state cannot be read, a hook does nothing. If it cannot be
+- **Degrade to ordinary Claude Code.** In an unarmed session every hook does nothing (H1 still handles
+  the arm and disarm commands). If the state cannot be read, a hook does nothing. If it cannot be
   written at approval, H3 tells Claude to implement the plan normally.
 - **Never grant permission.** No hook sets `permissionDecision: "allow"`.
 - **Never block forever.** H2 gives up after three denials of an invalid plan, H5's `pre` after three, and
@@ -699,6 +761,8 @@ How the plugin behaves when something goes wrong:
 |---|---|
 | Claude cannot produce a valid block in three tries | The fourth `ExitPlanMode` passes; H3 tells Claude to implement the plan normally and tell the user. |
 | The working tree is dirty or not a Git repository when the plan is submitted | H2 denies, and Claude tells the user to commit or stash. |
+| Git has no user name and email for the repository | H2 denies, and Claude tells the user to set `user.name` and `user.email`. |
+| The user disarms during a run | The run is marked `abandoned`; Claude is told what is done and what is not. A worker in flight finishes unjudged. |
 | The tree becomes dirty between submission and approval | The run is saved as `paused` and starts on the user's next message once the tree is clean. |
 | The tree is dirty, or the branch changed, at a dispatch | The run halts before the task starts. |
 | A task fails | It is reset and retried one tier up, twice at most, then the run halts with the last attempt left in place. |
@@ -740,7 +804,8 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 | Tasks file hash | First 16 hex characters of sha256 | `lib/sidecar.js` |
 | H2 denial cap | 3 | `h2-gate-exit-plan.js` |
 | H5 tool-denial cap | 3 | `h5-guard.js` |
-| State pruning age | 7 days | `h3-post-approval.js` |
+| State pruning age | 7 days | `h3-post-approval.js`, `h1-plan-rules.js` |
+| Arm and disarm commands | `/planandtier:arm`, `/planandtier:disarm`, at the start of the prompt | `h1-plan-rules.js` `COMMAND` |
 
 ## Plugin layout
 
@@ -751,6 +816,8 @@ plugins/planandtier/
   agents/<model>-<effort>.md     # the seven tier agents, one shared body
   hooks/hooks.json               # H1-H6 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
+  skills/arm/SKILL.md            # /planandtier:arm (user-only; H1 does the arming)
+  skills/disarm/SKILL.md         # /planandtier:disarm (user-only; H1 does the disarming)
   scripts/
     h1-plan-rules.js
     h2-gate-exit-plan.js
@@ -762,7 +829,7 @@ plugins/planandtier/
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
     lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
     lib/sidecar.js               # the tasks file: move the block, load and check it
-    lib/state.js                 # per-session state file: read, atomic write, remove, prune
+    lib/state.js                 # per-session state file and arming flag: read, atomic write, remove, arm, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
 ```
 
@@ -786,22 +853,22 @@ file and fails.
 |---|---|
 | `tests/planandtier/tasks.test.js` | Every validation rule, the allowed and rejected tiers, the tier ladder, fence handling (nested, tilde, CRLF, other info strings), the opt-out line, multiple blocks, invalid JSON, collecting all errors, key stripping; the generated table, finding and rejecting sections, and replacing a block while keeping CRLF or LF. |
 | `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block, and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited. |
-| `tests/planandtier/git.test.js` | The repository and clean-tree check, HEAD and branch, commits since a base, pushed commits (with a bare remote), and the reset. |
+| `tests/planandtier/git.test.js` | The repository, commit identity and clean-tree check, HEAD and branch, commits since a base, pushed commits (with a bare remote), and the reset. |
 | `tests/planandtier/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt, and moving on: next, complete, retry up the ladder, halt. |
 | `tests/planandtier/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
-| `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: the gate and its Git checks, the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, and the arming flag. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming and disarming, every hook silent when unarmed, disarming mid-run, the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
-To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, enter plan mode in a
-clean repository, and ask for a small multi-step change.
+To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, type
+`/planandtier:arm`, enter plan mode in a clean repository, and ask for a small multi-step change.
 
 ## Limitations and non-goals
 
 - **Serial only.** Tasks run one at a time. Parallel execution is a non-goal.
 - **No pauses between tasks.** There are no per-task approval gates.
 - **No pushing.** Each task is a local commit on the current branch.
-- **Git required.** A tiered plan needs a Git repository with a clean working tree.
+- **Git required.** A tiered plan needs a Git repository with a commit identity and a clean working tree.
 - **Only what `Verify:` checks is checked.** A worker commits when its verify step passes; work the step does
   not cover is not caught.
 - **Workers see only their prompt**, not the plan or the conversation. A vague prompt gives a vague result.
@@ -814,8 +881,9 @@ clean repository, and ask for a small multi-step change.
 - **The user approves a table, not the prompts.** The dialog cannot show very long lines, so the prompts
   are in the tasks file, which the user has to open to read.
 - **Tasks files are kept.** One is written next to each plan file that passes H2, and none is deleted.
-- **Always on.** In every session with the plugin enabled, plan mode gets the tiering rules and
-  `ExitPlanMode` is gated. Use the opt-out line for an ordinary plan.
+- **Armed per session.** Arming does not carry over to a new session, a `/clear` or a resumed session;
+  type `/planandtier:arm` again. In an armed session, plan mode gets the tiering rules and `ExitPlanMode`
+  is gated; use the opt-out line for an ordinary plan, or disarm.
 - **Rules on every plan-mode prompt.** H1 adds the rules text each time a prompt is submitted in plan mode,
   which costs context in a long planning conversation.
 
@@ -823,9 +891,11 @@ clean repository, and ask for a small multi-step change.
 
 | Symptom | Likely cause and fix |
 |---|---|
-| Plan mode behaves as if the plugin were absent | Node is not on the `PATH`, or the plugin is not enabled. Check `node --version` and `/plugin`. Set `PLANANDTIER_DEBUG=1` and look at `planandtier-debug.log` in the temp directory. |
+| Plan mode behaves as if the plugin were absent | The session is not armed: type `/planandtier:arm`. If Claude says planandtier did not respond, Node is not on the `PATH` or the plugin is not enabled. Check `node --version` and `/plugin`. Set `PLANANDTIER_DEBUG=1` and look at `planandtier-debug.log` in the temp directory. |
+| `/planandtier:arm` is not recognized | The plugin is not installed or not enabled in this session. Check `/plugin`. |
 | `ExitPlanMode` keeps being denied for the task block | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
 | `ExitPlanMode` is denied because of the working tree | Commit or stash your changes, or make sure you are in a Git repository with at least one commit. |
+| `ExitPlanMode` is denied because Git has no user name and email | Set them, globally (`git config --global user.name …`) or for the repository. |
 | The dialog says the plan is too large to be shown in full | A line in the plan is too long for the dialog. If the plan still has its task block, H2 could not rewrite the plan file; `PLANANDTIER_DEBUG=1` logs that. If the long line is in the prose, ask Claude to wrap it. |
 | After approval Claude says the tasks could not be loaded | The tasks file or the table was changed after the table was written. Plan again. |
 | After approval Claude says the run cannot start | The tree became dirty after the plan was submitted. Commit or stash, then send any message. |
@@ -843,6 +913,7 @@ their findings about plan mode, hooks and the dialog still apply.
 
 | Claim | Document | Evidence |
 |---|---|---|
+| A typed plugin skill command reaches `UserPromptSubmit` as the raw text (for example `/planandtier-agent-probe:arm`), the namespaced name resolves, and a `disable-model-invocation` skill's body still reaches the model | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#arming-what-a-typed-skill-command-looks-like-to-a-hook) | `planandtier-arm-probe.log`, `planandtier-arm-probe-results.json` |
 | Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; the Opus effort steps above `high` add little | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28) |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log`, `planandtier-agents-probe.log`, `planandtier-agents-debug.log`, `planandtier-agents-rerun-probe.log`, `planandtier-agents-rerun-debug.log` |
 | The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
@@ -862,7 +933,8 @@ and confirmed in a live rerun. The probe plugins and their scripts are in
 
 ## Planned changes
 
-[`planandtier-opt-in-draft-plan.md`](planandtier-opt-in-draft-plan.md) is a draft, not implemented, for
-making the plugin opt-in per session (`/planandtier` to arm, `/planandtier:stop` to disarm) and for
-running a saved plan named in a prompt. It was written for the workflow design and needs revising. Nothing
-in it is decided until its evidence phase has run. This document describes the plugin as it is now.
+[`planandtier-opt-in-draft-plan.md`](planandtier-opt-in-draft-plan.md) was a draft for making the plugin
+opt-in per session and for running a saved plan named in a prompt. Its opt-in part is implemented, as
+`/planandtier:arm` and `/planandtier:disarm` (see [Arming](#arming)). Its saved-plan and workflow parts
+were written for the earlier workflow design and are not planned. This document describes the plugin as it
+is now.

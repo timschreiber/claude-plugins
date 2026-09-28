@@ -42,7 +42,7 @@
       "name": "planandtier",
       "displayName": "Plan and Tier",
       "source": "./plugins/planandtier",
-      "description": "Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, one at a time, on the model and effort chosen for it during planning, and commits its own work. A failed task is rolled back and retried a tier up. Needs Git.",
+      "description": "Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, one at a time, on the model and effort chosen for it during planning, and commits its own work. A failed task is rolled back and retried a tier up. Off until you type /planandtier:arm in a session. Needs Git.",
       "author": {
         "name": "Tim Schreiber"
       },

@@ -7,7 +7,7 @@ Claude Code plugins by Tim Schreiber.
 | Plugin | What it does |
 |---|---|
 | [denoizinator-net](plugins/denoizinator-net/README.md) | Strip the noise. Keep the signal. Keeps low-value MSBuild and test output out of Claude's context, so more of the context window stays available for actual work. |
-| [planandtier](plugins/planandtier/README.md) | Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, one at a time, on the model and effort chosen for it during planning. Orchestration runs as code in a saved workflow, not as model turns. |
+| [planandtier](plugins/planandtier/README.md) | Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, one at a time, on the model and effort chosen for it during planning, and commits its own work; a failed task is rolled back and retried a tier up. Off until you type `/planandtier:arm` in a session. Needs Git. |
 
 Each plugin's README covers installation, usage, what it does and doesn't
 do, and known limitations.
