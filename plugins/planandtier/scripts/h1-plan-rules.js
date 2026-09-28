@@ -1,11 +1,17 @@
 // H1: put the tiering rules in front of the planner, and a run in progress in front of Claude.
-//   (no arg)  UserPromptSubmit: in plan mode, print the rules as added context. Outside plan mode:
+//   (no arg)  UserPromptSubmit: in plan mode, print the rules as added context, once per plan-mode stint:
+//             on the first prompt the user types there, unless the rules were already shown (on arming in
+//             plan mode, or on EnterPlanMode). A <task-notification> or <agent-message> prompt never shows
+//             them. A prompt outside plan mode clears the "shown" marker, so the next stint shows them
+//             again. Outside plan mode:
 //             - if H4 left a notice (a background worker finished, and its report is arriving as a
 //               prompt), print it: that is how the run moves on to its next step with nothing typed;
 //             - otherwise, for a prompt the user typed while a run is in progress, print where it
 //               stands and the next exact dispatch, so "continue" resumes it after an interruption;
 //             - a paused run (its tree was dirty at approval) starts here once the tree is clean.
 //   enter     PostToolUse EnterPlanMode: the model entered plan mode itself, so add the rules then.
+//   compact   PreCompact: the rules are about to fall out of context, so clear the marker; the next plan-mode
+//             prompt shows them again. Disarming clears it too.
 // All of that happens only in an armed session. The one thing H1 does unarmed is handle the typed
 // commands: /planandtier:arm and /planandtier:disarm, which set and clear the session's flag, and
 // /planandtier:execute-plan, which picks a saved plan up again (lib/execute.js).
@@ -101,7 +107,11 @@ function armNote(input) {
     ? 'planandtier: already armed for this session; nothing changed.'
     : 'planandtier: armed for this session. A plan made in plan mode is now split into tiered tasks, and ' +
       'approving it runs each task in its own subagent at its model and effort. /planandtier:disarm turns it off.'
-  if (input.permission_mode === 'plan') return emitText(`${note}\n\n${rules()}`)
+  if (input.permission_mode === 'plan') {
+    emitText(`${note}\n\n${rules()}`)
+    state.markRulesShown(id)
+    return
+  }
   // Planning happens in plan mode, so arming takes the session there. No hook can set the mode here (only
   // a PermissionRequest hook can), so Claude is asked to; H1's `enter` mode then adds the rules. Never
   // during a run: its workers inherit the mode and could not edit anything in plan mode.
@@ -155,6 +165,7 @@ function disarmNote(input) {
 run(async () => {
   const input = await readInput()
   if (!input || input.agent_id) return
+  if (process.argv[2] === 'compact') return state.clearRulesShown(input.session_id)
   const enter = process.argv[2] === 'enter'
 
   const typed = enter ? null : COMMAND.exec(String(input.prompt ?? ''))
@@ -166,9 +177,13 @@ run(async () => {
 
   if (enter) {
     emit({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: rules() } })
+    state.markRulesShown(input.session_id)
   } else if (input.permission_mode === 'plan') {
+    if (fromHarness(input.prompt) || state.rulesShown(input.session_id)) return
     emitText(rules())
+    state.markRulesShown(input.session_id)
   } else {
+    state.clearRulesShown(input.session_id)
     runNote(input)
   }
 })

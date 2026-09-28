@@ -112,18 +112,62 @@ const approvedState = (over = {}) => ({ phase: 'approved', tasks: [task(1), task
 
 // ---- H1 ----------------------------------------------------------------------------
 
-test('H1 prints the rules on a plan-mode prompt and nothing otherwise', () => {
-  const plan = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'plan', prompt: 'x' })
-  assert.equal(plan.status, 0)
-  assert.equal(plan.stdout, RULES)
+const planPrompt = prompt => hook('h1-plan-rules.js', { session_id: S, permission_mode: 'plan', prompt }).stdout
+
+test('H1 prints the rules on the first plan-mode prompt only', () => {
+  const first = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'plan', prompt: 'x' })
+  assert.equal(first.status, 0)
+  assert.equal(first.stdout, RULES)
+  assert.equal(planPrompt('y'), '')
+})
+
+test('H1 prints nothing outside plan mode when there is no run', () => {
   for (const mode of ['default', 'auto', 'acceptEdits', undefined]) {
     assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: mode }).stdout, '')
   }
 })
 
-test('H1 enter mode returns the rules as PostToolUse additionalContext', () => {
+test('H1 does not show the rules for harness prompts, and shows them on the next user prompt', () => {
+  assert.equal(planPrompt('<task-notification>x</task-notification>'), '')
+  assert.equal(planPrompt('<agent-message from="x">r</agent-message>'), '')
+  assert.equal(state.rulesShown(S), false)
+  assert.equal(planPrompt('x'), RULES)
+  assert.equal(planPrompt('<task-notification>x</task-notification>'), '')
+})
+
+test('H1 shows the rules again after a prompt outside plan mode', () => {
+  assert.equal(planPrompt('x'), RULES)
+  assert.equal(planPrompt('y'), '')
+  hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'z' })
+  assert.equal(state.rulesShown(S), false)
+  assert.equal(planPrompt('x'), RULES)
+})
+
+test('H1 compact mode clears the marker so the next plan-mode prompt shows the rules again', () => {
+  assert.equal(planPrompt('x'), RULES)
+  assert.equal(planPrompt('y'), '')
+  const r = hook('h1-plan-rules.js', { session_id: S }, ['compact'])
+  assert.equal(r.status, 0)
+  assert.equal(r.stdout, '')
+  assert.equal(state.rulesShown(S), false)
+  assert.equal(planPrompt('x'), RULES)
+})
+
+test('H1 enter mode returns the rules as PostToolUse additionalContext, always, and marks them shown', () => {
   const r = hook('h1-plan-rules.js', { session_id: S, tool_name: 'EnterPlanMode' }, ['enter'])
   assert.deepEqual(r.json, { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: RULES } })
+  assert.equal(state.rulesShown(S), true)
+  assert.equal(planPrompt('x'), '')
+  const again = hook('h1-plan-rules.js', { session_id: S, tool_name: 'EnterPlanMode' }, ['enter'])
+  assert.deepEqual(again.json, { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: RULES } })
+})
+
+test('H1 shows the rules again after disarming and arming', () => {
+  assert.equal(planPrompt('x'), RULES)
+  state.disarm(S)
+  assert.equal(state.rulesShown(S), false)
+  state.arm(S)
+  assert.equal(planPrompt('x'), RULES)
 })
 
 test('H1 stays silent for subagents', () => {
@@ -854,6 +898,7 @@ test('H1 reminds Claude of a run in progress outside plan mode, but not for repo
   for (const prompt of ['<agent-message from="x">report</agent-message>', '<task-notification>x</task-notification>']) {
     assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt }).stdout, '')
   }
+  state.clearRulesShown(S)
   assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'plan', prompt: 'x' }).stdout, RULES)
 })
 
@@ -1503,6 +1548,7 @@ test('a halted run gets its summary too, and an unarmed session writes no teleme
 const HOOKS = [
   ['h1-plan-rules.js', []],
   ['h1-plan-rules.js', ['enter']],
+  ['h1-plan-rules.js', ['compact']],
   ['h2-gate-exit-plan.js', []],
   ['h3-post-approval.js', []],
   ['h4-dispatch.js', ['pre']],
@@ -1543,7 +1589,7 @@ test('every hook exits 0 when the data directory is unwritable', () => {
 test('hooks.json is valid, every command names a script that exists, and Agent events go to H4', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 11)
+  assert.equal(commands.length, 12)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)

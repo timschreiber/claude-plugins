@@ -69,6 +69,13 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h1-plan-rules.js\" compact", "timeout": 15 }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

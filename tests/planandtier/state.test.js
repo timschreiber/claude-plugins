@@ -133,6 +133,36 @@ test('arming starts the telemetry cursor, setCursor moves it, and disarming remo
   assert.equal(state.setCursor('', 'x'), false)
 })
 
+test('the rules marker is set, read and cleared apart from the flag, and disarming removes it', () => {
+  assert.equal(state.rulesShown('s1'), false)
+  assert.equal(state.markRulesShown('s1'), true)
+  assert.equal(state.rulesShown('s1'), true)
+  assert.ok(fs.existsSync(path.join(dir, 'sessions', 's1.rules')))
+  assert.equal(state.isArmed('s1'), false, 'the marker is not the flag')
+  state.clearRulesShown('s1')
+  assert.equal(state.rulesShown('s1'), false)
+  state.clearRulesShown('s1')
+  state.arm('s1')
+  state.markRulesShown('s1')
+  state.disarm('s1')
+  assert.equal(state.rulesShown('s1'), false)
+  assert.equal(fs.existsSync(path.join(dir, 'sessions', 's1.rules')), false)
+  for (const id of [undefined, null, '', '///']) {
+    assert.equal(state.markRulesShown(id), false)
+    assert.equal(state.rulesShown(id), false)
+  }
+})
+
+test('prune removes old rules markers too', () => {
+  state.markRulesShown('old')
+  state.markRulesShown('new')
+  const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+  fs.utimesSync(path.join(dir, 'sessions', 'old.rules'), past, past)
+  state.prune(7)
+  assert.equal(state.rulesShown('old'), false)
+  assert.equal(state.rulesShown('new'), true)
+})
+
 test('prune removes old cursors and fallback telemetry files too', () => {
   state.setCursor('old', '2026-09-01T00:00:00.000Z')
   const telemetry = path.join(dir, 'sessions', 'old.telemetry.jsonl')

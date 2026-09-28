@@ -1,5 +1,6 @@
 // Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the arming flag beside
-// it, <session_id>.armed, which the run state's own removals leave alone. Every function
+// it, <session_id>.armed, which the run state's own removals leave alone, and the rules marker,
+// <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint). Every function
 // swallows filesystem errors and returns a "nothing happened" value, because a hook must
 // never fail loudly.
 'use strict'
@@ -92,6 +93,38 @@ function setCursor(sessionId, time) {
   }
 }
 
+// The rules marker: present once H1 has shown the tiering rules in the current plan-mode stint, so they are
+// not shown again on every prompt. Cleared by a prompt outside plan mode, by PreCompact and by disarming.
+const rulesFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.rules') ?? null
+
+function rulesShown(sessionId) {
+  try {
+    const file = rulesFor(sessionId)
+    return !!file && fs.existsSync(file)
+  } catch {
+    return false
+  }
+}
+
+function markRulesShown(sessionId) {
+  try {
+    const file = rulesFor(sessionId)
+    if (!file) return false
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+    fs.writeFileSync(file, new Date().toISOString())
+    return true
+  } catch {
+    return false
+  }
+}
+
+function clearRulesShown(sessionId) {
+  try {
+    const file = rulesFor(sessionId)
+    if (file) fs.rmSync(file, { force: true })
+  } catch {}
+}
+
 // The plans /planandtier:execute-plan last listed in this session, in order, so a number from that list
 // can pick one. Removed at SessionEnd.
 const listingFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.listing.json') ?? null
@@ -140,25 +173,27 @@ function arm(sessionId) {
   }
 }
 
-// Removes the flag and the telemetry cursor.
+// Removes the flag, the telemetry cursor and the rules marker.
 function disarm(sessionId) {
   try {
     const flag = flagFor(sessionId)
     if (flag) fs.rmSync(flag, { force: true })
     const cursorFile = cursorFor(sessionId)
     if (cursorFile) fs.rmSync(cursorFile, { force: true })
+    const rulesFile = rulesFor(sessionId)
+    if (rulesFile) fs.rmSync(rulesFile, { force: true })
     if (flag) debug(`state ${path.basename(flag, '.armed')}: disarmed`)
   } catch {}
 }
 
-// Deletes session files (state, arming flags, cursors, fallback tasks and telemetry files, and leftover
+// Deletes session files (state, arming flags, cursors, rules markers, fallback tasks and telemetry files, and leftover
 // temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.armed', '.cursor'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.armed', '.cursor', '.rules'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
@@ -178,5 +213,8 @@ module.exports = {
   saveListing,
   readListing,
   clearListing,
+  rulesShown,
+  markRulesShown,
+  clearRulesShown,
   prune,
 }
