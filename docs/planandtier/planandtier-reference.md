@@ -5,8 +5,7 @@ quick start is the plugin's own [README](../../plugins/planandtier/README.md). T
 [`planandtier-spike-spec.md`](planandtier-spike-spec.md), and the measurements behind the design are in
 the findings docs listed under [Evidence](#evidence).
 
-Tested on Claude Code 2.1.283 (Windows). Workflows are a research preview, so behavior described here
-can change between Claude Code versions.
+Tested on Claude Code 2.1.283 (Windows).
 
 ## Contents
 
@@ -17,10 +16,9 @@ can change between Claude Code versions.
 - [Model and effort tiers](#model-and-effort-tiers)
 - [Opting out of tiering](#opting-out-of-tiering)
 - [The hooks](#the-hooks)
+- [The run](#the-run)
 - [Session state](#session-state)
-- [The execute-plan workflow](#the-execute-plan-workflow)
-- [The worker agent](#the-worker-agent)
-- [Relaunching a plan](#relaunching-a-plan)
+- [The tier agents](#the-tier-agents)
 - [Permission modes](#permission-modes)
 - [Failure handling and safety rules](#failure-handling-and-safety-rules)
 - [Configuration and environment](#configuration-and-environment)
@@ -34,33 +32,48 @@ can change between Claude Code versions.
 ## What it is
 
 planandtier turns an approved plan-mode plan into serial subagent execution. Each task in the plan runs
-as its own subagent, one at a time, on the model and effort chosen for it while planning.
+as its own subagent, one at a time, on the model and effort chosen for it while planning, and commits its
+own work.
 
-The user's experience is plain plan mode: plan, approve, watch. The plugin adds three things:
+The user's experience is plain plan mode: plan, approve, watch. The plugin adds four things:
 
 1. **Tiering rules while planning.** In plan mode, Claude is told to end the plan with a machine-readable
    task list, with a model, an effort and a self-contained prompt for each task.
-2. **A gate on approval.** A plan whose task list is missing or invalid cannot be approved. Claude sees
-   the problems, fixes the plan file and tries again, so the user never sees an invalid plan.
-3. **Automatic hand-off.** After approval, the tasks are saved and Claude is told to launch a saved
-   workflow. The workflow runs the tasks in order and stops at the first failure. Nothing is typed after
-   approval.
+2. **A gate on approval.** A plan whose task list is missing or invalid, or that is planned in a dirty
+   Git working tree, cannot be approved. Claude sees the problems and fixes them (or tells the user), so
+   the user never sees a plan that cannot run.
+3. **Automatic hand-off.** After approval, Claude is given the exact Agent call for each task in turn and
+   dispatches it. Hooks refuse any other dispatch. Nothing is typed after approval.
+4. **Commits and retries.** Each task is one commit. A failed attempt is reset to the commit before it and
+   retried one tier up, twice at most, and then the run stops.
 
 ### Design goals
 
 | Goal | How it is met |
 |---|---|
 | **Seamless** | Built-in plan mode is unchanged; hooks do the hand-off. No command to type after approval. |
-| **Cheap** | Orchestration runs as JavaScript in a saved workflow, not as model turns, and each task runs on the cheapest model and effort expected to succeed first time. |
-| **Deterministic** | Task order, model, effort and prompt come from the tasks file named in the approved plan, checked against its hash and parsed by one library. No model recalls or retypes the tasks. |
-| **Built-in first** | Plan mode, its Explore and Plan subagents, `ExitPlanMode` approval and the workflow runtime are all Claude Code's own. |
+| **Cheap** | Each task runs on the cheapest tier expected to succeed first time. Orchestration costs one short Agent call and one short report per task attempt in the main session. |
+| **Deterministic** | Task order, tier and prompt come from the tasks file named in the approved plan, checked against its hash. Workers read their prompt from that file; no model recalls or retypes a task. Hooks check every dispatch and every result. |
+| **Recoverable** | Every finished task is a commit with a `Planandtier-Task:` trailer, and a failed attempt is reset to the commit before it. |
+| **Built-in first** | Plan mode, `ExitPlanMode` approval, the Agent tool and plugin agents are all Claude Code's own. |
+
+### Why not a workflow
+
+Earlier versions ran the tasks in a dynamic workflow. Claude Code shows every workflow agent the user's
+latest typed prompt as a request that overrides its task, and plan-dialog feedback is never relayed, so a
+task changed through that feedback was refused. Subagents started with the Agent tool get no such
+frame, and hooks can check each dispatch and read each report
+([`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md)). So the tasks now
+run through plugin agents, one per tier, the way
+[Orchestratinator](../../plugins/orchestratinator/README.md) runs its workers.
 
 ## Requirements and installation
 
 - **Node 20 or later** on the `PATH`. Every hook is a Node script.
-- **Dynamic workflows enabled** in `/config`.
+- **Git.** A tiered plan must be planned and run in a Git repository that has at least one commit and a
+  clean working tree. An opted-out plan has no such requirement.
 - For the tested behavior, `CLAUDE_CODE_EFFORT_LEVEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` should be
-  unset. Either would override the per-task effort or model.
+  unset. Either would override the agents' effort or model.
 
 Install from the marketplace:
 
@@ -77,9 +90,10 @@ claude --plugin-dir ./plugins/planandtier
 /reload-plugins
 ```
 
-The plugin writes nothing into the project. Its state is one JSON file per session under the plugin's
-data directory (see [Session state](#session-state)). It also writes a tasks file next to each approved
-plan's file, and shortens that plan file (see [The tasks file](#the-tasks-file)).
+The plugin's state is one JSON file per session under the plugin's data directory (see
+[Session state](#session-state)). It also writes a tasks file next to each approved plan's file, and
+shortens that plan file (see [The tasks file](#the-tasks-file)). The only changes to the project are the
+tasks' own commits.
 
 ## The lifecycle of a plan
 
@@ -88,48 +102,41 @@ sequenceDiagram
     actor U as User
     participant M as Main session
     participant H as Plugin hooks
-    participant W as Workflow runtime
-    participant A as Worker subagents
+    participant A as Tier agent
     U->>M: Prompt in plan mode
     H-->>M: H1 adds the tiering rules
     M->>M: Explores, writes the plan and its tiered-tasks block
     M->>H: ExitPlanMode
-    H-->>M: H2 validates the block (deny with reasons if invalid)
+    H-->>M: H2 checks the block and the Git tree (deny with reasons)
     H-->>H: H2 moves the block to the tasks file, leaves a table
     U->>M: Approves the plan (with the table)
-    H-->>H: H3 loads the tasks file, saves the tasks to the state file
-    H-->>M: H3 tells the model to launch the workflow
-    Note over H,M: H5 blocks edits, shell commands and stopping until launch
-    M->>H: Workflow(name: "planandtier:execute-plan")
-    H-->>W: H4 replaces args with the saved tasks
-    H-->>H: H6 marks the state launched once the workflow starts
+    H-->>M: H3 starts the run and gives the first dispatch
     loop Each task, in order
-        W->>A: agent(prompt, model, effort, agentType: planandtier:worker)
-        A-->>W: {status, summary, filesChanged}
+        M->>H: Agent(planandtier:<tier>, pointer prompt)
+        H-->>H: H4 pre checks the dispatch, records HEAD
+        H->>A: The worker reads its task, does it, runs Verify, commits
+        A-->>H: SubagentStop: H4 records the report
+        H-->>M: H4 post checks the commit; next task, retry after a reset, or stop
     end
-    W-->>M: complete, or halted at the first failed task
+    H-->>M: All tasks done (or the run stopped)
 ```
 
 1. **Planning.** In plan mode, H1 adds the rules in [`rules/tiering.md`](../../plugins/planandtier/rules/tiering.md)
    to the conversation. Claude plans as usual, including any Explore or Plan research, and ends the plan
    with a `## Tasks` section holding one `json tiered-tasks` block.
 2. **Gate.** When Claude calls `ExitPlanMode`, H2 reads the plan file and validates the block. If it is
-   invalid, the call is denied with every problem listed. Claude edits the plan file and calls
-   `ExitPlanMode` again. The user sees one plan and one approval. Once the block is valid, H2 moves it to
-   the tasks file and puts a table of the tasks in its place, because the approval dialog cannot show a
-   plan with very long lines.
+   invalid, the call is denied with every problem listed, and Claude fixes the plan file and calls
+   `ExitPlanMode` again. If the directory is not a Git repository or has uncommitted changes, the call is
+   denied and Claude tells the user. Once both are fine, H2 moves the block to the tasks file and puts a
+   table of the tasks in its place, because the approval dialog cannot show a plan with very long lines.
 3. **Approval.** The user reads the plan, with the table, and approves it. The prompts are in the tasks
    file the table names. A rejected plan triggers nothing: Claude revises it and offers it again.
-4. **Hand-off.** H3 reads the approved plan, loads its tasks from the tasks file, saves them, and tells
-   Claude that its next action is to call the `Workflow` tool for `planandtier:execute-plan`, with no
-   arguments. Until the workflow starts, H5 denies main-thread edits and shell commands and blocks the turn
-   from ending.
-5. **Launch.** Claude calls `Workflow`. H4 replaces the call's `args` with the saved tasks. When Claude Code
-   confirms that the workflow started, H6 marks the state `launched`, which stands the guards down.
-6. **Execution.** The workflow runs each task through the `planandtier:worker` agent at the task's model
-   and effort, one at a time. It halts at the first task that does not report `done`. Watch it with
-   `/workflows`.
-7. **Session end.** H6 deletes the session's state file.
+4. **Hand-off.** H3 loads the tasks from the tasks file, saves a `running` state, and gives Claude the
+   exact Agent call for T01.
+5. **The run.** Claude makes that call. H4 checks it, the worker does its task and commits, and H4 checks
+   the result and gives Claude the next call: the next task, a retry one tier up after a reset, or the end
+   of the run. See [The run](#the-run).
+6. **Session end.** H6 deletes the session's state file.
 
 ## The task block
 
@@ -164,9 +171,9 @@ Every task has exactly these five keys, all strings. Any other key is an error.
 | Field | Rule |
 |---|---|
 | `id` | `T01`, `T02`, ... matching the task's position: the first task must be `T01`, the second `T02`, with no gaps. |
-| `title` | One non-empty line, at most 100 characters. Shown as the workflow phase name while the task runs. |
-| `model` | `sonnet` or `opus`. |
-| `effort` | `low`, `medium`, `high` or `xhigh`. Both models take all four. |
+| `title` | One non-empty line, at most 100 characters. Used as the task's commit message and in its dispatch description. |
+| `model` | `haiku`, `sonnet` or `opus`. |
+| `effort` | `default` for `haiku`; `low`, `medium`, `high` or `xhigh` for `sonnet` and `opus`. |
 | `prompt` | Non-empty and contains the text `Verify:`. |
 
 ### Whole-block rules
@@ -238,7 +245,8 @@ new title, another model) would be approved while the old tasks ran.
 
 To change the tasks after the user rejects the plan, Claude writes a complete new block under `## Tasks`.
 Neither Claude nor the user should edit the table or the tasks file by hand. The tasks files are not
-deleted, so each one remains a record of what ran.
+deleted, so each one remains a record of what ran. The workers read their prompts from this file during
+the run.
 
 ### Writing task prompts
 
@@ -248,23 +256,25 @@ it does get the project's `CLAUDE.md` automatically. The rules therefore tell Cl
 - Name the files and spec sections to read first, including `AGENTS.md` or a spec if the project has one.
 - State exact names, signatures, behavior and error handling, and name the tests with their cases, so no
   design decision is left to the worker.
-- For a `sonnet` / `low` task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
+- For a `haiku` / `default` task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
   describing the changes, followed by the `Verify:` step.
 - Cover one coherent piece of work, roughly one commit, touching a few files.
 - End with a `Verify:` step: a command or check that fails if the task is incomplete, such as a build, a
-  named test run or a grep for the expected change.
+  named test run or a grep for the expected change. The task is committed only when it passes.
+- Leave out commit steps: the worker commits the task itself.
 
 A task can depend only on earlier tasks, so tasks are ordered accordingly.
 
 ## Model and effort tiers
 
-Eight model and effort pairs are allowed. The rules tell Claude to pick the cheapest pair it expects to
-succeed on the first try, because a failed task halts the run and a cheap pair that needs retries costs
-more than the right one.
+Nine tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
+The rules tell Claude to pick the cheapest tier it expects to succeed on the first try: a retry repeats the
+whole task on a more expensive tier.
 
-| Pair | Use for |
+| Tier | Use for |
 |---|---|
-| `sonnet` / `low` | Extremely mechanical work, expressed as literal find-and-replace pairs against existing files. Full rules below. |
+| `haiku` / `default` | The simplest of the simple: literal find-and-replace pairs against existing files. Full rules below. |
+| `sonnet` / `low` | Fully given work that is not find-and-replace: a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
 | `sonnet` / `medium` | **The default.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
 | `sonnet` / `high` | Fully specified but intricate: parsers, state machines, numeric code, many edge cases. |
 | `sonnet` / `xhigh` | Fully specified, intricate and wide: interacting edge cases across several files. |
@@ -276,14 +286,20 @@ more than the right one.
 If more than about one task in ten is `opus` / `high` or above, the rules treat the plan as
 under-specified: the design decisions belong in planning, with the answers written into the prompts.
 
-**Not allowed:** Haiku, the `max` effort, and Fable. Haiku accepts an effort value but ignores it, and it
-fails or drops work on coding tasks. All eight allowed pairs were run and each applied exactly the effort
-requested (see [Evidence](#evidence)).
+**Haiku** takes no effort setting, so its only effort is `default`, and it is limited to the strictest
+tier. That is a design decision from experience with earlier tiered plans, where Haiku was unreliable on
+broader coding tasks; it has not been measured here. **Not allowed:** the `max` effort and Fable.
 
-The allowed pairs are defined twice and must be kept in step: in `ALLOWED` in `lib/tasks.js`, which
-enforces them, and in `rules/tiering.md`, which tells Claude about them.
+**The retry ladder** is the table's order: `haiku-default`, then `sonnet` from `low` to `xhigh`, then
+`opus` from `low` to `xhigh`. `opus-low` follows `sonnet-xhigh` on the reasoning that a task that failed
+even with Sonnet's most thinking needs judgment rather than more thinking. That is a judgment, not a
+measurement.
 
-### `sonnet` / `low`: find-and-replace only
+The allowed tiers are defined in three places that must be kept in step: `ALLOWED` in `lib/tasks.js`,
+which enforces them and derives `TIERS`, the agents in `agents/`, and `rules/tiering.md`, which tells
+Claude about them. `agents.test.js` checks the first two against each other.
+
+### `haiku` / `default`: find-and-replace only
 
 Extremely mechanical work, expressed as one or more literal find-and-replace pairs. For each edit, the
 task's prompt states the exact file, the exact existing text to match (`old_str`), and the exact text
@@ -292,8 +308,8 @@ files — do not fragment mechanical work into one task per pair. Each `old_str`
 surrounding context to match exactly one location in its file; the planner must verify this (e.g. by
 grep) before finalizing the plan, not leave it for the worker to discover.
 
-This tier no longer covers writing a new file from scratch — even fully-known new-file content isn't a
-replacement against existing text, so it belongs to `sonnet` / `medium` or above.
+This tier does not cover writing a new file from scratch — even fully-known new-file content isn't a
+replacement against existing text, so it belongs to `sonnet` / `low`.
 
 Renames are not a separate case. A rename qualifies for this tier only when the planner has enumerated
 the complete, closed set of reference sites — the file's own path plus every import, config entry,
@@ -305,6 +321,18 @@ it moves to `sonnet` / `medium` or higher, and its `Verify:` step must do more t
 passes — it needs a check that would catch a missed reference (e.g. a repo-wide search for the old
 name returning nothing outside comments/history).
 
+### `sonnet` / `low`: fully given, not find-and-replace
+
+Work whose result is fully written out in the prompt, but not as find-and-replace pairs:
+
+- **A new file**, with its complete, exact content in the prompt.
+- **A rename whose reference set is closed**: the planner has listed every file that names the old
+  name and checked (e.g. by a verified grep) that the list is complete, but the edits are described
+  rather than given as `(file, old_str, new_str)` triples. Its `Verify:` step must include a check that
+  would catch a missed reference.
+
+Anything that needs the worker to work out code or content belongs to `sonnet` / `medium` or above.
+
 ## Opting out of tiering
 
 For an ordinary plan, the user asks for one. Claude then puts this exact line in the plan, on its own
@@ -314,9 +342,9 @@ line and outside any code fence, with no task block:
 Tiered execution: off
 ```
 
-With that line, H2 lets the plan through, H3 deletes any earlier tiered state for the session, and the
-plan is approved and carried out the ordinary way. The rules tell Claude to use the line only when the
-user asks for it or the task is trivial.
+With that line, H2 lets the plan through without any Git check, H3 deletes any earlier run state for the
+session, and the plan is approved and carried out the ordinary way. The rules tell Claude to use the line
+only when the user asks for it or the task is trivial.
 
 A plan with neither a task block nor the opt-out line cannot be approved (until the denial cap below is
 reached). The opt-out line inside a code fence does not count.
@@ -325,33 +353,37 @@ reached). The opt-out line inside a code fence does not count.
 
 Six scripts under [`scripts/`](../../plugins/planandtier/scripts/), registered in
 [`hooks/hooks.json`](../../plugins/planandtier/hooks/hooks.json). Each runs as
-`node "${CLAUDE_PLUGIN_ROOT}/scripts/<script>.js" [mode]` with a 15-second timeout.
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/<script>.js" [mode]`.
 
-| Hook | Event | Matcher | Script and mode |
-|---|---|---|---|
-| H1 Rules | `UserPromptSubmit` | none | `h1-plan-rules.js` |
-| H1 Rules | `PostToolUse` | `EnterPlanMode` | `h1-plan-rules.js enter` |
-| H2 Gate | `PreToolUse` | `ExitPlanMode` | `h2-gate-exit-plan.js` |
-| H3 Hand-off | `PostToolUse` | `ExitPlanMode` | `h3-post-approval.js` |
-| H4 Arguments | `PreToolUse` | `Workflow` | `h4-rewrite-workflow-args.js` |
-| H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit\|Bash\|PowerShell` | `h5-guard.js pre` |
-| H5 Guard | `Stop` | none | `h5-guard.js stop` |
-| H6 Cleanup | `PostToolUse` | `Workflow` | `h6-cleanup.js launched` |
-| H6 Cleanup | `PostToolUseFailure` | `Workflow` | `h6-cleanup.js failure` |
-| H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` |
+| Hook | Event | Matcher | Script and mode | Timeout |
+|---|---|---|---|---|
+| H1 Rules | `UserPromptSubmit` | none | `h1-plan-rules.js` | 15 s |
+| H1 Rules | `PostToolUse` | `EnterPlanMode` | `h1-plan-rules.js enter` | 15 s |
+| H2 Gate | `PreToolUse` | `ExitPlanMode` | `h2-gate-exit-plan.js` | 30 s |
+| H3 Hand-off | `PostToolUse` | `ExitPlanMode` | `h3-post-approval.js` | 30 s |
+| H4 Dispatch | `PreToolUse` | `Agent` | `h4-dispatch.js pre` | 30 s |
+| H4 Dispatch | `SubagentStop` | none | `h4-dispatch.js stop` | 15 s |
+| H4 Dispatch | `PostToolUse` | `Agent` | `h4-dispatch.js post` | 60 s |
+| H4 Dispatch | `PostToolUseFailure` | `Agent` | `h4-dispatch.js failure` | 60 s |
+| H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `h5-guard.js pre` | 15 s |
+| H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
+| H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
 
-Every hook ignores calls from subagents (any input with an `agent_id`), so workers and the workflow's
-own agents are never gated, guarded or given the rules.
+Every hook ignores calls made by subagents (any input with an `agent_id`), so workers and other agents are
+never gated, guarded or given the rules. H4's `stop` mode is the exception: `SubagentStop` comes from the
+subagent itself.
 
 ### H1: rules
 
-Adds the text of `rules/tiering.md` to the conversation.
-
-- On `UserPromptSubmit`, only when `permission_mode` is `plan`. The rules are printed as plain stdout,
-  which Claude Code adds as context. This covers a session started in plan mode or switched into it by the
-  user. It fires on every prompt submitted in plan mode.
-- On `PostToolUse` for `EnterPlanMode`, always. This covers Claude entering plan mode itself. The rules
-  are returned as `additionalContext`.
+- On `UserPromptSubmit` in plan mode, it prints the text of `rules/tiering.md`, which Claude Code adds as
+  context. It fires on every prompt submitted in plan mode.
+- On `PostToolUse` for `EnterPlanMode`, it returns the rules as `additionalContext`. This covers Claude
+  entering plan mode itself.
+- On `UserPromptSubmit` outside plan mode, with a run `running` and no task in flight, it prints where
+  the run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
+  reports (`<agent-message>`) and task notifications also arrive as prompts; they get no note.
+- For a `paused` run (the tree was dirty at approval), it checks the tree again. If it is clean now, the
+  run becomes `running` and the note gives the first dispatch; otherwise the note says why it still waits.
 
 ### H2: gate
 
@@ -360,21 +392,22 @@ Runs before every main-thread `ExitPlanMode` call.
 1. Reads the plan from the file at `tool_input.planFilePath`. If the file is missing or empty, it falls
    back to `tool_input.plan`. The file comes first because `tool_input.plan` is whatever Claude sent and
    was measured to be stale after a retry.
-2. Parses it with `resolvePlan()`. The opt-out line passes silently. So does a plan whose generated section
-   points to a tasks file that still matches its hash, as when Claude offers the same plan again.
-3. A valid block passes too. If H2 read it from the plan file, it first moves the block to the tasks file
-   and writes the plan with the table in its place (see [The tasks file](#the-tasks-file)). It never
-   rewrites text that came from `tool_input.plan`, so a missing plan file is never created. If a write
-   fails, the plan reaches the dialog unchanged.
-4. Otherwise it denies the call with `permissionDecision: "deny"` and a reason that lists every problem,
+2. Parses it with `resolvePlan()`. The opt-out line passes silently.
+3. For a valid tiered plan, checks the Git working directory (`cwd`): it must be inside a repository that
+   has a commit, with no uncommitted changes (`git status --porcelain` empty; ignored files do not count).
+   Otherwise it denies, names the problem, and tells Claude not to call `ExitPlanMode` again until the user
+   has fixed it. These denials are never passed through and do not count toward the cap.
+4. A valid plan read from the plan file then has its block moved to the tasks file (see
+   [The tasks file](#the-tasks-file)). A plan that already has its table passes unchanged. It never rewrites
+   text that came from `tool_input.plan`, so a missing plan file is never created.
+5. Otherwise it denies the call with `permissionDecision: "deny"` and a reason that lists every problem,
    names the plan file to fix, and mentions the opt-out line. When the problem is the table or its tasks
    file, the reason tells Claude to write the complete block again in place of the table. If the plan has
    no block, no table and no opt-out line at all, the full rules are appended to the reason.
 
-**Denial cap.** H2 counts its denials in the session state. After three, it lets the next call through
-rather than spend more turns; H3 then runs the plan untiered and says so. The count is reset when a
-tiered plan is approved, not when a single `ExitPlanMode` call passes. A denial keeps any existing state
-intact apart from the count.
+**Denial cap.** H2 counts its denials of invalid plans in the session state. After three, it lets the next
+call through rather than spend more turns; H3 then runs the plan untiered and says so. The count is reset
+when a tiered plan is approved. A denial keeps any existing state intact apart from the count.
 
 Claude sees a denial as `PreToolUse:ExitPlanMode hook error: <reason>`. The user sees no dialog.
 
@@ -386,63 +419,132 @@ fire it. Calls from agents (`tool_response.isAgent`) are ignored.
 It reads the approved text from the file at `tool_response.filePath`, then `tool_input.planFilePath`, then
 `tool_response.plan`, then `tool_input.plan`, taking the first that is non-empty. The file comes first
 because the dialog shows the file as H2 left it, and the user can edit it there. `tool_response.plan` was
-measured to hold the same shortened text, and `tool_input` held no plan text at all. It parses the text with
-`resolvePlan()`, which loads the tasks file when the plan has H2's table. Then:
+measured to hold the same shortened text. It parses the text with `resolvePlan()`. Then:
 
 | Parse result | What H3 does |
 |---|---|
-| Opt-out line | Deletes the session state (an untiered plan replaces any earlier tiered one) and says nothing. |
+| Opt-out line | Deletes the session state (an untiered plan replaces any earlier run) and says nothing. |
 | A table that was edited, or whose tasks file is missing, changed or invalid | Deletes the state and tells Claude that nothing will run: tell the user and suggest planning again, and do not implement the plan, since its prompts are not in it. |
-| Invalid (only possible after H2's cap) | Deletes the state and tells Claude the plan will not run as a workflow: tell the user, then implement the plan normally. |
-| Valid, state saved | Writes the state as `approved` with the tasks and the tasks file's path and hash, prunes session files older than 7 days, and tells Claude: the approval is the user's request to run the plan; do not implement it or edit files; the next action is `Workflow` with name `planandtier:execute-plan` and no args; then tell the user it is running. |
-| Valid, state not saved | Tells Claude the tasks could not be saved: tell the user, then implement the plan normally. It never claims a launch it cannot supply. |
+| Invalid (only possible after H2's cap) | Deletes the state and tells Claude the plan will not run as tiered tasks: tell the user, then implement the plan normally. |
+| Valid, tree clean | Saves a `running` state (tasks, tasks file and hash, branch, working directory), prunes session files older than 7 days, and gives Claude the exact Agent call for T01. |
+| Valid, tree no longer clean | Saves the run as `paused` with the reason, and tells Claude to ask the user to commit or stash: the run starts on their next message once the tree is clean (H1). |
+| Valid, state not saved | Tells Claude the tasks could not be saved: tell the user, then implement the plan normally. |
 
-### H4: arguments
+If H2 could not write a tasks file, H3 writes the tasks to `<session_id>.tasks.json` beside the state file,
+so the workers always have one to read.
 
-Runs before every main-thread `Workflow` call. It acts only when:
+### H4: dispatch
 
-- `tool_input.name` is exactly `planandtier:execute-plan`, and
-- the session has state with a non-empty task list, in any phase except `planning`.
+Drives [the run](#the-run). It acts only on Agent calls whose `subagent_type` starts with `planandtier:`;
+other agent types are left alone.
 
-It then returns `updatedInput`: the original tool input with `args` replaced by `{ "tasks": [...] }` from
-the state file. Any `args` Claude passed are overridden. It does not change the state: the call can still
-be rejected after H4 runs, or declined at the workflow review. A declined review was measured to fire no
-later event; whether a rejected call fires `PostToolUseFailure` is not known. H6 records the launch once it
-is confirmed. H4 does not reset the guard's count either, so a launch that is
-rejected every time cannot keep the guard going forever.
+- **`pre`** refuses, with the reason and the exact expected call, any dispatch that is not the one the run
+  expects: the current task's tier agent, the expected prompt (line endings and trailing spaces aside),
+  `run_in_background: false`, and no task already in flight. With no run in progress it refuses every
+  planandtier dispatch. It then checks the tree: uncommitted changes that no task made, or a different
+  branch from the one the run started on, **halt** the run at once. On a pass it records HEAD and marks
+  the task in flight.
+- **`stop`** (`SubagentStop`) records the dispatched worker's report, parsed from `last_assistant_message`,
+  or from the last assistant text in `agent_transcript_path` if that is missing.
+- **`post`** (`PostToolUse`, which fires after `SubagentStop`) judges the attempt and tells Claude what
+  comes next, as `additionalContext`. See [Judging an attempt](#judging-an-attempt).
+- **`failure`** (`PostToolUseFailure`) treats a failed Agent call as a failed attempt, with the error's
+  first line as the reason.
 
-Because `updatedInput` replaces the whole tool input, H4 spreads the original input first. It never sets
-`permissionDecision`: `updatedInput` alone is honored, and `"allow"` would skip the user's permission
-prompt for the workflow.
-
-H4 also fires on a relaunch (`launched`) and after the guard gave up (`abandoned`), so the same tasks are
-supplied however the workflow is started.
+It never sets `permissionDecision: "allow"`; its only decisions are denials.
 
 ### H5: guard
 
-Keeps the main thread from doing the plan's work itself between approval and launch. Active only while
-the state is `approved`.
+Keeps the main thread dispatching while a task is due. Active only while the run is `running` and no task
+is in flight.
 
-- **`pre`:** denies main-thread `Edit`, `Write`, `NotebookEdit`, `Bash` and `PowerShell` calls with a reason
-  telling Claude to launch the workflow first. After three denials it steps aside: the fourth call is
-  allowed and the state becomes `abandoned`.
-- **`stop`:** blocks the turn from ending with the same reason. If Claude Code reports the stop hook is
-  already active (a second consecutive stop), it allows the stop and marks the state `abandoned`.
-
-Read-only tools are not guarded, so Claude can still read files and answer questions. The guard stands
-down at launch, not at completion, because the workflow runs in the background and the main thread is
-idle meanwhile.
+- **`pre`:** denies main-thread `Edit`, `Write` and `NotebookEdit` calls, with a reason that repeats the
+  next dispatch. After three denials it steps aside and marks the run `abandoned`. Shell commands are not
+  guarded, so Claude can inspect the repository; if one changes files, H4 halts the run at the next
+  dispatch.
+- **`stop`:** blocks the turn from ending, with the same reason. If Claude Code reports the stop hook is
+  already active (a second consecutive stop), it allows the stop and marks the run `abandoned`.
 
 ### H6: cleanup
 
-- **`launched`** (`PostToolUse` on `Workflow`, name `planandtier:execute-plan`): the workflow started.
-  `PostToolUse` for `Workflow` fires at launch, not at completion. If the session has state with tasks, in
-  any phase except `planning`, H6 marks it `launched`, records `launchedAt`, and resets the guard's count.
-  This is the only place a launch is recorded.
-- **`failure`** (`PostToolUseFailure` on `Workflow`, name `planandtier:execute-plan`): if the state is
-  `launched`, puts it back to `approved` with the tasks kept and the guard's count reset, so the guards
-  apply again and Claude must relaunch.
-- **`end`** (`SessionEnd`): deletes the session's state file.
+On `SessionEnd` it deletes the session's state file. A run does not outlive its session; the tasks that
+finished are already committed.
+
+## The run
+
+### The dispatch
+
+For each attempt, Claude calls the Agent tool with:
+
+- `subagent_type`: `planandtier:<tier>`, for example `planandtier:sonnet-medium`;
+- `description`: `<id>: <title>`;
+- `run_in_background`: `false`, so the worker runs in the foreground and the run moves on within the turn;
+- `prompt`: a pointer to the task, never the task itself:
+
+```
+Tasks file: C:\Users\me\.claude\plans\brave-fox.tasks.json
+Task: T02
+```
+
+A retry adds two lines:
+
+```
+Retry: attempt 2 of 3; the attempt at sonnet-medium failed and was rolled back.
+Reason: Verify failed: 2 tests fail in ClockTests
+```
+
+H3, H4 and H1 always give Claude this call spelled out, and H4 refuses any other.
+
+### The worker
+
+The worker reads the tasks file, finds its task by id, and does only what that task's prompt says. It runs
+the `Verify:` step, and only if it passed commits everything as one commit:
+
+```
+git add -A
+git commit -m "<title>" -m "Planandtier-Task: T02"
+```
+
+It never pushes, amends, resets, stashes, rebases or switches branches. It ends with a report block:
+
+```
+STATUS: DONE | FAILED
+COMMIT: <sha> | NONE
+VERIFY: PASS | FAIL | NOT RUN
+NOTE: <one line>
+```
+
+### Judging an attempt
+
+H4's `post` mode does not take `DONE` on trust. An attempt succeeds only if all of these hold:
+
+- the report says `DONE`;
+- exactly one new commit exists since the recorded HEAD, and its message has the task's
+  `Planandtier-Task:` trailer;
+- the working tree is clean;
+- the branch is the one the run started on.
+
+A different branch is fatal. Anything else that fails is a failed attempt, with the worker's NOTE or the
+failed check as the reason.
+
+### After an attempt
+
+| Outcome | What happens |
+|---|---|
+| Success, more tasks left | The next task starts at its own tier. Claude gets its dispatch. |
+| Success, last task | The run is `complete`. Claude lists each task's commit and tier and tells the user. |
+| Failure, fewer than 2 retries used, a higher tier exists | H4 checks that no commit made by the attempt is on a remote branch, runs `git reset --hard <recorded HEAD>` and `git clean -fd`, and asks for the same task one tier up, with the reason. |
+| Failure after 2 retries, or at `opus-xhigh` | The run is `halted`. Nothing is reset: the last attempt's changes and any commit it made stay for the user to inspect. Claude reports the task, each tier tried and the reason, and must not fix it itself. |
+| A failed attempt's commit is on a remote branch, the reset fails, or the branch changed | The run is `halted` at once, without a reset. |
+
+The reset removes the failed attempt's commits, changes and untracked files. Ignored files are left alone.
+Earlier tasks' commits are kept, because the recorded HEAD is after them.
+
+### Continuing and stopping
+
+If the user interrupts the run, the state stays `running`. On the user's next message, H1 tells Claude
+where the run stands and gives the next dispatch, so "continue" resumes it at the task that was due. If the
+user wants to stop, Claude does not dispatch, and H5 steps aside after a few blocks.
 
 ## Session state
 
@@ -450,135 +552,110 @@ One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, o
 If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
 Code sets `CLAUDE_PLUGIN_DATA` itself, to `~/.claude/plugins/data/planandtier-inline`.
 
-After approval the file looks like this:
+During a run the file looks like this:
 
 ```json
 {
-  "phase": "approved",
-  "tasks": [ { "id": "T01", "title": "...", "model": "sonnet", "effort": "medium", "prompt": "..." } ],
-  "planFile": "<path to the approved plan file>",
-  "tasksFile": "<path to the plan's tasks file, or null>",
+  "phase": "running",
+  "tasks": [ { "id": "T01", "title": "...", "model": "haiku", "effort": "default", "prompt": "..." } ],
+  "tasksFile": "<path to the tasks file>",
   "tasksHash": "<the 16-character hash from the plan's table, or null>",
-  "approvedAt": "2026-09-26T14:03:00.000Z",
+  "planFile": "<path to the approved plan file>",
+  "branch": "main",
+  "cwd": "<the repository's working directory>",
+  "current": {
+    "index": 1, "attempt": 2, "tier": "sonnet-high", "tried": ["sonnet-medium"],
+    "head": "<sha recorded at dispatch>", "inFlight": false, "report": null,
+    "lastFailure": { "tier": "sonnet-medium", "reason": "..." }
+  },
+  "done": [ { "id": "T01", "tier": "haiku-default", "commit": "<sha>", "attempts": 1 } ],
+  "approvedAt": "2026-09-28T14:03:00.000Z",
   "denials": 0,
   "guardDenials": 0
 }
 ```
 
-`tasksFile` and `tasksHash` are null when the approved plan still held its block, which happens only when
-H2 could not rewrite the plan file. H6 adds `launchedAt` when it marks a launch. Timestamps are written by
-hooks, never by the workflow script, because the workflow runtime does not allow `Date.now()`.
+A halted run also has `halt: {task, tried, reason}`; a paused run has `pausedBecause`. Before approval the
+file, if any, holds only H2's denial count. Timestamps are written by hooks.
 
 ### Phases
 
 ```mermaid
 stateDiagram-v2
-    [*] --> planning: H2 denies a plan (no earlier state)
-    planning --> approved: H3, valid plan approved
-    [*] --> approved: H3, valid plan approved
-    approved --> launched: H6, workflow started
-    launched --> launched: H6, relaunch started
-    launched --> approved: H6, launch failed
-    approved --> abandoned: H5, guard gives up
-    abandoned --> launched: H6, workflow started
-    abandoned --> approved: H3, new plan approved
-    launched --> approved: H3, new plan approved
-    approved --> [*]: H3 opt-out or invalid, or H6 session end
-    launched --> [*]: H6 session end
+    [*] --> planning: H2 denies an invalid plan
+    planning --> running: H3, plan approved
+    [*] --> running: H3, plan approved
+    [*] --> paused: H3, approved but the tree is dirty
+    paused --> running: H1, the tree is clean again
+    running --> running: H4, next task or retry
+    running --> complete: H4, last task done
+    running --> halted: H4, retries used up or a fatal problem
+    running --> abandoned: H5, guard gives up
+    running --> [*]: H6 session end
+    complete --> [*]: H6 session end
+    halted --> [*]: H6 session end
     abandoned --> [*]: H6 session end
 ```
 
-| Phase | Set by | Meaning | Guards | H4 supplies tasks |
+| Phase | Set by | Meaning | Guards | Dispatches accepted |
 |---|---|---|---|---|
 | (no file) | H3 opt-out or invalid, H6 end | Idle. | Off | No |
 | `planning` | H2, on a denial with no earlier state | Holds only the denial count. | Off | No |
-| `approved` | H3; H6 after a failed launch | Tasks saved, workflow not yet started. A launch that was rejected or declined leaves it here. | **On** | Yes |
-| `launched` | H6 | The workflow started. | Off | Yes |
-| `abandoned` | H5, after giving up | Claude never launched; the session is back to normal. | Off | Yes |
+| `paused` | H3 | Approved, waiting for a clean tree. | Off | No |
+| `running` | H3; H1 for a paused run | Tasks in progress. | **On** while no task is in flight | Only the expected one |
+| `complete` | H4 | Every task committed. | Off | No |
+| `halted` | H4 | Stopped at a task; see `halt`. | Off | No |
+| `abandoned` | H5, after giving up | Claude stopped dispatching. | Off | No |
 
-State writes are atomic (a temp file, then a rename). Session ids are reduced to letters, digits, `_` and
-`-` before being used as file names. A corrupt or unreadable file reads as no state. Each approval prunes
-session and temp files not modified in 7 days, so files left by sessions that never ended cleanly do not
-accumulate.
+Approving a new plan replaces the state. State writes are atomic (a temp file, then a rename). Session ids
+are reduced to letters, digits, `_` and `-` before being used as file names. A corrupt or unreadable file
+reads as no state. Each approval prunes session and temp files not modified in 7 days.
 
-## The execute-plan workflow
+## The tier agents
 
-[`workflows/execute-plan.js`](../../plugins/planandtier/workflows/execute-plan.js) is a saved plugin
-workflow, run as `planandtier:execute-plan` (also typeable as `/planandtier:execute-plan`). It is a fixed
-dispatcher: it never parses plan text, and its tasks come only from `args.tasks`, which H4 fills.
+[`agents/`](../../plugins/planandtier/agents/) holds nine plugin agents, one per tier, named
+`<model>-<effort>` and run as `planandtier:<model>-<effort>`. They share one body (the worker's rules and
+report block above) and differ only in frontmatter:
 
-For each task, in order, it:
-
-1. Starts a phase named `<id>: <title>`, so `/workflows` shows which task is running.
-2. Calls `agent(task.prompt, { label: id, model, effort, agentType: 'planandtier:worker', schema })`, where
-   the schema requires `status` (`done` or `failed`) and `summary`, with an optional `filesChanged` array.
-3. Records the result. If the call throws, the result is `failed` with the error text. If it returns
-   nothing (the subagent was stopped or failed), the result is `stopped`.
-4. Stops the run if the status is anything but `done`.
-
-It returns one of:
-
-| Result | When |
+| Frontmatter | Value |
 |---|---|
-| `{ status: "complete", results }` | Every task reported `done`. |
-| `{ status: "halted", at: "T03", results }` | A task did not report `done`. `results` holds every task run so far, including the failed one. |
-| `{ status: "error", message }` | No tasks were supplied, which means it was started without an approved plan in this session. |
+| `model` | `haiku`, `sonnet` or `opus` |
+| `effort` | The tier's effort; none on `haiku-default` |
+| `maxTurns` | 20 for Haiku; 30, 40, 60 or 80 for `low`, `medium`, `high`, `xhigh` |
+| `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows |
 
-Each entry in `results` is `{ id, status, summary, filesChanged? }`.
-
-## The worker agent
-
-[`agents/worker.md`](../../plugins/planandtier/agents/worker.md) defines `planandtier:worker`, the only
-agent type the workflow uses. It:
-
-- sets no `model` or `effort`, so the values the workflow passes per task decide them;
-- has `disallowedTools: Agent, Workflow`, so a worker cannot start subagents or workflows;
-- is told to read the files its task names, do only what the task says, make no design decisions, and
-  report `failed` with the blocker rather than guess when the task is ambiguous or cannot be done;
-- must run the task's `Verify:` step and report `done` only if it passed, with a summary of what changed and
-  what the check showed, and the changed files in `filesChanged`.
-
-Workers inherit the session's permission mode and get the project's `CLAUDE.md` automatically.
-
-## Relaunching a plan
-
-Approved tasks are kept until the session ends, so a halted run can be restarted after fixing its cause:
-
-- type `/planandtier:execute-plan`, or
-- ask Claude to run that workflow.
-
-Both go through the `Workflow` tool, so H4 supplies the same tasks either way. A relaunch starts from
-`T01`: earlier tasks run again, and a relaunch of a plan that already finished repeats all of it. Task
-prompts whose steps are safe to repeat make relaunching cheaper.
-
-Approving a new tiered plan replaces the saved tasks. Approving an opted-out plan deletes them.
+Workers inherit the session's permission mode and get the project's `CLAUDE.md` automatically. The
+worker's rules replace any git instructions in the project's instruction files for the length of the task.
 
 ## Permission modes
 
-The plugin does not depend on auto mode. Both were run end to end.
+The plugin does not depend on auto mode.
 
 | | Auto mode | Manual permissions |
 |---|---|---|
-| Launch after approval | Claude launches the workflow with nothing typed. | Same; Claude's next step after approval is the `Workflow` call. |
-| Workflow start | No prompt was needed. | A "Review dynamic workflow before running" prompt appears. One extra click per launch. |
-| Worker actions | Proceed under auto mode. | Workers can ask for permission as they edit files or run commands. Allow rules for the tools your tasks use reduce this. |
-| Nobody to approve (headless) | Not applicable. | If the launch prompt cannot be answered, the workflow never starts. If a worker needs permission, it reports `failed` and the workflow halts at that task. It does not hang. |
+| Dispatch after approval | Claude dispatches with nothing typed. | The same. The Agent tool needs no permission. |
+| Worker actions | Proceed under auto mode. | Workers can ask for permission as they edit files, run commands or commit. Allow rules for the tools your tasks use reduce this. |
 
 The plugin never sets `permissionDecision: "allow"` anywhere, so it never bypasses a permission prompt.
-The only decisions it makes are denials, from H2 and H5.
+The only decisions it makes are denials, from H2, H4 and H5. The agent-dispatch design has not yet been
+run end to end in either mode; see [Evidence](#evidence).
 
 ## Failure handling and safety rules
 
 Rules every hook follows, enforced by [`lib/hook.js`](../../plugins/planandtier/scripts/lib/hook.js) and
-checked by the tests:
+[`lib/git.js`](../../plugins/planandtier/scripts/lib/git.js), and checked by the tests:
 
 - **Never fail loudly.** Every error, including an uncaught exception or unhandled rejection, is swallowed
   and the exit code stays 0. Empty, malformed or non-object stdin produces no output.
 - **Degrade to ordinary Claude Code.** If the state cannot be read, a hook does nothing. If it cannot be
-  written, H3 tells Claude to implement the plan normally.
+  written at approval, H3 tells Claude to implement the plan normally.
 - **Never grant permission.** No hook sets `permissionDecision: "allow"`.
-- **Never block forever.** H2 gives up after three denials, H5's `pre` after three, and H5's `stop` on the
-  second consecutive stop.
+- **Never block forever.** H2 gives up after three denials of an invalid plan, H5's `pre` after three, and
+  H5's `stop` on the second consecutive stop. H2's Git denials are the user's to fix and are not capped,
+  but each one tells Claude to stop and tell the user.
+- **Never lose work silently.** A reset happens only before a retry, only to the HEAD recorded when that
+  task was dispatched from a clean tree, and never over a commit that a remote branch contains. The last
+  failed attempt is never reset.
 - **Debug output goes to a file, never to stdout,** and only when `PLANANDTIER_DEBUG` is set.
 - **Output is flushed, not cut off.** Hooks set the exit code instead of calling `process.exit`, so large
   outputs such as the rules text are written in full.
@@ -588,15 +665,18 @@ How the plugin behaves when something goes wrong:
 | Situation | Outcome |
 |---|---|
 | Claude cannot produce a valid block in three tries | The fourth `ExitPlanMode` passes; H3 tells Claude to implement the plan normally and tell the user. |
-| Claude does not launch the workflow after approval | H5 blocks edits, shell commands and stopping a few times, then steps aside and marks the state `abandoned`. The tasks can still be launched later. |
-| The `Workflow` call fails | H6 reverts the state to `approved`; the guards apply again until Claude relaunches. |
-| The `Workflow` call is rejected after H4 runs (for example a CRLF `execute-plan.js`: `script contains control characters`) | The workflow never starts, so H6 never marks it `launched`, and the state stays `approved` whether or not a failure event fires. The guards stay on. A relaunch fails the same way; H5 steps aside after a few blocks and marks the state `abandoned`. |
+| The working tree is dirty or not a Git repository when the plan is submitted | H2 denies, and Claude tells the user to commit or stash. |
+| The tree becomes dirty between submission and approval | The run is saved as `paused` and starts on the user's next message once the tree is clean. |
+| The tree is dirty, or the branch changed, at a dispatch | The run halts before the task starts. |
+| A task fails | It is reset and retried one tier up, twice at most, then the run halts with the last attempt left in place. |
+| A worker reports `DONE` without exactly one trailer commit, or leaves changes uncommitted | Treated as a failed attempt. |
+| A worker returns no report | Treated as a failed attempt. |
+| The Agent call itself fails | Treated as a failed attempt. |
+| A failed attempt's commit is on a remote branch | The run halts without a reset. |
+| Claude dispatches the wrong tier, prompt or background mode | H4 refuses and repeats the right call. |
+| Claude edits files or stops instead of dispatching | H5 blocks a few times, then steps aside and marks the run `abandoned`. |
 | The tasks file or the table changes after the table is written | H2 denies a resubmission and asks for the full block again. After approval, H3 runs nothing and tells Claude to say so. |
-| H2 cannot write the tasks file or the plan | The plan reaches the dialog with its block. A plan with a very long line is then withheld by the dialog. |
-| A task fails its verify step | The worker reports `failed`; the workflow halts at that task and returns `halted`. |
-| A worker throws or is stopped | Recorded as `failed` or `stopped`; the workflow halts. |
-| The workflow is started with no approved plan | H4 supplies nothing; the workflow returns `error` with a message saying to approve a plan first. |
-| The user declines the workflow review prompt (manual mode) | Measured. Claude Code treats the decline as a user interrupt, so Claude stops and no Stop hook runs. The state stays `approved` and the guard stays on. Ask Claude to launch again, or type `/planandtier:execute-plan`. |
+| H2 cannot write the tasks file or the plan | The plan reaches the dialog with its block, and H3 writes a tasks file beside the state. A plan with a very long line is then withheld by the dialog. |
 
 ## Configuration and environment
 
@@ -605,16 +685,17 @@ How the plugin behaves when something goes wrong:
 | `PLANANDTIER_DEBUG` | When set, hook errors, unparseable input, a block H2 could not move, and every state write and removal are appended, with timestamps, to `planandtier-debug.log` in the system temp directory. |
 | `CLAUDE_PLUGIN_DATA` | Set by Claude Code. Parent of the `sessions/` state directory. A value set in the shell is ignored under `--plugin-dir`. |
 | `CLAUDE_PLUGIN_ROOT` | Set by Claude Code. Used to locate the hook scripts and the rules file. |
-| `CLAUDE_CODE_EFFORT_LEVEL` | If set, overrides per-task effort. Leave unset. |
-| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` | If set, overrides per-task models. Leave unset. |
-| `/config` dynamic workflows | Must be enabled, or the workflow cannot run. |
+| `CLAUDE_CODE_EFFORT_LEVEL` | If set, overrides the agents' effort. Leave unset. |
+| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` | If set, overrides the agents' models. Leave unset. |
 
-There is no plugin-specific settings file. The allowed pairs, limits and wording are constants in the
-scripts:
+There is no plugin-specific settings file. The tiers, limits and wording are constants in the scripts:
 
 | Constant | Value | Where |
 |---|---|---|
-| Allowed models and efforts | `sonnet`, `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
+| Allowed models and efforts | `haiku` × `default`; `sonnet`, `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
+| Tier ladder | `ALLOWED` in order | `lib/tasks.js` `TIERS` |
+| Retries per task | 2 | `lib/run.js` `MAX_RETRIES` |
+| Commit trailer | `Planandtier-Task: <id>` | the agents; checked in `lib/run.js` |
 | Maximum tasks | 99 | `lib/tasks.js` |
 | Maximum title length | 100 characters | `lib/tasks.js` |
 | Block info string | `json tiered-tasks` | `lib/tasks.js` |
@@ -625,7 +706,6 @@ scripts:
 | H2 denial cap | 3 | `h2-gate-exit-plan.js` |
 | H5 tool-denial cap | 3 | `h5-guard.js` |
 | State pruning age | 7 days | `h3-post-approval.js` |
-| Hook timeout | 15 seconds | `hooks/hooks.json` |
 
 ## Plugin layout
 
@@ -633,21 +713,22 @@ scripts:
 plugins/planandtier/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
-  agents/worker.md               # planandtier:worker
+  agents/<model>-<effort>.md     # the nine tier agents, one shared body
   hooks/hooks.json               # H1-H6 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   scripts/
     h1-plan-rules.js
     h2-gate-exit-plan.js
     h3-post-approval.js
-    h4-rewrite-workflow-args.js
+    h4-dispatch.js
     h5-guard.js
     h6-cleanup.js
+    lib/git.js                   # the Git commands a run needs; never throws
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
+    lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
     lib/sidecar.js               # the tasks file: move the block, load and check it
     lib/state.js                 # per-session state file: read, atomic write, remove, prune
-    lib/tasks.js                 # the only parser, validator and rewriter of plan text
-  workflows/execute-plan.js      # the serial dispatcher
+    lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
 ```
 
 The plugin is pure Node and Markdown, with no dependencies and nothing vendored from `shared/`. It is
@@ -656,7 +737,8 @@ cataloged in [`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplac
 
 ## Testing
 
-Unit and integration tests use Node's built-in test runner, with no dependencies:
+Unit and integration tests use Node's built-in test runner, with no dependencies. They need `git` on the
+`PATH`: the run's tests commit, reset and push in temporary repositories.
 
 ```powershell
 node --test tests/planandtier/*.test.js
@@ -667,35 +749,33 @@ file and fails.
 
 | File | Covers |
 |---|---|
-| `tests/planandtier/tasks.test.js` | Every validation rule, allowed and rejected pairs, fence handling (nested, tilde, CRLF, other info strings), the opt-out line, multiple blocks, invalid JSON, collecting all errors, key stripping; the generated table (pipe escaping, prompt lengths), finding and rejecting sections, and replacing a block while keeping CRLF or LF. |
-| `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block (exact body, CRLF plans, unwritable plan), and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited. |
+| `tests/planandtier/tasks.test.js` | Every validation rule, the allowed and rejected tiers, the tier ladder, fence handling (nested, tilde, CRLF, other info strings), the opt-out line, multiple blocks, invalid JSON, collecting all errors, key stripping; the generated table, finding and rejecting sections, and replacing a block while keeping CRLF or LF. |
+| `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block, and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited. |
+| `tests/planandtier/git.test.js` | The repository and clean-tree check, HEAD and branch, commits since a base, pushed commits (with a bare remote), and the reset. |
+| `tests/planandtier/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt, and moving on: next, complete, retry up the ladder, halt. |
+| `tests/planandtier/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
 | `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: every phase transition, plan-source precedence, the denial caps, H2 moving the block and H3 loading it, a changed tasks file or edited table, a launch rejected after H4, subagent filtering, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json` pointing at existing scripts, and that no script ever grants permission. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: the gate and its Git checks, the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
-The workflow and the worker cannot be unit tested; they were verified by the end-to-end runs under
-[Evidence](#evidence). To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`,
-enter plan mode, and ask for a small multi-step change.
+The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
+To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, enter plan mode in a
+clean repository, and ask for a small multi-step change.
 
 ## Limitations and non-goals
 
 - **Serial only.** Tasks run one at a time. Parallel execution is a non-goal.
-- **No pauses between tasks.** A workflow cannot ask for input while it runs, so there are no per-task
-  approval gates.
-- **No commits.** Put a commit step in a task's prompt if you want one.
-- **Only what `Verify:` checks is checked.** A worker reports `done` when its verify step passes; work the
-  step does not cover is not caught.
-- **Workers see only their prompt**, plus one message from Claude Code: the user's latest typed prompt,
-  relayed as the request that wins over the task. They do not see the plan or the rest of the
-  conversation. A vague prompt gives a vague result.
-- **A plan changed through the approval dialog's feedback box can fail to run.** That feedback is not a
-  typed prompt, so Claude Code relays the older prompt to the workers. A worker whose task contradicts it
-  refuses, and the run halts there. See
-  [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md#rejecting-a-plan-after-its-block-was-moved).
-- **Relaunch repeats from `T01`.** There is no resume from the failed task.
-- **State ends with the session.** A resumed session cannot relaunch a plan approved in an earlier one.
-- **The model launches the workflow.** The plugin instructs Claude and blocks other work, but cannot call
-  the tool itself. If Claude never launches, the guard steps aside after a few blocks. A launch that was
-  rejected or declined keeps the guard on in the same way.
+- **No pauses between tasks.** There are no per-task approval gates.
+- **No pushing.** Each task is a local commit on the current branch.
+- **Git required.** A tiered plan needs a Git repository with a clean working tree.
+- **Only what `Verify:` checks is checked.** A worker commits when its verify step passes; work the step does
+  not cover is not caught.
+- **Workers see only their prompt**, not the plan or the conversation. A vague prompt gives a vague result.
+- **Orchestration uses model turns.** One Agent call and one short report per attempt reach the main
+  session.
+- **The model dispatches.** The plugin gives the exact call and refuses any other, but cannot make the call
+  itself. If Claude never dispatches, the guard steps aside after a few blocks.
+- **A run ends with its session.** A resumed session cannot continue a run from an earlier one; the tasks
+  that finished are committed, and their trailers show which.
 - **The user approves a table, not the prompts.** The dialog cannot show very long lines, so the prompts
   are in the tasks file, which the user has to open to read.
 - **Tasks files are kept.** One is written next to each plan file that passes H2, and none is deleted.
@@ -703,45 +783,47 @@ enter plan mode, and ask for a small multi-step change.
   `ExitPlanMode` is gated. Use the opt-out line for an ordinary plan.
 - **Rules on every plan-mode prompt.** H1 adds the rules text each time a prompt is submitted in plan mode,
   which costs context in a long planning conversation.
-- **Research-preview dependency.** Workflows can change between Claude Code versions.
 
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
 |---|---|
 | Plan mode behaves as if the plugin were absent | Node is not on the `PATH`, or the plugin is not enabled. Check `node --version` and `/plugin`. Set `PLANANDTIER_DEBUG=1` and look at `planandtier-debug.log` in the temp directory. |
-| `ExitPlanMode` keeps being denied | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
+| `ExitPlanMode` keeps being denied for the task block | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
+| `ExitPlanMode` is denied because of the working tree | Commit or stash your changes, or make sure you are in a Git repository with at least one commit. |
 | The dialog says the plan is too large to be shown in full | A line in the plan is too long for the dialog. If the plan still has its task block, H2 could not rewrite the plan file; `PLANANDTIER_DEBUG=1` logs that. If the long line is in the prose, ask Claude to wrap it. |
-| After approval Claude says the tasks could not be loaded | The tasks file was changed, moved or deleted after its table was written. Plan again. |
-| A worker reports `failed` because its task conflicts with "the relayed user request" | The plan was changed through the approval dialog's feedback box, and the task contradicts your latest typed prompt, which Claude Code shows every worker as overriding. |
-| The launch fails with `script contains control characters` | `execute-plan.js` was checked out with CRLF line endings. The repo's `.gitattributes` keeps it LF; update or reinstall the plugin. |
-| The workflow returns "No tasks were supplied" | It was started with no approved plan in this session, or the session state was lost. Approve a plan first. |
-| A message about "no tasks" appears at launch, but the run proceeds | Unconfirmed. The `Workflow` call may be displayed as Claude made it, before H4 adds the tasks. The workflow record is what counts. |
-| The workflow halted | Read the halted task's `summary` in `/workflows`, fix the cause, then relaunch with `/planandtier:execute-plan`. Earlier tasks run again. |
-| Claude edits files itself after approval instead of launching | H5 blocks this three times, then steps aside. Ask Claude to run `planandtier:execute-plan`, or type it. |
+| After approval Claude says the tasks could not be loaded | The tasks file or the table was changed after the table was written. Plan again. |
+| After approval Claude says the run cannot start | The tree became dirty after the plan was submitted. Commit or stash, then send any message. |
+| A dispatch is refused | Claude's call did not match the expected one. The refusal repeats the right call; Claude should make it. |
+| The run stopped at a task | Read Claude's report: the task, the tiers tried and the reason. The last attempt's changes are in the working tree. Fix or discard them, then plan the rest again. |
+| The run stopped because of uncommitted changes or a branch change | Something other than a task changed the tree or the branch during the run. Nothing was reset. |
 | Tasks run at the wrong effort or model | Check that `CLAUDE_CODE_EFFORT_LEVEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` are unset. |
 | Workers stop at permission prompts | Expected under manual permissions. Add allow rules for the tools your tasks use, or use auto mode. |
 
 ## Evidence
 
-Every measured claim above traces to one of these. Evidence files are under `probes/evidence/`.
+Every measured claim above traces to one of these. Evidence files are under `probes/evidence/`. The rows
+marked *workflow era* were measured with the earlier design, which ran the tasks in a dynamic workflow;
+their findings about plan mode, hooks and the dialog still apply.
 
 | Claim | Document | Evidence |
 |---|---|---|
-| `permission_mode` on `UserPromptSubmit`; `ExitPlanMode` hooks fire; deny makes Claude revise; `tool_input.plan` can be stale; `additionalContext` reaches the model; hook-set `args` arrive as an object; per-call `effort` and `agentType` apply; Haiku ignores effort | [`planandtier-spike-findings.md`](planandtier-spike-findings.md) | `planandtier-spike-headless-results.json`, `planandtier-spike-interactive-results.json` |
-| All eight Sonnet and Opus pairs run at exactly the requested effort | [`planandtier-spike-findings.md`](planandtier-spike-findings.md) | `planandtier-effort-pairs-results.json` |
-| The built plugin runs a 3-task plan headless | (evidence only) | `planandtier-b3-headless-results.json` |
-| End to end in auto mode: gate, rejection, automatic launch, relaunch, cleanup at session end | [`planandtier-e2e-findings.md`](planandtier-e2e-findings.md), steps in [`planandtier-e2e-run.md`](planandtier-e2e-run.md) | `planandtier-e2e-results.json` |
-| Manual permissions: gated launch, worker prompts, clean failure with no approver, Opus model confirmed | [`planandtier-manual-mode-findings.md`](planandtier-manual-mode-findings.md), steps in [`planandtier-manual-mode-run.md`](planandtier-manual-mode-run.md) | `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
-| A CRLF workflow script fails the launch; multi-line and non-ASCII prompts do not. The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-launch-shapes-results.json`, `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
-| The tasks file end to end: a plan with a 5,781-character line shown as a table and run from its tasks file; `tool_response.plan` holds the shortened text; a declined workflow review is an interrupt and leaves the state `approved` | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |
-| Rejecting a plan after the move: Claude writes a new block, H2 replaces the table, and the changed task reaches the workflow. Workers are shown the latest typed prompt as overriding their task, and dialog feedback is never relayed | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-reject-run.md`](planandtier-reject-run.md) | `planandtier-reject-observations.json`, `planandtier-reject-probe.log`, `planandtier-reject-debug.log`, `planandtier-reject-plan.md`, `planandtier-reject-plan.tasks.json`, `planandtier-reject-worker-frames.json` |
+| Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type`, `prompt` and `run_in_background`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`, which fires before `PostToolUse` | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json` |
+| The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
+| The tasks file end to end: a plan with a 5,781-character line shown as a table and loaded from its tasks file; `tool_response.plan` holds the shortened text (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |
+| Rejecting a plan after the move: Claude writes a new block and H2 replaces the table; workflow agents are shown the latest typed prompt as overriding their task, and dialog feedback is never relayed (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-reject-run.md`](planandtier-reject-run.md) | `planandtier-reject-observations.json`, `planandtier-reject-probe.log`, `planandtier-reject-debug.log`, `planandtier-reject-plan.md`, `planandtier-reject-plan.tasks.json`, `planandtier-reject-worker-frames.json` |
+| `permission_mode` on `UserPromptSubmit`; `ExitPlanMode` hooks fire; deny makes Claude revise; `tool_input.plan` can be stale; `additionalContext` reaches the model; Haiku ignores effort (*workflow era*) | [`planandtier-spike-findings.md`](planandtier-spike-findings.md) | `planandtier-spike-headless-results.json`, `planandtier-spike-interactive-results.json` |
+| All eight Sonnet and Opus pairs run at exactly the requested effort (*workflow era*, per-call effort) | [`planandtier-spike-findings.md`](planandtier-spike-findings.md) | `planandtier-effort-pairs-results.json` |
+| A CRLF workflow script fails the launch (*workflow era*; no longer applies) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md) | `planandtier-launch-shapes-results.json` |
+| End to end in auto mode and with manual permissions (*workflow era*) | [`planandtier-e2e-findings.md`](planandtier-e2e-findings.md), [`planandtier-manual-mode-findings.md`](planandtier-manual-mode-findings.md) | `planandtier-e2e-results.json`, `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 
-The probe plugin and its analysis script are in `probes/planandtier/`.
+The agent-dispatch design has not yet been run end to end. The steps for that run are in
+[`planandtier-agents-run.md`](planandtier-agents-run.md). The probe plugins and their scripts are in
+`probes/planandtier/`.
 
 ## Planned changes
 
 [`planandtier-opt-in-draft-plan.md`](planandtier-opt-in-draft-plan.md) is a draft, not implemented, for
 making the plugin opt-in per session (`/planandtier` to arm, `/planandtier:stop` to disarm) and for
-running a saved plan named in a prompt. Nothing in it is decided until its evidence phase has run. This
-document describes the plugin as it is now.
+running a saved plan named in a prompt. It was written for the workflow design and needs revising. Nothing
+in it is decided until its evidence phase has run. This document describes the plugin as it is now.

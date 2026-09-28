@@ -15,11 +15,12 @@ cataloged in `.claude-plugin/marketplace.json`:
   that can do it. Pure Markdown, with no hooks, scripts, or shared code. Its
   own README documents the design, and `reference/plan-format.md` is the plan
   format every skill and agent parses.
-- `planandtier`: hooks, a saved workflow and a worker agent that turn an
+- `planandtier`: hooks and nine tier agents (`<model>-<effort>`) that turn an
   approved plan-mode plan into serial subagent execution, each task at the
-  model and effort chosen during planning. The hooks are Node scripts under
-  `plugins/planandtier/scripts/`, tested with
-  `node --test tests/planandtier/*.test.js`.
+  model and effort chosen during planning and committed by its worker, with
+  failed attempts reset and retried a tier up. It needs Git and a clean tree.
+  The hooks are Node scripts under `plugins/planandtier/scripts/`, tested with
+  `node --test tests/planandtier/*.test.js` (the tests need `git`).
   The design and the measurements behind it are in `docs/planandtier/`, with
   evidence under `probes/evidence/planandtier-*`.
 
