@@ -61,6 +61,48 @@ test('problem() names what makes a directory unusable, and is null for a clean r
   assert.match(g.problem(r), /uncommitted changes \(README\.md\)/)
 })
 
+// A repository with one commit but no identity to commit with: user.useConfigOnly stops Git from
+// guessing one from the machine, and the global and system config are shut out.
+function repoWithoutIdentity() {
+  const r = path.join(dir, 'anon')
+  fs.mkdirSync(r)
+  run(r, 'init', '-q', '-b', 'main')
+  run(r, 'config', 'user.useConfigOnly', 'true')
+  run(r, 'config', 'commit.gpgsign', 'false')
+  write(r, 'README.md', '# test\n')
+  run(r, 'add', '-A')
+  run(r, '-c', 'user.name=Setup', '-c', 'user.email=setup@example.com', 'commit', '-q', '-m', 'init')
+  return r
+}
+// Runs fn with no identity anywhere: an empty global config, no system config, no GIT_* identity.
+const IDENTITY_ENV = ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'EMAIL']
+const withoutGlobalConfig = fn => {
+  const saved = Object.fromEntries(IDENTITY_ENV.map(key => [key, process.env[key]]))
+  const empty = path.join(dir, 'empty.gitconfig')
+  fs.writeFileSync(empty, '')
+  for (const key of IDENTITY_ENV) delete process.env[key]
+  process.env.GIT_CONFIG_GLOBAL = empty
+  process.env.GIT_CONFIG_NOSYSTEM = '1'
+  try {
+    return fn()
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+}
+
+test('problem() refuses a repository that has no identity to commit with', () => {
+  const anon = repoWithoutIdentity()
+  withoutGlobalConfig(() => {
+    assert.match(g.problem(anon), /Git has no user name and email for this repository, so the tasks cannot commit/)
+    run(anon, 'config', 'user.name', 'Someone')
+    run(anon, 'config', 'user.email', 'someone@example.com')
+    assert.equal(g.problem(anon), null)
+  })
+})
+
 test('head, branch and isClean read the repository', () => {
   const r = repo()
   assert.match(g.head(r), /^[0-9a-f]{40}$/)

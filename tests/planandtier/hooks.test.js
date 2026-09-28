@@ -359,6 +359,28 @@ test('H2 denies a tiered plan outside a Git repository or with a dirty tree, wit
   assert.equal(state.read(S), null, 'not counted as a denial')
 })
 
+test('H2 denies a tiered plan in a repository with no Git identity', () => {
+  const repo = path.join(dir, 'anon')
+  fs.mkdirSync(repo)
+  gitIn(repo, 'init', '-q', '-b', 'main')
+  gitIn(repo, 'config', 'user.useConfigOnly', 'true')
+  gitIn(repo, 'config', 'commit.gpgsign', 'false')
+  fs.writeFileSync(path.join(repo, 'README.md'), '# test\n')
+  gitIn(repo, 'add', '-A')
+  gitIn(repo, '-c', 'user.name=Setup', '-c', 'user.email=setup@example.com', 'commit', '-q', '-m', 'init')
+  const emptyConfig = path.join(dir, 'empty.gitconfig')
+  fs.writeFileSync(emptyConfig, '')
+  // No identity anywhere: the global and system config are shut out, and no GIT_* identity is set.
+  const env = { GIT_CONFIG_GLOBAL: emptyConfig, GIT_CONFIG_NOSYSTEM: '1' }
+  for (const key of ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'EMAIL']) env[key] = ''
+
+  const file = writePlanFile(VALID)
+  const out = hook('h2-gate-exit-plan.js', exitPre(VALID, file, repo), [], env).json.hookSpecificOutput
+  assert.equal(out.permissionDecision, 'deny')
+  assert.match(out.permissionDecisionReason, /Git has no user name and email for this repository, so the tasks cannot commit/)
+  assert.equal(fs.readFileSync(file, 'utf8'), VALID, 'the block is not moved')
+})
+
 test('H2 lets an opted-out plan through a dirty tree', () => {
   const plain = path.join(dir, 'plain')
   fs.mkdirSync(plain)

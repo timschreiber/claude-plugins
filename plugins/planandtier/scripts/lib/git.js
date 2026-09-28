@@ -19,11 +19,15 @@ function git(cwd, args) {
 }
 
 // null when the directory is usable for a run, else a short reason: not a repository, no commit to
-// return to, or uncommitted changes (the first few paths are named).
+// return to, no identity to commit with, or uncommitted changes (the first few paths are named).
 function problem(cwd) {
   if (typeof cwd !== 'string' || !cwd) return 'the working directory is unknown'
   if (git(cwd, ['rev-parse', '--is-inside-work-tree']).stdout !== 'true') return 'it is not inside a Git repository'
   if (!git(cwd, ['rev-parse', '--verify', '-q', 'HEAD']).ok) return 'the repository has no commits yet'
+  // Every task is a commit: without an identity, each worker's commit fails and burns its retries.
+  if (!git(cwd, ['var', 'GIT_COMMITTER_IDENT']).ok) {
+    return 'Git has no user name and email for this repository, so the tasks cannot commit; set user.name and user.email'
+  }
   const status = git(cwd, ['status', '--porcelain'])
   if (!status.ok) return 'git status failed'
   if (status.stdout !== '') {
