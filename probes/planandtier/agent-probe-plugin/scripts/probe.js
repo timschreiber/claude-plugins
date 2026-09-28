@@ -1,7 +1,8 @@
 // Agent-tool probe hook for planandtier. One script serves every registration; argv[2] is the tag.
 // Every call appends {tag, stdin} to PROBE_LOG (or probe.log in the plugin data directory).
 // pre-agent also denies the first dispatch whose prompt names "Task: T01", telling Claude to
-// dispatch "Task: T02" instead, to see whether a corrective denial is followed.
+// dispatch "Task: T02" instead, to see whether a corrective denial is followed. With
+// PROBE_OBSERVE=1 it only logs.
 'use strict'
 
 const fs = require('fs')
@@ -39,6 +40,9 @@ async function main() {
   } catch {
     return
   }
+
+  // PROBE_OBSERVE=1 makes the probe a pure logger, so it can run beside the real plugin.
+  if (process.env.PROBE_OBSERVE === '1') return
 
   if (tag === 'pre-agent') {
     const prompt = String(input.tool_input?.prompt ?? '')
