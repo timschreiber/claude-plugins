@@ -5,14 +5,13 @@ argument-hint: "[plan path | list number] [--from Txx]"
 disable-model-invocation: true
 ---
 
-planandtier's hook has already handled this command. It added a note that starts with "planandtier:".
-Do exactly what that note says, and nothing more:
+planandtier's hook has handled this command and added a note starting "planandtier:". Do what it says,
+and nothing more:
 
-- If it gives an Agent call, make that call exactly as given.
-- If it lists plans, show them to the user, numbered as listed, and ask which one to run. Tell them to type
-  `/planandtier:execute-plan` with the number: you cannot start a plan for them.
-- If it says the plan runs without planandtier, read the plan file and implement it as you normally would.
-- If it says the plan cannot run, tell the user why, in its words.
+- An Agent call: make it exactly as given.
+- A list of plans: show it, numbered as given, and ask which to run. The user types
+  `/planandtier:execute-plan` with the number; you cannot start it for them.
+- A plan that runs without planandtier: read the plan file and implement it as usual.
+- A plan that cannot run: tell the user why, in its words.
 
-If there is no such note, tell the user that planandtier did not respond: the plugin may not be installed
-or enabled in this session. Do not run the plan yourself in that case.
+With no note, say planandtier did not respond, and do not run the plan yourself.

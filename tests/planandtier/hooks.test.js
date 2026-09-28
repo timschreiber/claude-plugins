@@ -394,8 +394,8 @@ test('H2 denies a tiered plan outside a Git repository or with a dirty tree, wit
   const file = writePlanFile(VALID)
   const out = hook('h2-gate-exit-plan.js', exitPre(VALID, file, plain)).json.hookSpecificOutput
   assert.equal(out.permissionDecision, 'deny')
-  assert.match(out.permissionDecisionReason, /cannot run yet, because it is not inside a Git repository/)
-  assert.match(out.permissionDecisionReason, /Do not call ExitPlanMode again until that is fixed/)
+  assert.match(out.permissionDecisionReason, /cannot run yet: it is not inside a Git repository/)
+  assert.match(out.permissionDecisionReason, /Do not call ExitPlanMode again until it is fixed/)
   assert.equal(fs.readFileSync(file, 'utf8'), VALID, 'the block is not moved')
 
   const repo = makeRepo(path.join(dir, 'repo'))
@@ -1139,7 +1139,7 @@ test('execute-plan runs a saved plan with a raw block: arms, saves the run, and 
   const file = savedPlan()
   const out = execute(file)
   const planId = idOf(VALID)
-  assert.match(out, /^planandtier: the user asked to execute the plan in .*plan\.md \(3 tiered tasks\), and the session is now armed\./)
+  assert.match(out, /^planandtier: running the plan in .*plan\.md \(3 tiered tasks\); the session is armed\./)
   assert.ok(out.includes(`exactly this prompt (3 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nPlan: ${planId}\nTask: T01\n`))
   assert.match(out, /Do not implement the plan yourself/)
   assert.equal(state.isArmed(S), true)
@@ -1202,24 +1202,24 @@ test('execute-plan reports a plan that is already done, and a --from it cannot u
 
 test('execute-plan takes quoted paths with spaces, unquoted ones, ~ and paths relative to cwd', () => {
   const file = savedPlan(VALID, path.join('my plans', 'plan one.md'))
-  assert.match(execute(`"${file}"`), /session is now armed/)
+  assert.match(execute(`"${file}"`), /the session is armed/)
   state.remove(S)
-  assert.match(execute(file), /session is now armed/)
+  assert.match(execute(file), /the session is armed/)
   state.remove(S)
-  assert.match(execute(`'../my plans/plan one.md' --from T02`), /session is now armed/)
+  assert.match(execute(`'../my plans/plan one.md' --from T02`), /the session is armed/)
   assert.equal(state.read(S).planFile, file)
   state.remove(S)
   const home = { USERPROFILE: dir, HOME: dir }
-  assert.match(execute(`"~/my plans/plan one.md"`, { env: home }), /session is now armed/)
+  assert.match(execute(`"~/my plans/plan one.md"`, { env: home }), /the session is armed/)
 })
 
 test('execute-plan runs a plain or opted-out plan without planandtier, unarmed', () => {
   for (const [text, why] of [[NO_BLOCK, /it has no planandtier task table or task block/], [`# Plan\n\n${OPT_OUT}\n`, /it says "Tiered execution: off"/]]) {
     const file = savedPlan(text)
     const out = execute(file)
-    assert.match(out, /is not a tiered planandtier plan/)
+    assert.match(out, /is not a tiered plan/)
     assert.match(out, why)
-    assert.match(out, /Read the plan file and implement it in this session as you normally would/)
+    assert.match(out, /Read it and implement it in this session as usual/)
     assert.equal(state.isArmed(S), false)
     assert.equal(state.read(S), null)
     fs.rmSync(repo, { recursive: true, force: true })
@@ -1231,7 +1231,7 @@ test('execute-plan refuses a plan whose tasks cannot be loaded, and an invalid b
   moveBlock(file)
   fs.appendFileSync(TASKS_FILE(), ' ')
   const changed = execute(file)
-  assert.match(changed, /cannot run, because its tasks cannot be loaded: .*has changed since its table was written/)
+  assert.match(changed, /cannot run: its tasks cannot be loaded: .*has changed since its table was written/)
   assert.match(changed, /do not implement it yourself/)
 
   const bad = path.join(dir, 'bad.md')
@@ -1245,12 +1245,12 @@ test('execute-plan refuses in plan mode, during a run, for an unreadable file, a
   assert.match(execute(file, { mode: 'plan' }), /cannot be executed in plan mode.*leave plan mode/)
   assert.match(execute(path.join(dir, 'nope.md')), /the plan file .*nope\.md cannot be read/)
   fs.writeFileSync(path.join(repo, 'wip.txt'), 'x')
-  assert.match(execute(file), /cannot run here, because the working tree has uncommitted changes \(wip\.txt\)/)
+  assert.match(execute(file), /cannot run here: the working tree has uncommitted changes \(wip\.txt\)/)
   assert.equal(state.isArmed(S), false)
 
   startTestRun()
   state.arm(S)
-  assert.match(execute(file), /a run of a plan is already in progress.*\/planandtier:disarm first/)
+  assert.match(execute(file), /a run is already in progress.*\/planandtier:disarm first/)
   assert.equal(state.read(S).planId, PLAN_ID, 'the run is untouched')
 })
 
@@ -1269,10 +1269,10 @@ test('execute-plan with no path lists recent planandtier plans, newest first', (
   put('plain.md', NO_BLOCK, 1)
   put('newer.md', VALID.replace('# Plan', '# Newer plan'), 5)
   const out = execute('', { env: { CLAUDE_CONFIG_DIR: config } })
-  assert.match(out, /^planandtier: no plan path was given\. These are the most recent planandtier plans in /)
+  assert.match(out, /^planandtier: no plan path was given\. Recent planandtier plans in /)
   assert.match(out, /\n1\. .*newer\.md: "Newer plan", 3 tasks, changed .*\n2\. .*older\.md: "Older plan", 1 tasks, changed/)
   assert.ok(!out.includes('plain.md'))
-  assert.match(out, /ask which one to run\. They run it by typing \/planandtier:execute-plan followed by its number \(for example \/planandtier:execute-plan 1\) or its path/)
+  assert.match(out, /ask which to run: they type \/planandtier:execute-plan with its number \(for example \/planandtier:execute-plan 1\) or its path/)
   assert.equal(state.isArmed(S), false)
 
   const empty = execute('', { env: { CLAUDE_CONFIG_DIR: path.join(dir, 'none') } })
@@ -1290,7 +1290,7 @@ test('execute-plan with a number runs that plan from the list this session was s
 
   // No list shown yet in this session: the number is not guessed; the list is shown instead.
   const early = execute('1', { env })
-  assert.match(early, /^planandtier: there is no plan list in this session yet to pick number 1 from\. These are the most recent/)
+  assert.match(early, /^planandtier: there is no plan list in this session yet to pick number 1 from\. Recent planandtier plans/)
   assert.equal(state.read(S), null, 'nothing started')
 
   execute('', { env })
@@ -1298,14 +1298,14 @@ test('execute-plan with a number runs that plan from the list this session was s
   const later = path.join(plans, 'later.md')
   fs.writeFileSync(later, VALID.replace('Task 2', 'Task two'))
   const out = execute('1. --from T02', { env })
-  assert.match(out, /^planandtier: the user asked to execute the plan in .*first\.md \(3 tiered tasks\), and the session is now armed\./)
+  assert.match(out, /^planandtier: running the plan in .*first\.md \(3 tiered tasks\); the session is armed\./)
   assert.match(out, /T01 \(skipped by --from\) is not run again\./)
   assert.equal(state.read(S).planFile, first)
 
   // A number the list did not have is refused, with the list shown again (and saved again).
   state.remove(S)
   const missing = execute('3', { env })
-  assert.match(missing, /^planandtier: the list had no plan number 3\. These are the most recent/)
+  assert.match(missing, /^planandtier: the list had no plan number 3\. Recent planandtier plans/)
   assert.match(missing, /\n1\. .*later\.md/, 'the fresh list, which the next number refers to')
   assert.equal(state.read(S), null)
 })

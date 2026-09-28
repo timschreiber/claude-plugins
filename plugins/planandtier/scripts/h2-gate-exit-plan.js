@@ -51,11 +51,9 @@ run(async () => {
     const problem = git.problem(input.cwd)
     if (problem) {
       deny(
-        `planandtier: this plan cannot run yet, because ${problem}. planandtier commits each task and ` +
-          'resets a failed attempt to the commit before it, so it needs a Git repository with a clean ' +
-          'working tree. Do not call ExitPlanMode again until that is fixed. Tell the user, and ask them to ' +
-          'commit or stash their changes (or to set up the repository), or to ask for an untiered plan, which ' +
-          'uses the line "Tiered execution: off" instead of a task block.'
+        `planandtier: this plan cannot run yet: ${problem}. Tell the user to fix that (commit or stash, or ` +
+          'set up the repository) or to ask for an untiered plan ("Tiered execution: off"). ' +
+          'Do not call ExitPlanMode again until it is fixed.'
       )
       return
     }
@@ -80,12 +78,12 @@ run(async () => {
     result.section === undefined
       ? `Fix the block in the plan file${where}`
       : `Write the complete "json tiered-tasks" block into the plan file${where} again, in place of the ` +
-        'planandtier task table (from its <!-- planandtier:tasks --> line to its <!-- /planandtier:tasks --> line)'
+        'task table between the planandtier:tasks markers'
   let reason =
-    'planandtier: the plan cannot be approved yet, because its task block is not valid:\n' +
+    'planandtier: the task block is not valid:\n' +
     result.errors.map(e => `- ${e}`).join('\n') +
-    `\n\n${fix}, then call ExitPlanMode again. If the user asked for ` +
-    'a normal, untiered plan, add the line "Tiered execution: off" instead.'
+    `\n\n${fix}, then call ExitPlanMode again. ` +
+    'For an untiered plan, add the line "Tiered execution: off" instead.'
   if (result.missingBlock) {
     reason += '\n\n' + fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8')
   }

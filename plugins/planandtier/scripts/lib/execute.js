@@ -81,7 +81,7 @@ function recentPlans(dir = plansDir(), limit = LISTED) {
 // pick one. `why` opens the note (for example "no plan path was given").
 function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
   const plans = recentPlans(dir)
-  const custom = 'If the plans directory was changed with the plansDirectory setting, the path has to be typed.'
+  const custom = 'A plan elsewhere (plansDirectory setting) needs its path.'
   if (plans.length === 0) {
     return `${PREFIX} ${why}, and there are no planandtier plans in ${dir}. ${custom} Tell the user.`
   }
@@ -92,11 +92,11 @@ function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
       new Date(p.mtime).toISOString().slice(0, 16).replace('T', ' ')
   )
   return (
-    `${PREFIX} ${why}. These are the most recent planandtier plans in ${dir}, newest first:\n` +
+    `${PREFIX} ${why}. Recent planandtier plans in ${dir}, newest first:\n` +
     `${rows.join('\n')}\n` +
-    'Show them to the user, numbered as above, and ask which one to run. They run it by typing ' +
-    '/planandtier:execute-plan followed by its number (for example /planandtier:execute-plan 1) or its path. ' +
-    `Do not run anything yourself. ${custom}`
+    'Show the user this numbered list and ask which to run: they type /planandtier:execute-plan with its ' +
+    'number (for example /planandtier:execute-plan 1) or its path. Do not run anything yourself. ' +
+    custom.replace('A plan elsewhere', 'A plan outside this directory')
   )
 }
 
@@ -129,16 +129,15 @@ function executePlan(input, rest) {
   const cwd = input.cwd
   if (input.permission_mode === 'plan') {
     return (
-      `${PREFIX} a plan cannot be executed in plan mode: the tasks' subagents work in the session's ` +
-      'permission mode, so they could not edit anything. Tell the user to leave plan mode (Shift+Tab) and ' +
-      'type the command again.'
+      `${PREFIX} a plan cannot be executed in plan mode, because its subagents could not edit anything. ` +
+      'Tell the user to leave plan mode (Shift+Tab) and type the command again.'
     )
   }
   const current = state.read(id)
   if (state.isArmed(id) && (current?.phase === 'running' || current?.phase === 'paused')) {
     return (
-      `${PREFIX} a run of a plan is already in progress in this session, so another cannot start. Tell ` +
-      'the user to type /planandtier:disarm first if they want to stop it.'
+      `${PREFIX} a run is already in progress in this session. ` +
+      'Tell the user to type /planandtier:disarm first to stop it.'
     )
   }
   const args = parseArgs(rest)
@@ -162,23 +161,22 @@ function executePlan(input, rest) {
   try {
     text = fs.readFileSync(planFile, 'utf8')
   } catch {
-    return `${PREFIX} the plan file ${planFile} cannot be read. Tell the user, and check the path with them.`
+    return `${PREFIX} the plan file ${planFile} cannot be read. Tell the user.`
   }
 
   const result = resolvePlan(text)
   if (result.optOut || result.missingBlock) {
     const why = result.optOut ? 'it says "Tiered execution: off"' : 'it has no planandtier task table or task block'
     return (
-      `${PREFIX} ${planFile} is not a tiered planandtier plan (${why}), so it runs without planandtier. ` +
-      'Read the plan file and implement it in this session as you normally would. planandtier does not ' +
-      'arm the session or check Git for it.'
+      `${PREFIX} ${planFile} is not a tiered plan (${why}). ` +
+      'Read it and implement it in this session as usual; planandtier is not involved.'
     )
   }
   if (!result.ok && result.section !== undefined) {
     return (
-      `${PREFIX} the plan in ${planFile} cannot run, because its tasks cannot be loaded: ` +
+      `${PREFIX} the plan in ${planFile} cannot run: its tasks cannot be loaded: ` +
       `${result.errors.slice(0, 3).join('; ')}. Its task prompts are not in the plan, so do not implement it ` +
-      'yourself. Tell the user, and suggest planning it again.'
+      'yourself. Tell the user and suggest planning it again.'
     )
   }
   if (!result.ok) {
@@ -191,9 +189,8 @@ function executePlan(input, rest) {
   const problem = git.problem(cwd)
   if (problem) {
     return (
-      `${PREFIX} the plan cannot run here, because ${problem}. planandtier commits each task and resets a ` +
-      'failed attempt to the commit before it. Tell the user what to fix, and that they can then type the ' +
-      'command again.'
+      `${PREFIX} the plan cannot run here: ${problem}. ` +
+      'Tell the user what to fix, then to type the command again.'
     )
   }
 
@@ -237,9 +234,9 @@ function executePlan(input, rest) {
     ? ` ${point.done.map(doneLabel).join(', ')} ${point.done.length === 1 ? 'is' : 'are'} not run again.`
     : ''
   return (
-    `${PREFIX} the user asked to execute the plan in ${planFile} (${count}), and the session is now armed.` +
-    `${skipped} Each task runs in its own subagent at its tier and commits its own work. Your part is only to ` +
-    'dispatch them, one at a time, exactly as planandtier tells you. Do not implement the plan yourself. ' +
+    `${PREFIX} running the plan in ${planFile} (${count}); the session is armed.` +
+    `${skipped} Dispatch the tasks one at a time, exactly as planandtier says. ` +
+    'Do not implement the plan yourself. ' +
     dispatchText(run)
   )
 }
