@@ -17,6 +17,7 @@ const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const { dispatchText, doneLabel } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
+const spend = require('./lib/spend.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
 // Subagent reports and task notifications also arrive as prompts; they are not the user speaking.
@@ -97,8 +98,11 @@ function disarmNote(input) {
   state.disarm(id)
   const s = state.read(id)
   const inRun = s && (s.phase === 'running' || s.phase === 'paused')
-  if (inRun) state.write(id, { ...s, phase: 'abandoned', notice: null })
+  const abandoned = inRun ? { ...s, phase: 'abandoned', notice: null, spendReported: true } : null
+  if (inRun) state.write(id, abandoned)
   else state.remove(id)
+  // A run stopped here never reaches H5's end-of-run report, so its spend is shown now.
+  const spent = inRun && s.runId && !s.spendReported ? spend.recordRunEnd(input, abandoned) : null
 
   if (!armed) {
     emitText('planandtier: was not armed for this session; nothing changed.')
@@ -115,11 +119,12 @@ function disarmNote(input) {
     ? ` ${s.tasks[s.current.index].id}'s worker is still running; planandtier will not check it or roll it back, so whatever ` +
       'it commits or leaves in the working tree stays.'
     : ''
-  emitText(
+  const note =
     'planandtier: disarmed for this session, which stops the run of the approved plan. ' +
-      `Done and committed: ${done}. Not done: ${notRun}.${running} Tell the user what is done and what is not. ` +
-      'Do not dispatch more tasks.'
-  )
+    `Done and committed: ${done}. Not done: ${notRun}.${running} Tell the user what is done and what is not. ` +
+    'Do not dispatch more tasks.'
+  if (!spent) return emitText(note)
+  emit({ systemMessage: spent, hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: note } })
 }
 
 run(async () => {

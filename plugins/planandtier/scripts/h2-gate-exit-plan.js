@@ -2,12 +2,14 @@
 // invalid plan never reaches the user. It reads the plan FILE first: tool_input.plan is
 // whatever the model sent and can be stale after a retry (spike P2).
 // A valid block is then moved to the tasks file, leaving a short table in the plan. The dialog
-// reads the plan file after this hook runs, and it withholds a plan with a very long line.
+// reads the plan file after this hook runs, and it withholds a plan with a very long line. A plan
+// that passes also has its planning's tokens and cost recorded beside it (lib/spend.js).
 'use strict'
 
 const fs = require('fs')
 const path = require('path')
-const { resolvePlan, moveBlock } = require('./lib/sidecar.js')
+const { resolvePlan, moveBlock, planIdOf } = require('./lib/sidecar.js')
+const { recordPlanning } = require('./lib/spend.js')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const { run, readInput, emit, debug } = require('./lib/hook.js')
@@ -63,6 +65,8 @@ run(async () => {
     if (result.section === undefined && fromFile) {
       if (!moveBlock(toolInput.planFilePath, text, result.tasks)) debug('H2: the task block could not be moved')
     }
+    // What planning has cost since the last submission (or since arming), beside the plan.
+    recordPlanning(input, planIdOf(result, text), toolInput.planFilePath ?? null)
     return
   }
 

@@ -8,7 +8,7 @@
 //            run's branch. On a pass it records HEAD, which a retry resets to.
 //   stop     SubagentStop: the worker finished. Judges the attempt against Git and moves the run on
 //            (the next task, a retry one tier up after a reset, completion, or a halt), saving the
-//            notice.
+//            notice. Records the attempt's tokens and cost, and shows them to the user.
 //   post     PostToolUse Agent: gives Claude the notice if there is one (a foreground run); otherwise
 //            the task is running in the background, and Claude is told to end its turn and wait.
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
@@ -19,6 +19,7 @@ const fs = require('fs')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const r = require('./lib/run.js')
+const spend = require('./lib/spend.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const ours = type => typeof type === 'string' && type.startsWith(r.AGENT_PREFIX)
@@ -120,7 +121,11 @@ function stop(input, s) {
   if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
   const report = r.parseReport(input.last_assistant_message) ?? reportFromTranscript(input.agent_transcript_path)
   const reported = { ...s, current: { ...s.current, report } }
-  state.write(input.session_id, settle(reported, s.cwd ?? input.cwd))
+  // The attempt's tokens and estimated cost go to the plan's telemetry file and, as a systemMessage,
+  // straight to the user; Claude's notice is unchanged.
+  const { next, line } = spend.recordAttempt(input, s, settle(reported, s.cwd ?? input.cwd))
+  state.write(input.session_id, next)
+  if (line) emit({ systemMessage: line })
 }
 
 function post(input, s) {
@@ -137,9 +142,13 @@ function post(input, s) {
 function failure(input, s) {
   if (!ours(input.tool_input?.subagent_type) || s?.phase !== 'running' || !s.current.inFlight) return
   const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
-  const next = settle(s, s.cwd ?? input.cwd, { ok: false, reason: `the Agent call failed: ${error}` })
+  const settledState = settle(s, s.cwd ?? input.cwd, { ok: false, reason: `the Agent call failed: ${error}` })
+  const { next, line } = spend.recordAttempt(input, s, settledState, { ran: false })
   state.write(input.session_id, { ...next, notice: null })
-  context('PostToolUseFailure', next.notice)
+  emit({
+    hookSpecificOutput: { hookEventName: 'PostToolUseFailure', additionalContext: next.notice },
+    ...(line ? { systemMessage: line } : {}),
+  })
 }
 
 run(async () => {

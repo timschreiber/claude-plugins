@@ -2,14 +2,28 @@
 // work itself or stopping halfway.
 //   pre   PreToolUse Edit|Write|NotebookEdit: deny main-thread file edits. Shell commands are not
 //         guarded; H4 refuses the next dispatch if they left the tree dirty.
-//   stop  Stop: block stopping while a task is due to be dispatched.
+//   stop  Stop: block stopping while a task is due to be dispatched. At the first Stop after the run
+//         has ended, record its orchestration and show the user the run's spend (lib/spend.js); by
+//         then Claude's closing summary is in the transcript.
 // Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
 // forever. Workers are subagents, which every hook ignores.
 'use strict'
 
 const state = require('./lib/state.js')
+const spend = require('./lib/spend.js')
 const { dispatchText } = require('./lib/run.js')
 const { run, readInput, emit } = require('./lib/hook.js')
+
+const ENDED = ['complete', 'halted', 'abandoned']
+
+// Shows the ended run's spend once. Returns true when it did.
+function reportEnd(input, s) {
+  if (!s || !ENDED.includes(s.phase) || !s.runId || s.spendReported) return false
+  if (!state.write(input.session_id, { ...s, spendReported: true })) return false
+  const text = spend.recordRunEnd(input, s)
+  if (text) emit({ systemMessage: text })
+  return true
+}
 
 const MAX_TOOL_DENIALS = 3
 const REASON = s =>
@@ -20,11 +34,13 @@ run(async () => {
   const input = await readInput()
   if (!input || input.agent_id || !state.isArmed(input.session_id)) return
   const current = state.read(input.session_id)
+  if (process.argv[2] === 'stop' && reportEnd(input, current)) return
   if (!current || current.phase !== 'running' || current.current?.inFlight) return
 
   if (process.argv[2] === 'stop') {
     if (input.stop_hook_active) {
-      state.write(input.session_id, { ...current, phase: 'abandoned' })
+      const abandoned = { ...current, phase: 'abandoned' }
+      if (state.write(input.session_id, abandoned)) reportEnd(input, abandoned)
       return
     }
     // A notice H4 left (what the last attempt did, and the next dispatch) says more than the bare

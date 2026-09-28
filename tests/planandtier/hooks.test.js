@@ -12,6 +12,7 @@ const state = require(path.join(PLUGIN, 'scripts', 'lib', 'state.js'))
 const sidecar = require(path.join(PLUGIN, 'scripts', 'lib', 'sidecar.js'))
 const { extractBlock, parsePlan } = require(path.join(PLUGIN, 'scripts', 'lib', 'tasks.js'))
 const runLib = require(path.join(PLUGIN, 'scripts', 'lib', 'run.js'))
+const telemetry = require(path.join(PLUGIN, 'scripts', 'lib', 'telemetry.js'))
 const RULES = fs.readFileSync(path.join(PLUGIN, 'rules', 'tiering.md'), 'utf8')
 const OPT_OUT = 'Tiered execution: off'
 
@@ -783,7 +784,8 @@ test('H5 is silent while a task is in flight, in other phases, with no state, an
   assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
   assert.equal(hook('h5-guard.js', { session_id: S }, ['stop']).stdout, '')
   for (const phase of ['paused', 'halted', 'complete', 'abandoned']) {
-    state.write(S, { ...state.read(S), phase, current: { ...state.read(S).current, inFlight: false } })
+    // An ended run's spend is shown once (tested below); after that, H5 has nothing to say.
+    state.write(S, { ...state.read(S), phase, spendReported: true, current: { ...state.read(S).current, inFlight: false } })
     assert.equal(hook('h5-guard.js', toolPre('Write'), ['pre']).stdout, '', phase)
     assert.equal(hook('h5-guard.js', { session_id: S }, ['stop']).stdout, '', phase)
   }
@@ -798,7 +800,8 @@ test('H5 stop blocks once with the next dispatch, then allows and abandons on th
   assert.match(first.json.reason, /subagent_type "planandtier:sonnet-low"/)
   assert.equal(state.read(S).phase, 'running')
   const second = hook('h5-guard.js', { session_id: S, stop_hook_active: true }, ['stop'])
-  assert.equal(second.stdout, '')
+  assert.equal(second.json.decision, undefined, 'the stop is allowed')
+  assert.match(second.json.systemMessage, /^planandtier spend \(estimated/, 'with the abandoned run\'s spend')
   assert.equal(state.read(S).phase, 'abandoned')
 })
 
@@ -939,7 +942,10 @@ test('disarming mid-run stops it: nothing more is dispatched, and the worker in 
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   assert.equal(state.read(S).current.inFlight, true)
 
-  const out = typed('/planandtier:disarm').stdout
+  const r = typed('/planandtier:disarm')
+  const out = r.json.hookSpecificOutput.additionalContext
+  assert.equal(r.json.hookSpecificOutput.hookEventName, 'UserPromptSubmit')
+  assert.match(r.json.systemMessage, /^planandtier spend \(estimated.*\n\s+sonnet-low\s/s, 'the stopped run\'s spend goes to the UI')
   assert.match(out, /^planandtier: disarmed for this session, which stops the run of the approved plan\./)
   assert.match(out, /Done and committed: T01 [0-9a-f]{7} \(sonnet-low\)\. Not done: T02, T03\./)
   assert.match(out, /T02's worker is still running; planandtier will not check it or roll it back/)
@@ -957,14 +963,16 @@ test('disarming mid-run stops it: nothing more is dispatched, and the worker in 
 
 test('disarming a run between tasks says nothing is running', () => {
   startTestRun()
-  const out = typed('/planandtier:disarm').stdout
+  const out = typed('/planandtier:disarm').json.hookSpecificOutput.additionalContext
   assert.match(out, /Done and committed: none\. Not done: T01, T02, T03\. Tell the user/)
   assert.ok(!out.includes('still running'))
 })
 
 test('SessionEnd removes the arming flag', () => {
+  assert.ok(state.cursor(S), 'arming started the telemetry cursor')
   hook('h6-cleanup.js', { session_id: S, hook_event_name: 'SessionEnd' }, ['end'])
   assert.equal(state.isArmed(S), false)
+  assert.equal(state.cursor(S), null)
 })
 
 test('the arm, disarm and execute-plan skills can only be run by the user', () => {
@@ -1142,6 +1150,185 @@ test('execute-plan with no path lists recent planandtier plans, newest first', (
 
   const empty = execute('', { env: { CLAUDE_CONFIG_DIR: path.join(dir, 'none') } })
   assert.match(empty, /there are no planandtier plans in .*plansDirectory/)
+})
+
+// ---- telemetry --------------------------------------------------------------------------
+
+// Transcript lines shaped as Claude Code writes them (planandtier-telemetry-findings.md).
+const said = (id, at, usage, model = 'claude-sonnet-5') => ({
+  type: 'assistant',
+  timestamp: at,
+  message: {
+    id,
+    model,
+    content: [{ type: 'text', text: '...' }],
+    usage: {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: usage.cacheWrite ?? 0,
+      cache_creation: { ephemeral_5m_input_tokens: usage.cacheWrite ?? 0, ephemeral_1h_input_tokens: 0 },
+      ...usage.raw,
+    },
+  },
+})
+const jsonl = (file, entries) => {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, entries.map(e => JSON.stringify(e)).join('\n') + '\n')
+  return file
+}
+const ago = seconds => new Date(Date.now() - seconds * 1000).toISOString()
+// A worker transcript whose usage costs $0.05502 on Sonnet 5: 10 input, 1,000 output, 10,000 5-minute
+// cache writes and 100,000 cache reads, the streaming line of its message repeated first.
+const workerTranscript = name => {
+  const raw = { input_tokens: 10, output_tokens: 1000, cache_read_input_tokens: 100000 }
+  return jsonl(path.join(dir, 'transcripts', `${name}.jsonl`), [
+    said(`${name}-m`, ago(20), { raw: { ...raw, output_tokens: 3 }, cacheWrite: 10000 }),
+    said(`${name}-m`, ago(19), { raw, cacheWrite: 10000 }),
+  ])
+}
+const WORKER_COST = (10 * 2 + 1000 * 10 + 10000 * 2.5 + 100000 * 0.2) / 1e6
+const telemetryFile = () => path.join(dir, 'plan.telemetry.jsonl')
+// One attempt at the current task, with its worker transcript; returns the SubagentStop output.
+function spendAttempt(work, transcript) {
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  const text = work()
+  return hook('h4-dispatch.js', subStop(text, { agent_transcript_path: transcript }), ['stop'])
+}
+
+test('each attempt is recorded beside the plan and shown in the UI, with its tier and estimated cost', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  const failed = spendAttempt(() => report('FAILED', 'NONE', 'tests fail'), workerTranscript('w1'))
+  assert.equal(
+    failed.json.systemMessage,
+    'planandtier: T01 on sonnet-low failed, retrying a tier up: 111k tokens (90% cache reads), ~$0.06. Run so far: ~$0.06.'
+  )
+  const done = spendAttempt(() => report('DONE', workerCommits('T01')), workerTranscript('w2'))
+  assert.match(done.json.systemMessage, /^planandtier: T01 on sonnet-medium done: 111k tokens .*Run so far: ~\$0\.11\.$/)
+  assert.equal(done.json.decision, undefined, 'SubagentStop output never blocks')
+
+  const records = telemetry.read(telemetryFile())
+  assert.deepEqual(records.map(r => [r.kind, r.task, r.tier, r.attempt, r.outcome]), [
+    ['attempt', 'T01', 'sonnet-low', 1, 'retry'],
+    ['attempt', 'T01', 'sonnet-medium', 2, 'done'],
+  ])
+  const [first] = records
+  assert.equal(first.reason, 'tests fail')
+  assert.deepEqual(first.tokens, { input: 10, output: 1000, cacheWrite5m: 10000, cacheWrite1h: 0, cacheRead: 100000 })
+  assert.ok(Math.abs(first.costUsd - WORKER_COST) < 1e-9)
+  assert.deepEqual([first.planId, first.runId, first.sessionId, first.models], [PLAN_ID, state.read(S).runId, S, ['claude-sonnet-5']])
+  assert.equal(first.durationMs, 0, 'one message: first and last are the same')
+  assert.ok(Math.abs(state.read(S).spend.costUsd - 2 * WORKER_COST) < 1e-9)
+  assert.match(state.read(S).notice, /T01 is done/, "Claude's notice is unchanged")
+})
+
+test('a worker transcript that cannot be read leaves judging alone and records unknown usage', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  const out = spendAttempt(() => report('DONE', workerCommits('T01')), path.join(dir, 'missing.jsonl'))
+  assert.match(out.json.systemMessage, /T01 on sonnet-low done: usage unavailable\. Run so far: ~\$0\.00\./)
+  assert.deepEqual(state.read(S).done.map(d => d.id), ['T01'])
+  const [r] = telemetry.read(telemetryFile())
+  assert.deepEqual([r.tokens, r.costUsd], [null, null])
+})
+
+test('a failed Agent call is recorded as an attempt that used nothing', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  const out = hook('h4-dispatch.js', { ...agentPre(call), error: 'boom' }, ['failure']).json
+  assert.match(out.hookSpecificOutput.additionalContext, /the Agent call failed: boom/)
+  assert.match(out.systemMessage, /T01 on sonnet-low failed, retrying a tier up: 0 tokens/)
+  const [r] = telemetry.read(telemetryFile())
+  assert.deepEqual([r.outcome, r.total, r.costUsd], ['retry', 0, 0])
+})
+
+test('H2 records the planning since the cursor, with planning subagents but not workers, and moves the cursor', () => {
+  const file = writePlanFile(VALID)
+  const main = path.join(dir, 'transcripts', 'main.jsonl')
+  state.setCursor(S, ago(60))
+  jsonl(main, [
+    { type: 'permission-mode', permissionMode: 'plan' },
+    said('old', ago(120), { raw: { output_tokens: 99999 } }, 'claude-opus-5-5'),
+    said('p1', ago(30), { raw: { output_tokens: 1000 } }, 'claude-opus-5-5'),
+    { type: 'user', permissionMode: 'default', message: { content: 'x' } },
+    said('chat', ago(20), { raw: { output_tokens: 50000 } }),
+    { type: 'user', permissionMode: 'plan', message: { content: 'y' } },
+    said('p2', ago(10), { raw: { output_tokens: 500 } }, 'claude-opus-5-5'),
+  ])
+  const subs = path.join(dir, 'transcripts', 'main', 'subagents')
+  jsonl(path.join(subs, 'agent-e.jsonl'), [said('e1', ago(25), { raw: { output_tokens: 200 } })])
+  fs.writeFileSync(path.join(subs, 'agent-e.meta.json'), JSON.stringify({ agentType: 'Explore' }))
+  jsonl(path.join(subs, 'agent-w.jsonl'), [said('w1', ago(25), { raw: { output_tokens: 70000 } })])
+  fs.writeFileSync(path.join(subs, 'agent-w.meta.json'), JSON.stringify({ agentType: 'planandtier:sonnet-low' }))
+
+  const before = new Date().toISOString()
+  hook('h2-gate-exit-plan.js', { ...exitPre(VALID, file), transcript_path: main })
+  const [r] = telemetry.read(telemetryFile())
+  assert.deepEqual([r.kind, r.planId, r.sessionId, r.subagents, r.messages], ['planning', idOf(VALID), S, 1, 3])
+  assert.equal(r.tokens.output, 1700, 'plan-mode messages since the cursor, and the Explore subagent')
+  assert.ok(Math.abs(r.costUsd - (1500 * 20 + 200 * 10) / 1e6) < 1e-9, 'each message at its own model')
+  assert.ok(state.cursor(S) >= before, 'the cursor moved')
+
+  // A resubmission (the table is already there) records only what came after.
+  hook('h2-gate-exit-plan.js', { ...exitPre(fs.readFileSync(file, 'utf8'), file), transcript_path: main })
+  const records = telemetry.read(telemetryFile())
+  assert.equal(records.length, 2)
+  assert.deepEqual([records[1].planId, records[1].messages], [idOf(VALID), 0])
+})
+
+test('H2 records nothing for a plan it denies, or in an unarmed session', () => {
+  const file = writePlanFile(INVALID)
+  hook('h2-gate-exit-plan.js', exitPre(INVALID, file))
+  state.disarm(S)
+  const valid = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, valid))
+  assert.equal(fs.existsSync(telemetryFile()), false)
+})
+
+test('at the first Stop after the run ends, the spend summary is shown once, with planning from any session', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  // Planning recorded in an earlier session, as for a plan run with /planandtier:execute-plan.
+  telemetry.append(telemetryFile(), { kind: 'planning', sessionId: 'earlier', planId: PLAN_ID, subagents: 2, tokens: {}, total: 50000, messages: 9, costUsd: 0.4, unpriced: [], models: ['claude-opus-5-5'] })
+  spendAttempt(() => report('DONE', workerCommits('T01')), workerTranscript('a'))
+  spendAttempt(() => report('DONE', workerCommits('T02')), workerTranscript('b'))
+  spendAttempt(() => report('FAILED', 'NONE', 'x'), workerTranscript('c'))
+  spendAttempt(() => report('DONE', workerCommits('T03')), workerTranscript('d'))
+  assert.equal(state.read(S).phase, 'complete')
+
+  const main = jsonl(path.join(dir, 'transcripts', 'main.jsonl'), [
+    { type: 'permission-mode', permissionMode: 'auto' },
+    said('o1', new Date(Date.parse(state.read(S).approvedAt) + 1).toISOString(), { raw: { output_tokens: 2000 } }),
+  ])
+  const out = hook('h5-guard.js', { session_id: S, stop_hook_active: false, transcript_path: main }, ['stop']).json
+  assert.equal(out.decision, undefined)
+  const rows = out.systemMessage.split('\n').slice(1).map(l => l.trim().split(/\s+/).slice(0, 2).join(' '))
+  assert.deepEqual(rows, [
+    'planning ~$0.40',
+    'sonnet-low ~$0.06',
+    'sonnet-medium ~$0.06',
+    'opus-high ~$0.06',
+    'opus-xhigh ~$0.06',
+    'orchestration ~$0.02',
+    `total ~$${(0.4 + 4 * WORKER_COST + 0.02).toFixed(2)}`,
+  ])
+  assert.match(out.systemMessage, /opus-high\s+~\$0\.06\s+1 attempt \(1 failed\), 111k tokens/)
+  assert.deepEqual(telemetry.read(telemetryFile()).map(r => r.kind).slice(-1), ['orchestration'])
+  assert.equal(state.read(S).spendReported, true)
+  assert.equal(hook('h5-guard.js', { session_id: S, transcript_path: main }, ['stop']).stdout, '', 'only once')
+})
+
+test('a halted run gets its summary too, and an unarmed session writes no telemetry', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  for (let i = 0; i < 3; i++) spendAttempt(() => report('FAILED', 'NONE', 'no'), workerTranscript(`h${i}`))
+  assert.equal(state.read(S).phase, 'halted')
+  assert.match(hook('h5-guard.js', { session_id: S }, ['stop']).json.systemMessage, /sonnet-low .*\n.*sonnet-medium .*\n.*sonnet-high/)
+
+  // A run in flight whose session is then disarmed.
+  const s = state.read(S)
+  state.write(S, { ...s, phase: 'running', planFile: path.join(dir, 'plan2.md'), current: { ...s.current, inFlight: true } })
+  state.disarm(S)
+  hook('h4-dispatch.js', subStop(report('DONE'), { agent_transcript_path: workerTranscript('u') }), ['stop'])
+  assert.equal(fs.existsSync(path.join(dir, 'plan2.telemetry.jsonl')), false)
 })
 
 // ---- every hook ---------------------------------------------------------------------

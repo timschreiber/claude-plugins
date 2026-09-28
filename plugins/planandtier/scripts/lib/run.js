@@ -2,13 +2,17 @@
 // dispatch matches it, how a worker's report is read and judged, and how the run moves on. The hooks
 // add the file and Git work around these.
 //
-// Run state: {phase, tasks, tasksFile, tasksHash, planFile, planId, branch, current, done, notice, ...}
+// Run state: {phase, tasks, tasksFile, tasksHash, planFile, planId, runId, branch, current, done, notice,
+//             spend, spendReported, ...}
+//   runId    tells this run's telemetry records from another run of the same plan
+//   spend    {costUsd}: the workers' estimated spend so far (lib/spend.js)
 //   phase    running | halted | complete | abandoned (or paused, before the run starts)
 //   current  {index, attempt, tier, tried[], head, inFlight, report, lastFailure, dispatchFailures}
 //   done     [{id, tier, commit, attempts, skipped?}]; skipped tasks were finished by an earlier run
 //   notice   what Claude must be told next, set when an attempt is judged and cleared once shown
 'use strict'
 
+const crypto = require('crypto')
 const { tierOf, nextTier } = require('./tasks.js')
 
 const MAX_RETRIES = 2
@@ -42,6 +46,7 @@ function startRun({ tasks, tasksFile, tasksHash = null, planFile = null, branch 
     branch,
     current: fresh(tasks[start], start),
     done,
+    runId: crypto.randomBytes(4).toString('hex'),
     approvedAt: new Date().toISOString(),
     denials: 0,
     guardDenials: 0,
