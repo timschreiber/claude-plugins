@@ -37,7 +37,8 @@ Requirements:
    prompts are in the tasks file the table names, next to the plan (`<plan>.tasks.json`). Open it to read
    them before you approve. This was tested with auto mode.
 4. Claude launches the `planandtier:execute-plan` workflow. Watch it with `/workflows`. It stops at the
-   first task that fails.
+   first task that fails. If you rejected an earlier version of the plan, Claude asks you to type
+   `/planandtier:execute-plan` instead (see Known limitations).
 
 ### Opting out
 
@@ -89,9 +90,10 @@ cannot start agents or workflows.
 - **Workers see only their prompt.** They do not see the plan or the conversation, so a vague prompt gives
   a vague result. Claude Code also shows each worker your latest typed prompt, as a request that wins over
   the task.
-- **A plan changed through the approval dialog's feedback box can fail to run.** Claude Code does not relay
-  that feedback to the workers, only your latest typed prompt. If a changed task contradicts that prompt,
-  its worker refuses it and the run stops there.
+- **A revised plan needs a typed launch.** Claude Code relays your latest typed prompt to the workers, but
+  not feedback typed in the approval dialog. So if you rejected an earlier version of the plan, Claude
+  does not launch the approved one: it asks you to type `/planandtier:execute-plan`, which makes that
+  command the request the workers see. Any rejection counts, even one that changed nothing.
 - **Auto mode and manual permissions** both worked in testing. With manual permissions, expect an approval
   prompt when the workflow launches, and permission prompts from workers as they edit files or run
   commands. Allow rules for the tools your tasks use will reduce them. If nobody can approve (a
