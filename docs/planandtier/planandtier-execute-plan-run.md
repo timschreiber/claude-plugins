@@ -15,6 +15,8 @@ The run passes if:
   `Planandtier-Plan:` lines carrying the same plan id;
 - in Part C, Claude says T01 is not run again, and only T02 and T03 run;
 - in Part D, Claude implements the plain plan itself, with no Agent dispatches;
+- in Part B, `/planandtier:execute-plan 1` runs the plan listed first;
+- in Parts B and C, no "Stop hook error" appears between tasks;
 - in Parts B and C, a spend line appears after each task, and one summary at the end. Its planning row
   includes Part A's planning, recorded in a different session.
 
@@ -72,7 +74,8 @@ if ((git rev-parse --verify -q HEAD) -and -not (git status --porcelain)) { 'Read
    ```powershell
    claude --permission-mode plan @probe
    ```
-2. Type `/planandtier:arm`. Claude should confirm in one line that planandtier is armed.
+2. Type `/planandtier:arm`. Claude should confirm in one line that planandtier is armed. It is already in
+   plan mode, so it shouldn't try to switch.
 3. Send this prompt:
    > Plan three tasks. T01: in README.md, replace the line `Status: draft` with `Status: ready`; make it a sonnet/low find-and-replace task. T02: create greet.js exporting greet(name), which returns "Hello, " + name + "!". T03: add greet.test.js with node:test cases for greet("Ada") and greet(""), verified by `node --test`.
 4. At the approval dialog, check that it shows the task table, then press **Esc** (do not approve), and type
@@ -86,10 +89,12 @@ if ((git rev-parse --verify -q HEAD) -and -not (git status --porcelain)) { 'Read
    ```
    If you use auto mode, add `--permission-mode auto`. Otherwise, approve the workers' permission prompts
    as they come.
-2. Type `/planandtier:execute-plan` with no path. Claude should list recent planandtier plans with the one
-   from Part A at the top (its title, 3 tasks and a time), and ask which to run. Don't answer in words.
-3. Type `/planandtier:execute-plan <the plan's path from the list>`. Claude should say the session is now
-   armed and dispatch T01. **Type nothing else.** T01, T02 and T03 should run in turn, as after an approval.
+2. Type `/planandtier:execute-plan` with no path. Claude should list recent planandtier plans, **numbered**,
+   with the one from Part A as number 1 (its title, 3 tasks and a time), and ask you to type the command
+   with a number. Don't answer in words.
+3. Type `/planandtier:execute-plan 1`. Claude should say the session is now armed and dispatch T01. **Type
+   nothing else.** T01, T02 and T03 should run in turn, as after an approval, with no "Stop hook error"
+   between them.
 4. When Claude says the run is complete, type `/exit`, and check in the PowerShell window:
    ```powershell
    git log --format="%h %s%n%b" -4

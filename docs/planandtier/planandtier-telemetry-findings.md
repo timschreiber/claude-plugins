@@ -84,7 +84,24 @@ A rerun of the same guide at 16:15 with the fixes installed (`b8a88f5`). Evidenc
 - **The rest held:** the rejection feedback reached the code (`greet.js` returns `"Howdy, " + name + "!"`),
   the three tasks ran on `claude-sonnet-5-5` with nothing typed, and each commit carries both lines.
 
+## The hand-off order, and the Stop block it caused
+
+Across the live runs (both agents runs, and execute-plan Part B,
+`planandtier-execute-plan-20260928-162334-partB-session-output.txt`), every task's hand-off happened in this
+order:
+1. the worker's report reached Claude (`› Message from @…`);
+2. Claude ended its turn with no next step, because the worker had not stopped yet;
+3. its `SubagentStop` fired;
+4. H5 blocked that stop with the next dispatch, which Claude Code shows as `Stop hook error: …`;
+5. the `Agent "…" finished` notification arrived, after the next task had already been dispatched.
+
+The notification comes after `SubagentStop` every time, so H1 now gives the next step with it and H5 no
+longer blocks that stop. Execute-plan Part B also showed the cost of silence at step 2: Claude told the user
+the run was stuck and to re-run the command. H1 now says what is happening when the report arrives early.
+
 ## Not measured
 
+- Whether `EnterPlanMode`, called on arming, asks the user to approve; the docs don't say. The agents run
+  guide records it.
 - Opus workers, or a main session using `opusplan`. Pricing is per message model, so a mixed session is
   priced message by message; no transcript here mixed models.

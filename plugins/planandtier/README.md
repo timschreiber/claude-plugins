@@ -39,12 +39,14 @@ Tested on Claude Code 2.1.283.
 
 1. **Commit or stash your changes.** Arming, and later approving a tiered plan, need a clean working
    tree.
-2. **Arm the session: type `/planandtier:arm`.** Claude confirms it in one line. Arming is refused, with
-   the reason, if Git is missing, the directory is not a repository with a commit, Git has no user name and
-   email, or the tree has uncommitted changes; fix that and arm again. Arming lasts for the session;
-   `/clear` starts a new, unarmed one. The same checks run again when Claude submits the plan, since the
-   tree can change in between.
-3. **Start a plan as usual, in plan mode.** The plugin adds its tiering rules to the conversation.
+2. **Arm the session: type `/planandtier:arm`.**
+   - **Claude switches the session to plan mode** if it isn't there already, then confirms in one line.
+     Claude Code may ask you to approve entering plan mode.
+   - **Arming is refused, with the reason,** if Git is missing, the directory is not a repository with a
+     commit, Git has no user name and email, or the tree has uncommitted changes. Fix that and arm again.
+   - **Arming lasts for the session;** `/clear` starts a new, unarmed one.
+   - **The same checks run again when Claude submits the plan,** since the tree can change in between.
+3. **Describe what you want planned.** The plugin adds its tiering rules to the conversation.
 4. **Claude plans** and ends the plan with a `## Tasks` section holding a `json tiered-tasks` block: one
    entry per task, each with a model, an effort and a self-contained prompt. If the block is invalid,
    `ExitPlanMode` is denied with the problems listed, and Claude fixes the plan and tries again. You never
@@ -54,8 +56,8 @@ Tested on Claude Code 2.1.283.
    are in the tasks file the table names, next to the plan (`<plan>.tasks.json`). Open it to read them
    before you approve.
 6. **Watch.** Claude dispatches each task to the agent for its tier. The worker runs in the background and
-   Claude ends its turn; when the worker's report arrives, the plugin gives Claude the next step, so the run
-   carries on with nothing typed. The worker does the task, runs its `Verify:` step and, if it passed,
+   Claude ends its turn. When the worker finishes, the plugin gives Claude the next step along with Claude
+   Code's "Agent … finished" notification, so the run carries on with nothing typed. The worker does the task, runs its `Verify:` step and, if it passed,
    commits with the task's title, a `Planandtier-Task: T02` line and a `Planandtier-Plan: <id>` line that
    names the plan. When every task is done, Claude says so.
 
@@ -83,7 +85,9 @@ on disk, though (in `~/.claude/plans/`), and you can run it in a new session:
 - **A planandtier plan runs as tiered tasks.** The session is armed, and the run starts at the first task
   not already committed on the current branch: tasks from an earlier run of the same plan are skipped, and
   Claude says which. It needs the same clean Git repository as approving a plan does.
-- **With no path,** Claude lists the most recent planandtier plans and asks which one to run.
+- **With no path,** Claude lists the most recent planandtier plans, numbered. Then pick one by typing its
+  number: `/planandtier:execute-plan 1`. A number always refers to the list you were last shown in the
+  session.
 - **`--from T03`** starts at a given task instead, treating the ones before it as done. Use it for a run
   whose commits predate the plan line, or when Claude reports a gap (a later task committed, an earlier one
   not).
@@ -194,6 +198,9 @@ commands and H6 cleaning up.
   Claude during the run.
 - **The plan listing only looks in `~/.claude/plans`.** If you moved the plans directory with the
   `plansDirectory` setting, type the plan's path.
+- **The next step rides on Claude Code's "Agent … finished" notification.** It has always arrived in
+  testing. If it ever didn't, the run would wait until you type something, which gives Claude the next
+  step.
 - **The model dispatches the tasks.** The plugin gives the exact call and refuses any other, but it cannot
   make the call itself. If Claude keeps doing something else, the guard steps aside after a few blocks.
 

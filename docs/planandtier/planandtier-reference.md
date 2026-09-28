@@ -108,8 +108,13 @@ installed. The plugin can therefore stay installed everywhere, and how Claude wa
 
 | Command | Effect |
 |---|---|
-| `/planandtier:arm` | Checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)). If it passes, arms the session: writes `sessions/<session_id>.armed` beside the state file. Typed in plan mode, it also adds the tiering rules at once. If it fails, the session stays unarmed. |
+| `/planandtier:arm` | Checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)). If it passes, arms the session: writes `sessions/<session_id>.armed` beside the state file. Typed in plan mode, it also adds the tiering rules at once. Typed outside plan mode (armed now or already), the note asks Claude to call `EnterPlanMode`, loading it with ToolSearch first if it is deferred; the rules then come from H1's `enter` mode. It never asks during a `running` or `paused` run, whose workers inherit the mode. If the check fails, the session stays unarmed. |
 | `/planandtier:disarm` | Disarms the session: removes the flag. A `running` or `paused` run is marked `abandoned` with its notice cleared, so nothing more is dispatched; any other state is deleted. |
+
+**Why Claude switches the mode, not the hook.** A hook can set the permission mode only while answering a
+permission prompt (`updatedPermissions` `setMode` on `PermissionRequest`), and none is pending when the
+command is typed. Skill frontmatter has no mode key. Whether `EnterPlanMode` asks the user to approve is
+not documented; the run guide records it.
 
 Both are skills in [`skills/`](../../plugins/planandtier/skills/) with `disable-model-invocation: true`, so
 only the user can run them. **H1 does the work**, not the skill: `UserPromptSubmit` receives the raw typed
@@ -453,8 +458,11 @@ subagent itself.
   task-notification prompt, so this is how a background run moves on to its next step with nothing typed.
 - If a worker's `<agent-message>` hand-back arrives while its task is still in flight (before its
   `SubagentStop`, which is the usual order), it tells Claude that nothing is wrong and to end its turn: the
-  next step comes from H5 when it does. Without this, Claude told the user the run was stuck and to re-run
-  a command.
+  next step comes with the task's "finished" notification. Without this, Claude told the user the run was
+  stuck and to re-run a command.
+- The notice H4 leaves for a background worker (`noticeByNotification`) is normally given on that
+  `<task-notification>` prompt, which always follows the worker's `SubagentStop`. Any other prompt gives it
+  too.
 - Otherwise, for a prompt the user typed, with a run `running` and no task in flight, it prints where the
   run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
   reports and task notifications get no such note.
@@ -533,8 +541,10 @@ other agent types are left alone.
   the line H5 shows the user (see [Spend telemetry](#spend-telemetry)).
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
   already finished (a foreground run, as in a headless session): it gives Claude the notice as
-  `additionalContext` and clears it. Otherwise the task is running in the background, and it tells Claude
-  to end its turn: the next step comes when the report arrives (H1).
+  `additionalContext` and clears it. Otherwise the task is running in the background: it marks the attempt
+  `background`, and tells Claude to end its turn. The next step comes when the report arrives (H1). When a
+  background attempt is judged, its notice is flagged `noticeByNotification`, for H1 to give with the
+  "finished" notification instead of H5 blocking a stop.
 - **`failure`** (`PostToolUseFailure`) treats a failed Agent call as a failed attempt, with the error's
   first line as the reason, and gives Claude the result directly.
 
@@ -554,7 +564,9 @@ is in flight.
   guarded, so Claude can inspect the repository; if one changes files, H4 halts the run at the next
   dispatch.
 - **`stop`:** blocks the turn from ending, with the same reason, or with H4's notice if one is waiting
-  (which it then clears). If Claude Code reports the stop hook is already active (a second consecutive
+  (which it then clears). The exception is a background worker's notice (`noticeByNotification`): that
+  stop is allowed and the notice left for H1. Claude Code labels a blocked stop "Stop hook error", and in
+  the live runs every task's hand-off went through that block. If Claude Code reports the stop hook is already active (a second consecutive
   stop), it allows the stop and marks the run `abandoned`. While a task is in flight it is silent, so
   Claude can end its turn while a background worker runs.
 - **After the run ends** (`complete`, `halted` or `abandoned`), the first Stop records the run's
@@ -670,6 +682,9 @@ and parses the rest (`lib/execute.js`):
 
 - **The path** may be quoted, unquoted with spaces (the words are joined), start with `~`, or be relative
   to the session's working directory.
+- **A lone number** (`1` or `1.`) picks that entry from the list the session was last shown, saved in
+  `sessions/<session_id>.listing.json`, which SessionEnd removes. With no list yet, or a number the list did
+  not have, the list is shown (and saved) again. A number never names a file.
 - **`--from Txx`** (or `--from=Txx`, any case) is optional.
 
 It then checks, in order:
@@ -679,7 +694,7 @@ It then checks, in order:
 | In plan mode | Refused: leave plan mode first. Workers work in the session's permission mode, so they could not edit anything. |
 | The session is armed and a run is `running` or `paused` | Refused: `/planandtier:disarm` first. |
 | `--from` without a task id | Refused. |
-| No path | Lists up to 5 plans in `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` that hold a planandtier table or block, newest first, each with its `# ` heading, task count and time. Claude shows them and asks which to run. A custom `plansDirectory` is not visible to hooks, so the note says the path must then be typed. |
+| No path | Lists up to 5 plans in `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` that hold a planandtier table or block, newest first, numbered, each with its `# ` heading, task count and time. Saves the list for the session. Claude shows them and asks the user to type the command with a number. A custom `plansDirectory` is not visible to hooks, so the note says the path must then be typed. |
 | The file cannot be read | Refused, naming the resolved path. |
 | No table or block, or `Tiered execution: off` | **Runs without planandtier:** Claude reads the file and implements the plan as it normally would. The session is not armed and Git is not checked. |
 | A table whose tasks file is missing, changed or invalid, or a table that was edited | Refused with `resolvePlan()`'s errors. The prompts are not in the plan, so Claude must not implement it itself. |
@@ -1023,7 +1038,7 @@ file and fails.
 | `tests/planandtier/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
 | `tests/planandtier/usage.test.js` | De-duplicating repeated message lines, cache writes with and without a 5 m / 1 h split, an `opusplan` session split by mode and priced per model, time windows, unpriced models, unreadable transcripts, and subagents by window and type. |
 | `tests/planandtier/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (and refusing to arm where a plan could not run) and disarming, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when unarmed), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (refusing where a plan could not run, and asking for plan mode outside it, but never during a run) and disarming, a background task's next step given with its notification and not by a Stop block, execute-plan by list number, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when unarmed), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
 To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, type
@@ -1048,6 +1063,10 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 - **Workers see only their prompt**, not the plan or the conversation. A vague prompt gives a vague result.
 - **Orchestration uses model turns.** One Agent call and one short report per attempt reach the main
   session.
+- **A background task's next step waits for its "finished" notification.** That notification arrived after
+  the worker's `SubagentStop` in every live run. If one never came, the run would wait until the user types
+  something, and H1 would give the next step then.
+- **Switching to plan mode on arming is Claude's call to make.** The hook can only ask for `EnterPlanMode`.
 - **The model dispatches.** The plugin gives the exact call and refuses any other, but cannot make the call
   itself. If Claude never dispatches, the guard steps aside after a few blocks.
 - **A run ends with its session.** A resumed session does not continue a run by itself. The tasks that

@@ -9,12 +9,14 @@ It uses planandtier **installed from the marketplace**, in a plain `claude` sess
 `/planandtier:arm`. So the session does not depend on how Claude was launched.
 
 The run passes if:
-- `/planandtier:arm` is confirmed in one line;
+- `/planandtier:arm`, typed in a session that is **not** in plan mode, switches it to plan mode and is
+  confirmed in one line;
 - the approval dialog shows the plan with its task table;
 - after you reject the plan with feedback that contradicts your prompt, the revised plan uses your change;
 - after approval, with nothing typed, every task runs and finishes;
 - each task is one commit with a `Planandtier-Task:` trailer, and T01 ran on `sonnet-low`;
 - the finished code uses your change, not your original prompt;
+- no "Stop hook error" appears between tasks: each next task starts after its "Agent … finished" line;
 - a `planandtier: T0x on <tier> …` spend line appears after each task, and one spend summary when the run
   completes;
 - `<plan>.telemetry.jsonl` sits beside the plan, with `planning`, `attempt` and `orchestration` records.
@@ -71,26 +73,30 @@ git config user.email (git -C $repo config user.email)
 git add -A
 git -c commit.gpgsign=false commit -m init
 
-# 4. Start Claude Code in plan mode, with the probe logger, but only if the README is committed and the
-#    tree is clean: planandtier refuses a tiered plan otherwise.
+# 4. Start Claude Code (not in plan mode: arming should switch it), with the probe logger, but only if the
+#    README is committed and the tree is clean: planandtier refuses to arm otherwise.
 $env:PLANANDTIER_DEBUG = '1'
 $env:PROBE_OBSERVE = '1'
 if ((git rev-parse --verify -q HEAD) -and -not (git status --porcelain)) {
-  claude --permission-mode plan --plugin-dir "$repo\probes\planandtier\agent-probe-plugin"
+  claude --plugin-dir "$repo\probes\planandtier\agent-probe-plugin"
 } else {
   Write-Host 'Not started: the throwaway repo has no commit or has uncommitted changes. Check the git output above.' -ForegroundColor Red
 }
 ```
 
 If it asks whether you trust the folder, say yes. If Claude doesn't start, read the red line and the Git error
-above it, fix that, and run the `if` block again. Without the logger, plain `claude --permission-mode plan`
-works too; the probe log is then missing from the record.
+above it, fix that, and run the `if` block again. Without the logger, plain `claude` works too; the probe
+log is then missing from the record.
 
 ## Steps in the session
 
-0. **Arm the session: type `/planandtier:arm`.** Claude should answer in one line that planandtier is
-   armed for this session. If it says planandtier did not respond, or the command is unknown, the plugin is
-   not installed or enabled: exit and check `claude plugin list`.
+0. **Arm the session: type `/planandtier:arm`.**
+   - **Claude should switch to plan mode** (the mode indicator changes) and answer in one line that
+     planandtier is armed and the session is in plan mode.
+   - **Note whether Claude Code asked you to approve entering plan mode.** If it did, approve it.
+   - **If it says planandtier did not respond, or the command is unknown,** the plugin is not installed or
+     enabled: exit and check `claude plugin list`.
+   - **If Claude armed but did not switch,** note that, and press Shift+Tab to enter plan mode yourself.
 
 1. **Send this prompt:**
    > Plan three tasks. T01: in README.md, replace the line `Status: draft` with `Status: ready`; make it a sonnet/low find-and-replace task. T02: create greet.js exporting greet(name), which returns "Hello, " + name + "!". T03: add greet.test.js with node:test cases for greet("Ada") and greet(""), verified by `node --test`.
@@ -128,7 +134,8 @@ For each `null`, `true` or `false` is enough; if you don't know, leave `null` an
   "generated": "<ISO timestamp, UTC>",
   "claudeCodeVersion": "<claude --version>",
   "terminal": { "columns": 0, "rows": 0 },
-  "arm": { "confirmedArmed": null, "reply": "" },
+  "arm": { "confirmedArmed": null, "switchedToPlanMode": null, "askedToApprovePlanMode": null, "reply": "" },
+  "handoffs": { "stopHookErrorBetweenTasks": null },
   "firstDialog": { "showedTable": null },
   "secondDialog": { "showedTable": null, "saidHowdy": null },
   "afterApproval": { "typedNothing": null, "nextTaskStartedByItself": null, "permissionPrompts": null, "notes": "" },
