@@ -83,3 +83,38 @@ test('with CLAUDE_PLUGIN_DATA unset, state falls back to the temp directory', ()
   const file = state.fileFor('fallback-test')
   assert.ok(file.startsWith(path.join(os.tmpdir(), 'planandtier')))
 })
+
+test('arm, isArmed and disarm keep a flag beside the state file, apart from it', () => {
+  assert.equal(state.isArmed('s1'), false)
+  assert.equal(state.arm('s1'), true)
+  assert.equal(state.isArmed('s1'), true)
+  assert.ok(fs.existsSync(path.join(dir, 'sessions', 's1.armed')))
+  state.write('s1', { phase: 'running' })
+  state.remove('s1')
+  assert.equal(state.isArmed('s1'), true, 'removing the run state leaves the flag')
+  state.disarm('s1')
+  assert.equal(state.isArmed('s1'), false)
+  state.disarm('s1')
+})
+
+test('arming needs a usable session id and a writable data directory', () => {
+  for (const id of [undefined, null, '', '///']) {
+    assert.equal(state.arm(id), false)
+    assert.equal(state.isArmed(id), false)
+  }
+  const blocker = path.join(dir, 'file')
+  fs.writeFileSync(blocker, '')
+  process.env.CLAUDE_PLUGIN_DATA = path.join(blocker, 'nested')
+  assert.equal(state.arm('s1'), false)
+  assert.equal(state.isArmed('s1'), false)
+})
+
+test('prune removes old arming flags too', () => {
+  state.arm('old')
+  state.arm('new')
+  const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+  fs.utimesSync(path.join(dir, 'sessions', 'old.armed'), past, past)
+  state.prune(7)
+  assert.equal(state.isArmed('old'), false)
+  assert.equal(state.isArmed('new'), true)
+})

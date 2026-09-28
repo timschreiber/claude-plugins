@@ -1,4 +1,5 @@
-// Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json. Every function
+// Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the arming flag beside
+// it, <session_id>.armed, which the run state's own removals leave alone. Every function
 // swallows filesystem errors and returns a "nothing happened" value, because a hook must
 // never fail loudly.
 'use strict'
@@ -53,17 +54,52 @@ function remove(sessionId) {
   } catch {}
 }
 
-// Deletes session files (and leftover temp files) not modified within `days` days.
+// The session is armed when its flag file exists: /planandtier:arm writes it, /planandtier:disarm and
+// SessionEnd remove it. Every hook but the arm command does nothing in an unarmed session.
+const flagFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.armed') ?? null
+
+function isArmed(sessionId) {
+  try {
+    const flag = flagFor(sessionId)
+    return !!flag && fs.existsSync(flag)
+  } catch {
+    return false
+  }
+}
+
+// Returns true when the flag was written.
+function arm(sessionId) {
+  try {
+    const flag = flagFor(sessionId)
+    if (!flag) return false
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+    fs.writeFileSync(flag, new Date().toISOString())
+    debug(`state ${path.basename(flag, '.armed')}: armed`)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function disarm(sessionId) {
+  try {
+    const flag = flagFor(sessionId)
+    if (flag) fs.rmSync(flag, { force: true })
+    if (flag) debug(`state ${path.basename(flag, '.armed')}: disarmed`)
+  } catch {}
+}
+
+// Deletes session files (state, arming flags and leftover temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!name.endsWith('.json') && !name.endsWith('.tmp')) continue
+      if (!['.json', '.tmp', '.armed'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
   } catch {}
 }
 
-module.exports = { fileFor, read, write, remove, prune }
+module.exports = { fileFor, read, write, remove, isArmed, arm, disarm, prune }

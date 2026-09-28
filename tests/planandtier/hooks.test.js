@@ -46,10 +46,14 @@ after(() => {
   fs.rmSync(REPO, { recursive: true, force: true })
 })
 
+const S = 'sess-1'
 let dir
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'planandtier-hooks-'))
   process.env.CLAUDE_PLUGIN_DATA = path.join(dir, 'data')
+  // Every hook does nothing in an unarmed session, so the tests start armed; the arming tests
+  // disarm first.
+  state.arm(S)
 })
 afterEach(() => {
   delete process.env.CLAUDE_PLUGIN_DATA
@@ -89,7 +93,6 @@ const writePlanFile = text => {
   fs.writeFileSync(file, text)
   return file
 }
-const S = 'sess-1'
 const exitPre = (plan, file, cwd = REPO) => ({
   session_id: S,
   cwd,
@@ -463,9 +466,10 @@ test('H3 resets the denial count and prunes old session files', () => {
 })
 
 test('H3 does not claim a launch when the state cannot be saved', () => {
-  const blocker = path.join(dir, 'blocker')
-  fs.writeFileSync(blocker, '')
-  const r = hook('h3-post-approval.js', exitPost(VALID), [], { CLAUDE_PLUGIN_DATA: path.join(blocker, 'x') })
+  // The session is armed, but a directory stands where its state file would go.
+  fs.mkdirSync(state.fileFor(S))
+  writePlanFile(VALID)
+  const r = hook('h3-post-approval.js', exitPost(VALID))
   assert.equal(r.status, 0)
   assert.match(r.json.hookSpecificOutput.additionalContext, /could not be saved/)
   assert.ok(!r.json.hookSpecificOutput.additionalContext.includes('Your next action'))
@@ -829,6 +833,109 @@ test('H6 end deletes the session state', () => {
   const r = hook('h6-cleanup.js', { session_id: S, hook_event_name: 'SessionEnd' }, ['end'])
   assert.equal(r.stdout, '')
   assert.equal(state.read(S), null)
+})
+
+// ---- arming ---------------------------------------------------------------------------
+
+const typed = (prompt, mode = 'default') => hook('h1-plan-rules.js', { session_id: S, permission_mode: mode, prompt })
+
+test('/planandtier:arm arms the session and says so, and arming again changes nothing', () => {
+  state.disarm(S)
+  const out = typed('/planandtier:arm').stdout
+  assert.match(out, /^planandtier: armed for this session\. A plan made in plan mode is now split into tiered tasks/)
+  assert.ok(!out.includes(RULES), 'no rules outside plan mode')
+  assert.equal(state.isArmed(S), true)
+  assert.match(typed('  /planandtier:arm please').stdout, /^planandtier: already armed for this session; nothing changed\./)
+  assert.equal(typed('/planandtier:armed').stdout, '', 'only the exact command')
+  assert.equal(typed('please /planandtier:arm').stdout, '', 'only at the start of the prompt')
+})
+
+test('arming in plan mode also prints the rules', () => {
+  state.disarm(S)
+  const out = typed('/planandtier:arm', 'plan').stdout
+  assert.match(out, /^planandtier: armed for this session\./)
+  assert.ok(out.endsWith(RULES))
+})
+
+test('arming says it failed when the flag cannot be written', () => {
+  state.disarm(S)
+  const blocker = path.join(dir, 'blocker')
+  fs.writeFileSync(blocker, '')
+  const out = hook('h1-plan-rules.js', { session_id: S, prompt: '/planandtier:arm' }, [], { CLAUDE_PLUGIN_DATA: path.join(blocker, 'x') })
+  assert.match(out.stdout, /^planandtier: arming failed/)
+})
+
+test('/planandtier:disarm disarms, and says so when there was nothing to disarm', () => {
+  state.write(S, { phase: 'planning', tasks: [], denials: 1 })
+  assert.match(typed('/planandtier:disarm').stdout, /^planandtier: disarmed for this session\. Plans are no longer tiered/)
+  assert.equal(state.isArmed(S), false)
+  assert.equal(state.read(S), null, 'planning state is removed')
+  assert.match(typed('/planandtier:disarm').stdout, /^planandtier: was not armed for this session; nothing changed\./)
+})
+
+test('an unarmed session is left alone by every hook', () => {
+  state.disarm(S)
+  const file = writePlanFile(INVALID)
+  assert.equal(typed('x', 'plan').stdout, '', 'no rules in plan mode')
+  assert.equal(hook('h1-plan-rules.js', { session_id: S, tool_name: 'EnterPlanMode' }, ['enter']).stdout, '')
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(INVALID, file, path.join(dir, 'not-a-repo'))).stdout, '', 'no denial')
+  assert.equal(fs.readFileSync(file, 'utf8'), INVALID)
+  writePlanFile(VALID)
+  assert.equal(hook('h3-post-approval.js', exitPost(VALID)).stdout, '')
+  assert.equal(state.read(S), null, 'nothing is saved')
+
+  // A run's state left behind (say, from before a disarm) does not wake the hooks either.
+  startTestRun()
+  state.disarm(S)
+  const call = expected()
+  assert.equal(hook('h4-dispatch.js', agentPre({ subagent_type: 'planandtier:opus-high', prompt: 'x', description: 'x' }), ['pre']).stdout, '')
+  assert.equal(hook('h4-dispatch.js', agentPost(call), ['post']).stdout, '')
+  assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
+  assert.equal(hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).stdout, '')
+  assert.equal(typed('continue').stdout, '', 'no resume note')
+  assert.deepEqual(state.read(S).current.inFlight, false)
+})
+
+test('disarming mid-run stops it: nothing more is dispatched, and the worker in flight is not judged', () => {
+  startTestRun()
+  attempt(() => report('DONE', workerCommits('T01')))
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  assert.equal(state.read(S).current.inFlight, true)
+
+  const out = typed('/planandtier:disarm').stdout
+  assert.match(out, /^planandtier: disarmed for this session, which stops the run of the approved plan\./)
+  assert.match(out, /Done and committed: T01 \(commit [0-9a-f]{7}, sonnet-low\)\. Not done: T02, T03\./)
+  assert.match(out, /T02's worker is still running; planandtier will not check it or roll it back/)
+  assert.match(out, /Do not dispatch more tasks\./)
+  const s = state.read(S)
+  assert.deepEqual([s.phase, s.notice], ['abandoned', null])
+
+  const head = gitIn(repo, 'rev-parse', 'HEAD')
+  fs.writeFileSync(path.join(repo, 'loose.txt'), 'x')
+  hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'x')), ['stop'])
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), head)
+  assert.equal(fs.existsSync(path.join(repo, 'loose.txt')), true, 'no reset')
+  assert.equal(state.read(S).notice, null)
+})
+
+test('disarming a run between tasks says nothing is running', () => {
+  startTestRun()
+  const out = typed('/planandtier:disarm').stdout
+  assert.match(out, /Done and committed: none\. Not done: T01, T02, T03\. Tell the user/)
+  assert.ok(!out.includes('still running'))
+})
+
+test('SessionEnd removes the arming flag', () => {
+  hook('h6-cleanup.js', { session_id: S, hook_event_name: 'SessionEnd' }, ['end'])
+  assert.equal(state.isArmed(S), false)
+})
+
+test('the arm and disarm skills can only be run by the user', () => {
+  for (const name of ['arm', 'disarm']) {
+    const skill = fs.readFileSync(path.join(PLUGIN, 'skills', name, 'SKILL.md'), 'utf8')
+    assert.match(skill, new RegExp(`^---\\r?\\nname: ${name}\\r?\\n`))
+    assert.match(skill, /^disable-model-invocation: true$/m)
+  }
 })
 
 // ---- every hook ---------------------------------------------------------------------

@@ -6,6 +6,8 @@
 //               stands and the next exact dispatch, so "continue" resumes it after an interruption;
 //             - a paused run (its tree was dirty at approval) starts here once the tree is clean.
 //   enter     PostToolUse EnterPlanMode: the model entered plan mode itself, so add the rules then.
+// All of that happens only in an armed session. The one thing H1 does unarmed is handle the typed
+// commands /planandtier:arm and /planandtier:disarm, which set and clear the session's flag.
 'use strict'
 
 const fs = require('fs')
@@ -52,15 +54,74 @@ function runNote(input) {
   }
 }
 
+const PRUNE_DAYS = 7
+const rules = () => fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8')
+
+// /planandtier:arm and /planandtier:disarm, as typed (the hook sees the raw text, not the skill body).
+// The skills themselves only tell Claude to report the note printed here.
+const COMMAND = /^\s*\/planandtier:(arm|disarm)\b/
+
+function armNote(input) {
+  const id = input.session_id
+  const already = state.isArmed(id)
+  if (!already && !state.arm(id)) {
+    emitText('planandtier: arming failed, because its flag file could not be written, so it stays off for this session.')
+    return
+  }
+  state.prune(PRUNE_DAYS)
+  const note = already
+    ? 'planandtier: already armed for this session; nothing changed.'
+    : 'planandtier: armed for this session. A plan made in plan mode is now split into tiered tasks, and ' +
+      'approving it runs each task in its own subagent at its model and effort. /planandtier:disarm turns it off.'
+  emitText(input.permission_mode === 'plan' ? `${note}\n\n${rules()}` : note)
+}
+
+// Disarming stops a run: nothing more is dispatched, and a worker already running finishes unjudged.
+function disarmNote(input) {
+  const id = input.session_id
+  const armed = state.isArmed(id)
+  state.disarm(id)
+  const s = state.read(id)
+  const inRun = s && (s.phase === 'running' || s.phase === 'paused')
+  if (inRun) state.write(id, { ...s, phase: 'abandoned', notice: null })
+  else state.remove(id)
+
+  if (!armed) {
+    emitText('planandtier: was not armed for this session; nothing changed.')
+    return
+  }
+  if (!inRun) {
+    emitText('planandtier: disarmed for this session. Plans are no longer tiered, and nothing is dispatched.')
+    return
+  }
+  const finished = new Set(s.done.map(d => d.id))
+  const done = s.done.map(d => `${d.id} (commit ${d.commit.slice(0, 7)}, ${d.tier})`).join(', ') || 'none'
+  const notRun = s.tasks.filter(t => !finished.has(t.id)).map(t => t.id).join(', ') || 'none'
+  const running = s.current?.inFlight
+    ? ` ${s.tasks[s.current.index].id}'s worker is still running; planandtier will not check it or roll it back, so whatever ` +
+      'it commits or leaves in the working tree stays.'
+    : ''
+  emitText(
+    'planandtier: disarmed for this session, which stops the run of the approved plan. ' +
+      `Done and committed: ${done}. Not done: ${notRun}.${running} Tell the user what is done and what is not. ` +
+      'Do not dispatch more tasks.'
+  )
+}
+
 run(async () => {
   const input = await readInput()
   if (!input || input.agent_id) return
+  const enter = process.argv[2] === 'enter'
 
-  if (process.argv[2] === 'enter') {
-    const rules = fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8')
-    emit({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: rules } })
+  const command = enter ? null : COMMAND.exec(String(input.prompt ?? ''))?.[1]
+  if (command === 'arm') return armNote(input)
+  if (command === 'disarm') return disarmNote(input)
+  if (!state.isArmed(input.session_id)) return
+
+  if (enter) {
+    emit({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: rules() } })
   } else if (input.permission_mode === 'plan') {
-    emitText(fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8'))
+    emitText(rules())
   } else {
     runNote(input)
   }

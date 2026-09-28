@@ -18,7 +18,7 @@ const REASON = s =>
 
 run(async () => {
   const input = await readInput()
-  if (!input || input.agent_id) return
+  if (!input || input.agent_id || !state.isArmed(input.session_id)) return
   const current = state.read(input.session_id)
   if (!current || current.phase !== 'running' || current.current?.inFlight) return
 
