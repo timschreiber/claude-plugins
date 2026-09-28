@@ -30,18 +30,29 @@ run(async () => {
 
   const { text, fromFile } = readPlan(toolInput)
   const result = resolvePlan(text)
+  const current = state.read(input.session_id) ?? { phase: 'planning', tasks: [], denials: 0 }
+
+  // Every plan that reaches the dialog is counted. H3 resets the count on approval, so a count
+  // above one there means an earlier version was shown and not approved: the user rejected it,
+  // possibly with feedback that changed the tasks (see H3).
+  const submitted = () =>
+    state.write(input.session_id, { ...current, submissions: (current.submissions ?? 0) + 1 })
+
   if (result.ok) {
     // A plan that already has its table (a resubmission) stays as it is. If the move fails, the
     // plan reaches the dialog unchanged.
     if (!result.optOut && result.section === undefined && fromFile) {
       if (!moveBlock(toolInput.planFilePath, text, result.tasks)) debug('H2: the task block could not be moved')
     }
+    submitted()
     return
   }
 
   // After MAX_DENIALS in a row, let the plan through untiered rather than burn turns.
-  const current = state.read(input.session_id) ?? { phase: 'planning', tasks: [], denials: 0 }
-  if ((current.denials ?? 0) >= MAX_DENIALS) return
+  if ((current.denials ?? 0) >= MAX_DENIALS) {
+    submitted()
+    return
+  }
   state.write(input.session_id, { ...current, denials: (current.denials ?? 0) + 1 })
 
   const where = toolInput.planFilePath ? ` (${toolInput.planFilePath})` : ''
