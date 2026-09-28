@@ -83,12 +83,12 @@ test('the summary has planning from every session, this run by tier in ladder or
   assert.equal(lines[0], `planandtier spend (estimated, prices as of ${AS_OF}):`)
   assert.deepEqual(
     lines.slice(1).map(l => l.trim().split(/\s+/)[0]),
-    ['planning', 'sonnet-low', 'sonnet-medium', 'opus-high', 'orchestration', 'total']
+    ['planning', 'sonnet-low', 'sonnet-medium', 'opus-high', 'orchestration', 'total', 'main']
   )
   assert.match(text, /planning\s+~\$0\.40\s+claude-opus-5-5, 3 subagents/)
   assert.match(text, /sonnet-low\s+~\$0\.02\s+1 attempt \(1 failed\), 100k tokens/)
   assert.match(text, /opus-high\s+~\$0\.61\s+1 attempt, 100k tokens/)
-  assert.match(text, /total\s+~\$1\.26\s+\d+(\.\d)?[Mk] tokens, 90% cache reads$/)
+  assert.match(text, /total\s+~\$1\.26\s+\d+(\.\d)?[Mk] tokens, 90% cache reads$/m)
   for (const label of ['planning', 'sonnet-low', 'orchestration']) {
     const line = lines.find(l => l.trim().startsWith(label))
     assert.ok(line.endsWith(', 90% cache reads'), label)
@@ -121,7 +121,7 @@ test('planning includes rounds rejected in the dialog, and planning from another
 
 test('a summary without planning records or orchestration still totals what it has', () => {
   const text = t.summary([{ kind: 'attempt', runId: 'r', task: 'T01', tier: 'sonnet-low', outcome: 'done', ...usage(0.05) }], { planId: 'P', runId: 'r' })
-  assert.ok(!text.includes('planning'))
+  assert.ok(!text.split('\n').some(l => l.trim().startsWith('planning')))
   assert.match(text, /total\s+~\$0\.05/)
 })
 
@@ -129,4 +129,93 @@ test('usageFields gives the cache-read share, or null without usage', () => {
   const u = { tokens: { input: 0, output: 0, cacheWrite5m: 10000, cacheWrite1h: 0, cacheRead: 90000 }, total: 100000, messages: 1, costUsd: 0, unpriced: [], byModel: {} }
   assert.equal(t.usageFields(u).cacheReadPct, 90)
   assert.equal(t.usageFields(null).cacheReadPct, null)
+})
+
+// ---- the main-agent estimate ------------------------------------------------------------
+
+const { costOf } = require('../../plugins/planandtier/scripts/lib/prices.js')
+const OPUS = 'claude-opus-5-5'
+const toks = { input: 0, output: 1000, cacheWrite5m: 10000, cacheWrite1h: 0, cacheRead: 0 }
+const ctxAttempt = (task, at, messages, contextStart, contextEnd, over = {}) => ({
+  kind: 'attempt', at, runId: 'r', task, tier: 'sonnet-medium', outcome: 'done',
+  tokens: toks, total: 11000, messages, contextStart, contextEnd, costUsd: 0.05, unpriced: [], models: ['claude-sonnet-5'], ...over,
+})
+const estRecords = () => [
+  { kind: 'planning', at: '2026-09-28T10:00:00Z', sessionId: 's', planId: 'P', tokens: {}, total: 20000, messages: 4, costUsd: 0.3, unpriced: [], models: [OPUS] },
+  { kind: 'run', at: '2026-09-28T10:05:00Z', sessionId: 's', planId: 'P', runId: 'r', contextTokens: 50000 },
+  // Listed out of order: the estimate sorts by time. The failed attempt is ignored.
+  ctxAttempt('T02', '2026-09-28T10:20:00Z', 3, 10000, 15000),
+  ctxAttempt('T01', '2026-09-28T10:10:00Z', 2, 10000, 30000),
+  ctxAttempt('T01', '2026-09-28T10:08:00Z', 9, 1, 999999, { outcome: 'retry' }),
+]
+const ID = { planId: 'P', runId: 'r' }
+const labels = text => text.split('\n').slice(1).map(l => l.trim().split(/\s+/).slice(0, 2).join(' '))
+
+test('the main-agent estimate adds the cache reads the main session would have made, growing with each finished task', () => {
+  const e = t.mainAgentEstimate(estRecords(), ID)
+  const extra = 2 * (50000 + 0 - 10000) + 3 * (50000 + 20000 - 10000)
+  assert.equal(extra, 260000)
+  assert.deepEqual([e.model, e.reason, e.extraCacheRead], [OPUS, null, extra])
+  assert.equal(e.total, 20000 + 11000 + 11000 + extra)
+  const one = costOf(OPUS, { ...toks, cacheRead: 2 * 40000 })
+  const two = costOf(OPUS, { ...toks, cacheRead: 3 * 60000 })
+  assert.ok(Math.abs(e.costUsd - (0.3 + one + two)) < 1e-9)
+})
+
+test('the estimate uses the latest planning record that names a main model', () => {
+  const records = estRecords()
+  records[0] = { ...records[0], mainModel: 'claude-sonnet-5', at: '2026-09-28T09:00:00Z' }
+  records.push({ ...records[0], mainModel: OPUS, at: '2026-09-28T09:30:00Z', total: 0, costUsd: 0 })
+  records.push({ ...records[0], mainModel: null, at: '2026-09-28T09:40:00Z', total: 0, costUsd: 0 })
+  assert.equal(t.mainAgentEstimate(records, ID).model, OPUS)
+})
+
+test('the estimate says why it could not be made', () => {
+  const why = records => {
+    const e = t.mainAgentEstimate(records, ID)
+    assert.deepEqual([e.costUsd, e.total, e.extraCacheRead], [null, null, null])
+    return e.reason
+  }
+  const base = estRecords()
+  assert.equal(why(base.filter(r => r.kind !== 'planning')), 'no planning model')
+  assert.equal(why([{ ...base[0], models: ['claude-mystery-1'] }, ...base.slice(1)]), 'claude-mystery-1 is unpriced')
+  assert.equal(why([{ ...base[0], mainModel: 'claude-mystery-2' }, ...base.slice(1)]), 'claude-mystery-2 is unpriced')
+  assert.equal(why(base.filter(r => r.kind !== 'run')), 'no context size for the run')
+  assert.equal(why(base.map(r => (r.kind === 'run' ? { ...r, contextTokens: null } : r))), 'no context size for the run')
+  assert.equal(why(base.filter(r => r.kind !== 'attempt' || r.outcome !== 'done')), 'no finished tasks')
+  for (const field of ['tokens', 'total', 'messages', 'contextStart', 'contextEnd']) {
+    assert.equal(why(base.map(r => (r.task === 'T02' ? { ...r, [field]: null } : r))), 'attempts lack context sizes', field)
+  }
+})
+
+test('the summary ends with the main-agent row and a savings row with its percentage and fewer tokens', () => {
+  const records = estRecords()
+  const e = t.mainAgentEstimate(records, ID)
+  const lines = t.summary(records, ID).split('\n').slice(1)
+  assert.deepEqual(labels(t.summary(records, ID)).map(l => l.split(' ')[0]), ['planning', 'sonnet-medium', 'total', 'main', 'savings'])
+  const P = 0.3 + 3 * 0.05
+  const dUsd = e.costUsd - P
+  assert.ok(dUsd > 0)
+  assert.match(lines[3], new RegExp(`^ {2}main agent\\s+~\\$${e.costUsd.toFixed(2)}\\s+\\d+k tokens, ${OPUS} running the tasks itself \\(estimated\\)$`))
+  const pct = Math.round((100 * dUsd) / e.costUsd)
+  assert.match(lines[4], new RegExp(`^ {2}savings\\s+~\\$${dUsd.toFixed(2)}\\s+${pct}% of the main agent's cost, \\d+k fewer tokens$`))
+})
+
+test('the summary shows extra cost, with more tokens, when planandtier cost more than the main agent would have', () => {
+  const records = estRecords().map(r => (r.kind === 'attempt' ? { ...r, costUsd: 5, total: 900000 } : r))
+  const e = t.mainAgentEstimate(records, ID)
+  const lines = t.summary(records, ID).split('\n').slice(1)
+  assert.deepEqual(labels(t.summary(records, ID)).slice(-2).map(l => l.split(' ')[0] + (l.startsWith('extra') ? ' cost' : '')), ['main', 'extra cost'])
+  const dUsd = 0.3 + 15 - e.costUsd
+  assert.ok(dUsd > 0)
+  const pct = Math.round((100 * dUsd) / e.costUsd)
+  assert.match(lines[lines.length - 1], new RegExp(`^ {2}extra cost\\s+~\\$${dUsd.toFixed(2)}\\s+${pct}% more than the main agent, \\d+(\\.\\d)?[Mk] more tokens$`))
+  assert.ok(!lines.some(l => l.trim().startsWith('savings')))
+})
+
+test('when the estimate fails the main-agent row says so and nothing follows it', () => {
+  const text = t.summary(estRecords().filter(r => r.kind !== 'run'), ID)
+  const lines = text.split('\n').slice(1)
+  assert.match(lines[lines.length - 1], /^ {2}main agent\s+-\s+not estimated: no context size for the run$/)
+  assert.deepEqual(labels(text).map(l => l.split(' ')[0]), ['planning', 'sonnet-medium', 'total', 'main'])
 })

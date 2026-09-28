@@ -12,7 +12,7 @@
 const fs = require('fs')
 const path = require('path')
 const state = require('./state.js')
-const { AS_OF } = require('./prices.js')
+const { AS_OF, costOf, priceFor } = require('./prices.js')
 const { TIERS } = require('./tasks.js')
 
 // The telemetry file for a plan file, or the session's own when there is no plan file.
@@ -131,6 +131,45 @@ function planningFor(records, { planId, runId }) {
   })
 }
 
+// What the run would have cost had the main session done every task itself, on the model that planned
+// it: the planning, plus each finished task's own tokens, plus the cache reads that main session would have
+// added by re-reading its context (the run's start context, plus what earlier tasks added, less what this
+// task's worker started with) on each of the task's messages. Returns {model, costUsd, total,
+// extraCacheRead, reason}; reason is null on success, else a short phrase and the numbers are null.
+function mainAgentEstimate(records, { planId, runId }) {
+  const planning = planningFor(records, { planId, runId })
+  const fail = (model, reason) => ({ model, costUsd: null, total: null, extraCacheRead: null, reason })
+  const latest = planning
+    .filter(r => r.mainModel)
+    .reduce((best, r) => (!best || r.at > best.at ? r : best), null)
+  const model = latest?.mainModel ?? modelsOf(planning)[0] ?? null
+  if (!model) return fail(null, 'no planning model')
+  if (!priceFor(model)) return fail(model, `${model} is unpriced`)
+  const run = records.find(r => r.kind === 'run' && r.runId === runId)
+  const C = run?.contextTokens
+  if (typeof C !== 'number') return fail(model, 'no context size for the run')
+  const done = records
+    .filter(r => r.kind === 'attempt' && r.runId === runId && r.outcome === 'done')
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+  if (!done.length) return fail(model, 'no finished tasks')
+  const num = v => typeof v === 'number'
+  if (done.some(a => !a.tokens || !num(a.total) || !num(a.messages) || !num(a.contextStart) || !num(a.contextEnd))) {
+    return fail(model, 'attempts lack context sizes')
+  }
+  let G = 0
+  let extraTotal = 0
+  let cost = sum(planning, r => r.costUsd)
+  let tokens = sum(planning, r => r.total)
+  for (const a of done) {
+    const extra = Math.max(0, a.messages * (C + G - a.contextStart))
+    cost += costOf(model, { ...a.tokens, cacheRead: a.tokens.cacheRead + extra })
+    tokens += a.total + extra
+    extraTotal += extra
+    G += Math.max(0, a.contextEnd - a.contextStart)
+  }
+  return { model, costUsd: cost, total: tokens, extraCacheRead: extraTotal, reason: null }
+}
+
 // The end-of-run summary: the planning that led to the run (planningFor), then this run's attempts by
 // tier and its orchestration, and a total.
 function summary(records, { planId, runId }) {
@@ -156,11 +195,28 @@ function summary(records, { planId, runId }) {
   const totalDetail = all.some(r => r.total != null)
     ? `${fmtTokens(sum(all, r => r.total))}${allPct == null ? '' : `, ${allPct}% cache reads`}`
     : ''
-  rows.push(['total', fmtUsd(sum(all, r => r.costUsd), unpricedOf(all)), totalDetail])
+  const totalCost = sum(all, r => r.costUsd)
+  rows.push(['total', fmtUsd(totalCost, unpricedOf(all)), totalDetail])
+  const est = mainAgentEstimate(records, { planId, runId })
+  if (est.reason) {
+    rows.push(['main agent', '-', `not estimated: ${est.reason}`])
+  } else {
+    rows.push(['main agent', fmtUsd(est.costUsd), `${fmtTokens(est.total)}, ${est.model} running the tasks itself (estimated)`])
+    const dUsd = est.costUsd - totalCost
+    const dTok = est.total - sum(all, r => r.total)
+    const tokPart = dTok >= 0 ? `${fmtTokens(dTok).replace(' tokens', '')} fewer tokens` : `${fmtTokens(-dTok).replace(' tokens', '')} more tokens`
+    if (dUsd >= 0) {
+      const pct = est.costUsd > 0 ? Math.round((100 * dUsd) / est.costUsd) : 0
+      rows.push(['savings', fmtUsd(dUsd), `${pct}% of the main agent's cost, ${tokPart}`])
+    } else {
+      const pct = est.costUsd > 0 ? Math.round((100 * -dUsd) / est.costUsd) : 0
+      rows.push(['extra cost', fmtUsd(-dUsd), `${pct}% more than the main agent, ${tokPart}`])
+    }
+  }
   const width = Math.max(...rows.map(r => r[0].length))
   const col = Math.max(...rows.map(r => r[1].length))
   const lines = rows.map(([a, b, c]) => `  ${a.padEnd(width)}  ${b.padEnd(col)}  ${c}`.trimEnd())
   return [`planandtier spend (estimated, prices as of ${AS_OF}):`, ...lines].join('\n')
 }
 
-module.exports = { fileFor, append, read, usageFields, fmtTokens, fmtUsd, attemptLine, planningFor, summary }
+module.exports = { fileFor, append, read, usageFields, fmtTokens, fmtUsd, attemptLine, planningFor, mainAgentEstimate, summary }

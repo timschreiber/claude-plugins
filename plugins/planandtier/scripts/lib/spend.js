@@ -126,7 +126,10 @@ function recordRunEnd(input, s) {
       subagents,
       ...t.usageFields(usage),
     })
-    return t.summary(t.read(file), { planId: s.planId, runId: s.runId })
+    const ids = { planId: s.planId, runId: s.runId }
+    const { model, costUsd, total, extraCacheRead, reason } = t.mainAgentEstimate(t.read(file), ids)
+    t.append(file, { kind: 'estimate', sessionId: input.session_id, planId: s.planId ?? null, runId: s.runId ?? null, model, costUsd, total, extraCacheRead, reason })
+    return t.summary(t.read(file), ids)
   }, null)
 }
 
