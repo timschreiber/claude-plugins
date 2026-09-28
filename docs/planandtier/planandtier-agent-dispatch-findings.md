@@ -60,11 +60,40 @@ plugin.
 - **The plan-dialog rejection worked in that attempt.** The "Howdy" feedback reached both T02 and T03, and
   H2 rewrote the tasks file with a new hash. Only the dispatch failed.
 
+## The interactive run with background dispatch
+
+The second interactive run (2026-09-28, Claude Code 2.1.283) ran all three tasks with nothing typed after
+approval. Evidence: `probes/evidence/planandtier-agents-probe.log` (every Agent, SubagentStop, prompt and
+Stop hook input) and `planandtier-agents-debug.log` (every state write).
+
+- **The rejection with feedback worked end to end.** The approved plan and both task prompts said
+  "Howdy", and the finished `greet.js` returns `"Howdy, " + name + "!"`.
+- **Each background launch returned at once.** `PostToolUse` had
+  `{"isAsync": true, "status": "async_launched", "agentId": …}`, and Claude ended its turn.
+- **The worker's report reaches the main session twice, as prompts:**
+  - an `<agent-message>` hand-back, which arrives **before** the worker's `SubagentStop`
+    (16:55:50.4, then 16:55:51.8);
+  - a `<task-notification>`, which arrives **after** it (16:55:58.7).
+
+  The notification is what carries H4's notice to Claude.
+- **`SubagentStop` carries `last_assistant_message`, but that is not always the report.** Workers delivered
+  their report through Claude Code's `SubagentHandback` tool (`message: "STATUS: DONE\nCOMMIT: …"`).
+  Sometimes they then ended with a closing line: "Task complete." for T02's first attempt, and "Task T03
+  complete and handed back." for T03's. H4 read only that line and failed both correct attempts with "the
+  worker returned no STATUS report". It reset their commits and retried them on `sonnet-medium`, which
+  passed. The other three attempts ended by repeating the block as text and were accepted.
+- **Fixed:** H4 now takes `last_assistant_message` only when it holds a STATUS block, and otherwise
+  searches the worker's transcript for the hand-back message. Replaying the two rejected transcripts
+  through the fixed hook finds `DONE` reports.
+- **Claude sometimes dispatches before planandtier's notice.** After T01, Claude dispatched T02 from the
+  hand-back report alone, before the notice was shown. That was harmless: H4 accepted the dispatch because
+  it was the expected one, and dropped the unshown notice.
+- **Every worker commit carried its `Planandtier-Task:` line.** The workers put `Co-Authored-By` in a
+  paragraph after it, so Git does not parse `Planandtier-Task:` as a trailer. H4 checks the message text,
+  so this does not matter to the plugin.
+
 ## Not measured
 
-- Whether the worker's report arrives as a `UserPromptSubmit` prompt in an interactive session, as it did
-  headless. The rerun of `planandtier-agents-run.md` covers it.
-- Whether `SubagentStop` carries `last_assistant_message` for a background worker. If not, H4 reads the
-  worker's transcript.
+- A clean run with the report fix in place, where every task passes on its first tier.
 - Whether `updatedInput` can change `subagent_type`. The design does not need it: it denies a wrong dispatch
   instead.
