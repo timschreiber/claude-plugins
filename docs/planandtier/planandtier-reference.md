@@ -684,7 +684,13 @@ enter plan mode, and ask for a small multi-step change.
 - **No commits.** Put a commit step in a task's prompt if you want one.
 - **Only what `Verify:` checks is checked.** A worker reports `done` when its verify step passes; work the
   step does not cover is not caught.
-- **Workers see only their prompt.** Not the plan, not the conversation. A vague prompt gives a vague result.
+- **Workers see only their prompt**, plus one message from Claude Code: the user's latest typed prompt,
+  relayed as the request that wins over the task. They do not see the plan or the rest of the
+  conversation. A vague prompt gives a vague result.
+- **A plan changed through the approval dialog's feedback box can fail to run.** That feedback is not a
+  typed prompt, so Claude Code relays the older prompt to the workers. A worker whose task contradicts it
+  refuses, and the run halts there. See
+  [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md#rejecting-a-plan-after-its-block-was-moved).
 - **Relaunch repeats from `T01`.** There is no resume from the failed task.
 - **State ends with the session.** A resumed session cannot relaunch a plan approved in an earlier one.
 - **The model launches the workflow.** The plugin instructs Claude and blocks other work, but cannot call
@@ -707,6 +713,7 @@ enter plan mode, and ask for a small multi-step change.
 | `ExitPlanMode` keeps being denied | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
 | The dialog says the plan is too large to be shown in full | A line in the plan is too long for the dialog. If the plan still has its task block, H2 could not rewrite the plan file; `PLANANDTIER_DEBUG=1` logs that. If the long line is in the prose, ask Claude to wrap it. |
 | After approval Claude says the tasks could not be loaded | The tasks file was changed, moved or deleted after its table was written. Plan again. |
+| A worker reports `failed` because its task conflicts with "the relayed user request" | The plan was changed through the approval dialog's feedback box, and the task contradicts your latest typed prompt, which Claude Code shows every worker as overriding. |
 | The launch fails with `script contains control characters` | `execute-plan.js` was checked out with CRLF line endings. The repo's `.gitattributes` keeps it LF; update or reinstall the plugin. |
 | The workflow returns "No tasks were supplied" | It was started with no approved plan in this session, or the session state was lost. Approve a plan first. |
 | A message about "no tasks" appears at launch, but the run proceeds | Unconfirmed. The `Workflow` call may be displayed as Claude made it, before H4 adds the tasks. The workflow record is what counts. |
@@ -728,6 +735,7 @@ Every measured claim above traces to one of these. Evidence files are under `pro
 | Manual permissions: gated launch, worker prompts, clean failure with no approver, Opus model confirmed | [`planandtier-manual-mode-findings.md`](planandtier-manual-mode-findings.md), steps in [`planandtier-manual-mode-run.md`](planandtier-manual-mode-run.md) | `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 | A CRLF workflow script fails the launch; multi-line and non-ASCII prompts do not. The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-launch-shapes-results.json`, `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
 | The tasks file end to end: a plan with a 5,781-character line shown as a table and run from its tasks file; `tool_response.plan` holds the shortened text; a declined workflow review is an interrupt and leaves the state `approved` | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |
+| Rejecting a plan after the move: Claude writes a new block, H2 replaces the table, and the changed task reaches the workflow. Workers are shown the latest typed prompt as overriding their task, and dialog feedback is never relayed | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-reject-run.md`](planandtier-reject-run.md) | `planandtier-reject-observations.json`, `planandtier-reject-probe.log`, `planandtier-reject-debug.log`, `planandtier-reject-plan.md`, `planandtier-reject-plan.tasks.json`, `planandtier-reject-worker-frames.json` |
 
 The probe plugin and its analysis script are in `probes/planandtier/`.
 

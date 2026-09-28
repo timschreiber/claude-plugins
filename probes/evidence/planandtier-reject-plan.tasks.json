@@ -1,0 +1,18 @@
+{
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Create hello.txt containing the line hello",
+      "model": "sonnet",
+      "effort": "medium",
+      "prompt": "In the repository root (C:\\Users\\timsc\\AppData\\Local\\Temp\\tier-reject), create a new file named hello.txt whose entire content is the single line `hello` followed by one newline (no other text, no leading/trailing spaces, no BOM). Do not modify any other file and do not commit. Verify: run `python -c \"print(open('hello.txt','rb').read())\"` (or read the file with the Read tool) from the repository root and confirm the content is exactly b'hello\\n' (b'hello\\r\\n' is also acceptable)."
+    },
+    {
+      "id": "T02",
+      "title": "Create farewell.txt containing the line farewell",
+      "model": "sonnet",
+      "effort": "medium",
+      "prompt": "In the repository root (C:\\Users\\timsc\\AppData\\Local\\Temp\\tier-reject), create a new file named farewell.txt whose entire content is the single line `farewell` followed by one newline (no other text, no leading/trailing spaces, no BOM). Do not modify any other file (hello.txt already exists from an earlier task; leave it alone) and do not commit. Verify: run `python -c \"print(open('farewell.txt','rb').read())\"` (or read the file with the Read tool) from the repository root and confirm the content is exactly b'farewell\\n' (b'farewell\\r\\n' is also acceptable)."
+    }
+  ]
+}

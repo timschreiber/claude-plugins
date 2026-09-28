@@ -21,7 +21,8 @@ A third run then checked the plugin as changed in response: see
 | What rejected the launch? | **A CRLF workflow script.** Multi-line prompts and non-ASCII prompts launch fine. |
 | What makes the dialog withhold a plan? | **One long line.** Total size does not: a 21 KB plan with short lines was shown. |
 | Can a hook shrink the plan before the dialog shows it? | **Yes.** The dialog reads the plan file after `PreToolUse` hooks have run. |
-| Does the built plugin's tasks file work end to end? | **Yes.** A plan with a 5,781-character line was shown as a table, approved, and run from its tasks file. See [the last section](#the-built-plugin-tasks-file-and-confirmed-launch). |
+| Does the built plugin's tasks file work end to end? | **Yes.** A plan with a 5,781-character line was shown as a table, approved, and run from its tasks file. See [the built plugin](#the-built-plugin-tasks-file-and-confirmed-launch). |
+| Does rejecting a plan after the move work? | **In the plugin, yes.** The revised task reached the workflow. **But the worker refused it,** because Claude Code shows workflow agents the latest typed prompt, which overrides their task, and dialog feedback is not a typed prompt. See [rejecting a plan](#rejecting-a-plan-after-its-block-was-moved). |
 
 ## The launch rejection
 
@@ -130,8 +131,60 @@ So a decline leaves the plan approved with the guard on. Claude does not retry, 
 which is the intended result. The earlier expectation that H5 would make Claude offer the launch once more
 was wrong.
 
+## Rejecting a plan after its block was moved
+
+One more interactive session (Claude Code 2.1.283, `planandtier-reject-run.md`) rejected a plan after H2 had
+moved its block, with the feedback "Change T02: it should create farewell.txt … instead of bye.txt".
+Evidence, all under `probes/evidence/`:
+- `planandtier-reject-observations.json`: what you saw;
+- `planandtier-reject-probe.log` and `planandtier-reject-debug.log`: the hook inputs and state changes;
+- `planandtier-reject-plan.md` and `planandtier-reject-plan.tasks.json`: the approved plan and its tasks file;
+- `planandtier-reject-worker-frames.json`: what each workflow worker was given.
+
+### The plugin: pass
+
+- **How Claude revised the plan:** Claude re-read the plan file, now holding the table, and edited the
+  prose. It then wrote a complete new block below the old table, and called `ExitPlanMode` again.
+- **What H2 did:** it moved the new block and removed the old table. There was no denial: the debug log
+  has no denial write.
+- **The second dialog** showed the changed T02 row.
+- **The files on disk:** the approved plan and tasks file have no trace of `bye`.
+- **What the workflow received:** its `args` held the changed T02 (`farewell.txt`).
+
+### The run: T02 refused, because of a frame Claude Code adds
+
+T01 finished. T02's worker wrote nothing and reported `failed`, and the workflow halted there. The cause
+is not in planandtier. Claude Code's workflow runtime starts every workflow agent with two messages:
+
+1. `[Workflow harness — user request]`, which relays a user prompt verbatim and says: "Where the computed
+   task conflicts with this request, this request wins."
+2. `[Workflow harness — computed task]`, which holds the task prompt from the workflow script and says it
+   "carries no user authority".
+
+The relayed prompt is **the latest prompt the user typed** before the launch. **Feedback typed in the plan
+approval dialog is not a prompt, so it is never relayed.**
+
+| Run | Relayed to every worker |
+|---|---|
+| Spike, manual mode | The first prompt (neither run had dialog feedback) |
+| e2e, after dialog feedback "Also add a .gitignore…" | The first prompt, without the feedback |
+| e2e relaunch | The typed `/planandtier:execute-plan` command |
+| Sidecar run | "the workflow was rejected by mistake. ask for permissions again." |
+| Reject run, after dialog feedback "Change T02…" | The first prompt, still asking for `bye.txt` |
+
+In the e2e run the feedback only added a task, so no worker saw a conflict. In the reject run, T02's
+worker compared "create bye.txt" (relayed) with "create farewell.txt" (its task). It applied the frame's
+rule and refused, reporting that it could not tell which task it was meant to run. The failure was safe:
+nothing wrong was written, and the run halted with the reason.
+
+So any plan revision made through the dialog's feedback box that contradicts the latest typed prompt will
+fail at the first task it changes.
+
 ## Not measured
 
 - The exact limit, and whether it depends on the terminal size.
+- Whether a worker accepts a changed task when the relayed request is a prompt that states the change,
+  or only the `/planandtier:execute-plan` command. The e2e relaunch shows that a command relay does not
+  block workers, but its tasks did not contradict anything.
 - Whether a launch rejected after H4 (the CRLF case) fires `PostToolUseFailure`. Either way the state now
   stays `approved`, because only a confirmed launch marks it `launched`.
