@@ -3,7 +3,17 @@
 'use strict'
 
 const EFFORTS = ['low', 'medium', 'high', 'xhigh']
-const ALLOWED = { sonnet: EFFORTS, opus: EFFORTS }
+// Haiku takes no effort setting, so its only "effort" is the word "default".
+const ALLOWED = { haiku: ['default'], sonnet: EFFORTS, opus: EFFORTS }
+
+// The tiers, weakest first. Each is also the name of the agent that runs it (planandtier:<tier>).
+// A failed task is retried one step up this ladder.
+const TIERS = Object.entries(ALLOWED).flatMap(([model, efforts]) => efforts.map(e => `${model}-${e}`))
+const tierOf = task => `${task.model}-${task.effort}`
+const nextTier = tier => {
+  const i = TIERS.indexOf(tier)
+  return i >= 0 && i < TIERS.length - 1 ? TIERS[i + 1] : null
+}
 const TASK_KEYS = ['id', 'title', 'model', 'effort', 'prompt']
 const MAX_TASKS = 99
 const MAX_TITLE = 100
@@ -212,6 +222,6 @@ function replaceBlock(text, sectionLines) {
 }
 
 module.exports = {
-  ALLOWED, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
+  ALLOWED, TIERS, tierOf, nextTier, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
   extractBlock, validate, parseBlock, parsePlan, renderSection, replaceBlock,
 }

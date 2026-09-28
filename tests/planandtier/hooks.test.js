@@ -50,7 +50,7 @@ const task = (n, over = {}) => ({
 const planText = (tasks, extra = '') =>
   `# Plan\n\nProse.\n\n## Tasks\n\n\`\`\`json tiered-tasks\n${JSON.stringify({ tasks }, null, 2)}\n\`\`\`\n${extra}`
 const VALID = planText([task(1), task(2, { model: 'opus', effort: 'high' }), task(3)])
-const INVALID = planText([task(1, { model: 'haiku' })])
+const INVALID = planText([task(1, { model: 'fable' })])
 const NO_BLOCK = '# Plan\n\nJust prose, no task block.\n'
 
 const writePlanFile = text => {
@@ -118,7 +118,7 @@ test('H2 denies with the errors and a way out, in the shape the spike proved', (
   assert.deepEqual(Object.keys(out).sort(), ['hookEventName', 'permissionDecision', 'permissionDecisionReason'])
   assert.equal(out.hookEventName, 'PreToolUse')
   assert.equal(out.permissionDecision, 'deny')
-  assert.match(out.permissionDecisionReason, /T01\.model: "haiku" is not allowed; use sonnet or opus/)
+  assert.match(out.permissionDecisionReason, /T01\.model: "fable" is not allowed; use haiku, sonnet or opus/)
   assert.match(out.permissionDecisionReason, /call ExitPlanMode again/)
   assert.ok(out.permissionDecisionReason.includes(OPT_OUT))
   assert.ok(!out.permissionDecisionReason.includes('# planandtier: tiered plans'), 'rules only when the block is missing')

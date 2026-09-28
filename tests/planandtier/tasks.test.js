@@ -4,6 +4,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const {
   extractBlock, validate, parseBlock, parsePlan, renderSection, replaceBlock, OPT_OUT_LINE, SECTION_START, SECTION_END,
+  TIERS, tierOf, nextTier,
 } = require('../../plugins/planandtier/scripts/lib/tasks.js')
 
 const task = (n, over = {}) => ({
@@ -33,12 +34,15 @@ test('every allowed model/effort pair validates', () => {
       assert.deepEqual(validate({ tasks: [task(1, { model, effort })] }), [], `${model}/${effort}`)
     }
   }
+  assert.deepEqual(validate({ tasks: [task(1, { model: 'haiku', effort: 'default' })] }), [], 'haiku/default')
 })
 
-test('haiku, fable, max and unknown values are rejected with a message naming the choices', () => {
-  const haiku = validate({ tasks: [task(1, { model: 'haiku' })] })
-  assert.match(haiku[0], /T01\.model: "haiku" is not allowed; use sonnet or opus/)
-  assert.match(validate({ tasks: [task(1, { model: 'fable' })] })[0], /"fable" is not allowed/)
+test('haiku takes only "default"; fable, max and unknown values are rejected with a message naming the choices', () => {
+  const haiku = validate({ tasks: [task(1, { model: 'haiku', effort: 'low' })] })
+  assert.match(haiku[0], /T01\.effort: "low" is not allowed for haiku; use default/)
+  assert.match(validate({ tasks: [task(1, { effort: 'default' })] })[0], /"default" is not allowed for sonnet/)
+  const fable = validate({ tasks: [task(1, { model: 'fable' })] })
+  assert.match(fable[0], /T01\.model: "fable" is not allowed; use haiku, sonnet or opus/)
   const max = validate({ tasks: [task(1, { effort: 'max' })] })
   assert.match(max[0], /T01\.effort: "max" is not allowed for sonnet; use low, medium, high or xhigh/)
   assert.match(validate({ tasks: [task(1, { effort: 'ultra' })] })[0], /"ultra" is not allowed/)
@@ -158,6 +162,19 @@ test('an empty or non-string plan is an error, not a crash', () => {
     assert.equal(r.ok, false)
     assert.match(r.errors[0], /empty or unavailable/)
   }
+})
+
+test('the tier ladder runs haiku, then sonnet, then opus, each by rising effort', () => {
+  assert.deepEqual(TIERS, [
+    'haiku-default',
+    'sonnet-low', 'sonnet-medium', 'sonnet-high', 'sonnet-xhigh',
+    'opus-low', 'opus-medium', 'opus-high', 'opus-xhigh',
+  ])
+  assert.equal(tierOf(task(1, { model: 'opus', effort: 'high' })), 'opus-high')
+  assert.equal(nextTier('haiku-default'), 'sonnet-low')
+  assert.equal(nextTier('sonnet-xhigh'), 'opus-low')
+  assert.equal(nextTier('opus-xhigh'), null)
+  assert.equal(nextTier('gpt-high'), null)
 })
 
 test('returned tasks carry only the known keys', () => {
