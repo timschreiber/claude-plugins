@@ -451,6 +451,10 @@ subagent itself.
 - On `UserPromptSubmit` outside plan mode, if H4 left a **notice** (a worker finished and its attempt was
   judged), it prints the notice and clears it. The worker's report arrives as an `<agent-message>` or
   task-notification prompt, so this is how a background run moves on to its next step with nothing typed.
+- If a worker's `<agent-message>` hand-back arrives while its task is still in flight (before its
+  `SubagentStop`, which is the usual order), it tells Claude that nothing is wrong and to end its turn: the
+  next step comes from H5 when it does. Without this, Claude told the user the run was stuck and to re-run
+  a command.
 - Otherwise, for a prompt the user typed, with a run `running` and no task in flight, it prints where the
   run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
   reports and task notifications get no such note.

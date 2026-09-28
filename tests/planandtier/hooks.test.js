@@ -637,6 +637,19 @@ test('H4 stop finds a report handed back with SubagentHandback when the last mes
   assert.match(s.notice, /T01 is done/)
 })
 
+test('a report that arrives before its worker stops gets a note to end the turn, not silence', () => {
+  // As measured in both live runs: the <agent-message> hand-back comes before SubagentStop. With no
+  // note, Claude told the user the run was stuck and to re-run the command.
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  const early = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<agent-message from="w">STATUS: DONE</agent-message>' }).stdout
+  assert.match(early, /^planandtier: this is T01's report, which arrived before planandtier finished checking the task\. Nothing is wrong\./)
+  assert.match(early, /end your turn: planandtier gives the next step when you do\. Do not dispatch anything, and do not ask the user to re-run/)
+  assert.equal(state.read(S).current.inFlight, true, 'nothing changes in the run')
+  const notification = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>x</task-notification>' }).stdout
+  assert.equal(notification, '', 'only the hand-back gets the note')
+})
+
 test('a background run: the launch says to wait, the worker stopping moves the run on, and its report delivers the notice', () => {
   startTestRun()
   const call = expected()

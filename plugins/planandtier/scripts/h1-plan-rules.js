@@ -31,7 +31,20 @@ function runNote(input) {
     emitText(s.notice)
     return
   }
-  if (fromHarness(input.prompt)) return
+  if (fromHarness(input.prompt)) {
+    // The worker's hand-back often arrives before its SubagentStop, so the attempt is not judged yet.
+    // Without a word here, Claude has told the user the run is stuck and to re-run a command. The next
+    // step comes when Claude ends its turn (H5), so that is all it should do.
+    if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) {
+      emitText(
+        `planandtier: this is ${s.tasks[s.current.index].id}'s report, which arrived before planandtier finished ` +
+          'checking the task. Nothing is wrong. Tell the user the report in one line, then end your turn: ' +
+          'planandtier gives the next step when you do. Do not dispatch anything, and do not ask the user to ' +
+          're-run or type anything.'
+      )
+    }
+    return
+  }
   const where = () => `${s.done.length} of ${s.tasks.length} tasks are done.`
 
   if (s.phase === 'paused') {
