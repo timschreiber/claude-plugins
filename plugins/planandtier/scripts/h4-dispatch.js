@@ -28,20 +28,29 @@ const deny = reason =>
   emit({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } })
 const context = (event, additionalContext) => emit({ hookSpecificOutput: { hookEventName: event, additionalContext } })
 
-// The text of the worker's last assistant message, from its transcript. Used when SubagentStop
-// has no last_assistant_message.
-function lastAssistantText(transcript) {
+// The worker's report block, from its transcript, newest first. A worker often delivers the block
+// through Claude Code's SubagentHandback tool and then ends with a line such as "Task complete.",
+// so its last message is not reliably the report. Each assistant message is searched in its tool
+// calls' `message` inputs, then its text. null when no block is found.
+function reportFromTranscript(transcript) {
   try {
     const lines = fs.readFileSync(transcript, 'utf8').split('\n').filter(Boolean).reverse()
     for (const line of lines) {
       const o = JSON.parse(line)
       if (o.type !== 'assistant') continue
       const c = o.message?.content
-      const text = typeof c === 'string' ? c : (c ?? []).filter(x => x.type === 'text').map(x => x.text).join('\n')
-      if (text.trim()) return text
+      const blocks = typeof c === 'string' ? [{ type: 'text', text: c }] : (c ?? [])
+      const candidates = [
+        ...blocks.filter(x => x.type === 'tool_use' && typeof x.input?.message === 'string').map(x => x.input.message),
+        ...blocks.filter(x => x.type === 'text').map(x => x.text),
+      ]
+      for (const text of candidates) {
+        const report = r.parseReport(text)
+        if (report) return report
+      }
     }
   } catch {}
-  return ''
+  return null
 }
 
 function pre(input, s) {
@@ -108,8 +117,8 @@ const settled = (s, { state: next, action }, outcome) => ({ ...next, notice: r.n
 
 function stop(input, s) {
   if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
-  const text = input.last_assistant_message || lastAssistantText(input.agent_transcript_path)
-  const reported = { ...s, current: { ...s.current, report: r.parseReport(text) } }
+  const report = r.parseReport(input.last_assistant_message) ?? reportFromTranscript(input.agent_transcript_path)
+  const reported = { ...s, current: { ...s.current, report } }
   state.write(input.session_id, settle(reported, s.cwd ?? input.cwd))
 }
 

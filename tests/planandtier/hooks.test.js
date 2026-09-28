@@ -579,6 +579,27 @@ test('H4 stop reads the report from the worker transcript when SubagentStop has 
   assert.match(state.read(S).notice, /T01 failed at sonnet-low: from transcript\./)
 })
 
+test('H4 stop finds a report handed back with SubagentHandback when the last message is only "Task complete."', () => {
+  // As measured in the interactive run: the report goes through the hand-back tool, and the
+  // worker's final text says nothing more.
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  const sha = workerCommits('T01')
+  const transcript = path.join(dir, 'agent.jsonl')
+  const line = o => JSON.stringify(o) + '\n'
+  fs.writeFileSync(
+    transcript,
+    line({ type: 'assistant', message: { content: [{ type: 'text', text: 'Committing now.' }] } }) +
+      line({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'SubagentHandback', input: { message: report('DONE', sha) } }] } }) +
+      line({ type: 'user', message: { content: [{ type: 'tool_result', content: 'Report delivered to your caller.' }] } }) +
+      line({ type: 'assistant', message: { content: [{ type: 'text', text: 'Task complete.' }] } })
+  )
+  hook('h4-dispatch.js', subStop('Task complete.', { agent_transcript_path: transcript }), ['stop'])
+  const s = state.read(S)
+  assert.deepEqual(s.done.map(d => [d.id, d.tier, d.attempts]), [['T01', 'sonnet-low', 1]])
+  assert.match(s.notice, /T01 is done/)
+})
+
 test('a background run: the launch says to wait, the worker stopping moves the run on, and its report delivers the notice', () => {
   startTestRun()
   const call = expected()

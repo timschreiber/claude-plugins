@@ -458,10 +458,12 @@ other agent types are left alone.
   **halt** the run at once. On a pass it records HEAD, marks the task in flight, and drops any notice not
   yet shown (it is stale once Claude has made the next dispatch).
 - **`stop`** (`SubagentStop`) fires when the dispatched worker finishes, in the foreground or the
-  background. It reads the report from `last_assistant_message`, or from the last assistant text in
-  `agent_transcript_path` if that is missing, judges the attempt (see
-  [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what Claude must be told next as
-  the state's `notice`.
+  background. It reads the report from `last_assistant_message` if that holds a STATUS block; otherwise it
+  searches the worker's transcript (`agent_transcript_path`), newest first, in the `message` of a
+  `SubagentHandback` call and then in assistant text. A worker often hands its report back with that tool
+  and then ends with a line such as "Task complete.", so its last message is not reliably the report. It
+  then judges the attempt (see [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what
+  Claude must be told next as the state's `notice`.
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
   already finished (a foreground run, as in a headless session): it gives Claude the notice as
   `additionalContext` and clears it. Otherwise the task is running in the background, and it tells Claude
