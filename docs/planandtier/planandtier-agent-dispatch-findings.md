@@ -92,8 +92,21 @@ Stop hook input) and `planandtier-agents-debug.log` (every state write).
   paragraph after it, so Git does not parse `Planandtier-Task:` as a trailer. H4 checks the message text,
   so this does not matter to the plugin.
 
+## The fix, in a live run
+
+A rerun with the report fix in place (2026-09-28, 17:05). Evidence: `probes/evidence/planandtier-agents-rerun-probe.log` and
+`planandtier-agents-rerun-debug.log`. It ran in the same throwaway repo, which the setup had not rebuilt, so
+`greet.js` and its tests were already committed. Claude planned only T01.
+
+- **T01's worker ended exactly as the failed attempts did.** `SubagentStop` had `last_assistant_message:
+  "Task complete."`, with the report handed back by tool.
+- **H4 found the report in the transcript** and accepted the attempt on its first tier (`sonnet-low`). The
+  run went to `complete`, and the README change was committed as one commit with its `Planandtier-Task:`
+  line.
+
 ## Not measured
 
-- A clean run with the report fix in place, where every task passes on its first tier.
+- A three-task run in a freshly built repo with the fix in place. The failure it would catch has been shown
+  fixed on the exact pattern above.
 - Whether `updatedInput` can change `subagent_type`. The design does not need it: it denies a wrong dispatch
   instead.

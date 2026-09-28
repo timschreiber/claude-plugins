@@ -40,6 +40,7 @@ $Host.UI.RawUI.WindowSize
 # 3. Make a throwaway repo with one commit
 $dir = "$env:TEMP\tier-agents"
 Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+if (Test-Path $dir) { throw "Could not remove $dir. Exit any Claude session still running there, then run this block again." }
 New-Item -ItemType Directory $dir | Out-Null
 Set-Location $dir
 git init -q
