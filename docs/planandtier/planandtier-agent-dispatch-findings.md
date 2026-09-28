@@ -117,9 +117,37 @@ with `disable-model-invocation: true`, whose body tells the model to reply `ARM-
 - **The skill body reached the model,** which replied `ARM-SKILL-BODY-SEEN`, even though the skill cannot be
   invoked by the model itself.
 
+## Executing a saved plan, live
+
+The execute-plan run guide, 2026-09-28 16:23 to 17:11 (Claude Code 2.1.284, planandtier installed at
+`b8a88f5`, throwaway repo `tier-execute-20260928-162334`). Each part was a separate session. Evidence:
+- `probes/evidence/planandtier-execute-plan-20260928-162334-partB-*`, `-partC-*` and `-partD-*`;
+- `-telemetry.jsonl`, the plan's whole telemetry file.
+
+- **A plan left unapproved can be run later.** Part A planned three tasks and left at the approval dialog.
+  In Part B, `/planandtier:execute-plan` with no path listed it first, and typing the command with its path
+  armed the session and ran T01 to T03. Each commit carries `Planandtier-Plan: dc933c25fcd95514`.
+- **Only a typed command starts a plan.** Asked "1." after the listing, Claude refused and gave the command
+  to type. The user-only skill cannot be run by the model. `/planandtier:execute-plan <number>` has since
+  been added for this.
+- **Tasks already committed are skipped.** Part C reset the branch to just after T01 and ran the command in
+  a third session. Its `run` record starts at T02, and Claude said T01 would not run again. Only T02 and T03
+  ran, and the summary counted 2 attempts.
+- **Planning is counted across sessions.** Both runs' summaries included Part A's planning ($0.27), recorded
+  in a session that never ran anything.
+- **A plain plan runs without planandtier.** In Part D, a plan file with no task table was implemented by
+  Claude directly, with no Agent dispatch, as the note said. The change was left uncommitted, as nothing
+  requires a commit for a plain plan.
+- **The early hand-back needed a note.** In Parts B and C the worker's report arrived before its
+  `SubagentStop`, and Claude, with no next step yet, told the user to re-run the command. The Stop block
+  then gave the next step. `af16b43` adds the note, and `eb1e5fc` moves the next step to the "finished"
+  notification. Neither was installed for this run.
+
 ## Not measured
 
-- A three-task run in a freshly built repo with the fix in place. The failure it would catch has been shown
-  fixed on the exact pattern above.
+- The fixes in `af16b43` and `eb1e5fc` (the early-report note, and the next step given with the "finished"
+  notification instead of a Stop block), in a live run. The run guides check them. The three-task run in a
+  fresh repo with the report fix has since been done twice (`planandtier-agents-20260928-155438-*`,
+  `-161554-*`).
 - Whether `updatedInput` can change `subagent_type`. The design does not need it: it denies a wrong dispatch
   instead.
