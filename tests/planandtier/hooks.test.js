@@ -381,7 +381,7 @@ test('H3 pauses the run when the tree is no longer clean, and gives no dispatch'
   const repo = makeRepo(path.join(dir, 'repo'))
   fs.writeFileSync(path.join(repo, 'dirty.txt'), 'x')
   const out = hook('h3-post-approval.js', { ...exitPost(VALID), cwd: repo }).json.hookSpecificOutput.additionalContext
-  assert.match(out, /cannot start, because the working tree has uncommitted changes \(dirty\.txt\)/)
+  assert.match(out, /cannot start: the working tree has uncommitted changes \(dirty\.txt\)/)
   assert.ok(!out.includes('Call the Agent tool'))
   const s = state.read(S)
   assert.equal(s.phase, 'paused')
@@ -643,7 +643,7 @@ test('H4 stop judges the dispatched worker only, and leaves the notice for Claud
   const s = state.read(S)
   assert.equal(s.current.inFlight, false)
   assert.deepEqual(s.done.map(d => d.id), ['T01'])
-  assert.match(s.notice, /^planandtier: T01 is done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.match(s.notice, /^planandtier: T01 done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
 })
 
 test('H4 stop reads the report from the worker transcript when SubagentStop has none', () => {
@@ -678,7 +678,7 @@ test('H4 stop finds a report handed back with SubagentHandback when the last mes
   hook('h4-dispatch.js', subStop('Task complete.', { agent_transcript_path: transcript }), ['stop'])
   const s = state.read(S)
   assert.deepEqual(s.done.map(d => [d.id, d.tier, d.attempts]), [['T01', 'sonnet-low', 1]])
-  assert.match(s.notice, /T01 is done/)
+  assert.match(s.notice, /T01 done/)
 })
 
 test('a report that arrives before its worker stops gets a note to end the turn, not silence', () => {
@@ -711,7 +711,7 @@ test('a background task\'s next step comes with its "finished" notification, and
   assert.ok(state.read(S).notice, 'the notice waits for the notification')
 
   const arrived = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>done</task-notification>' }).stdout
-  assert.match(arrived, /T01 is done .*Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.match(arrived, /T01 done .*Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
   assert.deepEqual([state.read(S).notice, state.read(S).noticeByNotification], [null, false])
 })
 
@@ -733,7 +733,7 @@ test('a background run: the launch says to wait, the worker stopping moves the r
   const sha = workerCommits('T01')
   hook('h4-dispatch.js', subStop(report('DONE', sha)), ['stop'])
   const arrived = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<agent-message from="w">STATUS: DONE</agent-message>' }).stdout
-  assert.match(arrived, /T01 is done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.match(arrived, /T01 done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
   assert.equal(state.read(S).notice, null, 'shown once')
   assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>x</task-notification>' }).stdout, '')
 })
@@ -743,7 +743,7 @@ test('a notice is shown on an ordinary prompt too, and by the stop guard, but on
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'tests fail')), ['stop'])
   const typed = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'what happened?' }).stdout
-  assert.match(typed, /T01 failed at sonnet-low: tests fail\. The working tree was reset/)
+  assert.match(typed, /T01 failed at sonnet-low: tests fail\. Reset/)
   assert.match(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'and now?' }).stdout, /a run is in progress/)
 
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
@@ -767,11 +767,11 @@ test('a dispatch clears a notice that was never shown', () => {
 test('a run goes through every task, one commit each, then completes', () => {
   startTestRun()
   const first = attempt(() => report('DONE', workerCommits('T01')))
-  assert.match(first, /T01 is done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium", description "T02: Task 2"/)
+  assert.match(first, /T01 done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium", description "T02: Task 2"/)
   const second = attempt(() => report('DONE', workerCommits('T02')))
   assert.match(second, /subagent_type "planandtier:opus-high"/)
   const last = attempt(() => report('DONE', workerCommits('T03')))
-  assert.match(last, /all 3 tasks are done, each in its own commit: T01 [0-9a-f]{7} \(sonnet-low\), T02 [0-9a-f]{7} \(sonnet-medium\), T03 [0-9a-f]{7} \(opus-high\)/)
+  assert.match(last, /all 3 tasks are done: T01 [0-9a-f]{7} \(sonnet-low\), T02 [0-9a-f]{7} \(sonnet-medium\), T03 [0-9a-f]{7} \(opus-high\)/)
   const s = state.read(S)
   assert.equal(s.phase, 'complete')
   assert.deepEqual(s.done.map(d => [d.id, d.attempts]), [['T01', 1], ['T02', 1], ['T03', 1]])
@@ -786,7 +786,7 @@ test('a failed attempt is reset and retried one tier up, with the reason in the 
     fs.writeFileSync(path.join(repo, 'loose.txt'), 'x')
     return report('FAILED', 'NONE', 'Verify failed: 2 tests')
   })
-  assert.match(out, /T01 failed at sonnet-low: Verify failed: 2 tests\. The working tree was reset to [0-9a-f]{7}/)
+  assert.match(out, /T01 failed at sonnet-low: Verify failed: 2 tests\. Reset to [0-9a-f]{7}/)
   assert.match(out, /subagent_type "planandtier:sonnet-medium"/)
   assert.match(out, /Retry: attempt 2 of 3; the attempt at sonnet-low failed and was rolled back\.\nReason: Verify failed: 2 tests/)
   assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), base)
@@ -814,7 +814,7 @@ test('after two retries the run halts and leaves the last attempt in place', () 
     fs.writeFileSync(path.join(repo, 'last.txt'), 'x')
     return report('FAILED', 'NONE', 'three')
   })
-  assert.match(out, /stopped at T01, after 3 attempt\(s\) \(sonnet-low, sonnet-medium, sonnet-high\)\. Reason: three\./)
+  assert.match(out, /stopped at T01 after 3 attempt\(s\) \(sonnet-low, sonnet-medium, sonnet-high\)\. Reason: three\./)
   assert.equal(state.read(S).phase, 'halted')
   assert.equal(fs.existsSync(path.join(repo, 'last.txt')), true, 'nothing is reset after the last attempt')
 })
@@ -855,7 +855,7 @@ test('H5 pre denies main-thread edits during a run, with the next dispatch, then
   for (let i = 1; i <= 3; i++) {
     const out = hook('h5-guard.js', toolPre('Edit'), ['pre']).json.hookSpecificOutput
     assert.equal(out.permissionDecision, 'deny')
-    assert.match(out.permissionDecisionReason, /do not do the work yourself\. Call the Agent tool now/)
+    assert.match(out.permissionDecisionReason, /its subagents do the work, not you. Call the Agent tool now/)
     assert.equal(state.read(S).guardDenials, i)
   }
   assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
@@ -1379,7 +1379,7 @@ test('each attempt is recorded beside the plan, and its line is shown at the nex
   assert.deepEqual(state.read(S).spendLines, [], 'shown once')
 
   spendAttempt(() => report('DONE', workerCommits('T01')), workerTranscript('w2'))
-  assert.match(state.read(S).notice, /T01 is done/, "Claude's notice is unchanged")
+  assert.match(state.read(S).notice, /T01 done/, "Claude's notice is unchanged")
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   // T02 is in flight, so this Stop is allowed; it still shows T01's line.
   const waiting = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).json

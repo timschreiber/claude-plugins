@@ -53,8 +53,8 @@ run(async () => {
     // The plan holds only the task table, so it cannot be implemented from its text either.
     state.remove(input.session_id)
     context(
-      "planandtier: the approved plan's tasks could not be loaded, so nothing will run. " +
-        'Problems: ' + result.errors.slice(0, 3).join('; ') + '. Tell the user, and suggest planning again. ' +
+      "planandtier: the approved plan's tasks could not be loaded, so nothing will run: " +
+        result.errors.slice(0, 3).join('; ') + '. Tell the user and suggest planning again. ' +
         'Do not implement the plan yourself: its task prompts are not in the plan.'
     )
     return
@@ -64,8 +64,8 @@ run(async () => {
     // Only reachable after H2's denial cap: run untiered, and say so.
     state.remove(input.session_id)
     context(
-      'planandtier: the approved plan has no valid task block, so it will not run as tiered tasks. ' +
-        'Problems: ' + result.errors.slice(0, 3).join('; ') + '. Tell the user, then implement the plan normally.'
+      'planandtier: the approved plan has no valid task block, so it will not run as tiered tasks: ' +
+        result.errors.slice(0, 3).join('; ') + '. Tell the user, then implement the plan normally.'
     )
     return
   }
@@ -102,16 +102,15 @@ run(async () => {
   const count = `${result.tasks.length} tiered tasks (T01 to ${result.tasks[result.tasks.length - 1].id})`
   if (problem) {
     context(
-      `planandtier: the user approved this plan with ${count}, but it cannot start, because ${problem}. ` +
-        'Tell the user to commit or stash their changes, and that the run starts when they next message you ' +
-        'after that. Do not implement the plan yourself and do not edit files.'
+      `planandtier: the plan (${count}) is approved but cannot start: ${problem}. ` +
+        'Tell the user to commit or stash; the run starts at their next message after that. ' +
+        'Do not implement the plan or edit files.'
     )
     return
   }
   context(
-    `planandtier: the user approved this plan with ${count}. Their approval is their request to run it. ` +
-      'Each task runs in its own subagent at its tier and commits its own work. Your part is only to ' +
-      'dispatch them, one at a time, exactly as planandtier tells you. Do not implement the plan yourself. ' +
+    `planandtier: the user approved ${count} and wants them run. Dispatch them one at a time, exactly as ` +
+      'planandtier says. Do not implement the plan yourself. ' +
       dispatchText(started)
   )
 })

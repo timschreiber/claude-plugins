@@ -78,7 +78,7 @@ test('dispatchText spells out the exact call', () => {
   assert.ok(!text.includes('run_in_background'))
   assert.match(text, /exactly this prompt \(2 lines, nothing added\):\nTasks file: C:\/plans\/p\.tasks\.json\nTask: T01\n/)
   assert.match(text, /Do not do the task yourself/)
-  assert.match(text, /If the task runs in the background, end your turn/)
+  assert.match(text, /If it runs in the background, end your turn/)
 })
 
 test('runningText tells Claude to end its turn while a background task runs', () => {
@@ -89,10 +89,10 @@ test('runningText tells Claude to end its turn while a background task runs', ()
 test('noticeText says what happened and what comes next, for each outcome', () => {
   const s = { ...start(), current: { ...start().current, head: 'abcdef1234' } }
   const next = r.advance(s, { ok: true, commit: 'aaa1111bbb' })
-  assert.match(r.noticeText(s, next.state, next.action, { ok: true }), /^planandtier: T01 is done \(commit aaa1111, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.match(r.noticeText(s, next.state, next.action, { ok: true }), /^planandtier: T01 done \(commit aaa1111, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
   const outcome = { ok: false, reason: 'Verify failed' }
   const retry = r.advance(s, outcome)
-  assert.match(r.noticeText(s, retry.state, retry.action, outcome), /T01 failed at sonnet-low: Verify failed\. The working tree was reset to abcdef1, and the task is retried one tier up\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.match(r.noticeText(s, retry.state, retry.action, outcome), /T01 failed at sonnet-low: Verify failed\. Reset to abcdef1; retrying one tier up\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
   const fatal = { ok: false, fatal: 'the worker left the branch the run started on' }
   const halt = r.advance(s, fatal)
   assert.equal(r.noticeText(s, halt.state, halt.action, fatal), r.haltText(halt.state))
@@ -175,8 +175,8 @@ test('a failure retries one tier up, twice, and then halts; past sonnet/high the
   assert.equal(out.action, 'halt')
   assert.equal(out.state.phase, 'halted')
   assert.deepEqual(out.state.halt, { task: 'T02', tried: ['sonnet-medium', 'sonnet-high', 'opus-medium'], reason: 'third' })
-  assert.match(r.haltText(out.state), /stopped at T02, after 3 attempt\(s\) \(sonnet-medium, sonnet-high, opus-medium\)\. Reason: third\./)
-  assert.match(r.haltText(out.state), /Do not fix it yourself/)
+  assert.match(r.haltText(out.state), /stopped at T02 after 3 attempt\(s\) \(sonnet-medium, sonnet-high, opus-medium\)\. Reason: third\./)
+  assert.match(r.haltText(out.state), /do not fix it or dispatch more tasks/)
 })
 
 test('a failure at the top tier, or a fatal one, halts at once', () => {

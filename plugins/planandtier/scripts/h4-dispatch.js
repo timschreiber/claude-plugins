@@ -60,7 +60,7 @@ function pre(input, s) {
   const problem = r.checkDispatch(s, toolInput)
   if (problem) {
     const next = s?.phase === 'running' ? ` ${r.dispatchText(s)}` : ' Tell the user instead of dispatching.'
-    deny(`planandtier: that dispatch was refused, because ${problem}.${next}`)
+    deny(`planandtier: dispatch refused: ${problem}.${next}`)
     return
   }
   // The tree must be clean and on the run's branch, so that a failed attempt can be reset.

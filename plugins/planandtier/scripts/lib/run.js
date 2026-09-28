@@ -100,8 +100,7 @@ function dispatchText(state) {
     `Call the Agent tool now with subagent_type "${call.subagent_type}", description ` +
     `${JSON.stringify(call.description)}, and exactly this prompt ` +
     `(${call.prompt.split('\n').length} lines, nothing added):\n${call.prompt}\n` +
-    'Do not do the task yourself and do not edit files. If the task runs in the background, end your ' +
-    'turn; planandtier gives the next step when its report arrives.'
+    'Do not do the task yourself. If it runs in the background, end your turn.'
   )
 }
 
@@ -110,8 +109,7 @@ function runningText(state) {
   const task = currentTask(state)
   return (
     `planandtier: ${task.id} is running in the background on ${agentName(state.current.tier)}. End your ` +
-    'turn now and do nothing else: when its report arrives, planandtier will give you the next step. Do ' +
-    'not do the task yourself.'
+    'turn now; planandtier gives the next step when it reports.'
   )
 }
 
@@ -122,12 +120,12 @@ function noticeText(prev, next, action, outcome) {
   const short = sha => String(sha ?? '').slice(0, 7)
   if (action === 'next') {
     const done = next.done[next.done.length - 1]
-    return `planandtier: ${done.id} is done (commit ${short(done.commit)}, ${done.tier}). ${dispatchText(next)}`
+    return `planandtier: ${done.id} done (commit ${short(done.commit)}, ${done.tier}). ${dispatchText(next)}`
   }
   if (action === 'retry') {
     return (
-      `planandtier: ${task.id} failed at ${prev.current.tier}: ${outcome.reason}. The working tree was reset ` +
-      `to ${short(prev.current.head)}, and the task is retried one tier up. ${dispatchText(next)}`
+      `planandtier: ${task.id} failed at ${prev.current.tier}: ${outcome.reason}. Reset to ` +
+      `${short(prev.current.head)}; retrying one tier up. ${dispatchText(next)}`
     )
   }
   if (action === 'complete') return completeText(next)
@@ -219,8 +217,8 @@ function advance(state, outcome) {
 function completeText(state) {
   const list = state.done.map(doneLabel).join(', ')
   return (
-    `planandtier: all ${state.tasks.length} tasks are done, each in its own commit: ${list}. ` +
-    (state.done.some(d => d.skipped) ? 'Tasks marked "earlier run" or "skipped" were not run this time. ' : '') +
+    `planandtier: all ${state.tasks.length} tasks are done: ${list}. ` +
+    (state.done.some(d => d.skipped) ? '"earlier run" and "skipped" tasks were not run this time. ' : '') +
     'Tell the user the run is complete and summarize what changed.'
   )
 }
@@ -229,10 +227,9 @@ function completeText(state) {
 function haltText(state) {
   const { task, tried, reason } = state.halt
   return (
-    `planandtier: the run has stopped at ${task}, after ${tried.length} attempt(s) (${tried.join(', ')}). ` +
-    `Reason: ${reason}. The last attempt's changes are left in the working tree, and any commit it made ` +
-    'is kept. Tell the user which task stopped the run, why, and what is left in the working tree. Do ' +
-    'not fix it yourself and do not dispatch more tasks.'
+    `planandtier: the run stopped at ${task} after ${tried.length} attempt(s) (${tried.join(', ')}). ` +
+    `Reason: ${reason}. The last attempt's changes and any commit it made are left in place. Tell the ` +
+    'user what stopped the run and what is left; do not fix it or dispatch more tasks.'
   )
 }
 

@@ -19,8 +19,7 @@ const { run, readInput, emit } = require('./lib/hook.js')
 const ENDED = ['complete', 'halted', 'abandoned']
 const MAX_TOOL_DENIALS = 3
 const REASON = s =>
-  'planandtier: a run of the approved plan is in progress. Its tasks are done by subagents; do not do ' +
-  `the work yourself. ${dispatchText(s)}`
+  'planandtier: a run is in progress, and its subagents do the work, not you. ' + dispatchText(s)
 
 // The spend text for this Stop: queued attempt lines, then the summary if the run has just ended (once).
 // Returns {s, text}: the state to continue with (already saved) and the text, or null.
