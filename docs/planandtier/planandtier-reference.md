@@ -19,6 +19,7 @@ Tested on Claude Code 2.1.283 (Windows).
 - [The hooks](#the-hooks)
 - [The run](#the-run)
 - [Executing a saved plan](#executing-a-saved-plan)
+- [Spend telemetry](#spend-telemetry)
 - [Session state](#session-state)
 - [The tier agents](#the-tier-agents)
 - [Permission modes](#permission-modes)
@@ -524,7 +525,8 @@ other agent types are left alone.
   `SubagentHandback` call and then in assistant text. A worker often hands its report back with that tool
   and then ends with a line such as "Task complete.", so its last message is not reliably the report. It
   then judges the attempt (see [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what
-  Claude must be told next as the state's `notice`.
+  Claude must be told next as the state's `notice`. It also records the attempt's tokens and cost, and shows
+  them to the user (see [Spend telemetry](#spend-telemetry)).
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
   already finished (a foreground run, as in a headless session): it gives Claude the notice as
   `additionalContext` and clears it. Otherwise the task is running in the background, and it tells Claude
@@ -551,6 +553,8 @@ is in flight.
   (which it then clears). If Claude Code reports the stop hook is already active (a second consecutive
   stop), it allows the stop and marks the run `abandoned`. While a task is in flight it is silent, so
   Claude can end its turn while a background worker runs.
+- **After the run ends** (`complete`, `halted` or `abandoned`), the first Stop records the run's
+  orchestration and shows the spend summary, once (see [Spend telemetry](#spend-telemetry)).
 
 ### H6: cleanup
 
@@ -697,6 +701,74 @@ plan file itself is never rewritten.
 
 From there the run is the same as one started by approval: H4 checks each dispatch and judges each attempt,
 and H5 guards the main thread.
+
+## Spend telemetry
+
+planandtier estimates the tokens and cost of every run: each worker attempt by tier, the main session's
+planning, and its orchestration during the run. It shows them in the UI and records them beside the plan.
+The sources and prices are measured in
+[`planandtier-telemetry-findings.md`](planandtier-telemetry-findings.md).
+
+### Where the numbers come from
+
+- **Worker attempts: the worker's transcript,** from `SubagentStop`'s `agent_transcript_path`. The Agent
+  tool's result has no usage for a background worker, so it is not used.
+- **Planning and orchestration: the main session's transcript** (`transcript_path` in the hook input), and
+  the subagent transcripts beside it (`<session>/subagents/agent-*.jsonl`, typed by their `.meta.json`).
+- **Counting (`lib/usage.js`):** one entry per `message.id`, each field at its largest value across the
+  message's lines. The first line of a message is written while it streams, with a small output count.
+- **Mode:** each message is in plan mode or not by the latest `permission-mode` entry, or user entry's
+  `permissionMode`, before it.
+- **Pricing (`lib/prices.js`):** each message is priced at its own `message.model`, category by category:
+  input, 5-minute and 1-hour cache writes, cache reads, and output. `inference_geo: "us"` is 1.1×. A model
+  missing from the table keeps its tokens and is reported as unpriced.
+
+### What is recorded
+
+Records go to `<plan>.telemetry.jsonl`, beside `<plan>.md` in the plans directory, one JSON line each. With
+no plan file known, they go to `sessions/<session_id>.telemetry.jsonl`. Every record has `kind`, `at`,
+`priceAsOf`, `sessionId` and `planId`, plus `tokens` (`input`, `output`, `cacheWrite5m`, `cacheWrite1h`,
+`cacheRead`), `total`, `messages`, `costUsd`, `unpriced` and `models`.
+
+| `kind` | Written by | Counts | Also has |
+|---|---|---|---|
+| `planning` | H2, each time a valid tiered plan passes | Plan-mode main messages and non-planandtier subagents that started since the session's cursor | `window`, `subagents` |
+| `attempt` | H4 `stop`, and `failure` for a failed Agent call (zero usage) | The worker's whole transcript | `runId`, `task`, `tier`, `effort`, `attempt`, `agentId`, `outcome` (`done`, `retry`, `halt`), `reason`, `durationMs` |
+| `orchestration` | H5 at the first Stop after the run ends, or H1 on a disarm that stops it | Non-plan main messages, and non-planandtier subagents, since the run was approved or started | `runId`, `end` (the phase), `window`, `subagents` |
+
+**The cursor.** `sessions/<session_id>.cursor` holds the time up to which planning has been counted. Arming
+starts it, each planning record moves it, and disarming and SessionEnd delete it. So a rejected plan and its
+resubmission each record only their own share.
+
+**Runs.** `startRun` gives each run a random `runId`, so a plan run twice (for example with
+`/planandtier:execute-plan` after a partial run) is summed per run. The run state keeps
+`spend: {costUsd}` for the running total, and `spendReported` once the summary has been shown.
+
+### What is shown
+
+Both go to the UI as the hook output's `systemMessage`. Claude's notices are unchanged, so the numbers
+cost it no context.
+
+- **After each attempt** (H4): `planandtier: T02 on sonnet-medium done: 412k tokens (96% cache reads), ~$0.31. Run so far: ~$0.52.`
+  A failed attempt says `failed, retrying a tier up` or `failed, run stopped`, and an unreadable transcript
+  says `usage unavailable`.
+- **When the run ends** (H5, or H1 on a disarm), once:
+  - a row for planning, summing every `planning` record for the plan from any session;
+  - a row per tier used by this run, in ladder order, with its attempts, failures and tokens;
+  - a row for orchestration;
+  - a total.
+
+Whether a `SubagentStop` `systemMessage` is displayed for a background worker is checked by the run
+guides. If it is not, the per-attempt line belongs on the prompt that delivers the worker's report (H1).
+
+### Updating prices
+
+The table in `lib/prices.js` is copied from Anthropic's pricing page, with its date in `AS_OF`. To update
+it:
+1. Change the table and `AS_OF` together.
+2. Record the page in `probes/evidence/planandtier-pricing.json`.
+
+`prices.test.js` holds the table equal to that evidence file.
 
 ## Session state
 
@@ -899,9 +971,13 @@ plugins/planandtier/
     lib/git.js                   # the Git commands a run needs; never throws
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
     lib/execute.js               # /planandtier:execute-plan: arguments, the plan listing, where to start
+    lib/prices.js                # per-model prices by token category, from Anthropic's pricing page
+    lib/spend.js                 # what each hook records for telemetry, and the UI text
+    lib/telemetry.js             # <plan>.telemetry.jsonl: records, the attempt line, the summary
+    lib/usage.js                 # token usage from transcripts: de-duplicated, windowed, by mode
     lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
     lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
-    lib/state.js                 # per-session state file and arming flag: read, atomic write, remove, arm, prune
+    lib/state.js                 # per-session state file, arming flag and telemetry cursor: read, atomic write, remove, arm, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
 ```
 
@@ -928,8 +1004,11 @@ file and fails.
 | `tests/planandtier/git.test.js` | The Git-installed, repository, commit identity and clean-tree check, HEAD and branch, commits since a base, a plan's committed tasks on the current branch, pushed commits (with a bare remote), and the reset. |
 | `tests/planandtier/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt (with and without a plan id), and moving on: next, complete, retry up the ladder, halt; a run started part-way. |
 | `tests/planandtier/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
-| `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, and the arming flag. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (and refusing to arm where a plan could not run) and disarming, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, the arming flag and the telemetry cursor. |
+| `tests/planandtier/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
+| `tests/planandtier/usage.test.js` | De-duplicating repeated message lines, cache writes with and without a 5 m / 1 h split, an `opusplan` session split by mode and priced per model, time windows, unpriced models, unreadable transcripts, and subagents by window and type. |
+| `tests/planandtier/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (and refusing to arm where a plan could not run) and disarming, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when unarmed), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
 To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, type
@@ -940,6 +1019,14 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 - **Serial only.** Tasks run one at a time. Parallel execution is a non-goal.
 - **No pauses between tasks.** There are no per-task approval gates.
 - **No pushing.** Each task is a local commit on the current branch.
+- **Spend is an estimate.**
+  - Transcript output counts can run slightly low.
+  - Fast mode is priced at the standard rate (transcripts do not record it).
+  - Web searches' per-search fee is not counted.
+  - The price table is fixed in the plugin, with its date.
+  - A worker still running when the session is disarmed is not counted.
+  - Orchestration includes anything else the user asks Claude during the run.
+  - On a subscription plan, the figures are what the usage would cost at API rates.
 - **Git required.** A tiered plan needs a Git repository with a commit identity and a clean working tree.
 - **Only what `Verify:` checks is checked.** A worker commits when its verify step passes; work the step does
   not cover is not caught.
@@ -993,6 +1080,7 @@ their findings about plan mode, hooks and the dialog still apply.
 
 | Claim | Document | Evidence |
 |---|---|---|
+| A background Agent result carries no usage, so worker usage comes from its transcript; repeated lines of a message need the largest value per field; the main transcript's mode entries separate planning from execution; `meta.json` types each subagent; Opus 5.5 cache reads cost 0.05× input and Sonnet 5 is $2/$10 | [`planandtier-telemetry-findings.md`](planandtier-telemetry-findings.md) | `planandtier-usage-shapes.json`, `planandtier-pricing.json` |
 | A typed plugin skill command reaches `UserPromptSubmit` as the raw text (for example `/planandtier-agent-probe:arm`), the namespaced name resolves, and a `disable-model-invocation` skill's body still reaches the model | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#arming-what-a-typed-skill-command-looks-like-to-a-hook) | `planandtier-arm-probe.log`, `planandtier-arm-probe-results.json` |
 | Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; the Opus effort steps above `high` add little | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28) |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log`, `planandtier-agents-probe.log`, `planandtier-agents-debug.log`, `planandtier-agents-rerun-probe.log`, `planandtier-agents-rerun-debug.log` |

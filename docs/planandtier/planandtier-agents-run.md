@@ -14,7 +14,10 @@ The run passes if:
 - after you reject the plan with feedback that contradicts your prompt, the revised plan uses your change;
 - after approval, with nothing typed, every task runs and finishes;
 - each task is one commit with a `Planandtier-Task:` trailer, and T01 ran on `sonnet-low`;
-- the finished code uses your change, not your original prompt.
+- the finished code uses your change, not your original prompt;
+- a `planandtier: T0x on <tier> …` spend line appears after each task, and one spend summary when the run
+  completes;
+- `<plan>.telemetry.jsonl` sits beside the plan, with `planning`, `attempt` and `orchestration` records.
 
 ## Where things run
 
@@ -130,6 +133,7 @@ For each `null`, `true` or `false` is enough; if you don't know, leave `null` an
   "secondDialog": { "showedTable": null, "saidHowdy": null },
   "afterApproval": { "typedNothing": null, "nextTaskStartedByItself": null, "permissionPrompts": null, "notes": "" },
   "result": { "runCompleted": null, "commitsWithTrailers": null, "greetSaysHowdy": null, "testsPass": null },
+  "spend": { "lineAfterEachTask": null, "summaryAtEnd": null, "summaryText": "", "telemetryFileBesidePlan": null },
   "notes": ""
 }
 ```
@@ -139,9 +143,11 @@ Then copy the two logs next to it, from the same window:
 ```powershell
 Copy-Item $env:PROBE_LOG "$repo\probes\evidence\planandtier-agents-$stamp-probe.log"
 Copy-Item "$env:TEMP\planandtier-debug.log" "$repo\probes\evidence\planandtier-agents-$stamp-debug.log"
+Get-ChildItem "$HOME\.claude\plans\*.telemetry.jsonl" | Sort-Object LastWriteTime | Select-Object -Last 1 |
+  Copy-Item -Destination "$repo\probes\evidence\planandtier-agents-$stamp-telemetry.jsonl"
 ```
 
-Tell me when all three are in place. I'll read the transcript, the plan, its tasks file and the throwaway
+Tell me when all four are in place. I'll read the transcript, the plan, its tasks file and the throwaway
 repo myself. Please don't delete them until I have.
 
 ## If something goes wrong

@@ -14,7 +14,9 @@ The run passes if:
 - in Part B, with nothing else typed, T01 to T03 each commit with `Planandtier-Task:` and
   `Planandtier-Plan:` lines carrying the same plan id;
 - in Part C, Claude says T01 is not run again, and only T02 and T03 run;
-- in Part D, Claude implements the plain plan itself, with no Agent dispatches.
+- in Part D, Claude implements the plain plan itself, with no Agent dispatches;
+- in Parts B and C, a spend line appears after each task, and one summary at the end. Its planning row
+  includes Part A's planning, recorded in a different session.
 
 ## Install or update the plugin (once per push)
 
@@ -133,6 +135,7 @@ know, leave `null` and say so in `notes`.
   "partA": { "armed": null, "dialogShowedTable": null, "leftWithoutApproving": null },
   "partB": { "listingShowedPlan": null, "listingText": "", "runStartedWithNothingTyped": null, "allThreeCommitted": null, "commitsHavePlanLine": null, "planId": "" },
   "partC": { "saidT01NotRunAgain": null, "firstDispatchWasT02": null, "t02AndT03Committed": null },
+  "spend": { "lineAfterEachTask": null, "summaryAtEndOfB": null, "summaryAtEndOfC": null, "planningRowPresent": null, "summaryTextB": "" },
   "partD": { "saidNotTiered": null, "claudeEditedItself": null, "noAgentDispatch": null },
   "permissionMode": "",
   "notes": ""
@@ -144,9 +147,11 @@ Then copy the two logs next to it, from the same window:
 ```powershell
 Copy-Item $env:PROBE_LOG "$repo\probes\evidence\planandtier-execute-plan-$stamp-probe.log"
 Copy-Item "$env:TEMP\planandtier-debug.log" "$repo\probes\evidence\planandtier-execute-plan-$stamp-debug.log"
+Get-ChildItem "$HOME\.claude\plans\*.telemetry.jsonl" | Sort-Object LastWriteTime | Select-Object -Last 1 |
+  Copy-Item -Destination "$repo\probes\evidence\planandtier-execute-plan-$stamp-telemetry.jsonl"
 ```
 
-Tell me when all three are in place. I'll read the transcripts, the plan, its tasks file and the throwaway
+Tell me when all four are in place. I'll read the transcripts, the plan, its tasks file and the throwaway
 repo myself. Please don't delete them until I have.
 
 ## If something goes wrong

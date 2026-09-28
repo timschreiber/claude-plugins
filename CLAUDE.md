@@ -21,7 +21,10 @@ cataloged in `.claude-plugin/marketplace.json`:
   failed attempts reset and retried a tier up. It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
   `/planandtier:arm` in the session; `/planandtier:disarm` turns it off, and
-  `/planandtier:execute-plan` runs a saved plan in a later session.
+  `/planandtier:execute-plan` runs a saved plan in a later session. Each
+  run's estimated token spend (per tier, planning, orchestration) is shown
+  in the UI and written to `<plan>.telemetry.jsonl`; prices live in
+  `scripts/lib/prices.js`, held equal to `probes/evidence/planandtier-pricing.json`.
   The hooks are Node scripts under `plugins/planandtier/scripts/`, tested with
   `node --test tests/planandtier/*.test.js` (the tests need `git`).
   The design and the measurements behind it are in `docs/planandtier/`, with

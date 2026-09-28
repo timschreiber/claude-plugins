@@ -94,6 +94,35 @@ on disk, though (in `~/.claude/plans/`), and you can run it in a new session:
 
 Type it outside plan mode: the workers work in the session's permission mode.
 
+### What a run costs
+
+The plugin estimates the tokens and cost of every run, and shows them to you as the run goes:
+
+- **After each task attempt**, a line such as
+  `planandtier: T02 on sonnet-medium done: 412k tokens (96% cache reads), ~$0.31. Run so far: ~$0.52.`
+- **When the run ends** (completed, stopped or disarmed), a summary:
+
+  ```
+  planandtier spend (estimated, prices as of 2026-09-28):
+    planning       ~$0.40  claude-opus-5-5, 3 subagents
+    sonnet-low     ~$0.05  1 attempt, 180k tokens
+    sonnet-medium  ~$0.33  2 attempts (1 failed), 590k tokens
+    opus-high      ~$0.61  1 attempt, 410k tokens
+    orchestration  ~$0.20  claude-sonnet-5
+    total          ~$1.59
+  ```
+
+**Planning** is what the main session spent in plan mode on this plan, plus its Explore and Plan
+subagents. Each message is priced at the model that wrote it, so an `opusplan` session is priced
+correctly. **Orchestration** is the main session's own turns during the run.
+
+Everything is also written, one JSON line per event, to `<plan>.telemetry.jsonl` beside the plan in
+`~/.claude/plans/`. Nothing is sent anywhere. The numbers come from Claude Code's own transcripts, priced
+from Anthropic's published rates, so they are **estimates**:
+- output counts can run slightly low;
+- fast mode is priced at the standard rate;
+- a subscription plan isn't billed per token at all.
+
 ### Disarming
 
 Type `/planandtier:disarm` to turn the plugin off for the rest of the session. If a run is in progress, it
@@ -159,6 +188,9 @@ commands and H6 cleaning up.
   for the tools your tasks use will reduce that.
 - **A run does not outlive its session.** Its state is deleted at session end. Tasks that finished are
   committed, and `/planandtier:execute-plan` can pick the plan up in a new session.
+- **Spend is an estimate,** from transcripts and a price table fixed in the plugin with its date. A
+  worker still running when you disarm is not counted, and orchestration includes anything else you ask
+  Claude during the run.
 - **The plan listing only looks in `~/.claude/plans`.** If you moved the plans directory with the
   `plansDirectory` setting, type the plan's path.
 - **The model dispatches the tasks.** The plugin gives the exact call and refuses any other, but it cannot
