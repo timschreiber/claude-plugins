@@ -20,7 +20,8 @@ cataloged in `.claude-plugin/marketplace.json`:
   model and effort chosen during planning and committed by its worker, with
   failed attempts reset and retried a tier up. It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
-  `/planandtier:arm` in the session; `/planandtier:disarm` turns it off.
+  `/planandtier:arm` in the session; `/planandtier:disarm` turns it off, and
+  `/planandtier:execute-plan` runs a saved plan in a later session.
   The hooks are Node scripts under `plugins/planandtier/scripts/`, tested with
   `node --test tests/planandtier/*.test.js` (the tests need `git`).
   The design and the measurements behind it are in `docs/planandtier/`, with

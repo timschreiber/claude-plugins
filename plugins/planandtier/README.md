@@ -56,8 +56,8 @@ Tested on Claude Code 2.1.283.
 6. **Watch.** Claude dispatches each task to the agent for its tier. The worker runs in the background and
    Claude ends its turn; when the worker's report arrives, the plugin gives Claude the next step, so the run
    carries on with nothing typed. The worker does the task, runs its `Verify:` step and, if it passed,
-   commits with the task's title and a `Planandtier-Task: T02` trailer. When every task is done, Claude says
-   so.
+   commits with the task's title, a `Planandtier-Task: T02` line and a `Planandtier-Plan: <id>` line that
+   names the plan. When every task is done, Claude says so.
 
 ### When a task fails
 
@@ -70,6 +70,29 @@ attempt's changes stay in the working tree for you to inspect.
 
 If you interrupt a run, just say "continue": the plugin tells Claude where the run stands and what to
 dispatch next. The run lasts until the session ends. The tasks that finished are already committed.
+
+### Picking a plan up again
+
+A run does not survive its session, and neither does a plan you never got to approve. The plan file stays
+on disk, though (in `~/.claude/plans/`), and you can run it in a new session:
+
+```
+/planandtier:execute-plan ~/.claude/plans/brave-fox.md
+```
+
+- **A planandtier plan runs as tiered tasks.** The session is armed, and the run starts at the first task
+  not already committed on the current branch: tasks from an earlier run of the same plan are skipped, and
+  Claude says which. It needs the same clean Git repository as approving a plan does.
+- **With no path,** Claude lists the most recent planandtier plans and asks which one to run.
+- **`--from T03`** starts at a given task instead, treating the ones before it as done. Use it for a run
+  whose commits predate the plan line, or when Claude reports a gap (a later task committed, an earlier one
+  not).
+- **A plain plan** (one made without planandtier, or with `Tiered execution: off`) runs without planandtier:
+  Claude implements it as it normally would.
+- **A planandtier plan whose tasks file is missing or changed is refused.** Its task prompts are not in the
+  plan, so there is nothing reliable to run.
+
+Type it outside plan mode: the workers work in the session's permission mode.
 
 ### Disarming
 
@@ -105,12 +128,12 @@ definition. Workers cannot start agents or workflows.
 
 ## How it works
 
-Every hook does nothing in an unarmed session, except H1 handling the arm and disarm commands and H6
-cleaning up.
+Every hook does nothing in an unarmed session, except H1 handling the arm, disarm and execute-plan
+commands and H6 cleaning up.
 
 | Hook | Job |
 |---|---|
-| Rules (H1) | Arms and disarms the session when you type the commands. Adds the tiering rules in plan mode. During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
+| Rules (H1) | Arms and disarms the session when you type the commands, and starts a saved plan for `/planandtier:execute-plan`. Adds the tiering rules in plan mode. During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
 | Gate (H2) | Denies `ExitPlanMode` until the task block validates and the repository can run it (a commit, a commit identity and a clean tree), then moves the block to the tasks file and leaves a table |
 | Hand-off (H3) | On approval, starts the run and gives Claude the first dispatch |
 | Dispatch (H4) | Lets through only the expected dispatch; when the worker finishes, reads its report, checks its commit, and decides the next dispatch, a retry after a reset, or a stop |
@@ -135,7 +158,9 @@ cleaning up.
 - **Manual permissions:** workers may ask for permission as they edit files or run commands. Allow rules
   for the tools your tasks use will reduce that.
 - **A run does not outlive its session.** Its state is deleted at session end. Tasks that finished are
-  committed.
+  committed, and `/planandtier:execute-plan` can pick the plan up in a new session.
+- **The plan listing only looks in `~/.claude/plans`.** If you moved the plans directory with the
+  `plansDirectory` setting, type the plan's path.
 - **The model dispatches the tasks.** The plugin gives the exact call and refuses any other, but it cannot
   make the call itself. If Claude keeps doing something else, the guard steps aside after a few blocks.
 

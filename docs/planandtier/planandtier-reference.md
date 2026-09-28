@@ -18,6 +18,7 @@ Tested on Claude Code 2.1.283 (Windows).
 - [Opting out of tiering](#opting-out-of-tiering)
 - [The hooks](#the-hooks)
 - [The run](#the-run)
+- [Executing a saved plan](#executing-a-saved-plan)
 - [Session state](#session-state)
 - [The tier agents](#the-tier-agents)
 - [Permission modes](#permission-modes)
@@ -56,7 +57,7 @@ that, the user's experience is plain plan mode: plan, approve, watch. The plugin
 | **Seamless** | Built-in plan mode is unchanged; hooks do the hand-off. No command to type after approval. |
 | **Cheap** | Each task runs on the cheapest tier expected to succeed first time. Orchestration costs one short Agent call and one short report per task attempt in the main session. |
 | **Deterministic** | Task order, tier and prompt come from the tasks file named in the approved plan, checked against its hash. Workers read their prompt from that file; no model recalls or retypes a task. Hooks check every dispatch and every result. |
-| **Recoverable** | Every finished task is a commit with a `Planandtier-Task:` trailer, and a failed attempt is reset to the commit before it. |
+| **Recoverable** | Every finished task is a commit with `Planandtier-Task:` and `Planandtier-Plan:` lines, and a failed attempt is reset to the commit before it. A plan whose session ended can be picked up again with `/planandtier:execute-plan`, skipping the tasks already committed. |
 | **Built-in first** | Plan mode, `ExitPlanMode` approval, the Agent tool and plugin agents are all Claude Code's own. |
 
 ### Why not a workflow
@@ -428,7 +429,7 @@ subagent itself.
 
 | Hook | In an unarmed session |
 |---|---|
-| H1 | Handles `/planandtier:arm` and `/planandtier:disarm` only. No rules, no `enter` output, no run notes. |
+| H1 | Handles `/planandtier:arm`, `/planandtier:disarm` and `/planandtier:execute-plan` only. No rules, no `enter` output, no run notes. |
 | H2 | Silent: every plan goes to the dialog unchanged. |
 | H3 | Silent: nothing is saved. |
 | H4 | Silent in every mode, even for `planandtier:*` agents. `SubagentStop`'s `session_id` is the main session's, so a worker still running at a disarm is not judged. |
@@ -438,8 +439,10 @@ subagent itself.
 ### H1: rules
 
 - On `UserPromptSubmit`, a prompt that starts with `/planandtier:arm` or `/planandtier:disarm` arms or
-  disarms the session and prints the note (see [Arming](#arming)). This is the only thing H1 does in an
-  unarmed session. Everything below needs the session armed.
+  disarms the session and prints the note (see [Arming](#arming)), and one that starts with
+  `/planandtier:execute-plan` starts a saved plan (see [Executing a saved plan](#executing-a-saved-plan)).
+  These commands are the only thing H1 handles in an unarmed session. Everything below needs the session
+  armed.
 - On `UserPromptSubmit` in plan mode, it prints the text of `rules/tiering.md`, which Claude Code adds as
   context. It fires on every prompt submitted in plan mode.
 - On `PostToolUse` for `EnterPlanMode`, it returns the rules as `additionalContext`. This covers Claude
@@ -566,10 +569,11 @@ For each attempt, Claude calls the Agent tool with:
 
 ```
 Tasks file: C:\Users\me\.claude\plans\brave-fox.tasks.json
+Plan: 0123456789abcdef
 Task: T02
 ```
 
-A retry adds two lines:
+`Plan:` is the plan's id (see [Plan identity](#plan-identity)). A retry adds two lines:
 
 ```
 Retry: attempt 2 of 3; the attempt at sonnet-medium failed and was rolled back.
@@ -590,7 +594,7 @@ the `Verify:` step, and only if it passed commits everything as one commit:
 
 ```
 git add -A
-git commit -m "<title>" -m "Planandtier-Task: T02"
+git commit -m "<title>" -m "Planandtier-Task: T02" -m "Planandtier-Plan: 0123456789abcdef"
 ```
 
 It never pushes, amends, resets, stashes, rebases or switches branches. It ends with a report block:
@@ -608,7 +612,7 @@ H4's `stop` mode does not take `DONE` on trust. An attempt succeeds only if all 
 
 - the report says `DONE`;
 - exactly one new commit exists since the recorded HEAD, and its message has the task's
-  `Planandtier-Task:` trailer;
+  `Planandtier-Task:` line and, when the run has a plan id, its `Planandtier-Plan:` line;
 - the working tree is clean;
 - the branch is the one the run started on.
 
@@ -636,6 +640,64 @@ stop it, the user types `/planandtier:disarm`: the run is marked `abandoned` and
 done and what is not (see [Arming](#arming)). If the user just asks Claude to stop, Claude does not
 dispatch, and H5 steps aside after a few blocks.
 
+### Plan identity
+
+A plan's id is the first 16 hex characters of the sha256 of its task block's text. H2 writes exactly that
+text to the tasks file and puts the same hash in the table, so the id is the same whether or not the block
+was moved (`planIdOf()` in `lib/sidecar.js`). The run keeps it as `planId`, the dispatch prompt names it
+in a `Plan:` line, and every worker commit carries `Planandtier-Plan: <id>` beside
+`Planandtier-Task: <task id>`. Task ids repeat from plan to plan (every plan has a T01); the plan line is
+what tells one plan's T01 from another's.
+
+## Executing a saved plan
+
+A run's state and the arming flag are deleted when the session ends, and a run starts only when a plan is
+approved. So a plan interrupted before approval, or a run that stopped partway, cannot continue in a new
+session on its own. The plan file and its tasks file stay in the plans directory, and
+`/planandtier:execute-plan [plan path] [--from Txx]` runs them.
+
+As with arming, **H1 does the work.** The skill ([`skills/execute-plan/`](../../plugins/planandtier/skills/execute-plan/SKILL.md),
+user-only) only tells Claude to do what the note says. H1 matches the command at the start of the prompt
+and parses the rest (`lib/execute.js`):
+
+- **The path** may be quoted, unquoted with spaces (the words are joined), start with `~`, or be relative
+  to the session's working directory.
+- **`--from Txx`** (or `--from=Txx`, any case) is optional.
+
+It then checks, in order:
+
+| Case | Note (the session is armed only in the last row) |
+|---|---|
+| In plan mode | Refused: leave plan mode first. Workers work in the session's permission mode, so they could not edit anything. |
+| The session is armed and a run is `running` or `paused` | Refused: `/planandtier:disarm` first. |
+| `--from` without a task id | Refused. |
+| No path | Lists up to 5 plans in `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` that hold a planandtier table or block, newest first, each with its `# ` heading, task count and time. Claude shows them and asks which to run. A custom `plansDirectory` is not visible to hooks, so the note says the path must then be typed. |
+| The file cannot be read | Refused, naming the resolved path. |
+| No table or block, or `Tiered execution: off` | **Runs without planandtier:** Claude reads the file and implements the plan as it normally would. The session is not armed and Git is not checked. |
+| A table whose tasks file is missing, changed or invalid, or a table that was edited | Refused with `resolvePlan()`'s errors. The prompts are not in the plan, so Claude must not implement it itself. |
+| An invalid raw block | Refused with the errors. |
+| `git.problem()` finds a problem | Refused with the reason, as for arming. |
+| A gap: a task is committed while an earlier one is not | Refused; `--from` chooses the start. |
+| `--from` names no task in the plan | Refused, naming the plan's first and last task. |
+| Every task is committed | Nothing runs; the note lists the commits. |
+| Otherwise | Arms the session, saves a `running` state starting at the first task not done, and gives the first dispatch. |
+
+**Which tasks are done.** `git.committedTasks()` runs `git log HEAD` for commits with this plan's
+`Planandtier-Plan:` line and reads their `Planandtier-Task:` lines. Only commits reachable from HEAD count,
+so another branch's commits do not. The run starts after the leading tasks found there. `--from` overrides
+this: the tasks before it count as done, whether or not they were found.
+
+**Skipped tasks** go into the state's `done` list as `{id, commit, tier: null, attempts: 0, skipped}`, with
+`skipped` either `committed` (the commit found) or `from` (no commit, skipped by `--from`). Claude's notes
+show them as `T01 abc1234 (earlier run)` or `T01 (skipped by --from)`.
+
+**Tasks file.** A table's tasks file is used as it is. A plan that still has its raw block (H2 never moved
+it) gets its block written to `<plan>.tasks.json` beside it, or beside the session state if that fails. The
+plan file itself is never rewritten.
+
+From there the run is the same as one started by approval: H4 checks each dispatch and judges each attempt,
+and H5 guards the main thread.
+
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
@@ -652,6 +714,7 @@ During a run the file looks like this:
   "tasksFile": "<path to the tasks file>",
   "tasksHash": "<the 16-character hash from the plan's table, or null>",
   "planFile": "<path to the approved plan file>",
+  "planId": "<the plan's 16-character id>",
   "branch": "main",
   "cwd": "<the repository's working directory>",
   "current": {
@@ -669,7 +732,9 @@ During a run the file looks like this:
 
 `notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
 `post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A halted run
-also has `halt: {task, tried, reason}`; a paused run has `pausedBecause`. Before approval the file, if any,
+also has `halt: {task, tried, reason}`; a paused run has `pausedBecause`. A run started by
+`/planandtier:execute-plan` part-way has the skipped tasks in `done` (see
+[Executing a saved plan](#executing-a-saved-plan)). Before approval the file, if any,
 holds only H2's denial count. Timestamps are written by hooks.
 
 ### Phases
@@ -680,6 +745,7 @@ stateDiagram-v2
     planning --> running: H3, plan approved
     [*] --> running: H3, plan approved
     [*] --> paused: H3, approved but the tree is dirty
+    [*] --> running: H1, execute-plan
     paused --> running: H1, the tree is clean again
     running --> running: H4, next task or retry
     running --> complete: H4, last task done
@@ -697,7 +763,7 @@ stateDiagram-v2
 | (no file) | H3 opt-out or invalid, H1 disarm outside a run, H6 end | Idle. | Off | No |
 | `planning` | H2, on a denial with no earlier state | Holds only the denial count. | Off | No |
 | `paused` | H3 | Approved, waiting for a clean tree. | Off | No |
-| `running` | H3; H1 for a paused run | Tasks in progress. | **On** while no task is in flight | Only the expected one |
+| `running` | H3; H1 for a paused run or execute-plan | Tasks in progress. | **On** while no task is in flight | Only the expected one |
 | `complete` | H4 | Every task committed. | Off | No |
 | `halted` | H4 | Stopped at a task; see `halt`. | Off | No |
 | `abandoned` | H5, after giving up; H1, on a disarm | Claude stopped dispatching, or the user disarmed. | Off | No |
@@ -744,7 +810,7 @@ Rules every hook follows, enforced by [`lib/hook.js`](../../plugins/planandtier/
 - **Never fail loudly.** Every error, including an uncaught exception or unhandled rejection, is swallowed
   and the exit code stays 0. Empty, malformed or non-object stdin produces no output.
 - **Degrade to ordinary Claude Code.** In an unarmed session every hook does nothing (H1 still handles
-  the arm and disarm commands). If the state cannot be read, a hook does nothing. If it cannot be
+  the arm, disarm and execute-plan commands). If the state cannot be read, a hook does nothing. If it cannot be
   written at approval, H3 tells Claude to implement the plan normally.
 - **Never grant permission.** No hook sets `permissionDecision: "allow"`.
 - **Never block forever.** H2 gives up after three denials of an invalid plan, H5's `pre` after three, and
@@ -796,7 +862,9 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 | Aliases | `sonnet` / `xhigh` runs as `opus` / `low` | `lib/tasks.js` `ALIASES` |
 | Tier ladder | `ALLOWED` in order | `lib/tasks.js` `TIERS` |
 | Retries per task | 2 | `lib/run.js` `MAX_RETRIES` |
-| Commit trailer | `Planandtier-Task: <id>` | the agents; checked in `lib/run.js` |
+| Commit lines | `Planandtier-Task: <id>` and `Planandtier-Plan: <plan id>` | the agents; checked in `lib/run.js` |
+| Plan id | First 16 hex characters of the sha256 of the task block | `lib/sidecar.js` `planIdOf` |
+| Plans listed by execute-plan | 5, from `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` | `lib/execute.js` |
 | Maximum tasks | 99 | `lib/tasks.js` |
 | Maximum title length | 100 characters | `lib/tasks.js` |
 | Block info string | `json tiered-tasks` | `lib/tasks.js` |
@@ -807,7 +875,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 | H2 denial cap | 3 | `h2-gate-exit-plan.js` |
 | H5 tool-denial cap | 3 | `h5-guard.js` |
 | State pruning age | 7 days | `h3-post-approval.js`, `h1-plan-rules.js` |
-| Arm and disarm commands | `/planandtier:arm`, `/planandtier:disarm`, at the start of the prompt | `h1-plan-rules.js` `COMMAND` |
+| Commands | `/planandtier:arm`, `/planandtier:disarm`, `/planandtier:execute-plan`, at the start of the prompt | `h1-plan-rules.js` `COMMAND` |
 
 ## Plugin layout
 
@@ -820,6 +888,7 @@ plugins/planandtier/
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   skills/arm/SKILL.md            # /planandtier:arm (user-only; H1 does the arming)
   skills/disarm/SKILL.md         # /planandtier:disarm (user-only; H1 does the disarming)
+  skills/execute-plan/SKILL.md   # /planandtier:execute-plan (user-only; H1 starts the plan)
   scripts/
     h1-plan-rules.js
     h2-gate-exit-plan.js
@@ -829,8 +898,9 @@ plugins/planandtier/
     h6-cleanup.js
     lib/git.js                   # the Git commands a run needs; never throws
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
+    lib/execute.js               # /planandtier:execute-plan: arguments, the plan listing, where to start
     lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
-    lib/sidecar.js               # the tasks file: move the block, load and check it
+    lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
     lib/state.js                 # per-session state file and arming flag: read, atomic write, remove, arm, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
 ```
@@ -854,12 +924,12 @@ file and fails.
 | File | Covers |
 |---|---|
 | `tests/planandtier/tasks.test.js` | Every validation rule, the allowed and rejected tiers, the tier ladder, fence handling (nested, tilde, CRLF, other info strings), the opt-out line, multiple blocks, invalid JSON, collecting all errors, key stripping; the generated table, finding and rejecting sections, and replacing a block while keeping CRLF or LF. |
-| `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block, and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited. |
-| `tests/planandtier/git.test.js` | The Git-installed, repository, commit identity and clean-tree check, HEAD and branch, commits since a base, pushed commits (with a bare remote), and the reset. |
-| `tests/planandtier/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt, and moving on: next, complete, retry up the ladder, halt. |
+| `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block, and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited; a plan's id before and after its block is moved. |
+| `tests/planandtier/git.test.js` | The Git-installed, repository, commit identity and clean-tree check, HEAD and branch, commits since a base, a plan's committed tasks on the current branch, pushed commits (with a bare remote), and the reset. |
+| `tests/planandtier/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt (with and without a plan id), and moving on: next, complete, retry up the ladder, halt; a run started part-way. |
 | `tests/planandtier/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
 | `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, and the arming flag. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (and refusing to arm where a plan could not run) and disarming, every hook silent when unarmed, disarming mid-run, the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (and refusing to arm where a plan could not run) and disarming, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
 To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, type
@@ -878,8 +948,11 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
   session.
 - **The model dispatches.** The plugin gives the exact call and refuses any other, but cannot make the call
   itself. If Claude never dispatches, the guard steps aside after a few blocks.
-- **A run ends with its session.** A resumed session cannot continue a run from an earlier one; the tasks
-  that finished are committed, and their trailers show which.
+- **A run ends with its session.** A resumed session does not continue a run by itself. The tasks that
+  finished are committed with their plan's id, and `/planandtier:execute-plan` picks the plan up from the
+  first task that is not. Commits made before the plan line existed are not recognized; use `--from`.
+- **The plan listing sees only the default plans directory.** Hooks cannot read the `plansDirectory`
+  setting, so a moved plans directory needs the path typed.
 - **The user approves a table, not the prompts.** The dialog cannot show very long lines, so the prompts
   are in the tasks file, which the user has to open to read.
 - **Tasks files are kept.** One is written next to each plan file that passes H2, and none is deleted.
@@ -902,6 +975,10 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 | The dialog says the plan is too large to be shown in full | A line in the plan is too long for the dialog. If the plan still has its task block, H2 could not rewrite the plan file; `PLANANDTIER_DEBUG=1` logs that. If the long line is in the prose, ask Claude to wrap it. |
 | After approval Claude says the tasks could not be loaded | The tasks file or the table was changed after the table was written. Plan again. |
 | After approval Claude says the run cannot start | The tree became dirty after the plan was submitted. Commit or stash, then send any message. |
+| A session ended before its plan ran or finished | Type `/planandtier:execute-plan` (no path lists recent plans), or `/planandtier:execute-plan <plan path>`. |
+| execute-plan reports a gap in the committed tasks | A later task is committed on this branch but an earlier one is not. Check `git log`, then type the command again with `--from` and the task to start at. |
+| execute-plan says the plan's tasks cannot be loaded | The tasks file beside the plan is missing or was changed, or the table was edited. The prompts are gone from the plan, so plan it again. |
+| execute-plan reruns tasks that an old run finished | Those commits predate the `Planandtier-Plan:` line. Use `--from` to start after them. |
 | A dispatch is refused | Claude's call did not match the expected one. The refusal repeats the right call; Claude should make it. |
 | The run stopped at a task | Read Claude's report: the task, the tiers tried and the reason. The last attempt's changes are in the working tree. Fix or discard them, then plan the rest again. |
 | The run stopped because of uncommitted changes or a branch change | Something other than a task changed the tree or the branch during the run. Nothing was reset. |
