@@ -7,7 +7,7 @@ const path = require('path')
 const { TIERS } = require('../../plugins/planandtier/scripts/lib/tasks.js')
 
 const DIR = path.join(__dirname, '..', '..', 'plugins', 'planandtier', 'agents')
-const TURNS = { default: 20, low: 30, medium: 40, high: 60, xhigh: 80 }
+const TURNS = { low: 30, medium: 40, high: 60, xhigh: 80 }
 
 // {fields, body} from an agent file: simple "key: value" frontmatter between --- lines.
 function read(tier) {
@@ -26,14 +26,13 @@ test('there is exactly one agent per tier, and no other agent', () => {
   assert.deepEqual(files, TIERS.map(t => `${t}.md`).sort())
 })
 
-test('each agent runs its tier: name, model, effort (none on haiku), maxTurns and no nested agents', () => {
+test('each agent runs its tier: name, model, effort, maxTurns and no nested agents', () => {
   for (const tier of TIERS) {
     const [model, effort] = tier.split('-')
     const { fields } = read(tier)
     assert.equal(fields.name, tier)
     assert.equal(fields.model, model, tier)
-    if (effort === 'default') assert.equal(fields.effort, undefined, 'haiku takes no effort')
-    else assert.equal(fields.effort, effort, tier)
+    assert.equal(fields.effort, effort, tier)
     assert.equal(Number(fields.maxTurns), TURNS[effort], tier)
     assert.deepEqual(fields.disallowedTools.split(',').map(s => s.trim()).sort(), ['Agent', 'Workflow'])
     assert.match(fields.description, /planandtier/)

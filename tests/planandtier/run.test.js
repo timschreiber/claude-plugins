@@ -12,7 +12,7 @@ const task = (n, over = {}) => ({
   prompt: 'Do it. Verify: node --test passes.',
   ...over,
 })
-const TASKS = [task(1, { model: 'haiku', effort: 'default' }), task(2), task(3, { model: 'opus', effort: 'xhigh' })]
+const TASKS = [task(1, { effort: 'low' }), task(2), task(3, { model: 'opus', effort: 'xhigh' })]
 const start = () => r.startRun({ tasks: TASKS, tasksFile: 'C:/plans/p.tasks.json', branch: 'main' })
 const call = (state, over = {}) => ({ ...r.expectedCall(state), ...over })
 
@@ -21,7 +21,7 @@ test('startRun begins at T01 on its own tier', () => {
   assert.equal(s.phase, 'running')
   assert.deepEqual(
     { index: s.current.index, attempt: s.current.attempt, tier: s.current.tier, inFlight: s.current.inFlight },
-    { index: 0, attempt: 1, tier: 'haiku-default', inFlight: false }
+    { index: 0, attempt: 1, tier: 'sonnet-low', inFlight: false }
   )
   assert.deepEqual(s.done, [])
   assert.equal(s.branch, 'main')
@@ -31,7 +31,7 @@ test('the dispatch is a pointer to the task, with the reason added on a retry', 
   const s = start()
   assert.equal(r.expectedPrompt(s), 'Tasks file: C:/plans/p.tasks.json\nTask: T01')
   assert.deepEqual(r.expectedCall(s), {
-    subagent_type: 'planandtier:haiku-default',
+    subagent_type: 'planandtier:sonnet-low',
     description: 'T01: Task 1',
     run_in_background: false,
     prompt: 'Tasks file: C:/plans/p.tasks.json\nTask: T01',
@@ -40,14 +40,14 @@ test('the dispatch is a pointer to the task, with the reason added on a retry', 
   assert.equal(
     r.expectedPrompt(retry),
     'Tasks file: C:/plans/p.tasks.json\nTask: T01\n' +
-      'Retry: attempt 2 of 3; the attempt at haiku-default failed and was rolled back.\n' +
+      'Retry: attempt 2 of 3; the attempt at sonnet-low failed and was rolled back.\n' +
       'Reason: Verify failed'
   )
 })
 
 test('dispatchText spells out the exact call', () => {
   const text = r.dispatchText(start())
-  assert.match(text, /subagent_type "planandtier:haiku-default"/)
+  assert.match(text, /subagent_type "planandtier:sonnet-low"/)
   assert.match(text, /description "T01: Task 1"/)
   assert.match(text, /run_in_background false/)
   assert.match(text, /exactly this prompt \(2 lines, nothing added\):\nTasks file: C:\/plans\/p\.tasks\.json\nTask: T01\n/)
@@ -63,7 +63,7 @@ test('checkDispatch accepts the expected call, allowing line endings and trailin
 
 test('checkDispatch names what is wrong', () => {
   const s = start()
-  assert.match(r.checkDispatch(s, call(s, { subagent_type: 'planandtier:sonnet-low' })), /runs on planandtier:haiku-default, not planandtier:sonnet-low/)
+  assert.match(r.checkDispatch(s, call(s, { subagent_type: 'planandtier:sonnet-medium' })), /runs on planandtier:sonnet-low, not planandtier:sonnet-medium/)
   assert.match(r.checkDispatch(s, call(s, { run_in_background: true })), /run_in_background must be false/)
   const noFlag = call(s)
   delete noFlag.run_in_background
@@ -111,9 +111,9 @@ test('advance moves to the next task, then completes', () => {
   assert.equal(action, 'complete')
   assert.equal(state.phase, 'complete')
   assert.deepEqual(state.done.map(d => [d.id, d.tier, d.attempts]), [
-    ['T01', 'haiku-default', 1], ['T02', 'sonnet-medium', 1], ['T03', 'opus-xhigh', 1],
+    ['T01', 'sonnet-low', 1], ['T02', 'sonnet-medium', 1], ['T03', 'opus-xhigh', 1],
   ])
-  assert.match(r.completeText(state), /all 3 tasks are done.*T01 aaa1111 \(haiku-default\), T02 bbb2222 \(sonnet-medium\)/)
+  assert.match(r.completeText(state), /all 3 tasks are done.*T01 aaa1111 \(sonnet-low\), T02 bbb2222 \(sonnet-medium\)/)
 })
 
 test('a failure retries one tier up, twice, and then halts; past sonnet/high the next tier is opus/low', () => {

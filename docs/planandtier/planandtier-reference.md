@@ -172,8 +172,8 @@ Every task has exactly these five keys, all strings. Any other key is an error.
 |---|---|
 | `id` | `T01`, `T02`, ... matching the task's position: the first task must be `T01`, the second `T02`, with no gaps. |
 | `title` | One non-empty line, at most 100 characters. Used as the task's commit message and in its dispatch description. |
-| `model` | `haiku`, `sonnet` or `opus`. |
-| `effort` | `default` for `haiku`; `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus`. |
+| `model` | `sonnet` or `opus`. |
+| `effort` | `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus`. `sonnet` / `xhigh` is accepted as an alias for `opus` / `low`. |
 | `prompt` | Non-empty and contains the text `Verify:`. |
 
 ### Whole-block rules
@@ -256,7 +256,7 @@ it does get the project's `CLAUDE.md` automatically. The rules therefore tell Cl
 - Name the files and spec sections to read first, including `AGENTS.md` or a spec if the project has one.
 - State exact names, signatures, behavior and error handling, and name the tests with their cases, so no
   design decision is left to the worker.
-- For a `haiku` / `default` task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
+- For a find-and-replace task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
   describing the changes, followed by the `Verify:` step.
 - Cover one coherent piece of work, roughly one commit, touching a few files.
 - End with a `Verify:` step: a command or check that fails if the task is incomplete, such as a build, a
@@ -267,11 +267,11 @@ A task can depend only on earlier tasks, so tasks are ordered accordingly.
 
 ## Model and effort tiers
 
-Eight tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
+Seven tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
 The rules tell Claude to favor the smallest model and effort that will get the job done:
 
 1. Pick the model by the kind of work: `sonnet` for fully specified work, `opus` for work that needs
-   judgment or is too intricate and wide for `sonnet`, `haiku` only for literal find-and-replace.
+   judgment or is too intricate and wide for `sonnet`.
 2. Start at `medium` effort, the baseline. Lower it for a task that is easier or simpler than the baseline
    for its model, and raise it for one that is harder or more complex.
 3. Past `sonnet` / `high`, go to `opus` / `low`: `sonnet` stops at `high`.
@@ -281,8 +281,7 @@ than one that is too big.
 
 | Tier | Use for |
 |---|---|
-| `haiku` / `default` | The simplest of the simple: literal find-and-replace pairs against existing files. Full rules below. |
-| `sonnet` / `low` | Easier than the baseline: fully given work that is not find-and-replace, such as a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
+| `sonnet` / `low` | Easier than the baseline: fully given work, such as literal find-and-replace pairs, a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
 | `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
 | `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases. |
 | `opus` / `low` | Fully specified, intricate and wide (interacting edge cases across several files, where `sonnet` / `high` is likely to miss one), or small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
@@ -293,55 +292,51 @@ than one that is too big.
 If more than about one task in ten is `opus` / `high` or above, the rules treat the plan as
 under-specified: the design decisions belong in planning, with the answers written into the prompts.
 
-**Haiku** takes no effort setting, so its only effort is `default`, and it is limited to the strictest
-tier. That is a design decision from experience with earlier tiered plans, where Haiku was unreliable on
-broader coding tasks; it has not been measured here. **Not allowed:** the `max` effort and Fable.
-
 **Why Sonnet stops at `high`.** On every published comparison found, Opus 5.5 at `low` scored above
 Sonnet 5 at `xhigh`, at a lower cost per task. The closest result was on reasoning-heavy scientific coding
-(SciCode, 59% against 54%); the widest was on Terminal-Bench 4.0 (31% against 7%). So `sonnet-xhigh` was dropped and its work
-given to `opus-low`. The data comes almost entirely from Anthropic and Artificial Analysis, and this choice
-is expected to be revisited when a newer Sonnet ships. See
+(SciCode, 59% against 54%); the widest was on Terminal-Bench 4.0 (31% against 7%). So `sonnet-xhigh` was
+dropped and its work given to `opus-low`. The data comes almost entirely from Anthropic and Artificial
+Analysis, and this choice is expected to be revisited when a newer Sonnet ships. See
 [`planandtier-tier-findings.md`](planandtier-tier-findings.md).
 
-**The retry ladder** is the table's order: `haiku-default`, then `sonnet` from `low` to `high`, then
-`opus` from `low` to `xhigh`.
+**`sonnet` / `xhigh` is an alias.** The rules never offer it, but a plan that asks for it is not denied: the
+parser replaces it with `opus` / `low`, so the table in the approval dialog, the dispatch and the retries
+all use `opus-low`. The aliases are in `ALIASES` in `lib/tasks.js`.
+
+**Not allowed:** Haiku, the `max` effort, and Fable. Haiku was removed because, in the user's experience,
+it does not follow instructions reliably and too often does its own thing on coding work. The published
+coding results agree: 25.5 against Sonnet 5's 88.2 on Scale's SWE-Bench Pro V2, and 17 against Sonnet 5
+at `low`'s 24 on the Artificial Analysis index (`planandtier-tier-research.json`).
+
+**The retry ladder** is the table's order: `sonnet` from `low` to `high`, then `opus` from `low` to
+`xhigh`.
 
 The allowed tiers are defined in three places that must be kept in step: `ALLOWED` in `lib/tasks.js`,
 which enforces them and derives `TIERS`, the agents in `agents/`, and `rules/tiering.md`, which tells
 Claude about them. `agents.test.js` checks the first two against each other.
 
-### `haiku` / `default`: find-and-replace only
+### `sonnet` / `low`: fully given work
 
-Extremely mechanical work, expressed as one or more literal find-and-replace pairs. For each edit, the
-task's prompt states the exact file, the exact existing text to match (`old_str`), and the exact text
-to replace it with (`new_str`). A single task may contain multiple such pairs across one or a few
-files — do not fragment mechanical work into one task per pair. Each `old_str` must include enough
+Work whose result is fully written out in the prompt. There are three kinds.
+
+**Find-and-replace.** Extremely mechanical work, expressed as one or more literal find-and-replace pairs.
+For each edit, the task's prompt states the exact file, the exact existing text to match (`old_str`), and
+the exact text to replace it with (`new_str`). A single task may contain multiple such pairs across one or
+a few files — do not fragment mechanical work into one task per pair. Each `old_str` must include enough
 surrounding context to match exactly one location in its file; the planner must verify this (e.g. by
 grep) before finalizing the plan, not leave it for the worker to discover.
 
-This tier does not cover writing a new file from scratch — even fully-known new-file content isn't a
-replacement against existing text, so it belongs to `sonnet` / `low`.
+**A new file**, with its complete, exact content in the prompt.
 
-Renames are not a separate case. A rename qualifies for this tier only when the planner has enumerated
-the complete, closed set of reference sites — the file's own path plus every import, config entry,
-build script line, test fixture, etc. that names it — as its own replacement pair, and has confirmed
-(e.g. via a verified grep) that the set is exhaustive. If the planner cannot be confident the set of
+**A rename.** A rename qualifies for this tier only when the planner has enumerated the complete, closed
+set of reference sites — the file's own path plus every import, config entry, build script line, test
+fixture, etc. that names it — and has confirmed (e.g. via a verified grep) that the set is exhaustive. The
+edits may be given as replacement pairs or described. If the planner cannot be confident the set of
 references is closed — dynamically constructed paths, reflection, generated code, string
 interpolation, or a codebase where a plain search might miss variants — the rename is not mechanical:
-it moves to `sonnet` / `medium` or higher, and its `Verify:` step must do more than confirm a build
-passes — it needs a check that would catch a missed reference (e.g. a repo-wide search for the old
+it moves to `sonnet` / `medium` or higher. Either way, its `Verify:` step must do more than confirm a
+build passes — it needs a check that would catch a missed reference (e.g. a repo-wide search for the old
 name returning nothing outside comments/history).
-
-### `sonnet` / `low`: fully given, not find-and-replace
-
-Work whose result is fully written out in the prompt, but not as find-and-replace pairs:
-
-- **A new file**, with its complete, exact content in the prompt.
-- **A rename whose reference set is closed**: the planner has listed every file that names the old
-  name and checked (e.g. by a verified grep) that the list is complete, but the edits are described
-  rather than given as `(file, old_str, new_str)` triples. Its `Verify:` step must include a check that
-  would catch a missed reference.
 
 Anything that needs the worker to work out code or content belongs to `sonnet` / `medium` or above.
 
@@ -569,7 +564,7 @@ During a run the file looks like this:
 ```json
 {
   "phase": "running",
-  "tasks": [ { "id": "T01", "title": "...", "model": "haiku", "effort": "default", "prompt": "..." } ],
+  "tasks": [ { "id": "T01", "title": "...", "model": "sonnet", "effort": "low", "prompt": "..." } ],
   "tasksFile": "<path to the tasks file>",
   "tasksHash": "<the 16-character hash from the plan's table, or null>",
   "planFile": "<path to the approved plan file>",
@@ -580,7 +575,7 @@ During a run the file looks like this:
     "head": "<sha recorded at dispatch>", "inFlight": false, "report": null,
     "lastFailure": { "tier": "sonnet-medium", "reason": "..." }
   },
-  "done": [ { "id": "T01", "tier": "haiku-default", "commit": "<sha>", "attempts": 1 } ],
+  "done": [ { "id": "T01", "tier": "sonnet-low", "commit": "<sha>", "attempts": 1 } ],
   "approvedAt": "2026-09-28T14:03:00.000Z",
   "denials": 0,
   "guardDenials": 0
@@ -625,15 +620,15 @@ reads as no state. Each approval prunes session and temp files not modified in 7
 
 ## The tier agents
 
-[`agents/`](../../plugins/planandtier/agents/) holds eight plugin agents, one per tier, named
+[`agents/`](../../plugins/planandtier/agents/) holds seven plugin agents, one per tier, named
 `<model>-<effort>` and run as `planandtier:<model>-<effort>`. They share one body (the worker's rules and
 report block above) and differ only in frontmatter:
 
 | Frontmatter | Value |
 |---|---|
-| `model` | `haiku`, `sonnet` or `opus` |
-| `effort` | The tier's effort; none on `haiku-default` |
-| `maxTurns` | 20 for Haiku; 30, 40, 60 or 80 for `low`, `medium`, `high`, `xhigh` |
+| `model` | `sonnet` or `opus` |
+| `effort` | The tier's effort |
+| `maxTurns` | 30, 40, 60 or 80 for `low`, `medium`, `high`, `xhigh` |
 | `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows |
 
 Workers inherit the session's permission mode and get the project's `CLAUDE.md` automatically. The
@@ -704,7 +699,8 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 
 | Constant | Value | Where |
 |---|---|---|
-| Allowed models and efforts | `haiku` × `default`; `sonnet` × `low`, `medium`, `high`; `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
+| Allowed models and efforts | `sonnet` × `low`, `medium`, `high`; `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
+| Aliases | `sonnet` / `xhigh` runs as `opus` / `low` | `lib/tasks.js` `ALIASES` |
 | Tier ladder | `ALLOWED` in order | `lib/tasks.js` `TIERS` |
 | Retries per task | 2 | `lib/run.js` `MAX_RETRIES` |
 | Commit trailer | `Planandtier-Task: <id>` | the agents; checked in `lib/run.js` |
@@ -725,7 +721,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 plugins/planandtier/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
-  agents/<model>-<effort>.md     # the eight tier agents, one shared body
+  agents/<model>-<effort>.md     # the seven tier agents, one shared body
   hooks/hooks.json               # H1-H6 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   scripts/

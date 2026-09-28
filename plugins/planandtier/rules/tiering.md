@@ -41,8 +41,8 @@ replaces the old table when you call `ExitPlanMode` again. Never edit the table 
 |---|---|
 | `id` | `T01`, `T02`, ... in execution order, no gaps |
 | `title` | One line, at most 100 characters. Used as the task's commit message |
-| `model` | `haiku`, `sonnet` or `opus` |
-| `effort` | `default` for `haiku`; `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus` |
+| `model` | `sonnet` or `opus` |
+| `effort` | `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus` |
 | `prompt` | Self-contained, and contains a `Verify:` step (see below) |
 
 No other keys are allowed.
@@ -55,16 +55,15 @@ No other keys are allowed.
 - **Each task commits its own work**, as one commit, only after its `Verify:` step passes. Don't put
   commit steps in prompts.
 - **A failed task is retried twice, each time one tier up**, from a working tree reset to the commit
-  before it. The tiers, weakest first: `haiku` / `default`, then `sonnet` at `low`, `medium`, `high`,
-  then `opus` at `low`, `medium`, `high`, `xhigh`. After the second retry fails, the run stops there.
+  before it. The tiers, weakest first: `sonnet` at `low`, `medium`, `high`, then `opus` at `low`,
+  `medium`, `high`, `xhigh`. After the second retry fails, the run stops there.
 
 ## Choosing model and effort
 
 Favor the smallest model and effort that will get the job done.
 
 1. **Pick the model by the kind of work.** `sonnet` for fully specified work, `opus` for work that needs
-   judgment the prompt cannot pin down or is too intricate and wide for `sonnet`. `haiku` only for literal
-   find-and-replace.
+   judgment the prompt cannot pin down or is too intricate and wide for `sonnet`.
 2. **Start at `medium` effort: that is the baseline.** Lower it when the task is easier or simpler than
    the baseline for its model, and raise it when the task is harder or more complex.
 3. **Past `sonnet` / `high`, go to `opus` / `low`**, not to a higher Sonnet effort: `sonnet` stops at
@@ -75,8 +74,7 @@ than one that is too big.
 
 | Tier | Use for |
 |---|---|
-| `haiku` / `default` | The simplest of the simple: literal find-and-replace pairs against existing files. Transcription plus a check. Full rules below. |
-| `sonnet` / `low` | Easier than the baseline: fully given work that is not find-and-replace, such as a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
+| `sonnet` / `low` | Easier than the baseline: fully given work, such as literal find-and-replace pairs, a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
 | `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
 | `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases. |
 | `opus` / `low` | Fully specified, intricate and wide (interacting edge cases across several files, where `sonnet` / `high` is likely to miss one), or small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
@@ -87,37 +85,28 @@ than one that is too big.
 If more than about one task in ten is `opus` / `high` or above, the plan is under-specified: settle the
 design decisions during planning and put the answers in the prompts, so workers execute rather than decide.
 
-### `haiku` / `default`: find-and-replace only
+### `sonnet` / `low`: fully given work
 
-Extremely mechanical work, expressed as one or more literal find-and-replace pairs. For each edit, the
-task's prompt states the exact file, the exact existing text to match (`old_str`), and the exact text
-to replace it with (`new_str`). A single task may contain multiple such pairs across one or a few
-files — do not fragment mechanical work into one task per pair. Each `old_str` must include enough
+Work whose result is fully written out in the prompt. There are three kinds.
+
+**Find-and-replace.** Extremely mechanical work, expressed as one or more literal find-and-replace pairs.
+For each edit, the task's prompt states the exact file, the exact existing text to match (`old_str`), and
+the exact text to replace it with (`new_str`). A single task may contain multiple such pairs across one or
+a few files — do not fragment mechanical work into one task per pair. Each `old_str` must include enough
 surrounding context to match exactly one location in its file; the planner must verify this (e.g. by
 grep) before finalizing the plan, not leave it for the worker to discover.
 
-This tier does not cover writing a new file from scratch — even fully-known new-file content isn't a
-replacement against existing text, so it belongs to `sonnet` / `low`.
+**A new file**, with its complete, exact content in the prompt.
 
-Renames are not a separate case. A rename qualifies for this tier only when the planner has enumerated
-the complete, closed set of reference sites — the file's own path plus every import, config entry,
-build script line, test fixture, etc. that names it — as its own replacement pair, and has confirmed
-(e.g. via a verified grep) that the set is exhaustive. If the planner cannot be confident the set of
+**A rename.** A rename qualifies for this tier only when the planner has enumerated the complete, closed
+set of reference sites — the file's own path plus every import, config entry, build script line, test
+fixture, etc. that names it — and has confirmed (e.g. via a verified grep) that the set is exhaustive. The
+edits may be given as replacement pairs or described. If the planner cannot be confident the set of
 references is closed — dynamically constructed paths, reflection, generated code, string
 interpolation, or a codebase where a plain search might miss variants — the rename is not mechanical:
-it moves to `sonnet` / `medium` or higher, and its `Verify:` step must do more than confirm a build
-passes — it needs a check that would catch a missed reference (e.g. a repo-wide search for the old
+it moves to `sonnet` / `medium` or higher. Either way, its `Verify:` step must do more than confirm a
+build passes — it needs a check that would catch a missed reference (e.g. a repo-wide search for the old
 name returning nothing outside comments/history).
-
-### `sonnet` / `low`: fully given, not find-and-replace
-
-Work whose result is fully written out in the prompt, but not as find-and-replace pairs:
-
-- **A new file**, with its complete, exact content in the prompt.
-- **A rename whose reference set is closed**: the planner has listed every file that names the old
-  name and checked (e.g. by a verified grep) that the list is complete, but the edits are described
-  rather than given as `(file, old_str, new_str)` triples. Its `Verify:` step must include a check that
-  would catch a missed reference.
 
 Anything that needs the worker to work out code or content belongs to `sonnet` / `medium` or above.
 
@@ -129,7 +118,7 @@ gets the project's CLAUDE.md automatically. So each prompt must:
 - Name the files and spec sections to read first, including AGENTS.md or a spec if the project has one.
 - State exact names, signatures, behavior and error handling, and name the tests with their cases. Leave
   no design decisions to the worker.
-- For a `haiku` / `default` task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
+- For a find-and-replace task, make the prompt a list of `(file, old_str, new_str)` triples, not prose
   describing the changes, followed by the `Verify:` step.
 - Cover one coherent piece of work, roughly one commit, touching a few files.
 - End with a `Verify:` step: a command or check that fails if the task is incomplete, such as a build,

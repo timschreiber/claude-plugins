@@ -2,14 +2,16 @@
 // rewrites plan text. H2 and H3 reach it through sidecar.js resolvePlan(), which adds the file work.
 'use strict'
 
-// Haiku takes no effort setting, so its only "effort" is the word "default". Sonnet stops at high:
-// work harder than sonnet/high goes to opus/low, which measured stronger than sonnet/xhigh
-// (planandtier-tier-findings.md; revisit when a newer Sonnet ships).
+// Sonnet stops at high: work harder than sonnet/high goes to opus/low, which measured stronger than
+// sonnet/xhigh (planandtier-tier-findings.md; revisit when a newer Sonnet ships). Haiku is not offered.
 const ALLOWED = {
-  haiku: ['default'],
   sonnet: ['low', 'medium', 'high'],
   opus: ['low', 'medium', 'high', 'xhigh'],
 }
+
+// Pairs that are accepted but run as another tier. The rules never offer them; if a plan asks for
+// one anyway, it runs at the tier named here instead of being denied.
+const ALIASES = { 'sonnet-xhigh': { model: 'opus', effort: 'low' } }
 
 // The tiers, weakest first. Each is also the name of the agent that runs it (planandtier:<tier>).
 // A failed task is retried one step up this ladder.
@@ -120,7 +122,7 @@ function validate(obj) {
         errors.push(`${where}.title: must be at most ${MAX_TITLE} characters`)
       }
     }
-    if (typeof task.model === 'string') {
+    if (typeof task.model === 'string' && !Object.hasOwn(ALIASES, `${task.model}-${task.effort}`)) {
       if (!Object.hasOwn(ALLOWED, task.model)) {
         errors.push(`${where}.model: "${task.model}" is not allowed; use ${list(Object.keys(ALLOWED))}`)
       } else if (typeof task.effort === 'string' && !ALLOWED[task.model].includes(task.effort)) {
@@ -138,7 +140,7 @@ function validate(obj) {
 }
 
 // parseBlock(body) -> {ok, tasks, errors}: one block's JSON text, parsed and validated.
-// tasks carry only the known keys.
+// tasks carry only the known keys, and an aliased pair is replaced by the tier it runs as.
 function parseBlock(body) {
   let obj
   try {
@@ -148,7 +150,10 @@ function parseBlock(body) {
   }
   const errors = validate(obj)
   if (errors.length > 0) return { ok: false, tasks: [], errors }
-  const tasks = obj.tasks.map(t => Object.fromEntries(TASK_KEYS.map(k => [k, t[k]])))
+  const tasks = obj.tasks.map(t => ({
+    ...Object.fromEntries(TASK_KEYS.map(k => [k, t[k]])),
+    ...ALIASES[`${t.model}-${t.effort}`],
+  }))
   return { ok: true, tasks, errors: [] }
 }
 
@@ -227,6 +232,6 @@ function replaceBlock(text, sectionLines) {
 }
 
 module.exports = {
-  ALLOWED, TIERS, tierOf, nextTier, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
+  ALLOWED, ALIASES, TIERS, tierOf, nextTier, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
   extractBlock, validate, parseBlock, parsePlan, renderSection, replaceBlock,
 }

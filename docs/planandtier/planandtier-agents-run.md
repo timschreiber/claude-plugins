@@ -9,7 +9,7 @@ The run passes if:
 - the approval dialog shows the plan with its task table;
 - after you reject the plan with feedback that contradicts your prompt, the revised plan uses your change;
 - after approval, with nothing typed, every task runs and finishes;
-- each task is one commit with a `Planandtier-Task:` trailer, and T01 ran on `haiku-default`;
+- each task is one commit with a `Planandtier-Task:` trailer, and T01 ran on `sonnet-low`;
 - the finished code uses your change, not your original prompt.
 
 ## Where things run
@@ -57,7 +57,7 @@ If it asks whether you trust the folder, say yes.
 ## Steps in the session
 
 1. **Send this prompt:**
-   > Plan three tasks. T01: in README.md, replace the line `Status: draft` with `Status: ready`; make it a haiku/default find-and-replace task. T02: create greet.js exporting greet(name), which returns "Hello, " + name + "!". T03: add greet.test.js with node:test cases for greet("Ada") and greet(""), verified by `node --test`.
+   > Plan three tasks. T01: in README.md, replace the line `Status: draft` with `Status: ready`; make it a sonnet/low find-and-replace task. T02: create greet.js exporting greet(name), which returns "Hello, " + name + "!". T03: add greet.test.js with node:test cases for greet("Ada") and greet(""), verified by `node --test`.
 
 2. **At the first approval dialog,** check that it shows a task table with a `Tasks file:` line. Then
    **reject the plan** (the option that keeps planning) and type this feedback:

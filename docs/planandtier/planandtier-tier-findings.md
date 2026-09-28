@@ -7,11 +7,16 @@ desk research, not a measurement of planandtier's own tasks. Evidence, with ever
 
 ## Decision
 
-- **`sonnet-xhigh` was removed.** Work harder than `sonnet-high` goes to `opus-low`.
+- **`sonnet-xhigh` was removed.** Work harder than `sonnet-high` goes to `opus-low`. The planner is not
+  offered `sonnet` / `xhigh`; a plan that asks for it anyway runs it at `opus` / `low`.
+- **`haiku-default` was removed** on the user's own research: Haiku does not follow instructions reliably
+  and too often does its own thing on coding work. Its find-and-replace work went to `sonnet-low`. The
+  published coding results are consistent with that: 25.5 against Sonnet 5's 88.2 on Scale's SWE-Bench Pro
+  V2, and 17 against Sonnet 5 at `low`'s 24 on the Artificial Analysis index.
 - **`medium` is the baseline effort.** The planner picks the model by the kind of work, starts at `medium`,
   and lowers effort for simpler tasks and raises it for harder ones.
 - **Everything else stays**, including Sonnet at `low`, `medium` and `high`, which the user values for
-  coding. Opus costs twice as much per output token.
+  coding. Opus costs twice as much per output token. That leaves seven tiers.
 - **To revisit when a newer Sonnet ships.** The data is specific to Sonnet 5 and Opus 5.5.
 
 ## Opus 5.5 at `low` against Sonnet 5 at `xhigh`

@@ -155,7 +155,7 @@ test('H2 denies with the errors and a way out, in the shape the spike proved', (
   assert.deepEqual(Object.keys(out).sort(), ['hookEventName', 'permissionDecision', 'permissionDecisionReason'])
   assert.equal(out.hookEventName, 'PreToolUse')
   assert.equal(out.permissionDecision, 'deny')
-  assert.match(out.permissionDecisionReason, /T01\.model: "fable" is not allowed; use haiku, sonnet or opus/)
+  assert.match(out.permissionDecisionReason, /T01\.model: "fable" is not allowed; use sonnet or opus/)
   assert.match(out.permissionDecisionReason, /call ExitPlanMode again/)
   assert.ok(out.permissionDecisionReason.includes(OPT_OUT))
   assert.ok(!out.permissionDecisionReason.includes('# planandtier: tiered plans'), 'rules only when the block is missing')
@@ -310,6 +310,17 @@ test('H3 starts the run and gives the exact first dispatch', () => {
   assert.match(out.additionalContext, /Do not implement the plan yourself/)
 })
 
+test('a task asking for sonnet/xhigh is shown, saved and dispatched as opus/low', () => {
+  const text = planText([task(1, { effort: 'xhigh' }), task(2)])
+  const file = writePlanFile(text)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, file)).stdout, '', 'not denied')
+  assert.ok(fs.readFileSync(file, 'utf8').includes('| T01 | Task 1 | opus | low |'))
+  const out = hook('h3-post-approval.js', exitPost(text)).json.hookSpecificOutput.additionalContext
+  assert.match(out, /subagent_type "planandtier:opus-low", description "T01: Task 1"/)
+  const s = state.read(S)
+  assert.deepEqual([s.tasks[0].model, s.tasks[0].effort, s.current.tier], ['opus', 'low', 'opus-low'])
+})
+
 test('H3 writes a tasks file beside the state when the plan still holds its block', () => {
   hook('h3-post-approval.js', exitPost(VALID))
   const s = state.read(S)
@@ -440,7 +451,7 @@ test('H3 does not claim a launch when the state cannot be saved', () => {
 
 // ---- the run: H4 dispatch, H5 guard, H1 resume note ---------------------------------
 
-const RUN_TASKS = [task(1, { model: 'haiku', effort: 'default' }), task(2), task(3, { model: 'opus', effort: 'high' })]
+const RUN_TASKS = [task(1, { effort: 'low' }), task(2), task(3, { model: 'opus', effort: 'high' })]
 let repo // the run's repository, per test
 const toolPre = (name, extra = {}) => ({ session_id: S, tool_name: name, tool_input: {}, ...extra })
 
@@ -497,14 +508,14 @@ test('H4 pre lets the expected dispatch through and records HEAD', () => {
 test('H4 pre refuses a wrong tier, a background run, a wrong prompt, and a second dispatch, repeating the right call', () => {
   startTestRun()
   for (const [over, why] of [
-    [{ subagent_type: 'planandtier:sonnet-low' }, /runs on planandtier:haiku-default, not planandtier:sonnet-low/],
+    [{ subagent_type: 'planandtier:sonnet-medium' }, /runs on planandtier:sonnet-low, not planandtier:sonnet-medium/],
     [{ run_in_background: true }, /run_in_background must be false/],
     [{ prompt: 'Do T01 please' }, /prompt is not the expected one/],
   ]) {
     const out = hook('h4-dispatch.js', agentPre(expected(over)), ['pre']).json.hookSpecificOutput
     assert.equal(out.permissionDecision, 'deny')
     assert.match(out.permissionDecisionReason, why)
-    assert.match(out.permissionDecisionReason, /subagent_type "planandtier:haiku-default"/)
+    assert.match(out.permissionDecisionReason, /subagent_type "planandtier:sonnet-low"/)
     assert.equal(state.read(S).current.inFlight, false)
   }
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
@@ -557,11 +568,11 @@ test('H4 stop records the report of the dispatched worker only, falling back to 
 test('a run goes through every task, one commit each, then completes', () => {
   startTestRun()
   const first = attempt(() => report('DONE', workerCommits('T01')))
-  assert.match(first, /T01 is done \(commit [0-9a-f]{7}, haiku-default\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium", description "T02: Task 2"/)
+  assert.match(first, /T01 is done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium", description "T02: Task 2"/)
   const second = attempt(() => report('DONE', workerCommits('T02')))
   assert.match(second, /subagent_type "planandtier:opus-high"/)
   const last = attempt(() => report('DONE', workerCommits('T03')))
-  assert.match(last, /all 3 tasks are done, each in its own commit: T01 [0-9a-f]{7} \(haiku-default\), T02 [0-9a-f]{7} \(sonnet-medium\), T03 [0-9a-f]{7} \(opus-high\)/)
+  assert.match(last, /all 3 tasks are done, each in its own commit: T01 [0-9a-f]{7} \(sonnet-low\), T02 [0-9a-f]{7} \(sonnet-medium\), T03 [0-9a-f]{7} \(opus-high\)/)
   const s = state.read(S)
   assert.equal(s.phase, 'complete')
   assert.deepEqual(s.done.map(d => [d.id, d.attempts]), [['T01', 1], ['T02', 1], ['T03', 1]])
@@ -576,14 +587,14 @@ test('a failed attempt is reset and retried one tier up, with the reason in the 
     fs.writeFileSync(path.join(repo, 'loose.txt'), 'x')
     return report('FAILED', 'NONE', 'Verify failed: 2 tests')
   })
-  assert.match(out, /T01 failed at haiku-default: Verify failed: 2 tests\. The working tree was reset to [0-9a-f]{7}/)
-  assert.match(out, /subagent_type "planandtier:sonnet-low"/)
-  assert.match(out, /Retry: attempt 2 of 3; the attempt at haiku-default failed and was rolled back\.\nReason: Verify failed: 2 tests/)
+  assert.match(out, /T01 failed at sonnet-low: Verify failed: 2 tests\. The working tree was reset to [0-9a-f]{7}/)
+  assert.match(out, /subagent_type "planandtier:sonnet-medium"/)
+  assert.match(out, /Retry: attempt 2 of 3; the attempt at sonnet-low failed and was rolled back\.\nReason: Verify failed: 2 tests/)
   assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), base)
   assert.equal(gitIn(repo, 'status', '--porcelain'), '')
   assert.equal(fs.existsSync(path.join(repo, 'half.txt')), false)
   const s = state.read(S)
-  assert.deepEqual([s.phase, s.current.attempt, s.current.tier, s.current.inFlight], ['running', 2, 'sonnet-low', false])
+  assert.deepEqual([s.phase, s.current.attempt, s.current.tier, s.current.inFlight], ['running', 2, 'sonnet-medium', false])
 })
 
 test('a DONE report the Git facts do not back up is a failed attempt', () => {
@@ -602,7 +613,7 @@ test('after two retries the run halts and leaves the last attempt in place', () 
     fs.writeFileSync(path.join(repo, 'last.txt'), 'x')
     return report('FAILED', 'NONE', 'three')
   })
-  assert.match(out, /stopped at T01, after 3 attempt\(s\) \(haiku-default, sonnet-low, sonnet-medium\)\. Reason: three\./)
+  assert.match(out, /stopped at T01, after 3 attempt\(s\) \(sonnet-low, sonnet-medium, sonnet-high\)\. Reason: three\./)
   assert.equal(state.read(S).phase, 'halted')
   assert.equal(fs.existsSync(path.join(repo, 'last.txt')), true, 'nothing is reset after the last attempt')
 })
@@ -627,8 +638,8 @@ test('H4 failure counts a failed Agent call as a failed attempt', () => {
   hook('h4-dispatch.js', agentPre(call), ['pre'])
   const out = hook('h4-dispatch.js', { ...agentPre(call), error: 'Agent type not found\nmore' }, ['failure']).json.hookSpecificOutput
   assert.equal(out.hookEventName, 'PostToolUseFailure')
-  assert.match(out.additionalContext, /T01 failed at haiku-default: the Agent call failed: Agent type not found\./)
-  assert.equal(state.read(S).current.tier, 'sonnet-low')
+  assert.match(out.additionalContext, /T01 failed at sonnet-low: the Agent call failed: Agent type not found\./)
+  assert.equal(state.read(S).current.tier, 'sonnet-medium')
 })
 
 test('H4 post and failure ignore calls that were not dispatched by the run', () => {
@@ -669,7 +680,7 @@ test('H5 stop blocks once with the next dispatch, then allows and abandons on th
   startTestRun()
   const first = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop'])
   assert.equal(first.json.decision, 'block')
-  assert.match(first.json.reason, /subagent_type "planandtier:haiku-default"/)
+  assert.match(first.json.reason, /subagent_type "planandtier:sonnet-low"/)
   assert.equal(state.read(S).phase, 'running')
   const second = hook('h5-guard.js', { session_id: S, stop_hook_active: true }, ['stop'])
   assert.equal(second.stdout, '')
@@ -680,7 +691,7 @@ test('H1 reminds Claude of a run in progress outside plan mode, but not for repo
   startTestRun()
   const out = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'continue' }).stdout
   assert.match(out, /a run of the approved plan is in progress\. 0 of 3 tasks are done\./)
-  assert.match(out, /subagent_type "planandtier:haiku-default"/)
+  assert.match(out, /subagent_type "planandtier:sonnet-low"/)
   for (const prompt of ['<agent-message from="x">report</agent-message>', '<task-notification>x</task-notification>']) {
     assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt }).stdout, '')
   }
