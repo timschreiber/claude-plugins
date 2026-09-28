@@ -109,17 +109,25 @@ The plugin estimates the tokens and cost of every run, and shows them to you as 
 
   ```
   planandtier spend (estimated, prices as of 2026-09-28):
-    planning       ~$0.40  claude-opus-5-5, 3 subagents
-    sonnet-low     ~$0.05  1 attempt, 180k tokens
-    sonnet-medium  ~$0.33  2 attempts (1 failed), 590k tokens
-    opus-high      ~$0.61  1 attempt, 410k tokens
-    orchestration  ~$0.20  claude-sonnet-5
-    total          ~$1.59
+    planning       ~$0.40  claude-opus-5-5, 3 subagents, 88% cache reads
+    sonnet-low     ~$0.05  1 attempt, 180k tokens, 94% cache reads
+    sonnet-medium  ~$0.33  2 attempts (1 failed), 590k tokens, 96% cache reads
+    opus-high      ~$0.61  1 attempt, 410k tokens, 95% cache reads
+    orchestration  ~$0.20  claude-sonnet-5, 91% cache reads
+    total          ~$1.59  2.1M tokens, 93% cache reads
+    main agent     ~$2.40  3.4M tokens, claude-opus-5-5 running the tasks itself (estimated)
+    savings        ~$0.81  34% of the main agent's cost, 1.3M fewer tokens
   ```
 
 **Planning** is what the main session spent in plan mode on this plan, including rounds you rejected, plus
 its Explore and Plan subagents. Each message is priced at the model that wrote it, so an `opusplan` session is priced
 correctly. **Orchestration** is the main session's own turns during the run.
+
+The **main agent** row estimates what it would have cost had the planning model done the finished tasks itself.
+Each of its turns would re-read the session's context at approval plus what earlier tasks added. The row leaves out
+failed attempts and orchestration, and ignores compaction and effort, so it is a rough guide. The last row is
+`savings`, or `extra cost` when planandtier cost more. With data missing, the row says `not estimated` and
+gives the reason.
 
 Everything is also written, one JSON line per event, to `<plan>.telemetry.jsonl` beside the plan in
 `~/.claude/plans/`. Nothing is sent anywhere. The numbers come from Claude Code's own transcripts, priced

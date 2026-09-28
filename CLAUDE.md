@@ -23,7 +23,9 @@ cataloged in `.claude-plugin/marketplace.json`:
   `/planandtier:arm` in the session; `/planandtier:disarm` turns it off, and
   `/planandtier:execute-plan` runs a saved plan in a later session. Each
   run's estimated token spend (per tier, planning, orchestration) is shown
-  in the UI and written to `<plan>.telemetry.jsonl`; prices live in
+  in the UI and written to `<plan>.telemetry.jsonl`; the summary also estimates
+  the tokens and cost had the planning model run the tasks itself, and the
+  savings; prices live in
   `scripts/lib/prices.js`, held equal to `probes/evidence/planandtier-pricing.json`.
   The hooks are Node scripts under `plugins/planandtier/scripts/`, tested with
   `node --test tests/planandtier/*.test.js` (the tests need `git`).

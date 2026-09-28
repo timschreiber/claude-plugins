@@ -756,14 +756,16 @@ The sources and prices are measured in
 Records go to `<plan>.telemetry.jsonl`, beside `<plan>.md` in the plans directory, one JSON line each. With
 no plan file known, they go to `sessions/<session_id>.telemetry.jsonl`. Every record has `kind`, `at`,
 `priceAsOf`, `sessionId` and `planId`, plus `tokens` (`input`, `output`, `cacheWrite5m`, `cacheWrite1h`,
-`cacheRead`), `total`, `messages`, `costUsd`, `unpriced` and `models`.
+`cacheRead`), `total`, `messages`, `costUsd`, `unpriced` and `models`, plus `cacheReadPct`, `contextStart` and
+`contextEnd`. The last two are context sizes: input plus cache writes plus cache reads, of the first and last message.
 
 | `kind` | Written by | Counts | Also has |
 |---|---|---|---|
-| `planning` | H2, each time a valid tiered plan passes | Plan-mode main messages and non-planandtier subagents that started since the session's cursor | `window`, `subagents` |
+| `planning` | H2, each time a valid tiered plan passes | Plan-mode main messages and non-planandtier subagents that started since the session's cursor | `window`, `subagents`, `mainModel` |
 | `attempt` | H4 `stop`, and `failure` for a failed Agent call (zero usage) | The worker's whole transcript | `runId`, `task`, `tier`, `effort`, `attempt`, `agentId`, `outcome` (`done`, `retry`, `halt`), `reason`, `durationMs` |
 | `orchestration` | H5 at the first Stop after the run ends, or H1 on a disarm that stops it | Non-plan main messages, and non-planandtier subagents, since the run was approved or started | `runId`, `end` (the phase), `window`, `subagents` |
-| `run` | H3 on approval, and execute-plan, when a run starts | Nothing (no usage fields) | `runId`, `startTask` |
+| `run` | H3 on approval, and execute-plan, when a run starts | Nothing (no usage fields) | `runId`, `startTask`, `contextTokens` |
+| `estimate` | H5 or H1, right after orchestration | Nothing | `runId`, `model`, `costUsd`, `total`, `extraCacheRead`, `reason` |
 
 **The cursor.** `sessions/<session_id>.cursor` holds the time up to which planning has been counted. Arming
 starts it, each planning record moves it, and disarming and SessionEnd delete it. So a rejected plan and its
@@ -798,7 +800,22 @@ context.
   - a row for planning (see above);
   - a row per tier used by this run, in ladder order, with its attempts, failures and tokens;
   - a row for orchestration;
-  - a total.
+  - a total, with its tokens;
+  - every row above ends with its cache-read share;
+  - a main agent row: the estimated cost and tokens had the planning model run the finished tasks itself;
+  - a row for the difference.
+
+  **The main agent row.** For each done task, in order, the extra cache reads are
+  `max(0, messages × (C + G − contextStart))`. Here `messages` and `contextStart` are the attempt's, `C` is the run's
+  `contextTokens` (the session's context at approval), and `G` is what earlier tasks added: it grows after each task by
+  `max(0, contextEnd − contextStart)`. The extra reads are priced as cache reads at the planning model, added to the
+  task's own tokens. The row's cost and tokens are that sum over the done tasks plus the planning cost and tokens.
+  Failed attempts and orchestration are left out. If the planning model, the run's context size, or any done
+  task's sizes are missing, or the model is unpriced, the row says `not estimated` and gives the reason.
+
+  **The difference row.** It compares the total with the main agent row. It is `savings` when the total is lower and
+  `extra cost` when it is higher, with the difference in cost, its share of the main agent's cost, and the
+  difference in tokens.
 
 ### Updating prices
 
