@@ -20,7 +20,7 @@ Evidence:
 | Question | Answer |
 |---|---|
 | Do Agent-tool subagents get the "user request" frame? | **No.** Twelve Agent-tool subagents from interactive sessions on 2.1.282 and 2.1.283 had none, and neither did the probe's agent. The frame is the workflow runtime's. |
-| What does `PreToolUse` on Agent see? | `tool_input` with `description`, `prompt`, `subagent_type` (namespaced, for example `planandtier-agent-probe:sonnet-low`) and `run_in_background`. The prompt arrives exactly as dispatched. |
+| What does `PreToolUse` on Agent see? | `tool_input` with `description`, `prompt` and `subagent_type` (namespaced, for example `planandtier-agent-probe:sonnet-low`), plus `run_in_background` in a headless session only. The prompt arrives exactly as dispatched. |
 | Does a denial with a corrective reason work? | **Yes.** The probe denied `Task: T01` and told Claude to dispatch `Task: T02`, and the next call was exactly that. |
 | Where is the worker's report? | **`SubagentStop`**, in `last_assistant_message`, verbatim. `PostToolUse` on Agent does not carry it. |
 | In what order? | `SubagentStop` fired before `PostToolUse` (14:32:40.052, then 14:32:40.207), so a `PostToolUse` hook can use what `SubagentStop` recorded. |
@@ -38,15 +38,33 @@ Evidence:
 - **The report reached the model** as a `UserPromptSubmit` whose prompt is an `<agent-message>` block,
   opened by a "[Subagent hand-back]" frame. The frame says the report is model output and carries no
   user authority.
-- **`run_in_background` is chosen per call.** Claude set it to `false` here, so the call ran in the
-  foreground: `PostToolUse` fired after the worker finished, and the session continued in the same turn.
-  In an earlier interactive session the result of an Agent call was "Async agent launched…", with the report
-  arriving later as a notification. A `PreToolUse` hook can deny a dispatch with `run_in_background: true`.
+- **Headless, `run_in_background` is chosen per call.** Claude set it to `false` here, so the call ran in
+  the foreground: `PostToolUse` fired after the worker finished, and the session continued in the same turn.
+
+## Interactive sessions: always in the background
+
+The first interactive end-to-end attempt (2026-09-28, Claude Code 2.1.283, `planandtier-agents-run.md`)
+required `run_in_background: false` and failed on it. Evidence:
+`probes/evidence/planandtier-agents-interactive-attempt1-probe.log`, from the agent probe running beside the
+plugin.
+
+- **The Agent tool in an interactive session has no `run_in_background` field.** All three dispatches
+  reached `PreToolUse` with only `description`, `prompt` and `subagent_type`, including the one where Claude
+  said it had set the field to `false`. Claude reported that its Agent tool offers no such setting and
+  always runs subagents in the background.
+- **An earlier interactive session agrees.** The result of an Agent call there was "Async agent launched
+  successfully … The agent is working in the background", with the report arriving later.
+- **So the plugin no longer checks the field.** It judges each attempt at `SubagentStop`, which fires when
+  the worker finishes in either mode, and gives Claude the next step when the worker's report arrives as a
+  prompt. See the reference doc's [dispatch hook](planandtier-reference.md#h4-dispatch).
+- **The plan-dialog rejection worked in that attempt.** The "Howdy" feedback reached both T02 and T03, and
+  H2 rewrote the tasks file with a new hash. Only the dispatch failed.
 
 ## Not measured
 
-- Interactive behavior: whether Claude sets `run_in_background: false` when told to, and how a denied
-  background dispatch is handled in an interactive turn. These are covered by the end-to-end run of the
-  rebuilt plugin.
-- Whether `updatedInput` can change `subagent_type` or `run_in_background`. The design does not need it: it
-  denies a wrong dispatch instead.
+- Whether the worker's report arrives as a `UserPromptSubmit` prompt in an interactive session, as it did
+  headless. The rerun of `planandtier-agents-run.md` covers it.
+- Whether `SubagentStop` carries `last_assistant_message` for a background worker. If not, H4 reads the
+  worker's transcript.
+- Whether `updatedInput` can change `subagent_type`. The design does not need it: it denies a wrong dispatch
+  instead.

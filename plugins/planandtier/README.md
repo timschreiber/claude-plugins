@@ -44,9 +44,11 @@ Tested on Claude Code 2.1.283.
    prompt length) instead of the block, because it cannot show a plan with very long lines. The full prompts
    are in the tasks file the table names, next to the plan (`<plan>.tasks.json`). Open it to read them
    before you approve.
-5. **Watch.** Claude dispatches each task to the agent for its tier. The worker does the task, runs its
-   `Verify:` step and, if it passed, commits with the task's title and a `Planandtier-Task: T02` trailer.
-   When every task is done, Claude says so.
+5. **Watch.** Claude dispatches each task to the agent for its tier. The worker runs in the background and
+   Claude ends its turn; when the worker's report arrives, the plugin gives Claude the next step, so the run
+   carries on with nothing typed. The worker does the task, runs its `Verify:` step and, if it passed,
+   commits with the task's title and a `Planandtier-Task: T02` trailer. When every task is done, Claude says
+   so.
 
 ### When a task fails
 
@@ -90,10 +92,10 @@ definition. Workers cannot start agents or workflows.
 
 | Hook | Job |
 |---|---|
-| Rules (H1) | Adds the tiering rules in plan mode. While a run is in progress, reminds Claude of the next dispatch when you write. |
+| Rules (H1) | Adds the tiering rules in plan mode. During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
 | Gate (H2) | Denies `ExitPlanMode` until the task block validates and the Git tree is clean, then moves the block to the tasks file and leaves a table |
 | Hand-off (H3) | On approval, starts the run and gives Claude the first dispatch |
-| Dispatch (H4) | Lets through only the expected dispatch, reads each worker's report, checks its commit, and gives the next dispatch, a retry after a reset, or a stop |
+| Dispatch (H4) | Lets through only the expected dispatch; when the worker finishes, reads its report, checks its commit, and decides the next dispatch, a retry after a reset, or a stop |
 | Guard (H5) | Blocks main-thread file edits and stopping while a task is due, and gives up after a few blocks |
 | Cleanup (H6) | Deletes the run's state when the session ends |
 

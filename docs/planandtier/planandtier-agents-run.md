@@ -45,6 +45,8 @@ Set-Location $dir
 git init -q
 "# Greeter`n`nStatus: draft" | Set-Content README.md
 git add -A; git commit -qm init
+git log --oneline -1   # must print one commit, "init"; if it doesn't, stop and tell me
+git status --short     # must print nothing
 
 # 4. Start Claude Code in plan mode with both plugins
 $env:PLANANDTIER_DEBUG = '1'
@@ -52,22 +54,26 @@ $env:PROBE_OBSERVE = '1'
 claude --permission-mode plan --plugin-dir "$repo\plugins\planandtier" --plugin-dir "$repo\probes\planandtier\agent-probe-plugin"
 ```
 
-If it asks whether you trust the folder, say yes.
+If it asks whether you trust the folder, say yes. Always start the session with this exact `claude` line: a
+session started without the two `--plugin-dir` flags plans without planandtier.
 
 ## Steps in the session
 
 1. **Send this prompt:**
    > Plan three tasks. T01: in README.md, replace the line `Status: draft` with `Status: ready`; make it a sonnet/low find-and-replace task. T02: create greet.js exporting greet(name), which returns "Hello, " + name + "!". T03: add greet.test.js with node:test cases for greet("Ada") and greet(""), verified by `node --test`.
 
-2. **At the first approval dialog,** check that it shows a task table with a `Tasks file:` line. Then
-   **reject the plan** (the option that keeps planning) and type this feedback:
+2. **At the first approval dialog,** check that it shows a task table with a `Tasks file:` line. If it
+   shows a plain plan with no table, planandtier is not loaded: press Esc and stop. Otherwise choose **"Tell
+   Claude what to change"** and type this feedback:
    > Change the greeting: greet should return "Howdy, " + name + "!" instead of "Hello".
 
-3. **At the second approval dialog,** check that the plan now says "Howdy". Then **approve**, choosing auto
-   mode if it is offered.
+3. **At the second approval dialog,** check that the plan now says "Howdy" for both T02 and T03 (the tests
+   must expect "Howdy, Ada!"). Then **approve**, choosing auto mode if it is offered.
 
-4. **Type nothing.** Watch Claude dispatch T01, T02 and T03 one after another. Approve any permission
-   prompts if you are not in auto mode.
+4. **Type nothing.** Each task runs in the background: Claude dispatches it and ends its turn, and when the
+   worker's report comes back, Claude dispatches the next one by itself. Expect T01, T02 and T03 in turn,
+   with a pause while each runs. Approve any permission prompts if you are not in auto mode. If Claude stops
+   between tasks and nothing happens for a minute, note it and type `continue`.
 
 5. **When Claude says the run is complete,** exit with `/exit`.
 
@@ -90,7 +96,7 @@ For each `null`, `true` or `false` is enough; if you don't know, leave `null` an
   "terminal": { "columns": 0, "rows": 0 },
   "firstDialog": { "showedTable": null },
   "secondDialog": { "showedTable": null, "saidHowdy": null },
-  "afterApproval": { "typedNothing": null, "permissionPrompts": null, "notes": "" },
+  "afterApproval": { "typedNothing": null, "nextTaskStartedByItself": null, "permissionPrompts": null, "notes": "" },
   "result": { "runCompleted": null, "commitsWithTrailers": null, "greetSaysHowdy": null, "testsPass": null },
   "notes": ""
 }

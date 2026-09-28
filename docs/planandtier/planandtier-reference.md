@@ -114,9 +114,11 @@ sequenceDiagram
     loop Each task, in order
         M->>H: Agent(planandtier:<tier>, pointer prompt)
         H-->>H: H4 pre checks the dispatch, records HEAD
+        H-->>M: H4 post: the task runs in the background; end the turn
         H->>A: The worker reads its task, does it, runs Verify, commits
-        A-->>H: SubagentStop: H4 records the report
-        H-->>M: H4 post checks the commit; next task, retry after a reset, or stop
+        A-->>H: SubagentStop: H4 checks the commit and moves the run on (notice saved)
+        A-->>M: The report arrives as a prompt
+        H-->>M: H1 gives the notice: next task, retry after a reset, or stop
     end
     H-->>M: All tasks done (or the run stopped)
 ```
@@ -133,9 +135,10 @@ sequenceDiagram
    file the table names. A rejected plan triggers nothing: Claude revises it and offers it again.
 4. **Hand-off.** H3 loads the tasks from the tasks file, saves a `running` state, and gives Claude the
    exact Agent call for T01.
-5. **The run.** Claude makes that call. H4 checks it, the worker does its task and commits, and H4 checks
-   the result and gives Claude the next call: the next task, a retry one tier up after a reset, or the end
-   of the run. See [The run](#the-run).
+5. **The run.** Claude makes that call. H4 checks it. In an interactive session the worker runs in the
+   background, so Claude ends its turn. The worker does its task and commits. When it stops, H4 checks the
+   result and moves the run on, and when the worker's report arrives, H1 gives Claude the next call: the
+   next task, a retry one tier up after a reset, or the end of the run. See [The run](#the-run).
 6. **Session end.** H6 deletes the session's state file.
 
 ## The task block
@@ -386,9 +389,12 @@ subagent itself.
   context. It fires on every prompt submitted in plan mode.
 - On `PostToolUse` for `EnterPlanMode`, it returns the rules as `additionalContext`. This covers Claude
   entering plan mode itself.
-- On `UserPromptSubmit` outside plan mode, with a run `running` and no task in flight, it prints where
-  the run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
-  reports (`<agent-message>`) and task notifications also arrive as prompts; they get no note.
+- On `UserPromptSubmit` outside plan mode, if H4 left a **notice** (a worker finished and its attempt was
+  judged), it prints the notice and clears it. The worker's report arrives as an `<agent-message>` or
+  task-notification prompt, so this is how a background run moves on to its next step with nothing typed.
+- Otherwise, for a prompt the user typed, with a run `running` and no task in flight, it prints where the
+  run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
+  reports and task notifications get no such note.
 - For a `paused` run (the tree was dirty at approval), it checks the tree again. If it is clean now, the
   run becomes `running` and the note gives the first dispatch; otherwise the note says why it still waits.
 
@@ -446,17 +452,26 @@ Drives [the run](#the-run). It acts only on Agent calls whose `subagent_type` st
 other agent types are left alone.
 
 - **`pre`** refuses, with the reason and the exact expected call, any dispatch that is not the one the run
-  expects: the current task's tier agent, the expected prompt (line endings and trailing spaces aside),
-  `run_in_background: false`, and no task already in flight. With no run in progress it refuses every
-  planandtier dispatch. It then checks the tree: uncommitted changes that no task made, or a different
-  branch from the one the run started on, **halt** the run at once. On a pass it records HEAD and marks
-  the task in flight.
-- **`stop`** (`SubagentStop`) records the dispatched worker's report, parsed from `last_assistant_message`,
-  or from the last assistant text in `agent_transcript_path` if that is missing.
-- **`post`** (`PostToolUse`, which fires after `SubagentStop`) judges the attempt and tells Claude what
-  comes next, as `additionalContext`. See [Judging an attempt](#judging-an-attempt).
+  expects: the current task's tier agent, the expected prompt (line endings and trailing spaces aside), and
+  no task already in flight. With no run in progress it refuses every planandtier dispatch. It then checks
+  the tree: uncommitted changes that no task made, or a different branch from the one the run started on,
+  **halt** the run at once. On a pass it records HEAD, marks the task in flight, and drops any notice not
+  yet shown (it is stale once Claude has made the next dispatch).
+- **`stop`** (`SubagentStop`) fires when the dispatched worker finishes, in the foreground or the
+  background. It reads the report from `last_assistant_message`, or from the last assistant text in
+  `agent_transcript_path` if that is missing, judges the attempt (see
+  [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what Claude must be told next as
+  the state's `notice`.
+- **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
+  already finished (a foreground run, as in a headless session): it gives Claude the notice as
+  `additionalContext` and clears it. Otherwise the task is running in the background, and it tells Claude
+  to end its turn: the next step comes when the report arrives (H1).
 - **`failure`** (`PostToolUseFailure`) treats a failed Agent call as a failed attempt, with the error's
-  first line as the reason.
+  first line as the reason, and gives Claude the result directly.
+
+Whether a dispatch runs in the foreground is not checked. In an interactive session the Agent tool has no
+`run_in_background` setting and always runs subagents in the background; in a headless session Claude can
+choose (see [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md)).
 
 It never sets `permissionDecision: "allow"`; its only decisions are denials.
 
@@ -469,8 +484,10 @@ is in flight.
   next dispatch. After three denials it steps aside and marks the run `abandoned`. Shell commands are not
   guarded, so Claude can inspect the repository; if one changes files, H4 halts the run at the next
   dispatch.
-- **`stop`:** blocks the turn from ending, with the same reason. If Claude Code reports the stop hook is
-  already active (a second consecutive stop), it allows the stop and marks the run `abandoned`.
+- **`stop`:** blocks the turn from ending, with the same reason, or with H4's notice if one is waiting
+  (which it then clears). If Claude Code reports the stop hook is already active (a second consecutive
+  stop), it allows the stop and marks the run `abandoned`. While a task is in flight it is silent, so
+  Claude can end its turn while a background worker runs.
 
 ### H6: cleanup
 
@@ -485,7 +502,6 @@ For each attempt, Claude calls the Agent tool with:
 
 - `subagent_type`: `planandtier:<tier>`, for example `planandtier:sonnet-medium`;
 - `description`: `<id>: <title>`;
-- `run_in_background`: `false`, so the worker runs in the foreground and the run moves on within the turn;
 - `prompt`: a pointer to the task, never the task itself:
 
 ```
@@ -501,6 +517,11 @@ Reason: Verify failed: 2 tests fail in ClockTests
 ```
 
 H3, H4 and H1 always give Claude this call spelled out, and H4 refuses any other.
+
+In an interactive session the worker runs in the background: Claude's Agent call returns at once, H4 tells
+Claude to end its turn, and the run continues when the worker's report arrives as a prompt. So Claude's
+turn ends between tasks, and each report starts the next with nothing typed. In a headless session the
+call can run in the foreground, and the run continues within the turn.
 
 ### The worker
 
@@ -523,7 +544,7 @@ NOTE: <one line>
 
 ### Judging an attempt
 
-H4's `post` mode does not take `DONE` on trust. An attempt succeeds only if all of these hold:
+H4's `stop` mode does not take `DONE` on trust. An attempt succeeds only if all of these hold:
 
 - the report says `DONE`;
 - exactly one new commit exists since the recorded HEAD, and its message has the task's
@@ -576,14 +597,17 @@ During a run the file looks like this:
     "lastFailure": { "tier": "sonnet-medium", "reason": "..." }
   },
   "done": [ { "id": "T01", "tier": "sonnet-low", "commit": "<sha>", "attempts": 1 } ],
+  "notice": "<what Claude must be told next, or null>",
   "approvedAt": "2026-09-28T14:03:00.000Z",
   "denials": 0,
   "guardDenials": 0
 }
 ```
 
-A halted run also has `halt: {task, tried, reason}`; a paused run has `pausedBecause`. Before approval the
-file, if any, holds only H2's denial count. Timestamps are written by hooks.
+`notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
+`post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A halted run
+also has `halt: {task, tried, reason}`; a paused run has `pausedBecause`. Before approval the file, if any,
+holds only H2's denial count. Timestamps are written by hooks.
 
 ### Phases
 
@@ -680,7 +704,8 @@ How the plugin behaves when something goes wrong:
 | A worker returns no report | Treated as a failed attempt. |
 | The Agent call itself fails | Treated as a failed attempt. |
 | A failed attempt's commit is on a remote branch | The run halts without a reset. |
-| Claude dispatches the wrong tier, prompt or background mode | H4 refuses and repeats the right call. |
+| Claude dispatches the wrong tier or prompt, or a second task while one is running | H4 refuses and repeats the right call. |
+| The worker's report never arrives as a prompt | The notice waits in the state; the user's next message gets it from H1, or H5 gives it if Claude stops. |
 | Claude edits files or stops instead of dispatching | H5 blocks a few times, then steps aside and marks the run `abandoned`. |
 | The tasks file or the table changes after the table is written | H2 denies a resubmission and asks for the full block again. After approval, H3 runs nothing and tells Claude to say so. |
 | H2 cannot write the tasks file or the plan | The plan reaches the dialog with its block, and H3 writes a tasks file beside the state. A plan with a very long line is then withheld by the dialog. |
@@ -817,7 +842,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | Claim | Document | Evidence |
 |---|---|---|
 | Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; the Opus effort steps above `high` add little | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28) |
-| Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type`, `prompt` and `run_in_background`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`, which fires before `PostToolUse` | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json` |
+| Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log` |
 | The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
 | The tasks file end to end: a plan with a 5,781-character line shown as a table and loaded from its tasks file; `tool_response.plan` holds the shortened text (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |
 | Rejecting a plan after the move: Claude writes a new block and H2 replaces the table; workflow agents are shown the latest typed prompt as overriding their task, and dialog feedback is never relayed (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-reject-run.md`](planandtier-reject-run.md) | `planandtier-reject-observations.json`, `planandtier-reject-probe.log`, `planandtier-reject-debug.log`, `planandtier-reject-plan.md`, `planandtier-reject-plan.tasks.json`, `planandtier-reject-worker-frames.json` |
@@ -826,7 +851,8 @@ their findings about plan mode, hooks and the dialog still apply.
 | A CRLF workflow script fails the launch (*workflow era*; no longer applies) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md) | `planandtier-launch-shapes-results.json` |
 | End to end in auto mode and with manual permissions (*workflow era*) | [`planandtier-e2e-findings.md`](planandtier-e2e-findings.md), [`planandtier-manual-mode-findings.md`](planandtier-manual-mode-findings.md) | `planandtier-e2e-results.json`, `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 
-The agent-dispatch design has not yet been run end to end. The steps for that run are in
+The agent-dispatch design has not yet been run end to end. A first interactive attempt showed that
+background runs must be followed (the fix described above); the steps for the run are in
 [`planandtier-agents-run.md`](planandtier-agents-run.md). The probe plugins and their scripts are in
 `probes/planandtier/`.
 
