@@ -67,13 +67,40 @@ function isArmed(sessionId) {
   }
 }
 
-// Returns true when the flag was written.
+// The telemetry cursor: the ISO time up to which the session's planning has been counted
+// (lib/telemetry.js). Arming starts it; each planning record moves it.
+const cursorFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.cursor') ?? null
+
+function cursor(sessionId) {
+  try {
+    const time = fs.readFileSync(cursorFor(sessionId), 'utf8').trim()
+    return Number.isNaN(Date.parse(time)) ? null : time
+  } catch {
+    return null
+  }
+}
+
+function setCursor(sessionId, time) {
+  try {
+    const file = cursorFor(sessionId)
+    if (!file) return false
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+    fs.writeFileSync(file, time)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Returns true when the flag was written. Also starts the telemetry cursor.
 function arm(sessionId) {
   try {
     const flag = flagFor(sessionId)
     if (!flag) return false
     fs.mkdirSync(sessionsDir(), { recursive: true })
-    fs.writeFileSync(flag, new Date().toISOString())
+    const now = new Date().toISOString()
+    fs.writeFileSync(flag, now)
+    setCursor(sessionId, now)
     debug(`state ${path.basename(flag, '.armed')}: armed`)
     return true
   } catch {
@@ -81,25 +108,29 @@ function arm(sessionId) {
   }
 }
 
+// Removes the flag and the telemetry cursor.
 function disarm(sessionId) {
   try {
     const flag = flagFor(sessionId)
     if (flag) fs.rmSync(flag, { force: true })
+    const cursorFile = cursorFor(sessionId)
+    if (cursorFile) fs.rmSync(cursorFile, { force: true })
     if (flag) debug(`state ${path.basename(flag, '.armed')}: disarmed`)
   } catch {}
 }
 
-// Deletes session files (state, arming flags and leftover temp files) not modified within `days` days.
+// Deletes session files (state, arming flags, cursors, fallback tasks and telemetry files, and leftover
+// temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.tmp', '.armed'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.armed', '.cursor'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
   } catch {}
 }
 
-module.exports = { fileFor, read, write, remove, isArmed, arm, disarm, prune }
+module.exports = { fileFor, read, write, remove, isArmed, arm, disarm, cursor, setCursor, prune }
