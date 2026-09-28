@@ -127,13 +127,13 @@ The notes:
 
 | Situation | Note |
 |---|---|
-| Armed | `planandtier: armed for this session.` and what that means, then the rules if in plan mode |
-| Already armed | `planandtier: already armed for this session; nothing changed.` |
+| Armed | A note that the session is armed and that plans made in plan mode now run as tiered tasks, then the rules if in plan mode |
+| Already armed | A note that the session was already armed and nothing changed |
 | The repository cannot run a plan | `planandtier: not armed, because <reason>.` Git is missing, the directory is not a repository or has no commit, Git has no user name and email, or the tree has uncommitted changes. Claude tells the user what to fix and to arm again. No rules are added. |
 | The flag could not be written | `planandtier: arming failed, …` The session stays unarmed. |
-| Disarmed, no run | `planandtier: disarmed for this session.` |
+| Disarmed, no run | A note that the session is disarmed and plans are no longer tiered |
 | Disarmed during a run | Which tasks are done and committed (with their commits and tiers), which are not, and, if a worker is still running, that it will not be checked or rolled back. Claude is told not to dispatch more tasks. |
-| Not armed | `planandtier: was not armed for this session; nothing changed.` |
+| Not armed | A note that the session was not armed and nothing changed |
 
 A worker still running when the session is disarmed finishes, but H4 no longer judges it: whatever it
 commits or leaves in the working tree stays. The flag lasts for the session: H6 deletes it at
@@ -420,6 +420,7 @@ Six scripts under [`scripts/`](../../plugins/planandtier/scripts/), registered i
 |---|---|---|---|---|
 | H1 Rules | `UserPromptSubmit` | none | `h1-plan-rules.js` | 15 s |
 | H1 Rules | `PostToolUse` | `EnterPlanMode` | `h1-plan-rules.js enter` | 15 s |
+| H1 Rules | `PreCompact` | none | `h1-plan-rules.js compact` | 15 s |
 | H2 Gate | `PreToolUse` | `ExitPlanMode` | `h2-gate-exit-plan.js` | 30 s |
 | H3 Hand-off | `PostToolUse` | `ExitPlanMode` | `h3-post-approval.js` | 30 s |
 | H4 Dispatch | `PreToolUse` | `Agent` | `h4-dispatch.js pre` | 30 s |
@@ -452,10 +453,15 @@ subagent itself.
   `/planandtier:execute-plan` starts a saved plan (see [Executing a saved plan](#executing-a-saved-plan)).
   These commands are the only thing H1 handles in an unarmed session. Everything below needs the session
   armed.
-- On `UserPromptSubmit` in plan mode, it prints the text of `rules/tiering.md`, which Claude Code adds as
-  context. It fires on every prompt submitted in plan mode.
-- On `PostToolUse` for `EnterPlanMode`, it returns the rules as `additionalContext`. This covers Claude
-  entering plan mode itself.
+- The rules (the text of `rules/tiering.md`) are shown once per plan-mode stint, and the file
+  `sessions/<session_id>.rules`, beside the `.armed` flag, records that they were shown. They are shown on
+  `/planandtier:arm` typed in plan mode, on `PostToolUse` for `EnterPlanMode` (as `additionalContext`, which
+  covers Claude entering plan mode itself), and on the first prompt the user types in plan mode if neither
+  has happened yet. A `<task-notification>` or `<agent-message>` prompt never shows them.
+- The marker is cleared by a prompt outside plan mode, by `PreCompact` (`h1-plan-rules.js compact`, since the
+  rules are about to fall out of context), and by disarming (which `SessionEnd` also does). The next
+  plan-mode stint or prompt then shows the rules again. H2's denial of a plan with a missing or invalid task
+  block appends them regardless.
 - On `UserPromptSubmit` outside plan mode, if H4 left a **notice** (a worker finished and its attempt was
   judged), it prints the notice and clears it. The worker's report arrives as an `<agent-message>` or
   task-notification prompt, so this is how a background run moves on to its next step with nothing typed.
@@ -807,7 +813,7 @@ it:
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
 The arming flag is a separate file beside it, `<session_id>.armed` (its content is the time it was armed),
-so the run state's own removals never disarm the session. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
+so the run state's own removals never disarm the session. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
 Code sets `CLAUDE_PLUGIN_DATA` itself, to `~/.claude/plugins/data/planandtier-inline`.
 
 During a run the file looks like this:
@@ -1083,8 +1089,9 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 - **Armed per session.** Arming does not carry over to a new session, a `/clear` or a resumed session;
   type `/planandtier:arm` again. In an armed session, plan mode gets the tiering rules and `ExitPlanMode`
   is gated; use the opt-out line for an ordinary plan, or disarm.
-- **Rules on every plan-mode prompt.** H1 adds the rules text each time a prompt is submitted in plan mode,
-  which costs context in a long planning conversation.
+- **Rules are shown once per stint.** After compaction, or after leaving plan mode and entering it again, the
+  rules are shown again. A planner that lost them without either relies on H2's denial messages, which
+  include them.
 
 ## Troubleshooting
 

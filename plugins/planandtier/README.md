@@ -168,7 +168,7 @@ commands and H6 cleaning up.
 
 | Hook | Job |
 |---|---|
-| Rules (H1) | Arms and disarms the session when you type the commands, and starts a saved plan for `/planandtier:execute-plan`. Adds the tiering rules in plan mode. During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
+| Rules (H1) | Arms and disarms the session when you type the commands, and starts a saved plan for `/planandtier:execute-plan`. Adds the tiering rules once when planning starts, and again after compaction (`PreCompact` clears the record that they were shown). During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
 | Gate (H2) | Denies `ExitPlanMode` until the task block validates and the repository can run it (a commit, a commit identity and a clean tree), then moves the block to the tasks file and leaves a table |
 | Hand-off (H3) | On approval, starts the run and gives Claude the first dispatch |
 | Dispatch (H4) | Lets through only the expected dispatch; when the worker finishes, reads its report, checks its commit, and decides the next dispatch, a retry after a reset, or a stop |
