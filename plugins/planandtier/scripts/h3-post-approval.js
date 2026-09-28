@@ -2,8 +2,6 @@
 // thread to launch the workflow. The plan FILE is the approved text: the dialog shows the file
 // as H2 left it, and the user can edit it there. tool_response.plan and tool_input.plan are
 // fallbacks. When H2 moved the block, the tasks come from the tasks file the plan names.
-// A plan approved after an earlier version was rejected is not launched by the model: its state is
-// "awaiting-launch" (no guards) and the user is asked to type /planandtier:execute-plan.
 'use strict'
 
 const fs = require('fs')
@@ -60,15 +58,8 @@ run(async () => {
     return
   }
 
-  // H2 counted every version of the plan that reached the dialog. More than one means the user
-  // rejected an earlier version, maybe with feedback that changed the tasks. Claude Code shows each
-  // workflow worker the user's latest typed prompt as a request that overrides its task, and
-  // dialog feedback is not a typed prompt, so a worker could refuse a changed task. The user
-  // launches such a plan by typing, which makes that prompt the one relayed.
-  const revised = (state.read(input.session_id)?.submissions ?? 0) > 1
-
   const saved = state.write(input.session_id, {
-    phase: revised ? 'awaiting-launch' : 'approved',
+    phase: 'approved',
     tasks: result.tasks,
     planFile: input.tool_response?.filePath ?? input.tool_input?.planFilePath ?? null,
     tasksFile: result.section?.file ?? null,
@@ -87,17 +78,6 @@ run(async () => {
   state.prune(PRUNE_DAYS)
 
   const last = result.tasks[result.tasks.length - 1].id
-  if (revised) {
-    context(
-      `planandtier: the user approved this plan with ${result.tasks.length} tiered tasks (T01 to ${last}), ` +
-        'after rejecting an earlier version. Do not launch the workflow yourself, do not implement the plan ' +
-        'and do not edit files. Workflow workers are shown the user\'s latest typed message as their ' +
-        'request, and feedback typed in the plan dialog is not one, so a worker could refuse a changed ' +
-        'task. Tell the user the plan is approved and ask them to type /planandtier:execute-plan to run it. ' +
-        'Then end your turn.'
-    )
-    return
-  }
   context(
     `planandtier: the user approved this plan with ${result.tasks.length} tiered tasks (T01 to ${last}). ` +
       'Their approval is their request to run it. Do not implement the plan yourself and do not edit files. ' +

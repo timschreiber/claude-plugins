@@ -38,7 +38,7 @@ function write(sessionId, state) {
     const tmp = `${file}.${process.pid}.tmp`
     fs.writeFileSync(tmp, JSON.stringify(state, null, 2))
     fs.renameSync(tmp, file)
-    debug(`state ${path.basename(file, '.json')}: phase=${state?.phase} denials=${state?.denials ?? 0} guardDenials=${state?.guardDenials ?? 0} submissions=${state?.submissions ?? 0}`)
+    debug(`state ${path.basename(file, '.json')}: phase=${state?.phase} denials=${state?.denials ?? 0} guardDenials=${state?.guardDenials ?? 0}`)
     return true
   } catch {
     return false

@@ -91,28 +91,11 @@ test('H1 stays silent for subagents', () => {
 
 // ---- H2 ----------------------------------------------------------------------------
 
-test('H2 is silent for a valid plan and counts it as a submission', () => {
+test('H2 is silent for a valid plan and writes no state', () => {
   const file = writePlanFile(VALID)
   const r = hook('h2-gate-exit-plan.js', exitPre(VALID, file))
   assert.equal(r.stdout, '')
-  assert.deepEqual(state.read(S), { phase: 'planning', tasks: [], denials: 0, submissions: 1 })
-})
-
-test('H2 counts every plan that reaches the dialog, but not denials, and keeps the rest of the state', () => {
-  state.write(S, approvedState({ phase: 'launched' }))
-  hook('h2-gate-exit-plan.js', exitPre(NO_BLOCK, writePlanFile(NO_BLOCK)))
-  assert.equal(state.read(S).submissions, undefined)
-  const text = `# Plan\n\n${OPT_OUT}\n`
-  hook('h2-gate-exit-plan.js', exitPre(text, writePlanFile(text)))
-  hook('h2-gate-exit-plan.js', exitPre(VALID, writePlanFile(VALID)))
-  const s = state.read(S)
-  assert.deepEqual([s.phase, s.tasks.length, s.denials, s.submissions], ['launched', 2, 1, 2])
-})
-
-test('H2 counts a plan it lets through after the denial cap', () => {
-  state.write(S, { phase: 'planning', tasks: [], denials: 3 })
-  assert.equal(hook('h2-gate-exit-plan.js', exitPre(NO_BLOCK, writePlanFile(NO_BLOCK))).stdout, '')
-  assert.equal(state.read(S).submissions, 1)
+  assert.equal(state.read(S), null)
 })
 
 test('H2 reads the plan file over a stale tool_input.plan, in both directions', () => {
@@ -216,7 +199,7 @@ test('H2 passes a resubmitted plan with its table silently and leaves it as it i
   const moved = fs.readFileSync(file, 'utf8')
   assert.equal(hook('h2-gate-exit-plan.js', exitPre('stale', file)).stdout, '')
   assert.equal(fs.readFileSync(file, 'utf8'), moved)
-  assert.equal(state.read(S).submissions, 2)
+  assert.equal(state.read(S), null)
 })
 
 test('H2 denies a table whose tasks file changed or is missing, and says to write the block again', () => {
@@ -283,42 +266,6 @@ test('H3 saves the approved tasks and tells the model to launch the workflow', (
   assert.match(out.additionalContext, /3 tiered tasks \(T01 to T03\)/)
   assert.match(out.additionalContext, /Workflow tool with name "planandtier:execute-plan" and no args/)
   assert.match(out.additionalContext, /do not edit files/)
-})
-
-test('H3 launches a plan approved on its first showing, and resets the count', () => {
-  const file = writePlanFile(VALID)
-  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
-  const out = hook('h3-post-approval.js', exitPost(VALID)).json.hookSpecificOutput.additionalContext
-  assert.match(out, /Your next action is to call the Workflow tool/)
-  const s = state.read(S)
-  assert.equal(s.phase, 'approved')
-  assert.equal(s.submissions, undefined)
-})
-
-test('H3 asks the user to launch a plan approved after an earlier version was rejected', () => {
-  const file = writePlanFile(VALID)
-  hook('h2-gate-exit-plan.js', exitPre(VALID, file)) // shown, rejected
-  hook('h2-gate-exit-plan.js', exitPre('stale', file)) // shown again, approved
-  const out = hook('h3-post-approval.js', exitPost(VALID)).json.hookSpecificOutput.additionalContext
-  assert.match(out, /after rejecting an earlier version/)
-  assert.match(out, /Do not launch the workflow yourself/)
-  assert.match(out, /ask them to type \/planandtier:execute-plan/)
-  assert.ok(!out.includes('Your next action'))
-  const s = state.read(S)
-  assert.equal(s.phase, 'awaiting-launch')
-  assert.equal(s.tasks.length, 3)
-  assert.equal(s.submissions, undefined)
-})
-
-test('awaiting-launch: no guards, the typed launch gets the tasks, and PostToolUse marks it launched', () => {
-  state.write(S, approvedState({ phase: 'awaiting-launch' }))
-  assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
-  assert.equal(hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).stdout, '')
-  const r = hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
-  assert.equal(r.json.hookSpecificOutput.updatedInput.args.tasks.length, 2)
-  assert.equal(state.read(S).phase, 'awaiting-launch')
-  hook('h6-cleanup.js', wfPost(), ['launched'])
-  assert.equal(state.read(S).phase, 'launched')
 })
 
 test('H3 reads the plan file over tool_response.plan', () => {
@@ -555,7 +502,7 @@ test('state changes are logged with a timestamp only when PLANANDTIER_DEBUG is s
   hook('h6-cleanup.js', wfPost(), ['launched'], { ...env, PLANANDTIER_DEBUG: '1' })
   hook('h6-cleanup.js', { session_id: S }, ['end'], { ...env, PLANANDTIER_DEBUG: '1' })
   const lines = fs.readFileSync(log, 'utf8').trim().split('\n')
-  assert.match(lines[0], /^\d{4}-\d\d-\d\dT\S+Z state sess-1: phase=launched denials=0 guardDenials=0 submissions=0$/)
+  assert.match(lines[0], /^\d{4}-\d\d-\d\dT\S+Z state sess-1: phase=launched denials=0 guardDenials=0$/)
   assert.match(lines[1], /state sess-1: removed$/)
 })
 
