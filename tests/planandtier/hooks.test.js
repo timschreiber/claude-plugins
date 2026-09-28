@@ -1524,6 +1524,7 @@ test('at the first Stop after the run ends, the spend summary is shown once, wit
     `total ~$${(0.4 + 4 * WORKER_COST + 0.02).toFixed(2)}`,
   ])
   assert.match(out.systemMessage, /sonnet-medium\s+~\$0\.06\s+1 attempt \(1 failed\), 111k tokens/)
+  assert.match(out.systemMessage, /sonnet-medium.*90% cache reads/)
   assert.deepEqual(telemetry.read(telemetryFile()).map(r => r.kind).slice(-1), ['orchestration'])
   assert.equal(state.read(S).spendReported, true)
   assert.equal(hook('h5-guard.js', { session_id: S, transcript_path: main }, ['stop']).stdout, '', 'only once')

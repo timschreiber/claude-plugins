@@ -56,8 +56,16 @@ function read(file) {
 // The usage fields kept in a record (a tally from lib/usage.js, or null when unreadable).
 const usageFields = u =>
   u
-    ? { tokens: u.tokens, total: u.total, messages: u.messages, costUsd: u.costUsd, unpriced: u.unpriced, models: Object.keys(u.byModel) }
-    : { tokens: null, total: null, messages: null, costUsd: null, unpriced: [], models: [] }
+    ? {
+        tokens: u.tokens,
+        total: u.total,
+        messages: u.messages,
+        costUsd: u.costUsd,
+        unpriced: u.unpriced,
+        models: Object.keys(u.byModel),
+        cacheReadPct: u.total > 0 ? Math.round((100 * u.tokens.cacheRead) / u.total) : null,
+      }
+    : { tokens: null, total: null, messages: null, costUsd: null, unpriced: [], models: [], cacheReadPct: null }
 
 function fmtTokens(n) {
   if (n == null) return '? tokens'
@@ -84,6 +92,13 @@ function attemptLine(r, runCost) {
 }
 
 const sum = (records, pick) => records.reduce((n, r) => n + (pick(r) ?? 0), 0)
+// The share of cache reads in the tokens of the records that have usage, as a whole percent, or null.
+function cachePct(records) {
+  const withUsage = records.filter(r => r.tokens && r.total != null)
+  const total = sum(withUsage, r => r.total)
+  if (!withUsage.length || !total) return null
+  return Math.round((100 * sum(withUsage, r => r.tokens.cacheRead)) / total)
+}
 const unpricedOf = records => [...new Set(records.flatMap(r => r.unpriced ?? []))]
 const modelsOf = records => [...new Set(records.flatMap(r => r.models ?? []))]
 
@@ -123,7 +138,8 @@ function summary(records, { planId, runId }) {
   const rows = []
   const row = (label, recs, detail) => {
     if (!recs.length) return
-    rows.push([label, fmtUsd(sum(recs, r => r.costUsd), unpricedOf(recs)), detail])
+    const pct = cachePct(recs)
+    rows.push([label, fmtUsd(sum(recs, r => r.costUsd), unpricedOf(recs)), pct == null ? detail : `${detail}, ${pct}% cache reads`])
   }
   const subs = sum(planning, r => r.subagents)
   row('planning', planning, `${modelsOf(planning).join(', ') || 'no messages'}${subs ? `, ${subs} subagent${subs === 1 ? '' : 's'}` : ''}`)
@@ -134,7 +150,11 @@ function summary(records, { planId, runId }) {
   }
   row('orchestration', orchestration, modelsOf(orchestration).join(', ') || 'no messages')
   const all = [...planning, ...attempts, ...orchestration]
-  rows.push(['total', fmtUsd(sum(all, r => r.costUsd), unpricedOf(all)), ''])
+  const allPct = cachePct(all)
+  const totalDetail = all.some(r => r.total != null)
+    ? `${fmtTokens(sum(all, r => r.total))}${allPct == null ? '' : `, ${allPct}% cache reads`}`
+    : ''
+  rows.push(['total', fmtUsd(sum(all, r => r.costUsd), unpricedOf(all)), totalDetail])
   const width = Math.max(...rows.map(r => r[0].length))
   const col = Math.max(...rows.map(r => r[1].length))
   const lines = rows.map(([a, b, c]) => `  ${a.padEnd(width)}  ${b.padEnd(col)}  ${c}`.trimEnd())

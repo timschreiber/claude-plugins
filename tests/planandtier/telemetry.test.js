@@ -88,7 +88,11 @@ test('the summary has planning from every session, this run by tier in ladder or
   assert.match(text, /planning\s+~\$0\.40\s+claude-opus-5-5, 3 subagents/)
   assert.match(text, /sonnet-low\s+~\$0\.02\s+1 attempt \(1 failed\), 100k tokens/)
   assert.match(text, /opus-high\s+~\$0\.61\s+1 attempt, 100k tokens/)
-  assert.match(text, /total\s+~\$1\.26$/)
+  assert.match(text, /total\s+~\$1\.26\s+\d+(\.\d)?[Mk] tokens, 90% cache reads$/)
+  for (const label of ['planning', 'sonnet-low', 'orchestration']) {
+    const line = lines.find(l => l.trim().startsWith(label))
+    assert.ok(line.endsWith(', 90% cache reads'), label)
+  }
 })
 
 test('planning includes rounds rejected in the dialog, and planning from another session, but not an earlier plan', () => {
@@ -119,4 +123,10 @@ test('a summary without planning records or orchestration still totals what it h
   const text = t.summary([{ kind: 'attempt', runId: 'r', task: 'T01', tier: 'sonnet-low', outcome: 'done', ...usage(0.05) }], { planId: 'P', runId: 'r' })
   assert.ok(!text.includes('planning'))
   assert.match(text, /total\s+~\$0\.05/)
+})
+
+test('usageFields gives the cache-read share, or null without usage', () => {
+  const u = { tokens: { input: 0, output: 0, cacheWrite5m: 10000, cacheWrite1h: 0, cacheRead: 90000 }, total: 100000, messages: 1, costUsd: 0, unpriced: [], byModel: {} }
+  assert.equal(t.usageFields(u).cacheReadPct, 90)
+  assert.equal(t.usageFields(null).cacheReadPct, null)
 })
