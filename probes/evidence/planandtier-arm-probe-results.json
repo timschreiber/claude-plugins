@@ -1,0 +1,12 @@
+{
+  "generated": "2026-09-28T17:28:09.564Z",
+  "claudeCodeVersion": "2.1.283 (Claude Code)",
+  "command": "/planandtier-agent-probe:arm",
+  "exitCode": 0,
+  "userPromptSubmitPrompts": [
+    "/planandtier-agent-probe:arm"
+  ],
+  "modelResult": "ARM-SKILL-BODY-SEEN",
+  "skillBodyReachedModel": true,
+  "stderr": ""
+}

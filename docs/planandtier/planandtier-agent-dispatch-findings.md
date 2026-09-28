@@ -104,6 +104,19 @@ A rerun with the report fix in place (2026-09-28, 17:05). Evidence: `probes/evid
   run went to `complete`, and the README change was committed as one commit with its `Planandtier-Task:`
   line.
 
+## Arming: what a typed skill command looks like to a hook
+
+Before building `/planandtier:arm`, a headless probe (2026-09-28, Claude Code 2.1.283,
+`probes/planandtier/arm-probe.js`) typed `/planandtier-agent-probe:arm`. That is a skill in the probe plugin
+with `disable-model-invocation: true`, whose body tells the model to reply `ARM-SKILL-BODY-SEEN`. Evidence:
+`probes/evidence/planandtier-arm-probe.log` and `planandtier-arm-probe-results.json`.
+
+- **`UserPromptSubmit` received the raw typed text,** `"/planandtier-agent-probe:arm"`, not the expanded
+  skill body. So a hook can recognize the command exactly.
+- **The namespaced command resolved** to the plugin's skill.
+- **The skill body reached the model,** which replied `ARM-SKILL-BODY-SEEN`, even though the skill cannot be
+  invoked by the model itself.
+
 ## Not measured
 
 - A three-task run in a freshly built repo with the fix in place. The failure it would catch has been shown
