@@ -173,7 +173,7 @@ Every task has exactly these five keys, all strings. Any other key is an error.
 | `id` | `T01`, `T02`, ... matching the task's position: the first task must be `T01`, the second `T02`, with no gaps. |
 | `title` | One non-empty line, at most 100 characters. Used as the task's commit message and in its dispatch description. |
 | `model` | `haiku`, `sonnet` or `opus`. |
-| `effort` | `default` for `haiku`; `low`, `medium`, `high` or `xhigh` for `sonnet` and `opus`. |
+| `effort` | `default` for `haiku`; `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus`. |
 | `prompt` | Non-empty and contains the text `Verify:`. |
 
 ### Whole-block rules
@@ -267,19 +267,26 @@ A task can depend only on earlier tasks, so tasks are ordered accordingly.
 
 ## Model and effort tiers
 
-Nine tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
-The rules tell Claude to pick the cheapest tier it expects to succeed on the first try: a retry repeats the
-whole task on a more expensive tier.
+Eight tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
+The rules tell Claude to favor the smallest model and effort that will get the job done:
+
+1. Pick the model by the kind of work: `sonnet` for fully specified work, `opus` for work that needs
+   judgment or is too intricate and wide for `sonnet`, `haiku` only for literal find-and-replace.
+2. Start at `medium` effort, the baseline. Lower it for a task that is easier or simpler than the baseline
+   for its model, and raise it for one that is harder or more complex.
+3. Past `sonnet` / `high`, go to `opus` / `low`: `sonnet` stops at `high`.
+
+A failed task is reset and retried one tier up, so a tier that is slightly too small usually costs less
+than one that is too big.
 
 | Tier | Use for |
 |---|---|
 | `haiku` / `default` | The simplest of the simple: literal find-and-replace pairs against existing files. Full rules below. |
-| `sonnet` / `low` | Fully given work that is not find-and-replace: a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
-| `sonnet` / `medium` | **The default.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
-| `sonnet` / `high` | Fully specified but intricate: parsers, state machines, numeric code, many edge cases. |
-| `sonnet` / `xhigh` | Fully specified, intricate and wide: interacting edge cases across several files. |
-| `opus` / `low` | Small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
-| `opus` / `medium` | Judgment the plan cannot pin down: unfamiliar library internals, poorly documented APIs, debugging a known failure. |
+| `sonnet` / `low` | Easier than the baseline: fully given work that is not find-and-replace, such as a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
+| `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
+| `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases. |
+| `opus` / `low` | Fully specified, intricate and wide (interacting edge cases across several files, where `sonnet` / `high` is likely to miss one), or small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
+| `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: unfamiliar library internals, poorly documented APIs, debugging a known failure. |
 | `opus` / `high` | The hardest bounded implementation: a failure of unknown cause across components, or subtle cross-cutting changes. |
 | `opus` / `xhigh` | Very rare, for extreme reasoning only: concurrency correctness, algorithmic subtleties, security-critical logic. The plan's prose must say why. |
 
@@ -290,10 +297,15 @@ under-specified: the design decisions belong in planning, with the answers writt
 tier. That is a design decision from experience with earlier tiered plans, where Haiku was unreliable on
 broader coding tasks; it has not been measured here. **Not allowed:** the `max` effort and Fable.
 
-**The retry ladder** is the table's order: `haiku-default`, then `sonnet` from `low` to `xhigh`, then
-`opus` from `low` to `xhigh`. `opus-low` follows `sonnet-xhigh` on the reasoning that a task that failed
-even with Sonnet's most thinking needs judgment rather than more thinking. That is a judgment, not a
-measurement.
+**Why Sonnet stops at `high`.** On every published comparison found, Opus 5.5 at `low` scored above
+Sonnet 5 at `xhigh`, at a lower cost per task. The closest result was on reasoning-heavy scientific coding
+(SciCode, 59% against 54%); the widest was on Terminal-Bench 4.0 (31% against 7%). So `sonnet-xhigh` was dropped and its work
+given to `opus-low`. The data comes almost entirely from Anthropic and Artificial Analysis, and this choice
+is expected to be revisited when a newer Sonnet ships. See
+[`planandtier-tier-findings.md`](planandtier-tier-findings.md).
+
+**The retry ladder** is the table's order: `haiku-default`, then `sonnet` from `low` to `high`, then
+`opus` from `low` to `xhigh`.
 
 The allowed tiers are defined in three places that must be kept in step: `ALLOWED` in `lib/tasks.js`,
 which enforces them and derives `TIERS`, the agents in `agents/`, and `rules/tiering.md`, which tells
@@ -613,7 +625,7 @@ reads as no state. Each approval prunes session and temp files not modified in 7
 
 ## The tier agents
 
-[`agents/`](../../plugins/planandtier/agents/) holds nine plugin agents, one per tier, named
+[`agents/`](../../plugins/planandtier/agents/) holds eight plugin agents, one per tier, named
 `<model>-<effort>` and run as `planandtier:<model>-<effort>`. They share one body (the worker's rules and
 report block above) and differ only in frontmatter:
 
@@ -692,7 +704,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 
 | Constant | Value | Where |
 |---|---|---|
-| Allowed models and efforts | `haiku` × `default`; `sonnet`, `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
+| Allowed models and efforts | `haiku` × `default`; `sonnet` × `low`, `medium`, `high`; `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
 | Tier ladder | `ALLOWED` in order | `lib/tasks.js` `TIERS` |
 | Retries per task | 2 | `lib/run.js` `MAX_RETRIES` |
 | Commit trailer | `Planandtier-Task: <id>` | the agents; checked in `lib/run.js` |
@@ -713,7 +725,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 plugins/planandtier/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
-  agents/<model>-<effort>.md     # the nine tier agents, one shared body
+  agents/<model>-<effort>.md     # the eight tier agents, one shared body
   hooks/hooks.json               # H1-H6 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   scripts/
@@ -808,6 +820,7 @@ their findings about plan mode, hooks and the dialog still apply.
 
 | Claim | Document | Evidence |
 |---|---|---|
+| Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; the Opus effort steps above `high` add little | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28) |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type`, `prompt` and `run_in_background`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`, which fires before `PostToolUse` | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json` |
 | The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
 | The tasks file end to end: a plan with a 5,781-character line shown as a table and loaded from its tasks file; `tool_response.plan` holds the shortened text (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |

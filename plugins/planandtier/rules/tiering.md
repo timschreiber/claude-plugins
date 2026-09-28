@@ -42,7 +42,7 @@ replaces the old table when you call `ExitPlanMode` again. Never edit the table 
 | `id` | `T01`, `T02`, ... in execution order, no gaps |
 | `title` | One line, at most 100 characters. Used as the task's commit message |
 | `model` | `haiku`, `sonnet` or `opus` |
-| `effort` | `default` for `haiku`; `low`, `medium`, `high` or `xhigh` for `sonnet` and `opus` |
+| `effort` | `default` for `haiku`; `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus` |
 | `prompt` | Self-contained, and contains a `Verify:` step (see below) |
 
 No other keys are allowed.
@@ -56,22 +56,31 @@ No other keys are allowed.
   commit steps in prompts.
 - **A failed task is retried twice, each time one tier up**, from a working tree reset to the commit
   before it. The tiers, weakest first: `haiku` / `default`, then `sonnet` at `low`, `medium`, `high`,
-  `xhigh`, then `opus` at the same four. After the second retry fails, the run stops there.
+  then `opus` at `low`, `medium`, `high`, `xhigh`. After the second retry fails, the run stops there.
 
 ## Choosing model and effort
 
-Pick the cheapest tier you expect to succeed on the first try. A retry repeats the whole task on a more
-expensive tier, so a tier that needs retries costs more than the right one.
+Favor the smallest model and effort that will get the job done.
+
+1. **Pick the model by the kind of work.** `sonnet` for fully specified work, `opus` for work that needs
+   judgment the prompt cannot pin down or is too intricate and wide for `sonnet`. `haiku` only for literal
+   find-and-replace.
+2. **Start at `medium` effort: that is the baseline.** Lower it when the task is easier or simpler than
+   the baseline for its model, and raise it when the task is harder or more complex.
+3. **Past `sonnet` / `high`, go to `opus` / `low`**, not to a higher Sonnet effort: `sonnet` stops at
+   `high`.
+
+A failed task is reset and retried one tier up, so a tier that is slightly too small usually costs less
+than one that is too big.
 
 | Tier | Use for |
 |---|---|
 | `haiku` / `default` | The simplest of the simple: literal find-and-replace pairs against existing files. Transcription plus a check. Full rules below. |
-| `sonnet` / `low` | Fully given work that is not find-and-replace: a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
-| `sonnet` / `medium` | **The default.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
-| `sonnet` / `high` | Fully specified but intricate: parsers, state machines, numeric code, many edge cases. |
-| `sonnet` / `xhigh` | Fully specified, intricate and wide: interacting edge cases across several files, where `high` is likely to miss one. |
-| `opus` / `low` | Small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
-| `opus` / `medium` | Judgment the plan cannot pin down: unfamiliar library internals, poorly documented APIs, debugging a known failure. |
+| `sonnet` / `low` | Easier than the baseline: fully given work that is not find-and-replace, such as a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
+| `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
+| `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases. |
+| `opus` / `low` | Fully specified, intricate and wide (interacting edge cases across several files, where `sonnet` / `high` is likely to miss one), or small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
+| `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: unfamiliar library internals, poorly documented APIs, debugging a known failure. |
 | `opus` / `high` | The hardest bounded implementation: a failure of unknown cause across components, or subtle cross-cutting changes. |
 | `opus` / `xhigh` | Very rare, for extreme reasoning only: concurrency correctness, algorithmic subtleties, security-critical logic. Say in the plan's prose why the task needs it. |
 

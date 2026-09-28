@@ -1,0 +1,70 @@
+{
+  "generated": "2026-09-28",
+  "method": "Web research by two research agents in one Claude Code session: one on Anthropic's own documentation, launch pages and system cards, one on independent benchmarks. Every figure below was read from the page named in its source, fetched on 2026-09-28. Models as resolved by Claude Code 2.1.283: haiku = claude-haiku-4-5, sonnet = claude-sonnet-5, opus = claude-opus-5-5.",
+  "pricingPerMTok": {
+    "claude-haiku-4-5": { "input": 1, "output": 5, "source": "claude-api skill model table (cached 2026-06-24)" },
+    "claude-sonnet-5": {
+      "input": 2,
+      "output": 10,
+      "source": "claude-api skill model table; https://artificialanalysis.ai/models/releases/claude-sonnet-5",
+      "conflict": "https://artificialanalysis.ai/articles/claude-sonnet-5-agentic-cost (2026-06-30) says $2/$10 was promotional until September 1 and the standard price is $3/$15. Unresolved."
+    },
+    "claude-opus-5-5": { "input": 4, "output": 20, "source": "claude-api skill model table" }
+  },
+  "artificialAnalysis": {
+    "source": [
+      "https://artificialanalysis.ai/models/releases/claude-opus-5-5",
+      "https://artificialanalysis.ai/models/releases/claude-sonnet-5",
+      "https://artificialanalysis.ai/models/claude-opus-5-5-low",
+      "https://artificialanalysis.ai/models/comparisons/claude-opus-5-5-low-vs-claude-sonnet-5-low",
+      "https://artificialanalysis.ai/models/comparisons/claude-sonnet-5-vs-claude-4-5-haiku-reasoning"
+    ],
+    "index": "Intelligence Index v4.3.2",
+    "caveat": "Every Opus 5.5 entry is labelled 'Adaptive Reasoning, X Effort, Default Fallback'; AA does not explain 'fallback'. Vals.ai describes Anthropic fallback rows as provider-side fallback (see vals below).",
+    "rows": [
+      { "model": "haiku-4-5", "effort": "reasoning", "index": 17, "costPerTask": 0.28, "terminalBench4": 0, "sciCode": 42, "automationBench": 3 },
+      { "model": "sonnet-5", "effort": "low", "index": 24, "costPerTask": 0.51, "terminalBench4": 3, "sciCode": 50, "automationBench": 20 },
+      { "model": "sonnet-5", "effort": "medium", "index": 28, "costPerTask": 1.00, "terminalBench4": 2, "sciCode": 52, "automationBench": 28 },
+      { "model": "sonnet-5", "effort": "high", "index": 32, "costPerTask": 1.79, "terminalBench4": 5, "sciCode": 54, "automationBench": 32 },
+      { "model": "sonnet-5", "effort": "xhigh", "index": 34, "costPerTask": 2.87, "terminalBench4": 7, "sciCode": 54, "automationBench": 34 },
+      { "model": "opus-5-5", "effort": "low", "index": 42, "costPerTask": 0.55, "terminalBench4": 31, "sciCode": 59, "automationBench": 53 },
+      { "model": "opus-5-5", "effort": "medium", "index": 51, "costPerTask": 1.34, "terminalBench4": 53, "sciCode": 59, "automationBench": 61 },
+      { "model": "opus-5-5", "effort": "high", "index": 54, "costPerTask": 1.82, "terminalBench4": 57, "sciCode": 60, "automationBench": 63 },
+      { "model": "opus-5-5", "effort": "xhigh", "index": 56, "costPerTask": 3.46, "terminalBench4": 60, "sciCode": 65, "automationBench": 65 }
+    ]
+  },
+  "anthropicSweBenchProSubset": {
+    "source": "https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence.md",
+    "note": "478 problems; Anthropic says it is not comparable to the public leaderboard. Vendor data.",
+    "rows": [
+      { "model": "sonnet-5", "effort": "high (default)", "solved": 77.4, "costPerSolved": 0.84 },
+      { "model": "opus-5-5", "effort": "low", "solved": 87.4, "costPerSolved": 0.12 },
+      { "model": "opus-5-5", "effort": "medium", "solved": 92.8, "costPerSolved": 0.22 },
+      { "model": "opus-5-5", "effort": "high", "solved": 95.3, "costPerSolved": 0.29 }
+    ],
+    "quotes": [
+      "On SWE-bench Pro, measured against `high`, Claude Opus 5.5 scored about 2.5 points lower at its default, `medium`, for about 70% of the cost, and about 8 points lower at `low` for about a third of the cost; `xhigh` scored about 1.4 points higher for 2.5 times the cost of `high`.",
+      "With Claude Opus 5.5 at `low`, 13% of tasks failed; with those re-run at `high`, about 97% passed for about $0.17 each, against 95.3% for $0.29 running everything at `high`."
+    ]
+  },
+  "anthropicOther": [
+    { "source": "https://platform.claude.com/docs/en/build-with-claude/effort.md", "quote": "Sonnet 5 ... Low effort: ... Suitable for chat and non-coding use cases. ... Xhigh effort: For the hardest coding and agentic tasks." },
+    { "source": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5.md", "quote": "Claude Sonnet 5 at medium is comparable in intelligence to Claude Sonnet 4.6 at high, and Claude Sonnet 5 at high is comparable to Claude Sonnet 4.6 at max." },
+    { "source": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5.md", "quote": "Claude Opus 5.5 at `medium` matches or exceeds Claude Opus 5 at `high` on coding and knowledge-work evaluations, and on several coding evaluations `low` comes close to it at much lower cost." },
+    { "source": "Claude Opus 5.5 System Card (2026-09-22), https://www-cdn.anthropic.com/fc1b44717c85dc068bc6ba5024219938094694bd/Claude%20Opus%205.5%20System%20Card.pdf", "quote": "CursorBench 4.0: 57.8% at max effort, 56.0% at xhigh and high, and 52.5% at medium." },
+    { "source": "https://platform.claude.com/docs/en/about-claude/models/overview.md", "quote": "Haiku 4.5 retirement: Not sooner than October 15, 2026." }
+  ],
+  "favoringSonnet": [
+    { "source": "https://swe-rebench.com/", "note": "Tasks 2026-05-15 to 2026-07-01. Sonnet 5 at high resolved 56.8% at $1.43 per problem; Opus 5 (not 5.5) at high 63.4% at $3.47. No Opus 5.5 entry." },
+    { "source": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2", "note": "Sonnet 5 (Claude Code, xhigh) 88.20; Opus 5 (not 5.5) 98.00; Haiku 4.5 25.50. No Opus 5.5 entry, no costs." }
+  ],
+  "vals": {
+    "source": ["https://www.vals.ai/benchmarks/terminal-bench-4", "https://www.vals.ai/models/anthropic_claude-opus-5-5"],
+    "note": "Terminal-Bench 4.0: Opus 5.5 (max) 61.62%, 53.54% without fallback; Sonnet 5 (effort not stated) 8.08%. 'Four Anthropic rows include provider-side fallback.'"
+  },
+  "gaps": [
+    "No third-party SWE-bench results split by effort level for Sonnet 5 or Opus 5.5.",
+    "Anthropic publishes no Sonnet 5 results by effort level in text.",
+    "No direct measurement of Sonnet 5 at xhigh against Opus 5.5 at low on SWE-bench-style tasks."
+  ]
+}

@@ -50,7 +50,7 @@ Tested on Claude Code 2.1.283.
 
 ### When a task fails
 
-It is retried, twice at most, each time one tier up (`haiku-default`, then `sonnet` from `low` to `xhigh`,
+It is retried, twice at most, each time one tier up (`haiku-default`, then `sonnet` from `low` to `high`,
 then `opus` from `low` to `xhigh`). Before each retry the working tree is reset to the commit before the
 task, so earlier tasks' commits are kept. If the second retry fails too, the run stops, and the last
 attempt's changes stay in the working tree for you to inspect.
@@ -72,11 +72,15 @@ cannot be approved.
 |---|---|
 | `haiku` / `default` | The simplest work: literal find-and-replace edits to existing files |
 | `sonnet` / `low` | Fully given work: a new file with its exact content, or a checked rename |
-| `sonnet` / `medium` | The default: fully specified work |
+| `sonnet` / `medium` | The baseline: fully specified work |
 | `sonnet` / `high` | Fully specified but intricate work |
-| `sonnet` / `xhigh` | Intricate and wide work across several files |
-| `opus` / `low` to `high` | Bounded judgment, from small to the hardest |
+| `opus` / `low` | Intricate work across several files, or small bounded judgment |
+| `opus` / `medium` to `high` | Judgment the plan cannot pin down, up to the hardest bounded work |
 | `opus` / `xhigh` | Very rare: extreme reasoning only |
+
+Claude picks the model by the kind of work, starts at `medium` effort, and goes lower for simpler tasks and
+higher for harder ones. Sonnet stops at `high`: harder work goes to `opus` / `low`, which measured
+stronger than Sonnet 5 at `xhigh`. That choice will be revisited when a newer Sonnet ships.
 
 Each tier is its own agent, `planandtier:<model>-<effort>`, with the model and effort set in its
 definition. Workers cannot start agents or workflows.

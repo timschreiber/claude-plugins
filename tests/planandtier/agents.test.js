@@ -40,7 +40,7 @@ test('each agent runs its tier: name, model, effort (none on haiku), maxTurns an
   }
 })
 
-test('all nine agents share one body, which asks for the report block and a trailer commit', () => {
+test('all the agents share one body, which asks for the report block and a trailer commit', () => {
   const bodies = TIERS.map(t => read(t).body)
   for (const [i, body] of bodies.entries()) assert.equal(body, bodies[0], `${TIERS[i]} differs from ${TIERS[0]}`)
   const body = bodies[0]

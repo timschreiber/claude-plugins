@@ -2,9 +2,14 @@
 // rewrites plan text. H2 and H3 reach it through sidecar.js resolvePlan(), which adds the file work.
 'use strict'
 
-const EFFORTS = ['low', 'medium', 'high', 'xhigh']
-// Haiku takes no effort setting, so its only "effort" is the word "default".
-const ALLOWED = { haiku: ['default'], sonnet: EFFORTS, opus: EFFORTS }
+// Haiku takes no effort setting, so its only "effort" is the word "default". Sonnet stops at high:
+// work harder than sonnet/high goes to opus/low, which measured stronger than sonnet/xhigh
+// (planandtier-tier-findings.md; revisit when a newer Sonnet ships).
+const ALLOWED = {
+  haiku: ['default'],
+  sonnet: ['low', 'medium', 'high'],
+  opus: ['low', 'medium', 'high', 'xhigh'],
+}
 
 // The tiers, weakest first. Each is also the name of the agent that runs it (planandtier:<tier>).
 // A failed task is retried one step up this ladder.

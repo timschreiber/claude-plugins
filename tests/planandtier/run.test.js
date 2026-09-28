@@ -116,20 +116,20 @@ test('advance moves to the next task, then completes', () => {
   assert.match(r.completeText(state), /all 3 tasks are done.*T01 aaa1111 \(haiku-default\), T02 bbb2222 \(sonnet-medium\)/)
 })
 
-test('a failure retries one tier up, twice, and then halts', () => {
+test('a failure retries one tier up, twice, and then halts; past sonnet/high the next tier is opus/low', () => {
   let s = r.advance(start(), { ok: true, commit: 'aaa' }).state // T02 at sonnet-medium
   s = { ...s, current: { ...s.current, head: 'h1' } }
   let out = r.advance(s, { ok: false, reason: 'first' })
   assert.equal(out.action, 'retry')
   assert.deepEqual([out.state.current.attempt, out.state.current.tier, out.state.current.head], [2, 'sonnet-high', 'h1'])
   out = r.advance(out.state, { ok: false, reason: 'second' })
-  assert.deepEqual([out.action, out.state.current.attempt, out.state.current.tier], ['retry', 3, 'sonnet-xhigh'])
+  assert.deepEqual([out.action, out.state.current.attempt, out.state.current.tier], ['retry', 3, 'opus-low'])
   assert.deepEqual(out.state.current.lastFailure, { tier: 'sonnet-high', reason: 'second' })
   out = r.advance(out.state, { ok: false, reason: 'third' })
   assert.equal(out.action, 'halt')
   assert.equal(out.state.phase, 'halted')
-  assert.deepEqual(out.state.halt, { task: 'T02', tried: ['sonnet-medium', 'sonnet-high', 'sonnet-xhigh'], reason: 'third' })
-  assert.match(r.haltText(out.state), /stopped at T02, after 3 attempt\(s\) \(sonnet-medium, sonnet-high, sonnet-xhigh\)\. Reason: third\./)
+  assert.deepEqual(out.state.halt, { task: 'T02', tried: ['sonnet-medium', 'sonnet-high', 'opus-low'], reason: 'third' })
+  assert.match(r.haltText(out.state), /stopped at T02, after 3 attempt\(s\) \(sonnet-medium, sonnet-high, opus-low\)\. Reason: third\./)
   assert.match(r.haltText(out.state), /Do not fix it yourself/)
 })
 

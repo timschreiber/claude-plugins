@@ -29,12 +29,19 @@ test('a valid plan parses to its tasks', () => {
 })
 
 test('every allowed model/effort pair validates', () => {
-  for (const model of ['sonnet', 'opus']) {
-    for (const effort of ['low', 'medium', 'high', 'xhigh']) {
-      assert.deepEqual(validate({ tasks: [task(1, { model, effort })] }), [], `${model}/${effort}`)
-    }
+  const pairs = [
+    ['haiku', 'default'],
+    ['sonnet', 'low'], ['sonnet', 'medium'], ['sonnet', 'high'],
+    ['opus', 'low'], ['opus', 'medium'], ['opus', 'high'], ['opus', 'xhigh'],
+  ]
+  for (const [model, effort] of pairs) {
+    assert.deepEqual(validate({ tasks: [task(1, { model, effort })] }), [], `${model}/${effort}`)
   }
-  assert.deepEqual(validate({ tasks: [task(1, { model: 'haiku', effort: 'default' })] }), [], 'haiku/default')
+})
+
+test('sonnet stops at high: sonnet/xhigh is rejected', () => {
+  const errors = validate({ tasks: [task(1, { effort: 'xhigh' })] })
+  assert.match(errors[0], /T01\.effort: "xhigh" is not allowed for sonnet; use low, medium or high/)
 })
 
 test('haiku takes only "default"; fable, max and unknown values are rejected with a message naming the choices', () => {
@@ -44,7 +51,9 @@ test('haiku takes only "default"; fable, max and unknown values are rejected wit
   const fable = validate({ tasks: [task(1, { model: 'fable' })] })
   assert.match(fable[0], /T01\.model: "fable" is not allowed; use haiku, sonnet or opus/)
   const max = validate({ tasks: [task(1, { effort: 'max' })] })
-  assert.match(max[0], /T01\.effort: "max" is not allowed for sonnet; use low, medium, high or xhigh/)
+  assert.match(max[0], /T01\.effort: "max" is not allowed for sonnet; use low, medium or high/)
+  const opusMax = validate({ tasks: [task(1, { model: 'opus', effort: 'max' })] })
+  assert.match(opusMax[0], /"max" is not allowed for opus; use low, medium, high or xhigh/)
   assert.match(validate({ tasks: [task(1, { effort: 'ultra' })] })[0], /"ultra" is not allowed/)
 })
 
@@ -167,12 +176,13 @@ test('an empty or non-string plan is an error, not a crash', () => {
 test('the tier ladder runs haiku, then sonnet, then opus, each by rising effort', () => {
   assert.deepEqual(TIERS, [
     'haiku-default',
-    'sonnet-low', 'sonnet-medium', 'sonnet-high', 'sonnet-xhigh',
+    'sonnet-low', 'sonnet-medium', 'sonnet-high',
     'opus-low', 'opus-medium', 'opus-high', 'opus-xhigh',
   ])
   assert.equal(tierOf(task(1, { model: 'opus', effort: 'high' })), 'opus-high')
   assert.equal(nextTier('haiku-default'), 'sonnet-low')
-  assert.equal(nextTier('sonnet-xhigh'), 'opus-low')
+  assert.equal(nextTier('sonnet-high'), 'opus-low')
+  assert.equal(nextTier('sonnet-xhigh'), null, 'not a tier')
   assert.equal(nextTier('opus-xhigh'), null)
   assert.equal(nextTier('gpt-high'), null)
 })
