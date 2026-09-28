@@ -1,4 +1,4 @@
-// /planandtier:execute-plan [plan path] [--from Txx]: picks a saved plan up again, for when its
+// /planandtier:execute-plan [plan path | list number] [--from Txx]: picks a saved plan up again, for when its
 // session is gone (SessionEnd deletes the run state and the arming flag). H1 calls executePlan() with
 // the UserPromptSubmit input and prints the note it returns; the skill only tells Claude to follow it.
 //   - A planandtier plan (a task table or a raw task block) runs tiered, from its first task that is
@@ -77,22 +77,26 @@ function recentPlans(dir = plansDir(), limit = LISTED) {
   return plans.sort((a, b) => b.mtime - a.mtime).slice(0, limit)
 }
 
-function listNote(dir = plansDir()) {
+// The numbered listing of recent plans, saved for the session so /planandtier:execute-plan <number> can
+// pick one. `why` opens the note (for example "no plan path was given").
+function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
   const plans = recentPlans(dir)
   const custom = 'If the plans directory was changed with the plansDirectory setting, the path has to be typed.'
   if (plans.length === 0) {
-    return `${PREFIX} no plan path was given, and there are no planandtier plans in ${dir}. ${custom} Tell the user.`
+    return `${PREFIX} ${why}, and there are no planandtier plans in ${dir}. ${custom} Tell the user.`
   }
+  state.saveListing(sessionId, plans.map(p => p.file))
   const rows = plans.map(
-    p =>
-      `- ${p.file}: "${p.title}", ${p.tasks === null ? 'tasks cannot be loaded' : `${p.tasks} tasks`}, changed ` +
+    (p, i) =>
+      `${i + 1}. ${p.file}: "${p.title}", ${p.tasks === null ? 'tasks cannot be loaded' : `${p.tasks} tasks`}, changed ` +
       new Date(p.mtime).toISOString().slice(0, 16).replace('T', ' ')
   )
   return (
-    `${PREFIX} no plan path was given. These are the most recent planandtier plans in ${dir}, newest first:\n` +
+    `${PREFIX} ${why}. These are the most recent planandtier plans in ${dir}, newest first:\n` +
     `${rows.join('\n')}\n` +
-    'Show them to the user and ask which one to run. They run it by typing /planandtier:execute-plan followed ' +
-    `by its path. Do not run anything yourself. ${custom}`
+    'Show them to the user, numbered as above, and ask which one to run. They run it by typing ' +
+    '/planandtier:execute-plan followed by its number (for example /planandtier:execute-plan 1) or its path. ' +
+    `Do not run anything yourself. ${custom}`
   )
 }
 
@@ -139,9 +143,21 @@ function executePlan(input, rest) {
   }
   const args = parseArgs(rest)
   if (args.error) return `${PREFIX} ${args.error}. Tell the user.`
-  if (!args.path) return listNote()
+  if (!args.path) return listNote(id)
 
-  const planFile = resolvePath(args.path, cwd)
+  // A lone number picks from the list this session was last shown; it never names a file called "1".
+  let planFile
+  const number = /^(\d+)\.?$/.exec(args.path)?.[1]
+  if (number) {
+    const listed = state.readListing(id)
+    if (!listed) return listNote(id, `there is no plan list in this session yet to pick number ${number} from`)
+    if (Number(number) < 1 || Number(number) > listed.length) {
+      return listNote(id, `the list had no plan number ${number}`)
+    }
+    planFile = listed[Number(number) - 1]
+  } else {
+    planFile = resolvePath(args.path, cwd)
+  }
   let text
   try {
     text = fs.readFileSync(planFile, 'utf8')

@@ -1,4 +1,5 @@
-// H6: SessionEnd deletes the session's state file and its arming flag. A run does not outlive its session; the tasks
+// H6: SessionEnd deletes the session's state file, its arming flag and telemetry cursor, and its saved plan
+// listing. A run does not outlive its session; the tasks
 // that finished are already committed.
 'use strict'
 
@@ -11,4 +12,5 @@ run(async () => {
   if (process.argv[2] !== 'end') return
   state.remove(input.session_id)
   state.disarm(input.session_id)
+  state.clearListing(input.session_id)
 })

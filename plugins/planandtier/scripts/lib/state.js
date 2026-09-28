@@ -92,6 +92,38 @@ function setCursor(sessionId, time) {
   }
 }
 
+// The plans /planandtier:execute-plan last listed in this session, in order, so a number from that list
+// can pick one. Removed at SessionEnd.
+const listingFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.listing.json') ?? null
+
+function saveListing(sessionId, files) {
+  try {
+    const file = listingFor(sessionId)
+    if (!file) return false
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(files))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function readListing(sessionId) {
+  try {
+    const files = JSON.parse(fs.readFileSync(listingFor(sessionId), 'utf8'))
+    return Array.isArray(files) ? files : null
+  } catch {
+    return null
+  }
+}
+
+function clearListing(sessionId) {
+  try {
+    const file = listingFor(sessionId)
+    if (file) fs.rmSync(file, { force: true })
+  } catch {}
+}
+
 // Returns true when the flag was written. Also starts the telemetry cursor.
 function arm(sessionId) {
   try {
@@ -133,4 +165,18 @@ function prune(days) {
   } catch {}
 }
 
-module.exports = { fileFor, read, write, remove, isArmed, arm, disarm, cursor, setCursor, prune }
+module.exports = {
+  fileFor,
+  read,
+  write,
+  remove,
+  isArmed,
+  arm,
+  disarm,
+  cursor,
+  setCursor,
+  saveListing,
+  readListing,
+  clearListing,
+  prune,
+}

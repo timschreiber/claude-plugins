@@ -1030,7 +1030,7 @@ test('the arm, disarm and execute-plan skills can only be run by the user', () =
     assert.match(skill, /^disable-model-invocation: true$/m)
   }
   const execute = fs.readFileSync(path.join(PLUGIN, 'skills', 'execute-plan', 'SKILL.md'), 'utf8')
-  assert.match(execute, /^argument-hint: "\[plan path\] \[--from Txx\]"$/m)
+  assert.match(execute, /^argument-hint: "\[plan path \| list number\] \[--from Txx\]"$/m)
 })
 
 // ---- execute-plan ----------------------------------------------------------------------
@@ -1191,13 +1191,55 @@ test('execute-plan with no path lists recent planandtier plans, newest first', (
   put('newer.md', VALID.replace('# Plan', '# Newer plan'), 5)
   const out = execute('', { env: { CLAUDE_CONFIG_DIR: config } })
   assert.match(out, /^planandtier: no plan path was given\. These are the most recent planandtier plans in /)
-  assert.match(out, /newer\.md: "Newer plan", 3 tasks, changed .*\n- .*older\.md: "Older plan", 1 tasks, changed/)
+  assert.match(out, /\n1\. .*newer\.md: "Newer plan", 3 tasks, changed .*\n2\. .*older\.md: "Older plan", 1 tasks, changed/)
   assert.ok(!out.includes('plain.md'))
-  assert.match(out, /ask which one to run/)
+  assert.match(out, /ask which one to run\. They run it by typing \/planandtier:execute-plan followed by its number \(for example \/planandtier:execute-plan 1\) or its path/)
   assert.equal(state.isArmed(S), false)
 
   const empty = execute('', { env: { CLAUDE_CONFIG_DIR: path.join(dir, 'none') } })
   assert.match(empty, /there are no planandtier plans in .*plansDirectory/)
+})
+
+test('execute-plan with a number runs that plan from the list this session was shown', () => {
+  savedPlan()
+  const config = path.join(dir, 'config')
+  const plans = path.join(config, 'plans')
+  fs.mkdirSync(plans, { recursive: true })
+  const first = path.join(plans, 'first.md')
+  fs.writeFileSync(first, VALID)
+  const env = { CLAUDE_CONFIG_DIR: config }
+
+  // No list shown yet in this session: the number is not guessed; the list is shown instead.
+  const early = execute('1', { env })
+  assert.match(early, /^planandtier: there is no plan list in this session yet to pick number 1 from\. These are the most recent/)
+  assert.equal(state.read(S), null, 'nothing started')
+
+  execute('', { env })
+  // A newer plan appears after the list was shown; "1" still means the plan that was listed first.
+  const later = path.join(plans, 'later.md')
+  fs.writeFileSync(later, VALID.replace('Task 2', 'Task two'))
+  const out = execute('1. --from T02', { env })
+  assert.match(out, /^planandtier: the user asked to execute the plan in .*first\.md \(3 tiered tasks\), and the session is now armed\./)
+  assert.match(out, /T01 \(skipped by --from\) is not run again\./)
+  assert.equal(state.read(S).planFile, first)
+
+  // A number the list did not have is refused, with the list shown again (and saved again).
+  state.remove(S)
+  const missing = execute('3', { env })
+  assert.match(missing, /^planandtier: the list had no plan number 3\. These are the most recent/)
+  assert.match(missing, /\n1\. .*later\.md/, 'the fresh list, which the next number refers to')
+  assert.equal(state.read(S), null)
+})
+
+test('SessionEnd removes the saved plan list', () => {
+  savedPlan()
+  const config = path.join(dir, 'config')
+  fs.mkdirSync(path.join(config, 'plans'), { recursive: true })
+  fs.writeFileSync(path.join(config, 'plans', 'p.md'), VALID)
+  execute('', { env: { CLAUDE_CONFIG_DIR: config } })
+  assert.ok(state.readListing(S))
+  hook('h6-cleanup.js', { session_id: S, hook_event_name: 'SessionEnd' }, ['end'])
+  assert.equal(state.readListing(S), null)
 })
 
 // ---- telemetry --------------------------------------------------------------------------
