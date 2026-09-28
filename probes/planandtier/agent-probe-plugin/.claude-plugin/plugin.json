@@ -1,0 +1,9 @@
+{
+  "name": "planandtier-agent-probe",
+  "description": "Development-time probe for planandtier: logs what hooks see when a plugin agent runs through the Agent tool. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
