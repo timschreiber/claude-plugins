@@ -65,6 +65,8 @@ rare tasks.
   publishes SWE-bench results by effort level for these models, and Anthropic publishes none for Sonnet 5.
 - **AA's Opus 5.5 rows are labelled "Default Fallback", unexplained.** On a Vals benchmark, provider-side
   fallback was worth about 8 points for Opus 5.5 at `max`.
-- **Sonnet 5's price is unresolved:** $2/$10 or $3/$15 per million tokens.
+- **Sonnet 5's price, since resolved: $2/$10 per million tokens.** Anthropic's pricing page says the launch
+  price is now standard and the planned rise to $3/$15 will not happen (`probes/evidence/planandtier-pricing.json`,
+  fetched 2026-09-28). The findings above do not depend on it.
 - **Public benchmarks are long, hard tasks.** planandtier's tasks are smaller and fully specified, where the
   gaps between tiers are usually smaller.

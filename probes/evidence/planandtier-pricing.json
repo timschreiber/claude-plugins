@@ -1,0 +1,35 @@
+{
+  "generated": "2026-09-28",
+  "source": "https://platform.claude.com/docs/en/about-claude/pricing (fetched 2026-09-28), 'Model pricing' table and 'Prompt caching' section",
+  "units": "USD per million tokens",
+  "models": {
+    "claude-fable-5-1":  { "input": 10, "cacheWrite5m": 12.5, "cacheWrite1h": 20, "cacheRead": 0.25, "output": 50 },
+    "claude-fable-5":    { "input": 10, "cacheWrite5m": 12.5, "cacheWrite1h": 20, "cacheRead": 1,    "output": 50 },
+    "claude-opus-5-5":   { "input": 4,  "cacheWrite5m": 5,    "cacheWrite1h": 8,  "cacheRead": 0.2,  "output": 20 },
+    "claude-opus-5":     { "input": 5,  "cacheWrite5m": 6.25, "cacheWrite1h": 10, "cacheRead": 0.5,  "output": 25 },
+    "claude-opus-4-8":   { "input": 5,  "cacheWrite5m": 6.25, "cacheWrite1h": 10, "cacheRead": 0.5,  "output": 25 },
+    "claude-opus-4-7":   { "input": 5,  "cacheWrite5m": 6.25, "cacheWrite1h": 10, "cacheRead": 0.5,  "output": 25 },
+    "claude-opus-4-6":   { "input": 5,  "cacheWrite5m": 6.25, "cacheWrite1h": 10, "cacheRead": 0.5,  "output": 25 },
+    "claude-opus-4-5":   { "input": 5,  "cacheWrite5m": 6.25, "cacheWrite1h": 10, "cacheRead": 0.5,  "output": 25 },
+    "claude-sonnet-5-5": { "input": 2,  "cacheWrite5m": 2.5,  "cacheWrite1h": 4,  "cacheRead": 0.2,  "output": 10 },
+    "claude-sonnet-5":   { "input": 2,  "cacheWrite5m": 2.5,  "cacheWrite1h": 4,  "cacheRead": 0.2,  "output": 10 },
+    "claude-sonnet-4-6": { "input": 3,  "cacheWrite5m": 3.75, "cacheWrite1h": 6,  "cacheRead": 0.3,  "output": 15 },
+    "claude-sonnet-4-5": { "input": 3,  "cacheWrite5m": 3.75, "cacheWrite1h": 6,  "cacheRead": 0.3,  "output": 15 },
+    "claude-haiku-4-5":  { "input": 1,  "cacheWrite5m": 1.25, "cacheWrite1h": 2,  "cacheRead": 0.1,  "output": 5 }
+  },
+  "quotes": [
+    "Claude Opus 5.5 | $4 / MTok | $5 / MTok | $8 / MTok | $0.20 / MTok(2) | $20 / MTok",
+    "Claude Sonnet 5 | $2 / MTok(3) | $2.50 / MTok | $4 / MTok | $0.20 / MTok | $10 / MTok(3)",
+    "(2) Cache hits and refreshes on Claude Opus 5.5 are priced at 0.05x the base input price.",
+    "(3) The $2/$10 per million input/output token pricing for Claude Sonnet 5, announced at launch as introductory pricing through August 31, 2026, is now the standard price. The previously scheduled increase to $3/$15 per million input/output tokens on September 1, 2026 will not occur.",
+    "5-minute cache write | 1.25x base input price; 1-hour cache write | 2x base input price; Cache read (hit) | 0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1; 0.05x on Claude Opus 5.5)",
+    "For Claude 4.6 and later models, specifying US-only inference through the inference_geo parameter incurs a 1.1x multiplier on all token pricing categories, including input tokens, output tokens, cache writes, and cache reads.",
+    "Fast mode ... Claude Opus 5.5 | $8 / MTok | $40 / MTok"
+  ],
+  "userConfirmation": "The user confirmed Sonnet 5 at $2/$10 on 2026-09-28, before this page was fetched. That resolves the conflict recorded in planandtier-tier-research.json.",
+  "notModeled": [
+    "Fast mode: worker and main transcripts carry no speed field (see planandtier-usage-shapes.json usageKeys), so a fast-mode message cannot be told apart and is priced at the standard rate.",
+    "Batch pricing: Claude Code does not use the Batch API.",
+    "Web search requests ($10 per 1,000): not counted."
+  ]
+}

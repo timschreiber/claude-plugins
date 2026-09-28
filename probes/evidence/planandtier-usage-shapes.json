@@ -1,0 +1,2200 @@
+{
+  "generated": "2026-09-28T18:26:37.497Z",
+  "claudeCodeVersion": "2.1.283",
+  "source": "Transcripts under ~/.claude/projects/*tier-agents*/ from the 2026-09-28 end-to-end runs, and the agent probe logs",
+  "sessions": [
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\3e5fb5cd-4930-41e6-9e76-df8671ee9c58.jsonl",
+        "modeChanges": [
+          "permission-mode:plan",
+          "permission-mode:auto"
+        ],
+        "permissionModeEntries": 6,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "plan": 18,
+          "auto": 6
+        },
+        "modelsByMode": {
+          "plan": [
+            "claude-opus-5-5"
+          ],
+          "auto": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\3e5fb5cd-4930-41e6-9e76-df8671ee9c58.jsonl",
+        "assistantLines": 24,
+        "messageIds": 13,
+        "repeatedIds": 9,
+        "repeats": [
+          {
+            "lines": 4,
+            "outputTokensByLine": [
+              226,
+              226,
+              226,
+              226
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              1619,
+              1619
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              327,
+              327
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              1634,
+              1634
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "text",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              309,
+              309
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              585,
+              585
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              532,
+              532
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              272,
+              272
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              472,
+              472
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 48,
+            "output_tokens": 12716,
+            "cache_read_input_tokens": 1246426,
+            "cache_creation_input_tokens": 81038
+          },
+          "lastLinePerId": {
+            "input_tokens": 26,
+            "output_tokens": 6288,
+            "cache_read_input_tokens": 695895,
+            "cache_creation_input_tokens": 27987
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 26,
+            "output_tokens": 6288,
+            "cache_read_input_tokens": 695895,
+            "cache_creation_input_tokens": 27987
+          }
+        },
+        "firstTimestamp": "2026-09-28T16:32:16.219Z",
+        "lastTimestamp": "2026-09-28T16:36:10.740Z"
+      },
+      "subagents": []
+    },
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd.jsonl",
+        "modeChanges": [
+          "permission-mode:plan",
+          "user:auto"
+        ],
+        "permissionModeEntries": 11,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "plan": 14,
+          "auto": 26
+        },
+        "modelsByMode": {
+          "plan": [
+            "claude-opus-5-5"
+          ],
+          "auto": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd.jsonl",
+        "assistantLines": 40,
+        "messageIds": 21,
+        "repeatedIds": 18,
+        "repeats": [
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              179,
+              179
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              1582,
+              1582
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              219,
+              219
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 3,
+            "outputTokensByLine": [
+              1669,
+              1669,
+              1669
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              115,
+              115
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              260,
+              260
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              350,
+              350
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              439,
+              439
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              732,
+              732
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              408,
+              408
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              244,
+              244
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              238,
+              238
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              325,
+              325
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              195,
+              195
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              781,
+              781
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              523,
+              523
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              213,
+              213
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              561,
+              561
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 100,
+            "output_tokens": 20015,
+            "cache_read_input_tokens": 2374703,
+            "cache_creation_input_tokens": 68042
+          },
+          "lastLinePerId": {
+            "input_tokens": 52,
+            "output_tokens": 9313,
+            "cache_read_input_tokens": 1238079,
+            "cache_creation_input_tokens": 36740
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 52,
+            "output_tokens": 9313,
+            "cache_read_input_tokens": 1238079,
+            "cache_creation_input_tokens": 36740
+          }
+        },
+        "firstTimestamp": "2026-09-28T16:52:06.597Z",
+        "lastTimestamp": "2026-09-28T16:58:03.991Z"
+      },
+      "subagents": [
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "planandtier:sonnet-low",
+            "requestShape": "background",
+            "model": null
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd\\subagents\\agent-ab503cb01ffac4765.jsonl",
+          "assistantLines": 8,
+          "messageIds": 6,
+          "repeatedIds": 2,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                4,
+                101
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                6,
+                6
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "text",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 16,
+              "output_tokens": 394,
+              "cache_read_input_tokens": 256876,
+              "cache_creation_input_tokens": 17795
+            },
+            "lastLinePerId": {
+              "input_tokens": 12,
+              "output_tokens": 384,
+              "cache_read_input_tokens": 196962,
+              "cache_creation_input_tokens": 10673
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 12,
+              "output_tokens": 384,
+              "cache_read_input_tokens": 196962,
+              "cache_creation_input_tokens": 10673
+            }
+          },
+          "firstTimestamp": "2026-09-28T16:56:50.515Z",
+          "lastTimestamp": "2026-09-28T16:57:08.462Z"
+        },
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "planandtier:sonnet-medium",
+            "requestShape": "background",
+            "model": null
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd\\subagents\\agent-acbb15c265f6f9184.jsonl",
+          "assistantLines": 11,
+          "messageIds": 8,
+          "repeatedIds": 3,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                4,
+                101
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                3,
+                146
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                8,
+                8
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "text",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 22,
+              "output_tokens": 468,
+              "cache_read_input_tokens": 309823,
+              "cache_creation_input_tokens": 70809
+            },
+            "lastLinePerId": {
+              "input_tokens": 16,
+              "output_tokens": 453,
+              "cache_read_input_tokens": 243045,
+              "cache_creation_input_tokens": 36002
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 16,
+              "output_tokens": 453,
+              "cache_read_input_tokens": 243045,
+              "cache_creation_input_tokens": 36002
+            }
+          },
+          "firstTimestamp": "2026-09-28T16:56:10.868Z",
+          "lastTimestamp": "2026-09-28T16:56:39.119Z"
+        },
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "planandtier:sonnet-medium",
+            "requestShape": "background",
+            "model": null
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd\\subagents\\agent-acea2c3610122d209.jsonl",
+          "assistantLines": 11,
+          "messageIds": 7,
+          "repeatedIds": 4,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                4,
+                4
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                2,
+                2
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                5,
+                234
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "text",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                6,
+                6
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "text",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 22,
+              "output_tokens": 437,
+              "cache_read_input_tokens": 360072,
+              "cache_creation_input_tokens": 21260
+            },
+            "lastLinePerId": {
+              "input_tokens": 14,
+              "output_tokens": 420,
+              "cache_read_input_tokens": 233219,
+              "cache_creation_input_tokens": 11092
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 14,
+              "output_tokens": 420,
+              "cache_read_input_tokens": 233219,
+              "cache_creation_input_tokens": 11092
+            }
+          },
+          "firstTimestamp": "2026-09-28T16:57:26.044Z",
+          "lastTimestamp": "2026-09-28T16:57:53.901Z"
+        },
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "planandtier:sonnet-low",
+            "requestShape": "background",
+            "model": null
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd\\subagents\\agent-ad1df9aa958773a56.jsonl",
+          "assistantLines": 9,
+          "messageIds": 7,
+          "repeatedIds": 2,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                8,
+                8
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                6,
+                6
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "text",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 18,
+              "output_tokens": 307,
+              "cache_read_input_tokens": 240928,
+              "cache_creation_input_tokens": 67560
+            },
+            "lastLinePerId": {
+              "input_tokens": 14,
+              "output_tokens": 293,
+              "cache_read_input_tokens": 206095,
+              "cache_creation_input_tokens": 35528
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 14,
+              "output_tokens": 293,
+              "cache_read_input_tokens": 206095,
+              "cache_creation_input_tokens": 35528
+            }
+          },
+          "firstTimestamp": "2026-09-28T16:55:06.211Z",
+          "lastTimestamp": "2026-09-28T16:55:28.598Z"
+        },
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "planandtier:sonnet-low",
+            "requestShape": "background",
+            "model": null
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\55060baf-6f27-424a-bd92-4cd2e84ab7cd\\subagents\\agent-ad273971632445f4c.jsonl",
+          "assistantLines": 7,
+          "messageIds": 6,
+          "repeatedIds": 1,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                4,
+                101
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 14,
+              "output_tokens": 302,
+              "cache_read_input_tokens": 221484,
+              "cache_creation_input_tokens": 17285
+            },
+            "lastLinePerId": {
+              "input_tokens": 12,
+              "output_tokens": 298,
+              "cache_read_input_tokens": 196449,
+              "cache_creation_input_tokens": 10428
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 12,
+              "output_tokens": 298,
+              "cache_read_input_tokens": 196449,
+              "cache_creation_input_tokens": 10428
+            }
+          },
+          "firstTimestamp": "2026-09-28T16:55:34.759Z",
+          "lastTimestamp": "2026-09-28T16:55:51.564Z"
+        }
+      ]
+    },
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\675410bf-3bc6-4ac4-a243-b603904cdb11.jsonl",
+        "modeChanges": [
+          "permission-mode:auto",
+          "user:plan"
+        ],
+        "permissionModeEntries": 3,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "auto": 2,
+          "plan": 4
+        },
+        "modelsByMode": {
+          "auto": [
+            "claude-opus-5-5"
+          ],
+          "plan": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\675410bf-3bc6-4ac4-a243-b603904cdb11.jsonl",
+        "assistantLines": 6,
+        "messageIds": 3,
+        "repeatedIds": 2,
+        "repeats": [
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              4,
+              4
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              null,
+              null
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 3,
+            "outputTokensByLine": [
+              1140,
+              1140,
+              1140
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 12,
+            "output_tokens": 3459,
+            "cache_read_input_tokens": 245175,
+            "cache_creation_input_tokens": 30711
+          },
+          "lastLinePerId": {
+            "input_tokens": 6,
+            "output_tokens": 1175,
+            "cache_read_input_tokens": 123711,
+            "cache_creation_input_tokens": 15321
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 6,
+            "output_tokens": 1175,
+            "cache_read_input_tokens": 123711,
+            "cache_creation_input_tokens": 15321
+          }
+        },
+        "firstTimestamp": "2026-09-28T16:20:17.130Z",
+        "lastTimestamp": "2026-09-28T16:20:36.614Z"
+      },
+      "subagents": []
+    },
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\9b5aea0e-0d1b-4866-8bd2-e2c58450eeb5.jsonl",
+        "modeChanges": [
+          "permission-mode:plan"
+        ],
+        "permissionModeEntries": 3,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "plan": 6
+        },
+        "modelsByMode": {
+          "plan": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\9b5aea0e-0d1b-4866-8bd2-e2c58450eeb5.jsonl",
+        "assistantLines": 6,
+        "messageIds": 3,
+        "repeatedIds": 3,
+        "repeats": [
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              240,
+              240
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              1789,
+              1789
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              546,
+              546
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 12,
+            "output_tokens": 5150,
+            "cache_read_input_tokens": 256642,
+            "cache_creation_input_tokens": 42634
+          },
+          "lastLinePerId": {
+            "input_tokens": 6,
+            "output_tokens": 2575,
+            "cache_read_input_tokens": 128321,
+            "cache_creation_input_tokens": 21317
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 6,
+            "output_tokens": 2575,
+            "cache_read_input_tokens": 128321,
+            "cache_creation_input_tokens": 21317
+          }
+        },
+        "firstTimestamp": "2026-09-28T16:17:44.458Z",
+        "lastTimestamp": "2026-09-28T16:18:14.452Z"
+      },
+      "subagents": []
+    },
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\c53ee427-d369-4209-aab1-e61cae2c81b5.jsonl",
+        "modeChanges": [
+          "permission-mode:plan",
+          "user:auto"
+        ],
+        "permissionModeEntries": 6,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "plan": 19,
+          "auto": 4
+        },
+        "modelsByMode": {
+          "plan": [
+            "claude-opus-5-5"
+          ],
+          "auto": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\c53ee427-d369-4209-aab1-e61cae2c81b5.jsonl",
+        "assistantLines": 23,
+        "messageIds": 13,
+        "repeatedIds": 8,
+        "repeats": [
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              246,
+              246
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              412,
+              412
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              602,
+              602
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              199,
+              199
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 4,
+            "outputTokensByLine": [
+              1774,
+              1774,
+              1774,
+              1774
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              206,
+              206
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              177,
+              177
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              206,
+              206
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 50,
+            "output_tokens": 13146,
+            "cache_read_input_tokens": 1235481,
+            "cache_creation_input_tokens": 50872
+          },
+          "lastLinePerId": {
+            "input_tokens": 28,
+            "output_tokens": 5776,
+            "cache_read_input_tokens": 696082,
+            "cache_creation_input_tokens": 28688
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 28,
+            "output_tokens": 5776,
+            "cache_read_input_tokens": 696082,
+            "cache_creation_input_tokens": 28688
+          }
+        },
+        "firstTimestamp": "2026-09-28T17:03:58.744Z",
+        "lastTimestamp": "2026-09-28T17:05:47.181Z"
+      },
+      "subagents": [
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "planandtier:sonnet-low",
+            "requestShape": "background",
+            "model": null
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents\\c53ee427-d369-4209-aab1-e61cae2c81b5\\subagents\\agent-a456ac0f0759901f8.jsonl",
+          "assistantLines": 8,
+          "messageIds": 7,
+          "repeatedIds": 1,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                2,
+                98
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 16,
+              "output_tokens": 372,
+              "cache_read_input_tokens": 203686,
+              "cache_creation_input_tokens": 66928
+            },
+            "lastLinePerId": {
+              "input_tokens": 14,
+              "output_tokens": 370,
+              "cache_read_input_tokens": 203686,
+              "cache_creation_input_tokens": 34996
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 14,
+              "output_tokens": 370,
+              "cache_read_input_tokens": 203686,
+              "cache_creation_input_tokens": 34996
+            }
+          },
+          "firstTimestamp": "2026-09-28T17:05:19.880Z",
+          "lastTimestamp": "2026-09-28T17:05:39.840Z"
+        }
+      ]
+    },
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-131359\\890c3069-c5d4-451c-b5d9-d277b42be578.jsonl",
+        "modeChanges": [
+          "permission-mode:plan",
+          "permission-mode:auto"
+        ],
+        "permissionModeEntries": 6,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "plan": 16,
+          "auto": 10
+        },
+        "modelsByMode": {
+          "plan": [
+            "claude-opus-5-5"
+          ],
+          "auto": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-131359\\890c3069-c5d4-451c-b5d9-d277b42be578.jsonl",
+        "assistantLines": 26,
+        "messageIds": 12,
+        "repeatedIds": 9,
+        "repeats": [
+          {
+            "lines": 3,
+            "outputTokensByLine": [
+              232,
+              232,
+              232
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              147,
+              147
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              1206,
+              1206
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 4,
+            "outputTokensByLine": [
+              700,
+              700,
+              700,
+              700
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 3,
+            "outputTokensByLine": [
+              146,
+              146,
+              146
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 3,
+            "outputTokensByLine": [
+              591,
+              591,
+              591
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              347,
+              347
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              153,
+              153
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              326,
+              326
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 54,
+            "output_tokens": 10284,
+            "cache_read_input_tokens": 1236787,
+            "cache_creation_input_tokens": 54333
+          },
+          "lastLinePerId": {
+            "input_tokens": 26,
+            "output_tokens": 4067,
+            "cache_read_input_tokens": 577272,
+            "cache_creation_input_tokens": 21024
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 26,
+            "output_tokens": 4067,
+            "cache_read_input_tokens": 577272,
+            "cache_creation_input_tokens": 21024
+          }
+        },
+        "firstTimestamp": "2026-09-28T17:16:02.123Z",
+        "lastTimestamp": "2026-09-28T17:17:50.843Z"
+      },
+      "subagents": [
+        {
+          "meta": {
+            "keys": [
+              "agentType",
+              "description",
+              "model",
+              "requestNonInteractive",
+              "requestShape",
+              "spawnDepth",
+              "toolUseId"
+            ],
+            "agentType": "general-purpose",
+            "requestShape": "background",
+            "model": "sonnet"
+          },
+          "file": "C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-131359\\890c3069-c5d4-451c-b5d9-d277b42be578\\subagents\\agent-a3692bf9bfdc47111.jsonl",
+          "assistantLines": 6,
+          "messageIds": 4,
+          "repeatedIds": 2,
+          "repeats": [
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                3,
+                102
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                "tool_use"
+              ],
+              "blockTypesByLine": [
+                "thinking",
+                "tool_use"
+              ]
+            },
+            {
+              "lines": 2,
+              "outputTokensByLine": [
+                2,
+                2
+              ],
+              "inputSideSameOnEveryLine": true,
+              "stopReasonByLine": [
+                null,
+                null
+              ],
+              "blockTypesByLine": [
+                "text",
+                "tool_use"
+              ]
+            }
+          ],
+          "models": [
+            "claude-sonnet-5"
+          ],
+          "usageKeys": [
+            "cache_creation",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "inference_geo",
+            "input_tokens",
+            "iterations",
+            "output_tokens",
+            "output_tokens_details",
+            "server_tool_use",
+            "service_tier",
+            "speed"
+          ],
+          "cacheCreationKeys": [
+            "ephemeral_1h_input_tokens",
+            "ephemeral_5m_input_tokens"
+          ],
+          "inferenceGeo": [
+            "not_available"
+          ],
+          "totals": {
+            "everyLine": {
+              "input_tokens": 12,
+              "output_tokens": 263,
+              "cache_read_input_tokens": 150230,
+              "cache_creation_input_tokens": 73852
+            },
+            "lastLinePerId": {
+              "input_tokens": 8,
+              "output_tokens": 258,
+              "cache_read_input_tokens": 111761,
+              "cache_creation_input_tokens": 39029
+            },
+            "largestPerIdAndField": {
+              "input_tokens": 8,
+              "output_tokens": 258,
+              "cache_read_input_tokens": 111761,
+              "cache_creation_input_tokens": 39029
+            }
+          },
+          "firstTimestamp": "2026-09-28T17:17:34.756Z",
+          "lastTimestamp": "2026-09-28T17:17:44.035Z"
+        }
+      ]
+    },
+    {
+      "main": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-131359\\ebef6f17-819a-4971-b236-5f9bcf43321e.jsonl",
+        "modeChanges": [
+          "permission-mode:plan"
+        ],
+        "permissionModeEntries": 3,
+        "permissionModeEntryKeys": [
+          "permissionMode",
+          "sessionId",
+          "type"
+        ],
+        "assistantLinesByMode": {
+          "plan": 7
+        },
+        "modelsByMode": {
+          "plan": [
+            "claude-opus-5-5"
+          ]
+        }
+      },
+      "mainUsage": {
+        "file": "C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-131359\\ebef6f17-819a-4971-b236-5f9bcf43321e.jsonl",
+        "assistantLines": 7,
+        "messageIds": 3,
+        "repeatedIds": 3,
+        "repeats": [
+          {
+            "lines": 3,
+            "outputTokensByLine": [
+              313,
+              313,
+              313
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              1606,
+              1606
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "tool_use",
+              "tool_use"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "tool_use"
+            ]
+          },
+          {
+            "lines": 2,
+            "outputTokensByLine": [
+              750,
+              750
+            ],
+            "inputSideSameOnEveryLine": true,
+            "stopReasonByLine": [
+              "end_turn",
+              "end_turn"
+            ],
+            "blockTypesByLine": [
+              "thinking",
+              "text"
+            ]
+          }
+        ],
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "usageKeys": [
+          "cache_creation",
+          "cache_creation_input_tokens",
+          "cache_read_input_tokens",
+          "inference_geo",
+          "input_tokens",
+          "iterations",
+          "output_tokens",
+          "output_tokens_details",
+          "server_tool_use",
+          "service_tier",
+          "speed"
+        ],
+        "cacheCreationKeys": [
+          "ephemeral_1h_input_tokens",
+          "ephemeral_5m_input_tokens"
+        ],
+        "inferenceGeo": [
+          "not_available"
+        ],
+        "totals": {
+          "everyLine": {
+            "input_tokens": 14,
+            "output_tokens": 5651,
+            "cache_read_input_tokens": 286651,
+            "cache_creation_input_tokens": 61285
+          },
+          "lastLinePerId": {
+            "input_tokens": 6,
+            "output_tokens": 2669,
+            "cache_read_input_tokens": 128343,
+            "cache_creation_input_tokens": 21140
+          },
+          "largestPerIdAndField": {
+            "input_tokens": 6,
+            "output_tokens": 2669,
+            "cache_read_input_tokens": 128343,
+            "cache_creation_input_tokens": 21140
+          }
+        },
+        "firstTimestamp": "2026-09-28T17:14:14.827Z",
+        "lastTimestamp": "2026-09-28T17:14:45.100Z"
+      },
+      "subagents": []
+    }
+  ],
+  "agentToolResults": [
+    {
+      "log": "planandtier-agent-probe.log",
+      "status": "completed",
+      "isAsync": false,
+      "hasUsage": true,
+      "usageKeys": [
+        "cache_creation",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+        "inference_geo",
+        "input_tokens",
+        "iterations",
+        "output_tokens",
+        "output_tokens_details",
+        "server_tool_use",
+        "service_tier",
+        "speed"
+      ],
+      "totalTokens": 26187
+    },
+    {
+      "log": "planandtier-agents-probe.log",
+      "status": "async_launched",
+      "isAsync": true,
+      "hasUsage": false,
+      "usageKeys": [],
+      "totalTokens": null
+    },
+    {
+      "log": "planandtier-agents-probe.log",
+      "status": "async_launched",
+      "isAsync": true,
+      "hasUsage": false,
+      "usageKeys": [],
+      "totalTokens": null
+    },
+    {
+      "log": "planandtier-agents-probe.log",
+      "status": "async_launched",
+      "isAsync": true,
+      "hasUsage": false,
+      "usageKeys": [],
+      "totalTokens": null
+    },
+    {
+      "log": "planandtier-agents-probe.log",
+      "status": "async_launched",
+      "isAsync": true,
+      "hasUsage": false,
+      "usageKeys": [],
+      "totalTokens": null
+    },
+    {
+      "log": "planandtier-agents-probe.log",
+      "status": "async_launched",
+      "isAsync": true,
+      "hasUsage": false,
+      "usageKeys": [],
+      "totalTokens": null
+    }
+  ]
+}
