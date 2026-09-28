@@ -20,7 +20,7 @@ const fenced = (obj, info = 'json tiered-tasks') => '```' + info + '\n' + JSON.s
 const plan = (obj, extra = '') => `# Plan\n\nProse here.\n\n## Tasks\n\n${fenced(obj)}\n${extra}`
 
 test('a valid plan parses to its tasks', () => {
-  const r = parsePlan(plan({ tasks: [task(1), task(2, { model: 'opus', effort: 'xhigh' })] }))
+  const r = parsePlan(plan({ tasks: [task(1), task(2, { model: 'opus', effort: 'high' })] }))
   assert.equal(r.ok, true)
   assert.equal(r.optOut, false)
   assert.deepEqual(r.errors, [])
@@ -31,21 +31,24 @@ test('a valid plan parses to its tasks', () => {
 test('every allowed model/effort pair validates', () => {
   const pairs = [
     ['sonnet', 'low'], ['sonnet', 'medium'], ['sonnet', 'high'],
-    ['opus', 'low'], ['opus', 'medium'], ['opus', 'high'], ['opus', 'xhigh'],
+    ['opus', 'medium'], ['opus', 'high'],
   ]
   for (const [model, effort] of pairs) {
     assert.deepEqual(validate({ tasks: [task(1, { model, effort })] }), [], `${model}/${effort}`)
   }
 })
 
-test('sonnet/xhigh is accepted but runs as opus/low', () => {
-  assert.deepEqual(validate({ tasks: [task(1, { effort: 'xhigh' })] }), [])
-  const r = parsePlan(plan({ tasks: [task(1, { effort: 'xhigh' }), task(2)] }))
+test('sonnet/xhigh and opus/low are accepted but run as opus/medium, and opus/xhigh as opus/high', () => {
+  const asked = [
+    task(1, { effort: 'xhigh' }), task(2, { model: 'opus', effort: 'low' }), task(3, { model: 'opus', effort: 'xhigh' }), task(4),
+  ]
+  assert.deepEqual(validate({ tasks: asked }), [])
+  const r = parsePlan(plan({ tasks: asked }))
   assert.equal(r.ok, true)
-  assert.deepEqual([r.tasks[0].model, r.tasks[0].effort], ['opus', 'low'])
-  assert.deepEqual([r.tasks[1].model, r.tasks[1].effort], ['sonnet', 'medium'])
+  assert.deepEqual(r.tasks.map(t => [t.model, t.effort]), [['opus', 'medium'], ['opus', 'medium'], ['opus', 'high'], ['sonnet', 'medium']])
   const table = renderSection(r.tasks, '/p.tasks.json', '0123456789abcdef').join('\n')
-  assert.match(table, /\| T01 \| Task 1 \| opus \| low \|/)
+  assert.match(table, /\| T01 \| Task 1 \| opus \| medium \|/)
+  assert.match(table, /\| T03 \| Task 3 \| opus \| high \|/)
 })
 
 test('haiku, fable, max and unknown values are rejected with a message naming the choices', () => {
@@ -58,7 +61,7 @@ test('haiku, fable, max and unknown values are rejected with a message naming th
   const max = validate({ tasks: [task(1, { effort: 'max' })] })
   assert.match(max[0], /T01\.effort: "max" is not allowed for sonnet; use low, medium or high/)
   const opusMax = validate({ tasks: [task(1, { model: 'opus', effort: 'max' })] })
-  assert.match(opusMax[0], /"max" is not allowed for opus; use low, medium, high or xhigh/)
+  assert.match(opusMax[0], /"max" is not allowed for opus; use medium or high/)
   assert.match(validate({ tasks: [task(1, { effort: 'ultra' })] })[0], /"ultra" is not allowed/)
 })
 
@@ -181,14 +184,16 @@ test('an empty or non-string plan is an error, not a crash', () => {
 test('the tier ladder runs sonnet, then opus, each by rising effort', () => {
   assert.deepEqual(TIERS, [
     'sonnet-low', 'sonnet-medium', 'sonnet-high',
-    'opus-low', 'opus-medium', 'opus-high', 'opus-xhigh',
+    'opus-medium', 'opus-high',
   ])
   assert.equal(tierOf(task(1, { model: 'opus', effort: 'high' })), 'opus-high')
   assert.equal(nextTier('sonnet-low'), 'sonnet-medium')
-  assert.equal(nextTier('sonnet-high'), 'opus-low')
+  assert.equal(nextTier('sonnet-high'), 'opus-medium')
   assert.equal(nextTier('sonnet-xhigh'), null, 'an alias, not a tier')
+  assert.equal(nextTier('opus-low'), null, 'an alias, not a tier')
   assert.equal(nextTier('haiku-default'), null, 'not a tier')
-  assert.equal(nextTier('opus-xhigh'), null)
+  assert.equal(nextTier('opus-high'), null)
+  assert.equal(nextTier('opus-xhigh'), null, 'an alias, not a tier')
   assert.equal(nextTier('gpt-high'), null)
 })
 

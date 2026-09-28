@@ -7,7 +7,7 @@ const path = require('path')
 const { TIERS } = require('../../plugins/planandtier/scripts/lib/tasks.js')
 
 const DIR = path.join(__dirname, '..', '..', 'plugins', 'planandtier', 'agents')
-const TURNS = { low: 30, medium: 40, high: 60, xhigh: 80 }
+const TURNS = { low: 30, medium: 40, high: 60 }
 
 // {fields, body} from an agent file: simple "key: value" frontmatter between --- lines.
 function read(tier) {

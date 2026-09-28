@@ -224,7 +224,7 @@ Every task has exactly these five keys, all strings. Any other key is an error.
 | `id` | `T01`, `T02`, ... matching the task's position: the first task must be `T01`, the second `T02`, with no gaps. |
 | `title` | One non-empty line, at most 100 characters. Used as the task's commit message and in its dispatch description. |
 | `model` | `sonnet` or `opus`. |
-| `effort` | `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus`. `sonnet` / `xhigh` is accepted as an alias for `opus` / `low`. |
+| `effort` | `low`, `medium` or `high` for `sonnet`; `medium` or `high` for `opus`. `sonnet` / `xhigh` and `opus` / `low` are accepted as aliases for `opus` / `medium`, and `opus` / `xhigh` for `opus` / `high`. |
 | `prompt` | Non-empty and contains the text `Verify:`. |
 
 ### Whole-block rules
@@ -252,7 +252,7 @@ scans the plan line by line and tracks fenced code blocks, so:
 
 Validation collects **every** problem before returning, so Claude can fix them all in one pass. Error
 messages name the task and field and list the allowed values, for example
-`T03.effort: "max" is not allowed for opus; use low, medium, high or xhigh`.
+`T03.effort: "max" is not allowed for opus; use medium or high`.
 
 ### The tasks file
 
@@ -318,14 +318,16 @@ A task can depend only on earlier tasks, so tasks are ordered accordingly.
 
 ## Model and effort tiers
 
-Seven tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
+Five tiers are allowed. Each is also the name of the agent that runs it, `planandtier:<model>-<effort>`.
 The rules tell Claude to favor the smallest model and effort that will get the job done:
 
 1. Pick the model by the kind of work: `sonnet` for fully specified work, `opus` for work that needs
    judgment or is too intricate and wide for `sonnet`.
-2. Start at `medium` effort, the baseline. Lower it for a task that is easier or simpler than the baseline
-   for its model, and raise it for one that is harder or more complex.
-3. Past `sonnet` / `high`, go to `opus` / `low`: `sonnet` stops at `high`.
+2. Start at `medium` effort, the baseline for both models. For `sonnet`, lower it for a task that is
+   easier or simpler than the baseline, and raise it for one that is harder or more complex. For `opus`,
+   raise it to `high` for the hardest work; `opus` has no lower effort.
+3. Past `sonnet` / `high`, go to `opus` / `medium`: `sonnet` stops at `high`, and `opus` starts at
+   `medium`.
 
 A failed task is reset and retried one tier up, so a tier that is slightly too small usually costs less
 than one that is too big.
@@ -334,33 +336,34 @@ than one that is too big.
 |---|---|
 | `sonnet` / `low` | Easier than the baseline: fully given work, such as literal find-and-replace pairs, a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
 | `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
-| `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases. |
-| `opus` / `low` | Fully specified, intricate and wide (interacting edge cases across several files, where `sonnet` / `high` is likely to miss one), or small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
-| `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: unfamiliar library internals, poorly documented APIs, debugging a known failure. |
-| `opus` / `high` | The hardest bounded implementation: a failure of unknown cause across components, or subtle cross-cutting changes. |
-| `opus` / `xhigh` | Very rare, for extreme reasoning only: concurrency correctness, algorithmic subtleties, security-critical logic. The plan's prose must say why. |
+| `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases, including interacting edge cases across several files. |
+| `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: a well-defined change in unfamiliar code that the prompt cannot fully describe, unfamiliar library internals, poorly documented APIs, debugging a known failure. |
+| `opus` / `high` | Rare: the hardest bounded work, such as a failure of unknown cause across components, subtle cross-cutting changes, concurrency correctness, algorithmic subtleties or security-critical logic. |
 
-If more than about one task in ten is `opus` / `high` or above, the rules treat the plan as
+If more than about one task in ten is `opus` / `high`, the rules treat the plan as
 under-specified: the design decisions belong in planning, with the answers written into the prompts.
 
-**Why Sonnet stops at `high`.** On every published comparison found, Opus 5.5 at `low` scored above
-Sonnet 5 at `xhigh`, at a lower cost per task. The closest result was on reasoning-heavy scientific coding
-(SciCode, 59% against 54%); the widest was on Terminal-Bench 4.0 (31% against 7%). So `sonnet-xhigh` was
-dropped and its work given to `opus-low`. The data comes almost entirely from Anthropic and Artificial
-Analysis, and this choice is expected to be revisited when a newer Sonnet ships. See
+**Why these five.** On Anthropic's Sonnet 5.5 launch charts (Terminal-Bench 4.0, FrontierCode 1.1 and
+CursorBench 4.0), Sonnet 5.5 at `high` scores above Opus 5.5 at `low` on all three, so `opus-low` is no
+step up from `sonnet-high`. Opus 5.5 at `high` scores as well as or better than Sonnet 5.5 at `xhigh` at
+equal or lower cost, so Sonnet stops at `high`. Opus 5.5 at `xhigh` ties or trails `high` on two of the
+three and gains 2 points on the third for about twice the cost. So `opus-low` and `opus-xhigh` were
+dropped, as `sonnet-xhigh` had been against Sonnet 5. The data is Anthropic's own. See
 [`planandtier-tier-findings.md`](planandtier-tier-findings.md).
 
-**`sonnet` / `xhigh` is an alias.** The rules never offer it, but a plan that asks for it is not denied: the
-parser replaces it with `opus` / `low`, so the table in the approval dialog, the dispatch and the retries
-all use `opus-low`. The aliases are in `ALIASES` in `lib/tasks.js`.
+**Dropped pairs are aliases.** The rules never offer them, but a plan that asks for one is not denied: the
+parser replaces it with the next tier up. `sonnet` / `xhigh` and `opus` / `low` become `opus` / `medium`,
+and `opus` / `xhigh` becomes `opus` / `high`, so the table in the approval dialog, the dispatch and the
+retries all use the replacement. Saved tasks files are parsed the same way, so a plan saved before a pair
+was dropped still runs. The aliases are in `ALIASES` in `lib/tasks.js`.
 
 **Not allowed:** Haiku, the `max` effort, and Fable. Haiku was removed because, in the user's experience,
 it does not follow instructions reliably and too often does its own thing on coding work. The published
 coding results agree: 25.5 against Sonnet 5's 88.2 on Scale's SWE-Bench Pro V2, and 17 against Sonnet 5
 at `low`'s 24 on the Artificial Analysis index (`planandtier-tier-research.json`).
 
-**The retry ladder** is the table's order: `sonnet` from `low` to `high`, then `opus` from `low` to
-`xhigh`.
+**The retry ladder** is the table's order: `sonnet` from `low` to `high`, then `opus` at `medium` and
+`high`.
 
 The allowed tiers are defined in three places that must be kept in step: `ALLOWED` in `lib/tasks.js`,
 which enforces them and derives `TIERS`, the agents in `agents/`, and `rules/tiering.md`, which tells
@@ -646,7 +649,7 @@ failed check as the reason.
 | Success, more tasks left | The next task starts at its own tier. Claude gets its dispatch. |
 | Success, last task | The run is `complete`. Claude lists each task's commit and tier and tells the user. |
 | Failure, fewer than 2 retries used, a higher tier exists | H4 checks that no commit made by the attempt is on a remote branch, runs `git reset --hard <recorded HEAD>` and `git clean -fd`, and asks for the same task one tier up, with the reason. |
-| Failure after 2 retries, or at `opus-xhigh` | The run is `halted`. Nothing is reset: the last attempt's changes and any commit it made stay for the user to inspect. Claude reports the task, each tier tried and the reason, and must not fix it itself. |
+| Failure after 2 retries, or at `opus-high` | The run is `halted`. Nothing is reset: the last attempt's changes and any commit it made stay for the user to inspect. Claude reports the task, each tier tried and the reason, and must not fix it itself. |
 | A failed attempt's commit is on a remote branch, the reset fails, or the branch changed | The run is `halted` at once, without a reset. |
 
 The reset removes the failed attempt's commits, changes and untracked files. Ignored files are left alone.
@@ -877,7 +880,7 @@ reads as no state. Each approval and each arming prunes session files, flags and
 
 ## The tier agents
 
-[`agents/`](../../plugins/planandtier/agents/) holds seven plugin agents, one per tier, named
+[`agents/`](../../plugins/planandtier/agents/) holds five plugin agents, one per tier, named
 `<model>-<effort>` and run as `planandtier:<model>-<effort>`. They share one body (the worker's rules and
 report block above) and differ only in frontmatter:
 
@@ -885,7 +888,7 @@ report block above) and differ only in frontmatter:
 |---|---|
 | `model` | `sonnet` or `opus` |
 | `effort` | The tier's effort |
-| `maxTurns` | 30, 40, 60 or 80 for `low`, `medium`, `high`, `xhigh` |
+| `maxTurns` | 30, 40 or 60 for `low`, `medium`, `high` |
 | `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows |
 
 Workers inherit the session's permission mode and get the project's `CLAUDE.md` automatically. The
@@ -960,8 +963,8 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 
 | Constant | Value | Where |
 |---|---|---|
-| Allowed models and efforts | `sonnet` × `low`, `medium`, `high`; `opus` × `low`, `medium`, `high`, `xhigh` | `lib/tasks.js` `ALLOWED` |
-| Aliases | `sonnet` / `xhigh` runs as `opus` / `low` | `lib/tasks.js` `ALIASES` |
+| Allowed models and efforts | `sonnet` × `low`, `medium`, `high`; `opus` × `medium`, `high` | `lib/tasks.js` `ALLOWED` |
+| Aliases | `sonnet` / `xhigh` and `opus` / `low` run as `opus` / `medium`; `opus` / `xhigh` runs as `opus` / `high` | `lib/tasks.js` `ALIASES` |
 | Tier ladder | `ALLOWED` in order | `lib/tasks.js` `TIERS` |
 | Retries per task | 2 | `lib/run.js` `MAX_RETRIES` |
 | Commit lines | `Planandtier-Task: <id>` and `Planandtier-Plan: <plan id>` | the agents; checked in `lib/run.js` |
@@ -985,7 +988,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 plugins/planandtier/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
-  agents/<model>-<effort>.md     # the seven tier agents, one shared body
+  agents/<model>-<effort>.md     # the five tier agents, one shared body
   hooks/hooks.json               # H1-H6 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   skills/arm/SKILL.md            # /planandtier:arm (user-only; H1 does the arming)
@@ -1119,7 +1122,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | With the fixes, in a live run: each attempt's spend line shows at the next Stop, and the summary's planning includes a rejected round | [`planandtier-telemetry-findings.md`](planandtier-telemetry-findings.md#the-fixes-in-a-live-run) | `planandtier-agents-20260928-161554-session-output.txt`, `-telemetry.jsonl`, `-git-log.txt` |
 | `/planandtier:execute-plan` live: a plan left unapproved runs in a later session; committed tasks are skipped; planning is counted across sessions; a plain plan runs without planandtier | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#executing-a-saved-plan-live) | `planandtier-execute-plan-20260928-162334-partB-*`, `-partC-*`, `-partD-*`, `-telemetry.jsonl` |
 | A typed plugin skill command reaches `UserPromptSubmit` as the raw text (for example `/planandtier-agent-probe:arm`), the namespaced name resolves, and a `disable-model-invocation` skill's body still reaches the model | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#arming-what-a-typed-skill-command-looks-like-to-a-hook) | `planandtier-arm-probe.log`, `planandtier-arm-probe-results.json` |
-| Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; the Opus effort steps above `high` add little | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28) |
+| Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; Sonnet 5.5 at `high` scores above Opus 5.5 at `low`, Opus 5.5 at `high` matches or beats Sonnet 5.5 at `xhigh` for equal or less, and Opus 5.5 at `xhigh` adds little over `high` | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28), `planandtier-sonnet-5-5-charts.json` (Anthropic's Sonnet 5.5 launch charts) |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log`, `planandtier-agents-probe.log`, `planandtier-agents-debug.log`, `planandtier-agents-rerun-probe.log`, `planandtier-agents-rerun-debug.log` |
 | The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
 | The tasks file end to end: a plan with a 5,781-character line shown as a table and loaded from its tasks file; `tool_response.plan` holds the shortened text (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |

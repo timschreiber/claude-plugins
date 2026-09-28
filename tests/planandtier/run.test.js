@@ -12,7 +12,7 @@ const task = (n, over = {}) => ({
   prompt: 'Do it. Verify: node --test passes.',
   ...over,
 })
-const TASKS = [task(1, { effort: 'low' }), task(2), task(3, { model: 'opus', effort: 'xhigh' })]
+const TASKS = [task(1, { effort: 'low' }), task(2), task(3, { model: 'opus', effort: 'high' })]
 const start = () => r.startRun({ tasks: TASKS, tasksFile: 'C:/plans/p.tasks.json', branch: 'main' })
 const call = (state, over = {}) => ({ ...r.expectedCall(state), ...over })
 
@@ -65,7 +65,7 @@ test('a run picked up part-way starts at its first unfinished task and names the
   s = r.advance(s, { ok: true, commit: 'bbb2222' }).state
   const { state } = r.advance(s, { ok: true, commit: 'ccc3333' })
   const text = r.completeText(state)
-  assert.match(text, /all 3 tasks are done.*: T01 aaa1111 \(earlier run\), T02 bbb2222 \(sonnet-medium\), T03 ccc3333 \(opus-xhigh\)\./)
+  assert.match(text, /all 3 tasks are done.*: T01 aaa1111 \(earlier run\), T02 bbb2222 \(sonnet-medium\), T03 ccc3333 \(opus-high\)\./)
   assert.match(text, /were not run this time/)
   assert.equal(r.doneLabel(r.skippedEntry('T01', null, 'from')), 'T01 (skipped by --from)')
   assert.ok(!r.completeText(r.advance(r.advance(r.advance(start(), { ok: true, commit: 'a' }).state, { ok: true, commit: 'b' }).state, { ok: true, commit: 'c' }).state).includes('not run this time'))
@@ -157,34 +157,34 @@ test('advance moves to the next task, then completes', () => {
   assert.equal(action, 'complete')
   assert.equal(state.phase, 'complete')
   assert.deepEqual(state.done.map(d => [d.id, d.tier, d.attempts]), [
-    ['T01', 'sonnet-low', 1], ['T02', 'sonnet-medium', 1], ['T03', 'opus-xhigh', 1],
+    ['T01', 'sonnet-low', 1], ['T02', 'sonnet-medium', 1], ['T03', 'opus-high', 1],
   ])
   assert.match(r.completeText(state), /all 3 tasks are done.*T01 aaa1111 \(sonnet-low\), T02 bbb2222 \(sonnet-medium\)/)
 })
 
-test('a failure retries one tier up, twice, and then halts; past sonnet/high the next tier is opus/low', () => {
+test('a failure retries one tier up, twice, and then halts; past sonnet/high the next tier is opus/medium', () => {
   let s = r.advance(start(), { ok: true, commit: 'aaa' }).state // T02 at sonnet-medium
   s = { ...s, current: { ...s.current, head: 'h1' } }
   let out = r.advance(s, { ok: false, reason: 'first' })
   assert.equal(out.action, 'retry')
   assert.deepEqual([out.state.current.attempt, out.state.current.tier, out.state.current.head], [2, 'sonnet-high', 'h1'])
   out = r.advance(out.state, { ok: false, reason: 'second' })
-  assert.deepEqual([out.action, out.state.current.attempt, out.state.current.tier], ['retry', 3, 'opus-low'])
+  assert.deepEqual([out.action, out.state.current.attempt, out.state.current.tier], ['retry', 3, 'opus-medium'])
   assert.deepEqual(out.state.current.lastFailure, { tier: 'sonnet-high', reason: 'second' })
   out = r.advance(out.state, { ok: false, reason: 'third' })
   assert.equal(out.action, 'halt')
   assert.equal(out.state.phase, 'halted')
-  assert.deepEqual(out.state.halt, { task: 'T02', tried: ['sonnet-medium', 'sonnet-high', 'opus-low'], reason: 'third' })
-  assert.match(r.haltText(out.state), /stopped at T02, after 3 attempt\(s\) \(sonnet-medium, sonnet-high, opus-low\)\. Reason: third\./)
+  assert.deepEqual(out.state.halt, { task: 'T02', tried: ['sonnet-medium', 'sonnet-high', 'opus-medium'], reason: 'third' })
+  assert.match(r.haltText(out.state), /stopped at T02, after 3 attempt\(s\) \(sonnet-medium, sonnet-high, opus-medium\)\. Reason: third\./)
   assert.match(r.haltText(out.state), /Do not fix it yourself/)
 })
 
 test('a failure at the top tier, or a fatal one, halts at once', () => {
   let s = start()
   s = r.advance(s, { ok: true, commit: 'a' }).state
-  s = r.advance(s, { ok: true, commit: 'b' }).state // T03 at opus-xhigh
+  s = r.advance(s, { ok: true, commit: 'b' }).state // T03 at opus-high
   const top = r.advance(s, { ok: false, reason: 'hard' })
-  assert.deepEqual([top.action, top.state.halt.tried], ['halt', ['opus-xhigh']])
+  assert.deepEqual([top.action, top.state.halt.tried], ['halt', ['opus-high']])
   const fatal = r.advance(start(), { ok: false, fatal: 'the worker left the branch the run started on' })
   assert.equal(fatal.action, 'halt')
   assert.match(fatal.state.halt.reason, /left the branch/)

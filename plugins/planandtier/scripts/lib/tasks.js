@@ -2,16 +2,21 @@
 // rewrites plan text. H2 and H3 reach it through sidecar.js resolvePlan(), which adds the file work.
 'use strict'
 
-// Sonnet stops at high: work harder than sonnet/high goes to opus/low, which measured stronger than
-// sonnet/xhigh (planandtier-tier-findings.md; revisit when a newer Sonnet ships). Haiku is not offered.
+// Sonnet stops at high, and work harder than sonnet/high goes to opus/medium: with Sonnet 5.5, opus/low
+// scores below sonnet/high and sonnet/xhigh below opus/medium or opus/high, and opus/xhigh adds little
+// over opus/high (planandtier-tier-findings.md). Haiku is not offered.
 const ALLOWED = {
   sonnet: ['low', 'medium', 'high'],
-  opus: ['low', 'medium', 'high', 'xhigh'],
+  opus: ['medium', 'high'],
 }
 
-// Pairs that are accepted but run as another tier. The rules never offer them; if a plan asks for
-// one anyway, it runs at the tier named here instead of being denied.
-const ALIASES = { 'sonnet-xhigh': { model: 'opus', effort: 'low' } }
+// Pairs that are accepted but run as another tier, the next one up (or the top). The rules never offer
+// them; if a plan asks for one anyway, it runs at the tier named here instead of being denied.
+const ALIASES = {
+  'sonnet-xhigh': { model: 'opus', effort: 'medium' },
+  'opus-low': { model: 'opus', effort: 'medium' },
+  'opus-xhigh': { model: 'opus', effort: 'high' },
+}
 
 // The tiers, weakest first. Each is also the name of the agent that runs it (planandtier:<tier>).
 // A failed task is retried one step up this ladder.

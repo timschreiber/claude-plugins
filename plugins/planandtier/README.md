@@ -63,10 +63,10 @@ Tested on Claude Code 2.1.283.
 
 ### When a task fails
 
-It is retried, twice at most, each time one tier up (`sonnet` from `low` to `high`, then `opus` from `low`
-to `xhigh`). Before each retry the working tree is reset to the commit before the
-task, so earlier tasks' commits are kept. If the second retry fails too, the run stops, and the last
-attempt's changes stay in the working tree for you to inspect.
+It is retried, twice at most, each time one tier up (`sonnet` from `low` to `high`, then `opus` at
+`medium` and `high`). Before each retry the working tree is reset to the commit before the
+task, so earlier tasks' commits are kept. If the second retry fails too, or a task fails at `opus` /
+`high`, the run stops, and the last attempt's changes stay in the working tree for you to inspect.
 
 ### Continuing after an interruption
 
@@ -146,16 +146,17 @@ cannot be approved.
 |---|---|
 | `sonnet` / `low` | Fully given work: literal find-and-replace edits, a new file with its exact content, or a checked rename |
 | `sonnet` / `medium` | The baseline: fully specified work |
-| `sonnet` / `high` | Fully specified but intricate work |
-| `opus` / `low` | Intricate work across several files, or small bounded judgment |
-| `opus` / `medium` to `high` | Judgment the plan cannot pin down, up to the hardest bounded work |
-| `opus` / `xhigh` | Very rare: extreme reasoning only |
+| `sonnet` / `high` | Fully specified but intricate work, including across several files |
+| `opus` / `medium` | The baseline for judgment: work the plan cannot pin down |
+| `opus` / `high` | Rare: the hardest bounded work |
 
-Claude picks the model by the kind of work, starts at `medium` effort, and goes lower for simpler tasks and
-higher for harder ones. Sonnet stops at `high`: harder work goes to `opus` / `low`, which measured
-stronger than Sonnet 5 at `xhigh`. A plan that asks for `sonnet` / `xhigh` anyway runs it at `opus` / `low`.
-That choice will be revisited when a newer Sonnet ships. Haiku is not offered: it doesn't follow
-instructions reliably enough for coding work.
+Claude picks the model by the kind of work and starts at `medium` effort. Sonnet goes lower for simpler
+tasks and higher for harder ones. Opus runs only at `medium` and `high`. On Anthropic's published coding
+benchmarks for Sonnet 5.5, Opus 5.5 at `low` scores below Sonnet 5.5 at `high` and doesn't gain enough
+over it to earn a tier. Sonnet 5.5 at `xhigh` scores no better than Opus 5.5 at `medium` or `high` and
+costs as much or more, and Opus at `xhigh` adds little over `high`. A plan that asks for `sonnet` / `xhigh`
+or `opus` / `low` anyway runs it at `opus` / `medium`, and `opus` / `xhigh` runs at `opus` / `high`.
+Haiku is not offered: it doesn't follow instructions reliably enough for coding work.
 
 Each tier is its own agent, `planandtier:<model>-<effort>`, with the model and effort set in its
 definition. Workers cannot start agents or workflows.

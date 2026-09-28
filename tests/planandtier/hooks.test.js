@@ -314,15 +314,15 @@ test('H3 starts the run and gives the exact first dispatch', () => {
   assert.match(out.additionalContext, /Do not implement the plan yourself/)
 })
 
-test('a task asking for sonnet/xhigh is shown, saved and dispatched as opus/low', () => {
+test('a task asking for sonnet/xhigh is shown, saved and dispatched as opus/medium', () => {
   const text = planText([task(1, { effort: 'xhigh' }), task(2)])
   const file = writePlanFile(text)
   assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, file)).stdout, '', 'not denied')
-  assert.ok(fs.readFileSync(file, 'utf8').includes('| T01 | Task 1 | opus | low |'))
+  assert.ok(fs.readFileSync(file, 'utf8').includes('| T01 | Task 1 | opus | medium |'))
   const out = hook('h3-post-approval.js', exitPost(text)).json.hookSpecificOutput.additionalContext
-  assert.match(out, /subagent_type "planandtier:opus-low", description "T01: Task 1"/)
+  assert.match(out, /subagent_type "planandtier:opus-medium", description "T01: Task 1"/)
   const s = state.read(S)
-  assert.deepEqual([s.tasks[0].model, s.tasks[0].effort, s.current.tier], ['opus', 'low', 'opus-low'])
+  assert.deepEqual([s.tasks[0].model, s.tasks[0].effort, s.current.tier], ['opus', 'medium', 'opus-medium'])
 })
 
 test('H3 writes a tasks file beside the state when the plan still holds its block', () => {
@@ -1452,8 +1452,8 @@ test('at the first Stop after the run ends, the spend summary is shown once, wit
   // Planning recorded in an earlier session, as for a plan run with /planandtier:execute-plan.
   telemetry.append(telemetryFile(), { kind: 'planning', sessionId: 'earlier', planId: PLAN_ID, subagents: 2, tokens: {}, total: 50000, messages: 9, costUsd: 0.4, unpriced: [], models: ['claude-opus-5-5'] })
   spendAttempt(() => report('DONE', workerCommits('T01')), workerTranscript('a'))
-  spendAttempt(() => report('DONE', workerCommits('T02')), workerTranscript('b'))
-  spendAttempt(() => report('FAILED', 'NONE', 'x'), workerTranscript('c'))
+  spendAttempt(() => report('FAILED', 'NONE', 'x'), workerTranscript('b'))
+  spendAttempt(() => report('DONE', workerCommits('T02')), workerTranscript('c'))
   spendAttempt(() => report('DONE', workerCommits('T03')), workerTranscript('d'))
   assert.equal(state.read(S).phase, 'complete')
 
@@ -1465,7 +1465,7 @@ test('at the first Stop after the run ends, the spend summary is shown once, wit
   assert.equal(out.decision, undefined)
   // The four attempts' queued lines come first (no Stop ran during this test's run), then the summary.
   const lines = out.systemMessage.split('\n')
-  assert.deepEqual(lines.slice(0, 4).map(l => l.split(':')[1].trim().split(' on ')[0]), ['T01', 'T02', 'T03', 'T03'])
+  assert.deepEqual(lines.slice(0, 4).map(l => l.split(':')[1].trim().split(' on ')[0]), ['T01', 'T02', 'T02', 'T03'])
   const summaryAt = lines.findIndex(l => l.startsWith('planandtier spend'))
   assert.equal(summaryAt, 4)
   const rows = lines.slice(summaryAt + 1).map(l => l.trim().split(/\s+/).slice(0, 2).join(' '))
@@ -1473,12 +1473,12 @@ test('at the first Stop after the run ends, the spend summary is shown once, wit
     'planning ~$0.40',
     'sonnet-low ~$0.06',
     'sonnet-medium ~$0.06',
+    'sonnet-high ~$0.06',
     'opus-high ~$0.06',
-    'opus-xhigh ~$0.06',
     'orchestration ~$0.02',
     `total ~$${(0.4 + 4 * WORKER_COST + 0.02).toFixed(2)}`,
   ])
-  assert.match(out.systemMessage, /opus-high\s+~\$0\.06\s+1 attempt \(1 failed\), 111k tokens/)
+  assert.match(out.systemMessage, /sonnet-medium\s+~\$0\.06\s+1 attempt \(1 failed\), 111k tokens/)
   assert.deepEqual(telemetry.read(telemetryFile()).map(r => r.kind).slice(-1), ['orchestration'])
   assert.equal(state.read(S).spendReported, true)
   assert.equal(hook('h5-guard.js', { session_id: S, transcript_path: main }, ['stop']).stdout, '', 'only once')

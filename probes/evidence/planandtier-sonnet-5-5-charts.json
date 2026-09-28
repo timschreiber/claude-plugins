@@ -1,0 +1,40 @@
+{
+  "generated": "2026-09-28",
+  "method": "Values read by pixel position from four accuracy-vs-cost charts that the user supplied as screenshots on 2026-09-28 (planandtier-sonnet-5-5-charts/*.png). Captions and chart styling indicate Anthropic's Claude Sonnet 5.5 launch material; the source URL was not recorded. Cost axes are log scale; read values are approximate: about +/-1 point (+/-15 Elo) on score and +/-5% on cost. Effort labels on Sonnet 5.5 points are printed on the charts. Opus 5.5 and Sonnet 5 points are unlabelled and are taken as low, medium, high, xhigh, max in cost order; the Opus 5.5 CursorBench points confirm this order against its system card (52.5 medium, 56.0 high and xhigh, 57.8 max; see planandtier-tier-research.json). Vendor data. GPT rows omitted.",
+  "models": { "sonnet": "claude-sonnet-5-5 (what Claude Code's `sonnet` alias ran in every planandtier telemetry file recorded on 2026-09-28)", "opus": "claude-opus-5-5" },
+  "charts": {
+    "terminalBench4": {
+      "file": "planandtier-sonnet-5-5-charts/terminal-bench-4.png",
+      "metric": "score %", "cost": "USD per attempt",
+      "caption": "At Medium effort, the default in the Claude apps, Sonnet 5.5 far exceeds Sonnet 5's best score for less than a tenth of the cost per task.",
+      "sonnet-5-5": { "low": [0.76, 20.0], "medium": [0.84, 28.9], "high": [1.94, 43.0], "xhigh": [5.3, 61.4], "max": [12.6, 70.4] },
+      "opus-5-5": { "low": [1.30, 38.6], "medium": [2.93, 57.7], "high": [3.89, 64.1], "xhigh": [7.4, 66.4], "max": [11.2, 64.8] },
+      "sonnet-5": { "low": [3.7, 3.2], "medium": [4.9, 4.5], "high": [7.8, 4.5], "xhigh": [9.8, 7.0], "max": [12.0, 10.3] }
+    },
+    "frontierCode1_1": {
+      "file": "planandtier-sonnet-5-5-charts/frontiercode-1-1.png",
+      "metric": "score % (would the agent's change be merged)", "cost": "USD per task",
+      "caption": "At High effort, the default on the Claude Platform, Sonnet 5.5 matches GPT-6 Sol's best score for about a fifth of the cost per task.",
+      "sonnet-5-5": { "low": [0.20, 29.3], "medium": [0.24, 36.5], "high": [0.42, 49.4], "xhigh": [1.59, 52.2], "max": [20.8, 46.2] },
+      "opus-5-5": { "low": [0.41, 47.3], "medium": [0.81, 54.6], "high": [1.09, 54.0], "xhigh": [2.25, 51.4], "max": [6.2, 54.4] },
+      "sonnet-5": { "low": [2.4, 28.7], "medium": [3.8, 35.2], "high": [6.1, 39.4], "xhigh": [10.0, 42.7], "max": [18.0, 42.4] }
+    },
+    "cursorBench4": {
+      "file": "planandtier-sonnet-5-5-charts/cursorbench-4.png",
+      "metric": "score % (ambiguous, multi-file tasks from real Cursor sessions)", "cost": "USD per task",
+      "caption": "Sonnet 5.5 at Low effort exceeds Sonnet 5's best score for less than a tenth of the cost per task.",
+      "sonnet-5-5": { "low": [0.50, 35.8], "medium": [0.70, 39.2], "high": [1.67, 47.8], "xhigh": [3.9, 53.1], "max": [9.7, 55.5] },
+      "opus-5-5": { "low": [1.17, 43.7], "medium": [2.9, 52.5], "high": [3.97, 56.1], "xhigh": [7.0, 56.1], "max": [13.4, 57.8] },
+      "sonnet-5": { "low": [1.4, 24.2], "medium": [2.3, 28.0], "high": [3.4, 30.9], "xhigh": [4.4, 32.0], "max": [7.2, 34.1] }
+    },
+    "aaBriefcase1_1": {
+      "file": "planandtier-sonnet-5-5-charts/aa-briefcase-1-1.png",
+      "metric": "Elo (long-horizon knowledge work, not coding)", "cost": "USD per task",
+      "caption": "Sonnet 5.5 at Medium effort bests Sonnet 5's best score for about one ninth of the cost per task.",
+      "sonnet-5-5": { "low": [0.87, 1266], "medium": [1.65, 1460], "high": [4.0, 1632], "xhigh": [9.6, 1747], "max": [29, 1812] },
+      "opus-5-5": { "low": [1.16, 1285], "medium": [4.4, 1644], "high": [6.3, 1704], "xhigh": [12.4, 1780], "max": [20.9, 1821] },
+      "sonnet-5": { "low": [0.82, 920], "medium": [1.7, 1055], "high": [3.7, 1178], "xhigh": [7.6, 1275], "max": [14.5, 1360] }
+    }
+  },
+  "pointFormat": "[cost USD, score]"
+}

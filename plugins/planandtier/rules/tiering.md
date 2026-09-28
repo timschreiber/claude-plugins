@@ -42,7 +42,7 @@ replaces the old table when you call `ExitPlanMode` again. Never edit the table 
 | `id` | `T01`, `T02`, ... in execution order, no gaps |
 | `title` | One line, at most 100 characters. Used as the task's commit message |
 | `model` | `sonnet` or `opus` |
-| `effort` | `low`, `medium` or `high` for `sonnet`; `low`, `medium`, `high` or `xhigh` for `opus` |
+| `effort` | `low`, `medium` or `high` for `sonnet`; `medium` or `high` for `opus` |
 | `prompt` | Self-contained, and contains a `Verify:` step (see below) |
 
 No other keys are allowed.
@@ -55,8 +55,8 @@ No other keys are allowed.
 - **Each task commits its own work**, as one commit, only after its `Verify:` step passes. Don't put
   commit steps in prompts.
 - **A failed task is retried twice, each time one tier up**, from a working tree reset to the commit
-  before it. The tiers, weakest first: `sonnet` at `low`, `medium`, `high`, then `opus` at `low`,
-  `medium`, `high`, `xhigh`. After the second retry fails, the run stops there.
+  before it. The tiers, weakest first: `sonnet` at `low`, `medium`, `high`, then `opus` at `medium`,
+  `high`. After the second retry fails, or a failure at `opus` / `high`, the run stops there.
 
 ## Choosing model and effort
 
@@ -64,10 +64,11 @@ Favor the smallest model and effort that will get the job done.
 
 1. **Pick the model by the kind of work.** `sonnet` for fully specified work, `opus` for work that needs
    judgment the prompt cannot pin down or is too intricate and wide for `sonnet`.
-2. **Start at `medium` effort: that is the baseline.** Lower it when the task is easier or simpler than
-   the baseline for its model, and raise it when the task is harder or more complex.
-3. **Past `sonnet` / `high`, go to `opus` / `low`**, not to a higher Sonnet effort: `sonnet` stops at
-   `high`.
+2. **Start at `medium` effort: that is the baseline for both models.** For `sonnet`, lower it when the
+   task is easier or simpler than the baseline, and raise it when the task is harder or more complex.
+   For `opus`, raise it to `high` for the hardest work; `opus` has no lower effort.
+3. **Past `sonnet` / `high`, go to `opus` / `medium`**: `sonnet` stops at `high`, and `opus` starts at
+   `medium`.
 
 A failed task is reset and retried one tier up, so a tier that is slightly too small usually costs less
 than one that is too big.
@@ -76,13 +77,11 @@ than one that is too big.
 |---|---|
 | `sonnet` / `low` | Easier than the baseline: fully given work, such as literal find-and-replace pairs, a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
 | `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
-| `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases. |
-| `opus` / `low` | Fully specified, intricate and wide (interacting edge cases across several files, where `sonnet` / `high` is likely to miss one), or small bounded judgment: a well-defined change in unfamiliar code that the prompt cannot fully describe. |
-| `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: unfamiliar library internals, poorly documented APIs, debugging a known failure. |
-| `opus` / `high` | The hardest bounded implementation: a failure of unknown cause across components, or subtle cross-cutting changes. |
-| `opus` / `xhigh` | Very rare, for extreme reasoning only: concurrency correctness, algorithmic subtleties, security-critical logic. Say in the plan's prose why the task needs it. |
+| `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases, including interacting edge cases across several files. |
+| `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: a well-defined change in unfamiliar code that the prompt cannot fully describe, unfamiliar library internals, poorly documented APIs, debugging a known failure. |
+| `opus` / `high` | Rare: the hardest bounded work, such as a failure of unknown cause across components, subtle cross-cutting changes, concurrency correctness, algorithmic subtleties or security-critical logic. |
 
-If more than about one task in ten is `opus` / `high` or above, the plan is under-specified: settle the
+If more than about one task in ten is `opus` / `high`, the plan is under-specified: settle the
 design decisions during planning and put the answers in the prompts, so workers execute rather than decide.
 
 ### `sonnet` / `low`: fully given work
