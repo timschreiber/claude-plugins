@@ -101,7 +101,17 @@ function armNote(input) {
     ? 'planandtier: already armed for this session; nothing changed.'
     : 'planandtier: armed for this session. A plan made in plan mode is now split into tiered tasks, and ' +
       'approving it runs each task in its own subagent at its model and effort. /planandtier:disarm turns it off.'
-  emitText(input.permission_mode === 'plan' ? `${note}\n\n${rules()}` : note)
+  if (input.permission_mode === 'plan') return emitText(`${note}\n\n${rules()}`)
+  // Planning happens in plan mode, so arming takes the session there. No hook can set the mode here (only
+  // a PermissionRequest hook can), so Claude is asked to; H1's `enter` mode then adds the rules. Never
+  // during a run: its workers inherit the mode and could not edit anything in plan mode.
+  const s = state.read(id)
+  if (s?.phase === 'running' || s?.phase === 'paused') return emitText(note)
+  emitText(
+    `${note} The session is not in plan mode. Switch to it now: call the EnterPlanMode tool (if it is only ` +
+      'listed as a deferred tool, load it with ToolSearch first). Then tell the user, in one line, that ' +
+      'planandtier is armed and the session is in plan mode, ready for them to describe what to plan.'
+  )
 }
 
 // Disarming stops a run: nothing more is dispatched, and a worker already running finishes unjudged.

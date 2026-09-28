@@ -931,6 +931,40 @@ test('/planandtier:arm arms the session and says so, and arming again changes no
   assert.equal(typed('please /planandtier:arm').stdout, '', 'only at the start of the prompt')
 })
 
+test('arming outside plan mode asks Claude to switch to plan mode, then entering it gives the rules', () => {
+  state.disarm(S)
+  const ask = /The session is not in plan mode\. Switch to it now: call the EnterPlanMode tool \(if it is only listed as a deferred tool, load it with ToolSearch first\)\./
+  for (const mode of ['default', 'auto', 'acceptEdits']) {
+    state.disarm(S)
+    const out = typed('/planandtier:arm', mode).stdout
+    assert.match(out, /^planandtier: armed for this session\./, mode)
+    assert.match(out, ask, mode)
+    assert.ok(!out.includes(RULES), 'the rules come when plan mode is entered')
+  }
+  assert.match(typed('/planandtier:arm', 'default').stdout, ask, 'already armed, still outside plan mode')
+  assert.ok(!typed('/planandtier:arm', 'plan').stdout.match(ask), 'already in plan mode')
+  const entered = hook('h1-plan-rules.js', { session_id: S, tool_name: 'EnterPlanMode' }, ['enter'])
+  assert.equal(entered.json.hookSpecificOutput.additionalContext, RULES)
+})
+
+test('arming never switches to plan mode during a run, and execute-plan never asks for it', () => {
+  startTestRun()
+  const during = typed('/planandtier:arm', 'default', repo).stdout
+  assert.match(during, /^planandtier: already armed for this session; nothing changed\.$/m)
+  assert.ok(!during.includes('EnterPlanMode'), 'workers inherit the mode')
+
+  state.remove(S)
+  state.disarm(S)
+  fs.rmSync(repo, { recursive: true, force: true })
+  const file = savedPlan()
+  assert.ok(!execute(file).includes('EnterPlanMode'))
+})
+
+test('the arm skill tells Claude to follow the note into plan mode', () => {
+  const skill = fs.readFileSync(path.join(PLUGIN, 'skills', 'arm', 'SKILL.md'), 'utf8')
+  assert.match(skill, /If the note tells you to switch to plan mode, do exactly what it says: call the EnterPlanMode tool/)
+})
+
 test('arming in plan mode also prints the rules', () => {
   state.disarm(S)
   const out = typed('/planandtier:arm', 'plan').stdout
