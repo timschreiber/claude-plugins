@@ -28,7 +28,7 @@ function extractBlock(text) {
   const sections = []
   let optOut = false
   let open = null // {char, length, info, start, body[]}
-  let section = null // {start, end, file, hash}
+  let section = null // {start, end, file, hash, lines[]}
 
   const lines = String(text).split(/\r?\n/)
   lines.forEach((line, i) => {
@@ -44,6 +44,7 @@ function extractBlock(text) {
         open.body.push(line)
       }
     } else if (section) {
+      section.lines.push(line)
       const ref = TASKS_FILE_LINE.exec(line.trim())
       if (ref && section.file === null) Object.assign(section, { file: ref[1], hash: ref[2] })
       if (line.trim() === SECTION_END) {
@@ -53,7 +54,7 @@ function extractBlock(text) {
     } else if (fence) {
       open = { char: fence[1][0], length: fence[1].length, info: fence[2], start: i, body: [] }
     } else if (line.trim() === SECTION_START) {
-      section = { start: i, end: null, file: null, hash: null }
+      section = { start: i, end: null, file: null, hash: null, lines: [line] }
     } else if (line.trim() === OPT_OUT_LINE) {
       optOut = true
     }
@@ -142,8 +143,9 @@ function parseBlock(body) {
 //   not ok: errors lists every problem; missingBlock is true when the plan has no block, no
 //   generated section and no opt-out line at all, so the caller can show the full rules
 //   section: present only when the plan has no block but has a generated section. It is
-//   {file, hash} when there is one usable section; loading that file is file work, so the result
-//   is not ok until resolvePlan() loads it. It is null when the sections cannot be used.
+//   {file, hash, lines} when there is one usable section (lines are the section's own lines,
+//   markers included); loading that file is file work, so the result is not ok until
+//   resolvePlan() loads it. It is null when the sections cannot be used.
 function parsePlan(text) {
   const fail = (errors, missingBlock = false) => ({ ok: false, tasks: [], optOut: false, errors, missingBlock })
   if (typeof text !== 'string' || text.trim() === '') return fail(['the plan text is empty or unavailable'])
@@ -154,9 +156,9 @@ function parsePlan(text) {
     const unusable = error => ({ ...fail([error]), section: null })
     if (optOut) return unusable(`the plan has both a planandtier task table and the line "${OPT_OUT_LINE}"; keep only one`)
     if (sections.length > 1) return unusable(`found ${sections.length} planandtier task tables; ${redo}`)
-    const { file, hash } = sections[0]
+    const { file, hash, lines } = sections[0]
     if (file === null) return unusable(`the planandtier task table has no valid "Tasks file:" line; ${redo}`)
-    return { ...fail([`the plan's tasks are in ${file}, which has not been loaded`]), section: { file, hash } }
+    return { ...fail([`the plan's tasks are in ${file}, which has not been loaded`]), section: { file, hash, lines } }
   }
   if (blocks.length === 0) {
     if (optOut) return { ok: true, tasks: [], optOut: true, errors: [], missingBlock: false }

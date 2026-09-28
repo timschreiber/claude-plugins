@@ -197,7 +197,7 @@ test('a plan with only a section reports it for loading', () => {
   const r = parsePlan(`# Plan\n\n## Tasks\n\n${section()}\n`)
   assert.equal(r.ok, false)
   assert.equal(r.missingBlock, false)
-  assert.deepEqual(r.section, { file: '/plans/p.tasks.json', hash: HASH })
+  assert.deepEqual(r.section, { file: '/plans/p.tasks.json', hash: HASH, lines: section().split('\n') })
 })
 
 test('a section that cannot be loaded is an error that says to write the block again', () => {
@@ -237,5 +237,5 @@ test('replaceBlock returns null unless the plan has exactly one block', () => {
 
 test('the replaced plan parses back to its section', () => {
   const out = replaceBlock(plan({ tasks: [task(1)] }), renderSection([task(1)], '/p.tasks.json', HASH))
-  assert.deepEqual(parsePlan(out).section, { file: '/p.tasks.json', hash: HASH })
+  assert.deepEqual(parsePlan(out).section.lines, renderSection([task(1)], '/p.tasks.json', HASH))
 })

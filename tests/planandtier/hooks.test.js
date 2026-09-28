@@ -216,6 +216,26 @@ test('H2 denies a table whose tasks file changed or is missing, and says to writ
   assert.match(missing.permissionDecisionReason, /is missing or unreadable/)
 })
 
+test('H2 denies a table edited by hand, and says to write the block again', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('| T02 | Task 2 |', '| T02 | Renamed |'))
+  const out = hook('h2-gate-exit-plan.js', exitPre('stale', file)).json.hookSpecificOutput
+  assert.equal(out.permissionDecision, 'deny')
+  assert.match(out.permissionDecisionReason, /does not match its tasks file/)
+  assert.match(out.permissionDecisionReason, /Write the complete "json tiered-tasks" block into the plan file/)
+})
+
+test('H3 runs nothing when the approved table was edited by hand', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('| T02 | Task 2 |', '| T02 | Renamed |'))
+  const out = hook('h3-post-approval.js', exitPost(VALID)).json.hookSpecificOutput.additionalContext
+  assert.match(out, /tasks could not be loaded, so nothing will run/)
+  assert.match(out, /the table was edited/)
+  assert.equal(state.read(S), null)
+})
+
 test('H2 replaces an old table when the model writes a new block', () => {
   const file = writePlanFile(VALID)
   hook('h2-gate-exit-plan.js', exitPre(VALID, file))

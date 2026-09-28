@@ -56,12 +56,24 @@ function loadSidecar(file, hash) {
 
 // parsePlan(), plus loading the tasks file when the plan has a generated section instead of a
 // block. The result has parsePlan's shape; for a section it also carries `section` and, when
-// loading failed, `problem`.
+// loading failed, `problem`. The section must be exactly the table H2 would write for the loaded
+// tasks: the hash only proves the tasks file is unchanged, so a hand-edited table (a changed
+// title, a new row) would otherwise be approved while the old tasks run.
 function resolvePlan(text) {
   const result = parsePlan(text)
   if (!result.section) return result
-  const loaded = loadSidecar(result.section.file, result.section.hash)
+  const { file, hash, lines } = result.section
+  const loaded = loadSidecar(file, hash)
   if (!loaded.ok) return { ...result, errors: loaded.errors, problem: loaded.problem }
+  const expected = renderSection(loaded.tasks, file, hash)
+  const same = expected.length === lines.length && expected.every((line, i) => line === lines[i].trimEnd())
+  if (!same) {
+    return {
+      ...result,
+      problem: 'edited',
+      errors: [`the planandtier task table does not match its tasks file ${file}; the table was edited`],
+    }
+  }
   return { ...result, ok: true, tasks: loaded.tasks, errors: [] }
 }
 

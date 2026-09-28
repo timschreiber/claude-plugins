@@ -97,8 +97,8 @@ cannot start agents or workflows.
   cannot launch the workflow itself. If Claude never does, the guard steps aside after a few blocks. If you
   decline the workflow review, Claude stops and waits, and the plan stays approved. Ask Claude to launch
   it again, or type `/planandtier:execute-plan`.
-- **You approve a table, not the prompts.** The prompts are in the tasks file. If the tasks file is changed
-  after the table was written, the plan does not run, and Claude says so.
+- **You approve a table, not the prompts.** The prompts are in the tasks file. If the tasks file or the table
+  is changed after the table was written, the plan does not run, and Claude says so.
 
 ## Configuration notes
 

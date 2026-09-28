@@ -54,7 +54,8 @@ test('moveBlock writes the exact block body to the tasks file and the section to
   const plan = fs.readFileSync(planFile, 'utf8')
   assert.ok(!plan.includes('```json tiered-tasks'))
   assert.ok(plan.includes('| T02 | Pipe \\| here |'))
-  assert.deepEqual(parsePlan(plan).section, { file: tasksFile, hash: sidecar.hashOf(body(tasks)) })
+  const { file, hash } = parsePlan(plan).section
+  assert.deepEqual({ file, hash }, { file: tasksFile, hash: sidecar.hashOf(body(tasks)) })
   assert.deepEqual(fs.readdirSync(dir).sort(), ['plan.md', 'plan.tasks.json'])
 })
 
@@ -112,6 +113,28 @@ test('resolvePlan reports a missing, changed or invalid tasks file', () => {
   const invalid = sidecar.resolvePlan(plan.replace(/sha256 `[0-9a-f]{16}`/, `sha256 \`${sidecar.hashOf(bad)}\``))
   assert.deepEqual([invalid.ok, invalid.problem], [false, 'invalid'])
   assert.match(invalid.errors[0], /T01\.title: must be a string/)
+})
+
+test('resolvePlan rejects a table edited by hand, even though the tasks file is unchanged', () => {
+  const tasks = [task(1), task(2)]
+  const text = planText(tasks)
+  const planFile = writePlan(text)
+  sidecar.moveBlock(planFile, text, tasks)
+  const plan = fs.readFileSync(planFile, 'utf8')
+
+  const edits = [
+    plan.replace('| T02 | Task 2 |', '| T02 | Task 2 renamed |'),
+    plan.replace('| T02 | Task 2 | sonnet | medium |', '| T02 | Task 2 | opus | high |'),
+    plan.replace(/\| T02 [^\n]*\n/, ''),
+    plan.replace(/(\| T02 [^\n]*\n)/, '$1| T03 | Task 3 | sonnet | medium | 10 chars |\n'),
+  ]
+  for (const edited of edits) {
+    assert.notEqual(edited, plan)
+    const r = sidecar.resolvePlan(edited)
+    assert.deepEqual([r.ok, r.problem], [false, 'edited'])
+    assert.match(r.errors[0], /does not match its tasks file .*; the table was edited/)
+  }
+  assert.equal(sidecar.resolvePlan(plan.replace(/\n/g, '  \r\n')).ok, true, 'trailing spaces and CRLF are not edits')
 })
 
 test('resolvePlan passes an ordinary plan straight through', () => {

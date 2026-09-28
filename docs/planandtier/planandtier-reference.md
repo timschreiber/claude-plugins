@@ -224,12 +224,15 @@ Open the tasks file to read each prompt before approving.
 ```
 
 The hash is the first 16 hex characters of the tasks file's sha256. A plan with this section and no block
-is loaded from the tasks file, and only if the file still matches the hash:
+is loaded from the tasks file. That works only if the file still matches the hash, and the section is
+exactly the one H2 would write for those tasks (trailing spaces and line endings aside). The hash proves
+the file is unchanged, and the second check proves the table does: without it, a table edited by hand (a
+new title, another model) would be approved while the old tasks ran.
 
 | Situation | Result |
 |---|---|
-| The tasks file matches its hash and validates | The plan is valid, with the tasks from the file. A resubmitted plan passes H2 unchanged. |
-| The tasks file is missing, changed, or invalid | H2 denies and tells Claude to write the complete block again in place of the table. H3 runs nothing. |
+| The tasks file matches its hash, validates, and matches the table | The plan is valid, with the tasks from the file. A resubmitted plan passes H2 unchanged. |
+| The tasks file is missing, changed, or invalid, or the table was edited | H2 denies and tells Claude to write the complete block again in place of the table. H3 runs nothing. |
 | Two sections, a section with no `Tasks file:` line, or a section with the opt-out line | An error, handled the same way. |
 | A new block and an old section | The block wins. H2 moves it and removes the old section. |
 
@@ -389,7 +392,7 @@ measured to hold the same shortened text, and `tool_input` held no plan text at 
 | Parse result | What H3 does |
 |---|---|
 | Opt-out line | Deletes the session state (an untiered plan replaces any earlier tiered one) and says nothing. |
-| A table whose tasks file is missing, changed or invalid | Deletes the state and tells Claude that nothing will run: tell the user and suggest planning again, and do not implement the plan, since its prompts are not in it. |
+| A table that was edited, or whose tasks file is missing, changed or invalid | Deletes the state and tells Claude that nothing will run: tell the user and suggest planning again, and do not implement the plan, since its prompts are not in it. |
 | Invalid (only possible after H2's cap) | Deletes the state and tells Claude the plan will not run as a workflow: tell the user, then implement the plan normally. |
 | Valid, state saved | Writes the state as `approved` with the tasks and the tasks file's path and hash, prunes session files older than 7 days, and tells Claude: the approval is the user's request to run the plan; do not implement it or edit files; the next action is `Workflow` with name `planandtier:execute-plan` and no args; then tell the user it is running. |
 | Valid, state not saved | Tells Claude the tasks could not be saved: tell the user, then implement the plan normally. It never claims a launch it cannot supply. |
@@ -588,7 +591,7 @@ How the plugin behaves when something goes wrong:
 | Claude does not launch the workflow after approval | H5 blocks edits, shell commands and stopping a few times, then steps aside and marks the state `abandoned`. The tasks can still be launched later. |
 | The `Workflow` call fails | H6 reverts the state to `approved`; the guards apply again until Claude relaunches. |
 | The `Workflow` call is rejected after H4 runs (for example a CRLF `execute-plan.js`: `script contains control characters`) | The workflow never starts, so H6 never marks it `launched`, and the state stays `approved` whether or not a failure event fires. The guards stay on. A relaunch fails the same way; H5 steps aside after a few blocks and marks the state `abandoned`. |
-| The tasks file changes after the table is written | H2 denies a resubmission and asks for the full block again. After approval, H3 runs nothing and tells Claude to say so. |
+| The tasks file or the table changes after the table is written | H2 denies a resubmission and asks for the full block again. After approval, H3 runs nothing and tells Claude to say so. |
 | H2 cannot write the tasks file or the plan | The plan reaches the dialog with its block. A plan with a very long line is then withheld by the dialog. |
 | A task fails its verify step | The worker reports `failed`; the workflow halts at that task and returns `halted`. |
 | A worker throws or is stopped | Recorded as `failed` or `stopped`; the workflow halts. |
@@ -665,9 +668,9 @@ file and fails.
 | File | Covers |
 |---|---|
 | `tests/planandtier/tasks.test.js` | Every validation rule, allowed and rejected pairs, fence handling (nested, tilde, CRLF, other info strings), the opt-out line, multiple blocks, invalid JSON, collecting all errors, key stripping; the generated table (pipe escaping, prompt lengths), finding and rejecting sections, and replacing a block while keeping CRLF or LF. |
-| `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block (exact body, CRLF plans, unwritable plan), and loading a tasks file that is intact, missing, changed or invalid. |
+| `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block (exact body, CRLF plans, unwritable plan), and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited. |
 | `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: every phase transition, plan-source precedence, the denial caps, H2 moving the block and H3 loading it, a changed tasks file, a launch rejected after H4, subagent filtering, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json` pointing at existing scripts, and that no script ever grants permission. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: every phase transition, plan-source precedence, the denial caps, H2 moving the block and H3 loading it, a changed tasks file or edited table, a launch rejected after H4, subagent filtering, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json` pointing at existing scripts, and that no script ever grants permission. |
 
 The workflow and the worker cannot be unit tested; they were verified by the end-to-end runs under
 [Evidence](#evidence). To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`,
