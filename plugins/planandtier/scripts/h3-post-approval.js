@@ -1,12 +1,15 @@
-// H3: PostToolUse ExitPlanMode. The user approved the plan: save its tasks and tell the main
-// thread to launch the workflow. The plan FILE is the approved text: the dialog shows the file
-// as H2 left it, and the user can edit it there. tool_response.plan and tool_input.plan are
-// fallbacks. When H2 moved the block, the tasks come from the tasks file the plan names.
+// H3: PostToolUse ExitPlanMode. The user approved the plan: start the run and give the main thread
+// its first dispatch. The plan FILE is the approved text: the dialog shows the file as H2 left it,
+// and the user can edit it there. tool_response.plan and tool_input.plan are fallbacks. When H2
+// moved the block, the tasks come from the tasks file the plan names.
 'use strict'
 
 const fs = require('fs')
+const path = require('path')
 const { resolvePlan } = require('./lib/sidecar.js')
 const state = require('./lib/state.js')
+const git = require('./lib/git.js')
+const { startRun, dispatchText } = require('./lib/run.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const PRUNE_DAYS = 7
@@ -21,6 +24,20 @@ function readPlan(input) {
   }
   if (typeof response.plan === 'string' && response.plan.trim() !== '') return response.plan
   return typeof input.tool_input?.plan === 'string' ? input.tool_input.plan : ''
+}
+
+// The tasks file the workers read. H2 normally wrote one next to the plan; if it could not, the
+// tasks are written beside the session state instead. null if that fails too.
+function tasksFileFor(input, result) {
+  if (result.section?.file) return result.section.file
+  try {
+    const file = state.fileFor(input.session_id).replace(/\.json$/, '.tasks.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify({ tasks: result.tasks }, null, 2))
+    return file
+  } catch {
+    return null
+  }
 }
 
 const context = additionalContext =>
@@ -52,36 +69,52 @@ run(async () => {
     // Only reachable after H2's denial cap: run untiered, and say so.
     state.remove(input.session_id)
     context(
-      'planandtier: the approved plan has no valid task block, so it will not run as a tiered workflow. ' +
+      'planandtier: the approved plan has no valid task block, so it will not run as tiered tasks. ' +
         'Problems: ' + result.errors.slice(0, 3).join('; ') + '. Tell the user, then implement the plan normally.'
     )
     return
   }
 
-  const saved = state.write(input.session_id, {
-    phase: 'approved',
-    tasks: result.tasks,
-    planFile: input.tool_response?.filePath ?? input.tool_input?.planFilePath ?? null,
-    tasksFile: result.section?.file ?? null,
-    tasksHash: result.section?.hash ?? null,
-    approvedAt: new Date().toISOString(),
-    denials: 0,
-    guardDenials: 0,
-  })
-  if (!saved) {
+  const cannotSave = () =>
     context(
-      'planandtier: the approved tasks could not be saved, so the workflow cannot run. Tell the user, ' +
+      'planandtier: the approved tasks could not be saved, so they cannot run as tiered tasks. Tell the user, ' +
         'then implement the plan normally.'
+    )
+  const tasksFile = tasksFileFor(input, result)
+  if (!tasksFile) return cannotSave()
+
+  const started = {
+    ...startRun({
+      tasks: result.tasks,
+      tasksFile,
+      tasksHash: result.section?.hash ?? null,
+      planFile: input.tool_response?.filePath ?? input.tool_input?.planFilePath ?? null,
+      branch: git.branch(input.cwd),
+    }),
+    cwd: input.cwd ?? null,
+  }
+
+  // H2 checked the tree when the plan was submitted; it may have changed while the user read the
+  // plan. Then the run waits, unguarded, and H1 resumes it on the user's next message once the
+  // tree is clean.
+  const problem = git.problem(input.cwd)
+  const saved = problem ? { ...started, phase: 'paused', pausedBecause: problem } : started
+  if (!state.write(input.session_id, saved)) return cannotSave()
+  state.prune(PRUNE_DAYS)
+
+  const count = `${result.tasks.length} tiered tasks (T01 to ${result.tasks[result.tasks.length - 1].id})`
+  if (problem) {
+    context(
+      `planandtier: the user approved this plan with ${count}, but it cannot start, because ${problem}. ` +
+        'Tell the user to commit or stash their changes, and that the run starts when they next message you ' +
+        'after that. Do not implement the plan yourself and do not edit files.'
     )
     return
   }
-  state.prune(PRUNE_DAYS)
-
-  const last = result.tasks[result.tasks.length - 1].id
   context(
-    `planandtier: the user approved this plan with ${result.tasks.length} tiered tasks (T01 to ${last}). ` +
-      'Their approval is their request to run it. Do not implement the plan yourself and do not edit files. ' +
-      'Your next action is to call the Workflow tool with name "planandtier:execute-plan" and no args; the ' +
-      'approved tasks are supplied automatically. Then tell the user the workflow is running.'
+    `planandtier: the user approved this plan with ${count}. Their approval is their request to run it. ` +
+      'Each task runs in its own subagent at its tier and commits its own work. Your part is only to ' +
+      'dispatch them, one at a time, exactly as planandtier tells you. Do not implement the plan yourself. ' +
+      dispatchText(started)
   )
 })

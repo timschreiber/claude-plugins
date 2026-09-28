@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, beforeEach, afterEach } = require('node:test')
+const { test, before, after, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
 const { spawnSync } = require('node:child_process')
 const fs = require('fs')
@@ -14,6 +14,37 @@ const { extractBlock, parsePlan } = require(path.join(PLUGIN, 'scripts', 'lib', 
 const RULES = fs.readFileSync(path.join(PLUGIN, 'rules', 'tiering.md'), 'utf8')
 const OPT_OUT = 'Tiered execution: off'
 const WORKFLOW = 'planandtier:execute-plan'
+
+// Git in a test repository; fails the test on an error.
+const gitIn = (cwd, ...args) => {
+  const r = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' })
+  assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr}`)
+  return r.stdout.trim()
+}
+// A repository with one commit, a "main" branch and a .gitignore that ignores *.log.
+function makeRepo(where) {
+  fs.mkdirSync(where, { recursive: true })
+  gitIn(where, 'init', '-q', '-b', 'main')
+  gitIn(where, 'config', 'user.name', 'Test')
+  gitIn(where, 'config', 'user.email', 'test@example.com')
+  gitIn(where, 'config', 'commit.gpgsign', 'false')
+  gitIn(where, 'config', 'core.autocrlf', 'false')
+  fs.writeFileSync(path.join(where, 'README.md'), '# test\n')
+  fs.writeFileSync(path.join(where, '.gitignore'), '*.log\n')
+  gitIn(where, 'add', '-A')
+  gitIn(where, 'commit', '-q', '-m', 'init')
+  return where
+}
+
+// A clean repository shared by tests that only need one to exist; tests that change a repository
+// make their own.
+let REPO
+before(() => {
+  REPO = makeRepo(fs.mkdtempSync(path.join(os.tmpdir(), 'planandtier-repo-')))
+})
+after(() => {
+  fs.rmSync(REPO, { recursive: true, force: true })
+})
 
 let dir
 beforeEach(() => {
@@ -59,9 +90,15 @@ const writePlanFile = text => {
   return file
 }
 const S = 'sess-1'
-const exitPre = (plan, file) => ({ session_id: S, tool_name: 'ExitPlanMode', tool_input: { plan, planFilePath: file } })
+const exitPre = (plan, file, cwd = REPO) => ({
+  session_id: S,
+  cwd,
+  tool_name: 'ExitPlanMode',
+  tool_input: { plan, planFilePath: file },
+})
 const exitPost = (plan, extra = {}) => ({
   session_id: S,
+  cwd: REPO,
   tool_name: 'ExitPlanMode',
   tool_input: { plan: 'stale' },
   tool_response: { plan, isAgent: false, filePath: path.join(dir, 'plan.md') },
@@ -252,20 +289,70 @@ test('H2 replaces an old table when the model writes a new block', () => {
 
 // ---- H3 ----------------------------------------------------------------------------
 
-test('H3 saves the approved tasks and tells the model to launch the workflow', () => {
+test('H3 starts the run and gives the exact first dispatch', () => {
+  const file = writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', exitPre(VALID, file))
   const r = hook('h3-post-approval.js', exitPost(VALID))
   const s = state.read(S)
-  assert.equal(s.phase, 'approved')
+  assert.equal(s.phase, 'running')
   assert.deepEqual(s.tasks.map(t => t.id), ['T01', 'T02', 'T03'])
-  assert.equal(s.denials, 0)
-  assert.equal(s.guardDenials, 0)
+  assert.equal(s.tasksFile, TASKS_FILE())
+  assert.equal(s.branch, 'main')
+  assert.equal(s.cwd, REPO)
+  assert.deepEqual([s.current.index, s.current.attempt, s.current.tier, s.current.inFlight], [0, 1, 'sonnet-medium', false])
   assert.equal(s.planFile, path.join(dir, 'plan.md'))
   assert.ok(!Number.isNaN(Date.parse(s.approvedAt)))
   const out = r.json.hookSpecificOutput
   assert.equal(out.hookEventName, 'PostToolUse')
   assert.match(out.additionalContext, /3 tiered tasks \(T01 to T03\)/)
-  assert.match(out.additionalContext, /Workflow tool with name "planandtier:execute-plan" and no args/)
-  assert.match(out.additionalContext, /do not edit files/)
+  assert.match(out.additionalContext, /subagent_type "planandtier:sonnet-medium", description "T01: Task 1", run_in_background false/)
+  assert.ok(out.additionalContext.includes(`exactly this prompt (2 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nTask: T01\n`))
+  assert.match(out.additionalContext, /Do not implement the plan yourself/)
+})
+
+test('H3 writes a tasks file beside the state when the plan still holds its block', () => {
+  hook('h3-post-approval.js', exitPost(VALID))
+  const s = state.read(S)
+  assert.equal(s.tasksFile, state.fileFor(S).replace(/\.json$/, '.tasks.json'))
+  assert.deepEqual(JSON.parse(fs.readFileSync(s.tasksFile, 'utf8')).tasks, parsePlan(VALID).tasks)
+  assert.equal(s.tasksHash, null)
+})
+
+test('H3 pauses the run when the tree is no longer clean, and gives no dispatch', () => {
+  const repo = makeRepo(path.join(dir, 'repo'))
+  fs.writeFileSync(path.join(repo, 'dirty.txt'), 'x')
+  const out = hook('h3-post-approval.js', { ...exitPost(VALID), cwd: repo }).json.hookSpecificOutput.additionalContext
+  assert.match(out, /cannot start, because the working tree has uncommitted changes \(dirty\.txt\)/)
+  assert.ok(!out.includes('Call the Agent tool'))
+  const s = state.read(S)
+  assert.equal(s.phase, 'paused')
+  assert.match(s.pausedBecause, /uncommitted changes/)
+})
+
+test('H2 denies a tiered plan outside a Git repository or with a dirty tree, without counting it', () => {
+  const plain = path.join(dir, 'plain')
+  fs.mkdirSync(plain)
+  const file = writePlanFile(VALID)
+  const out = hook('h2-gate-exit-plan.js', exitPre(VALID, file, plain)).json.hookSpecificOutput
+  assert.equal(out.permissionDecision, 'deny')
+  assert.match(out.permissionDecisionReason, /cannot run yet, because it is not inside a Git repository/)
+  assert.match(out.permissionDecisionReason, /Do not call ExitPlanMode again until that is fixed/)
+  assert.equal(fs.readFileSync(file, 'utf8'), VALID, 'the block is not moved')
+
+  const repo = makeRepo(path.join(dir, 'repo'))
+  fs.writeFileSync(path.join(repo, 'README.md'), 'changed\n')
+  for (let i = 0; i < 5; i++) {
+    const again = hook('h2-gate-exit-plan.js', exitPre(VALID, file, repo)).json.hookSpecificOutput
+    assert.match(again.permissionDecisionReason, /uncommitted changes \(README\.md\)/, 'never passed through')
+  }
+  assert.equal(state.read(S), null, 'not counted as a denial')
+})
+
+test('H2 lets an opted-out plan through a dirty tree', () => {
+  const plain = path.join(dir, 'plain')
+  fs.mkdirSync(plain)
+  const text = `# Plan\n\n${OPT_OUT}\n`
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, writePlanFile(text), plain)).stdout, '')
 })
 
 test('H3 reads the plan file over tool_response.plan', () => {
@@ -328,7 +415,7 @@ test('H3 on the opt-out line says nothing and clears an earlier tiered plan', ()
 test('H3 on an invalid plan (after the denial cap) runs it untiered and says so', () => {
   state.write(S, approvedState())
   const r = hook('h3-post-approval.js', exitPost(NO_BLOCK))
-  assert.match(r.json.hookSpecificOutput.additionalContext, /will not run as a tiered workflow/)
+  assert.match(r.json.hookSpecificOutput.additionalContext, /will not run as tiered tasks/)
   assert.equal(state.read(S), null)
 })
 

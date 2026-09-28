@@ -9,9 +9,19 @@ const fs = require('fs')
 const path = require('path')
 const { resolvePlan, moveBlock } = require('./lib/sidecar.js')
 const state = require('./lib/state.js')
+const git = require('./lib/git.js')
 const { run, readInput, emit, debug } = require('./lib/hook.js')
 
 const MAX_DENIALS = 3
+
+const deny = reason =>
+  emit({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: reason,
+    },
+  })
 
 // The plan text, and whether it came from the plan file. Only text read from the file is moved,
 // so a missing plan file is never created.
@@ -31,9 +41,26 @@ run(async () => {
   const { text, fromFile } = readPlan(toolInput)
   const result = resolvePlan(text)
   if (result.ok) {
+    if (result.optOut) return
+
+    // Each task is committed by its worker, and a failed attempt is reset to the commit before it,
+    // so a tiered plan needs a Git repository with a clean working tree. This is the user's to fix:
+    // it is never passed through, and it does not count toward the denial cap.
+    const problem = git.problem(input.cwd)
+    if (problem) {
+      deny(
+        `planandtier: this plan cannot run yet, because ${problem}. planandtier commits each task and ` +
+          'resets a failed attempt to the commit before it, so it needs a Git repository with a clean ' +
+          'working tree. Do not call ExitPlanMode again until that is fixed. Tell the user, and ask them to ' +
+          'commit or stash their changes (or to set up the repository), or to ask for an untiered plan, which ' +
+          'uses the line "Tiered execution: off" instead of a task block.'
+      )
+      return
+    }
+
     // A plan that already has its table (a resubmission) stays as it is. If the move fails, the
     // plan reaches the dialog unchanged.
-    if (!result.optOut && result.section === undefined && fromFile) {
+    if (result.section === undefined && fromFile) {
       if (!moveBlock(toolInput.planFilePath, text, result.tasks)) debug('H2: the task block could not be moved')
     }
     return
@@ -58,12 +85,5 @@ run(async () => {
   if (result.missingBlock) {
     reason += '\n\n' + fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8')
   }
-
-  emit({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: reason,
-    },
-  })
+  deny(reason)
 })
