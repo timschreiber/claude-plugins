@@ -54,7 +54,9 @@ function outcomeOf(prev, next) {
 
 // H4: an attempt was judged. Records it with its worker's usage (null when the transcript cannot be read;
 // zero for a failed Agent call, which ran nothing), adds its cost to the run's running total, and
-// returns {next, line}: the state to save and the UI line.
+// queues its UI line in the state's `spendLines`. Returns {next, line}: the state to save and the line.
+// The line is shown by the next Stop (takeLines), not here: a SubagentStop hook's systemMessage is not
+// displayed for a background worker, and a Stop hook's is (planandtier-telemetry-findings.md).
 function recordAttempt(input, prev, next, { transcript = input.agent_transcript_path, ran = true } = {}) {
   return safe(
     () => {
@@ -78,9 +80,29 @@ function recordAttempt(input, prev, next, { transcript = input.agent_transcript_
         ...t.usageFields(usage),
       }
       t.append(t.fileFor(prev.planFile, input.session_id), record)
-      return { next: { ...next, spend: { costUsd: runCost } }, line: t.attemptLine(record, runCost) }
+      const line = t.attemptLine(record, runCost)
+      return { next: { ...next, spend: { costUsd: runCost }, spendLines: [...(prev.spendLines ?? []), line] }, line }
     },
     { next, line: null }
+  )
+}
+
+// The queued attempt lines, and the state with the queue emptied.
+const takeLines = s => ({ lines: s?.spendLines ?? [], rest: s?.spendLines?.length ? { ...s, spendLines: [] } : s })
+
+// H3 and execute-plan: a run has started. Its record lets the summary find the planning that led to it,
+// including rounds recorded under an earlier plan id (a plan rejected and revised in the dialog).
+function recordRunStart(input, run) {
+  return safe(
+    () =>
+      t.append(t.fileFor(run.planFile, input.session_id), {
+        kind: 'run',
+        sessionId: input.session_id,
+        planId: run.planId ?? null,
+        runId: run.runId ?? null,
+        startTask: run.tasks?.[run.current?.index]?.id ?? null,
+      }),
+    null
   )
 }
 
@@ -106,4 +128,4 @@ function recordRunEnd(input, s) {
   }, null)
 }
 
-module.exports = { recordPlanning, recordAttempt, recordRunEnd, outcomeOf }
+module.exports = { recordPlanning, recordAttempt, recordRunStart, recordRunEnd, takeLines, outcomeOf }

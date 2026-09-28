@@ -945,7 +945,12 @@ test('disarming mid-run stops it: nothing more is dispatched, and the worker in 
   const r = typed('/planandtier:disarm')
   const out = r.json.hookSpecificOutput.additionalContext
   assert.equal(r.json.hookSpecificOutput.hookEventName, 'UserPromptSubmit')
-  assert.match(r.json.systemMessage, /^planandtier spend \(estimated.*\n\s+sonnet-low\s/s, 'the stopped run\'s spend goes to the UI')
+  assert.match(
+    r.json.systemMessage,
+    /^planandtier: T01 on sonnet-low done: usage unavailable\. .*\nplanandtier spend \(estimated.*\n\s+sonnet-low\s/s,
+    "the queued line and the stopped run's spend go to the UI"
+  )
+  assert.deepEqual(state.read(S).spendLines, [])
   assert.match(out, /^planandtier: disarmed for this session, which stops the run of the approved plan\./)
   assert.match(out, /Done and committed: T01 [0-9a-f]{7} \(sonnet-low\)\. Not done: T02, T03\./)
   assert.match(out, /T02's worker is still running; planandtier will not check it or roll it back/)
@@ -1022,6 +1027,8 @@ test('execute-plan runs a saved plan with a raw block: arms, saves the run, and 
   assert.deepEqual([s.phase, s.planId, s.cwd, s.branch, s.planFile], ['running', planId, repo, 'main', file])
   assert.equal(fs.readFileSync(TASKS_FILE(), 'utf8'), blockBody(VALID), 'the tasks file is the block')
   assert.equal(fs.readFileSync(file, 'utf8'), VALID, 'the plan file is not rewritten')
+  const [start] = telemetry.read(path.join(dir, 'plan.telemetry.jsonl'))
+  assert.deepEqual([start.kind, start.planId, start.runId], ['run', planId, s.runId], 'the run start is recorded beside the plan')
 })
 
 test('execute-plan runs a plan whose block H2 moved, from its tasks file, with the same plan id', () => {
@@ -1196,16 +1203,26 @@ function spendAttempt(work, transcript) {
   return hook('h4-dispatch.js', subStop(text, { agent_transcript_path: transcript }), ['stop'])
 }
 
-test('each attempt is recorded beside the plan and shown in the UI, with its tier and estimated cost', () => {
+test('each attempt is recorded beside the plan, and its line is shown at the next Stop', () => {
   startTestRun({ planFile: path.join(dir, 'plan.md') })
   const failed = spendAttempt(() => report('FAILED', 'NONE', 'tests fail'), workerTranscript('w1'))
-  assert.equal(
-    failed.json.systemMessage,
-    'planandtier: T01 on sonnet-low failed, retrying a tier up: 111k tokens (90% cache reads), ~$0.06. Run so far: ~$0.06.'
-  )
-  const done = spendAttempt(() => report('DONE', workerCommits('T01')), workerTranscript('w2'))
-  assert.match(done.json.systemMessage, /^planandtier: T01 on sonnet-medium done: 111k tokens .*Run so far: ~\$0\.11\.$/)
-  assert.equal(done.json.decision, undefined, 'SubagentStop output never blocks')
+  assert.equal(failed.stdout, '', 'SubagentStop output is not displayed for a background worker, so H4 shows nothing')
+  const retryLine = 'planandtier: T01 on sonnet-low failed, retrying a tier up: 111k tokens (90% cache reads), ~$0.06. Run so far: ~$0.06.'
+  assert.deepEqual(state.read(S).spendLines, [retryLine])
+
+  // Claude ends its turn with the retry still due: the Stop blocks with the notice and shows the line.
+  const blocked = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).json
+  assert.equal(blocked.decision, 'block')
+  assert.equal(blocked.systemMessage, retryLine)
+  assert.deepEqual(state.read(S).spendLines, [], 'shown once')
+
+  spendAttempt(() => report('DONE', workerCommits('T01')), workerTranscript('w2'))
+  assert.match(state.read(S).notice, /T01 is done/, "Claude's notice is unchanged")
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  // T02 is in flight, so this Stop is allowed; it still shows T01's line.
+  const waiting = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).json
+  assert.equal(waiting.decision, undefined)
+  assert.match(waiting.systemMessage, /^planandtier: T01 on sonnet-medium done: 111k tokens .*Run so far: ~\$0\.11\.$/)
 
   const records = telemetry.read(telemetryFile())
   assert.deepEqual(records.map(r => [r.kind, r.task, r.tier, r.attempt, r.outcome]), [
@@ -1219,13 +1236,12 @@ test('each attempt is recorded beside the plan and shown in the UI, with its tie
   assert.deepEqual([first.planId, first.runId, first.sessionId, first.models], [PLAN_ID, state.read(S).runId, S, ['claude-sonnet-5']])
   assert.equal(first.durationMs, 0, 'one message: first and last are the same')
   assert.ok(Math.abs(state.read(S).spend.costUsd - 2 * WORKER_COST) < 1e-9)
-  assert.match(state.read(S).notice, /T01 is done/, "Claude's notice is unchanged")
 })
 
 test('a worker transcript that cannot be read leaves judging alone and records unknown usage', () => {
   startTestRun({ planFile: path.join(dir, 'plan.md') })
-  const out = spendAttempt(() => report('DONE', workerCommits('T01')), path.join(dir, 'missing.jsonl'))
-  assert.match(out.json.systemMessage, /T01 on sonnet-low done: usage unavailable\. Run so far: ~\$0\.00\./)
+  spendAttempt(() => report('DONE', workerCommits('T01')), path.join(dir, 'missing.jsonl'))
+  assert.match(state.read(S).spendLines[0], /T01 on sonnet-low done: usage unavailable\. Run so far: ~\$0\.00\./)
   assert.deepEqual(state.read(S).done.map(d => d.id), ['T01'])
   const [r] = telemetry.read(telemetryFile())
   assert.deepEqual([r.tokens, r.costUsd], [null, null])
@@ -1237,7 +1253,8 @@ test('a failed Agent call is recorded as an attempt that used nothing', () => {
   hook('h4-dispatch.js', agentPre(call), ['pre'])
   const out = hook('h4-dispatch.js', { ...agentPre(call), error: 'boom' }, ['failure']).json
   assert.match(out.hookSpecificOutput.additionalContext, /the Agent call failed: boom/)
-  assert.match(out.systemMessage, /T01 on sonnet-low failed, retrying a tier up: 0 tokens/)
+  assert.equal(out.systemMessage, undefined)
+  assert.match(state.read(S).spendLines[0], /T01 on sonnet-low failed, retrying a tier up: 0 tokens/)
   const [r] = telemetry.read(telemetryFile())
   assert.deepEqual([r.outcome, r.total, r.costUsd], ['retry', 0, 0])
 })
@@ -1276,6 +1293,34 @@ test('H2 records the planning since the cursor, with planning subagents but not 
   assert.deepEqual([records[1].planId, records[1].messages], [idOf(VALID), 0])
 })
 
+test('a plan rejected and revised in the dialog keeps its first round of planning in the summary', () => {
+  // As in the 2026-09-28 run: the first plan (a different task list, so a different id) was rejected,
+  // the revised one approved.
+  const main = path.join(dir, 'transcripts', 'main.jsonl')
+  state.setCursor(S, ago(120))
+  jsonl(main, [
+    { type: 'permission-mode', permissionMode: 'plan' },
+    said('first', ago(100), { raw: { output_tokens: 10000 } }, 'claude-opus-5-5'),
+  ])
+  const first = planText([task(1), task(2, { title: 'Hello version' })])
+  const file = writePlanFile(first)
+  hook('h2-gate-exit-plan.js', { ...exitPre(first, file), transcript_path: main })
+  // Written after the first submission moved the cursor, so it falls in the second round.
+  const afterFirst = new Date(Date.parse(state.cursor(S)) + 1).toISOString()
+  fs.appendFileSync(main, JSON.stringify(said('second', afterFirst, { raw: { output_tokens: 1000 } }, 'claude-opus-5-5')) + '\n')
+  writePlanFile(VALID)
+  hook('h2-gate-exit-plan.js', { ...exitPre(VALID, file), transcript_path: main })
+  hook('h3-post-approval.js', exitPost(VALID))
+
+  const records = telemetry.read(telemetryFile())
+  assert.deepEqual(records.map(r => r.kind), ['planning', 'planning', 'run'])
+  assert.notEqual(records[0].planId, records[1].planId, 'the rejected round had another id')
+  const s = state.read(S)
+  assert.deepEqual([records[2].planId, records[2].runId, records[2].startTask], [s.planId, s.runId, 'T01'])
+  const text = telemetry.summary(records, { planId: s.planId, runId: s.runId })
+  assert.match(text, new RegExp(`planning\\s+~\\$${((11000 * 20) / 1e6).toFixed(2)}`), 'both rounds')
+})
+
 test('H2 records nothing for a plan it denies, or in an unarmed session', () => {
   const file = writePlanFile(INVALID)
   hook('h2-gate-exit-plan.js', exitPre(INVALID, file))
@@ -1301,7 +1346,12 @@ test('at the first Stop after the run ends, the spend summary is shown once, wit
   ])
   const out = hook('h5-guard.js', { session_id: S, stop_hook_active: false, transcript_path: main }, ['stop']).json
   assert.equal(out.decision, undefined)
-  const rows = out.systemMessage.split('\n').slice(1).map(l => l.trim().split(/\s+/).slice(0, 2).join(' '))
+  // The four attempts' queued lines come first (no Stop ran during this test's run), then the summary.
+  const lines = out.systemMessage.split('\n')
+  assert.deepEqual(lines.slice(0, 4).map(l => l.split(':')[1].trim().split(' on ')[0]), ['T01', 'T02', 'T03', 'T03'])
+  const summaryAt = lines.findIndex(l => l.startsWith('planandtier spend'))
+  assert.equal(summaryAt, 4)
+  const rows = lines.slice(summaryAt + 1).map(l => l.trim().split(/\s+/).slice(0, 2).join(' '))
   assert.deepEqual(rows, [
     'planning ~$0.40',
     'sonnet-low ~$0.06',

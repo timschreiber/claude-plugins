@@ -41,9 +41,36 @@ From Anthropic's pricing page (fetched 2026-09-28), in USD per million tokens:
 - **Fast mode** costs more (Opus 5.5 at $8/$40), but transcripts do not record it, so it is priced at the
   standard rate.
 
+## The first live run
+
+An interactive run on 2026-09-28 (15:54, Claude Code 2.1.283, planandtier installed from the marketplace at
+`85084a7`, `planandtier-agents-run.md`). Evidence:
+- `probes/evidence/planandtier-agents-20260928-155438-session-output.txt`: the terminal output;
+- `planandtier-agents-20260928-155438-telemetry.jsonl`: the plan's telemetry file;
+- `planandtier-agents-20260928-155438-git-log.txt`: the throwaway repo's commits.
+
+- **A `SubagentStop` hook's `systemMessage` is not shown for a background worker.** None of the three
+  attempt lines H4 emitted appears in the output.
+- **A `Stop` hook's `systemMessage` is shown.** The end-of-run summary appeared as `Stop says: planandtier
+  spend …`. So H4 now queues each attempt's line in the run state, and H5 shows the queued lines at the next
+  Stop. In a background run that is the Stop right after the next dispatch.
+- **A Stop block's reason shows as "Stop hook error: …".** After T02, Claude ended its turn on the worker's
+  hand-back, before planandtier's notice was ready. H5 blocked the stop with the notice, and Claude
+  dispatched T03. The block worked; "error" is only how Claude Code labels it.
+- **The planning row counted only the approved round.** The plan was rejected once with feedback. The first
+  round's planning ($0.2635, 206,756 tokens, plan id `2378412cc7b5c5b4`) was recorded under a different id
+  from the approved plan (`a71be78eff4fa160`, $0.0222). The summary matched planning by id, so it showed
+  $0.02. H3 and execute-plan now record a `run` record at the start, and a run's planning is its session's
+  planning since the previous run start. Replaying the recorded file with the start record added gives
+  planning at $0.29.
+- **The workers ran on `claude-sonnet-5-5`.** The `sonnet` alias in the tier agents now resolves to Sonnet
+  5.5: the transcripts' model and the commits' co-author line both say so. The price table already had it
+  ($2/$10, the same as Sonnet 5).
+- **The commits carried both lines** (`Planandtier-Task:` and `Planandtier-Plan: a71be78eff4fa160`), and each
+  attempt's cost was $0.06 to $0.10.
+
 ## Not measured
 
-- Whether a `systemMessage` from a `SubagentStop` hook is shown in the interactive UI for a background
-  worker. The run guides check it.
-- Transcripts of Opus workers, or a main session using `opusplan`. Pricing is per message model, so a mixed
-  session is priced message by message; no transcript here mixed models.
+- The per-attempt line at the next Stop, in a live run. The run guides check it.
+- Opus workers, or a main session using `opusplan`. Pricing is per message model, so a mixed session is
+  priced message by message; no transcript here mixed models.

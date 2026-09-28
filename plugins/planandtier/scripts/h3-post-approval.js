@@ -9,6 +9,7 @@ const { resolvePlan, planIdOf, writeTasksFile } = require('./lib/sidecar.js')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const { startRun, dispatchText } = require('./lib/run.js')
+const { recordRunStart } = require('./lib/spend.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const PRUNE_DAYS = 7
@@ -95,6 +96,7 @@ run(async () => {
   const problem = git.problem(input.cwd)
   const saved = problem ? { ...started, phase: 'paused', pausedBecause: problem } : started
   if (!state.write(input.session_id, saved)) return cannotSave()
+  recordRunStart(input, saved)
   state.prune(PRUNE_DAYS)
 
   const count = `${result.tasks.length} tiered tasks (T01 to ${result.tasks[result.tasks.length - 1].id})`

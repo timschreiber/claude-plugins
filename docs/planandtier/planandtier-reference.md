@@ -525,8 +525,8 @@ other agent types are left alone.
   `SubagentHandback` call and then in assistant text. A worker often hands its report back with that tool
   and then ends with a line such as "Task complete.", so its last message is not reliably the report. It
   then judges the attempt (see [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what
-  Claude must be told next as the state's `notice`. It also records the attempt's tokens and cost, and shows
-  them to the user (see [Spend telemetry](#spend-telemetry)).
+  Claude must be told next as the state's `notice`. It also records the attempt's tokens and cost, and queues
+  the line H5 shows the user (see [Spend telemetry](#spend-telemetry)).
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
   already finished (a foreground run, as in a headless session): it gives Claude the notice as
   `additionalContext` and clears it. Otherwise the task is running in the background, and it tells Claude
@@ -735,6 +735,7 @@ no plan file known, they go to `sessions/<session_id>.telemetry.jsonl`. Every re
 | `planning` | H2, each time a valid tiered plan passes | Plan-mode main messages and non-planandtier subagents that started since the session's cursor | `window`, `subagents` |
 | `attempt` | H4 `stop`, and `failure` for a failed Agent call (zero usage) | The worker's whole transcript | `runId`, `task`, `tier`, `effort`, `attempt`, `agentId`, `outcome` (`done`, `retry`, `halt`), `reason`, `durationMs` |
 | `orchestration` | H5 at the first Stop after the run ends, or H1 on a disarm that stops it | Non-plan main messages, and non-planandtier subagents, since the run was approved or started | `runId`, `end` (the phase), `window`, `subagents` |
+| `run` | H3 on approval, and execute-plan, when a run starts | Nothing (no usage fields) | `runId`, `startTask` |
 
 **The cursor.** `sessions/<session_id>.cursor` holds the time up to which planning has been counted. Arming
 starts it, each planning record moves it, and disarming and SessionEnd delete it. So a rejected plan and its
@@ -742,24 +743,34 @@ resubmission each record only their own share.
 
 **Runs.** `startRun` gives each run a random `runId`, so a plan run twice (for example with
 `/planandtier:execute-plan` after a partial run) is summed per run. The run state keeps
-`spend: {costUsd}` for the running total, and `spendReported` once the summary has been shown.
+`spend: {costUsd}` for the running total, `spendLines` for attempt lines not yet shown, and `spendReported`
+once the summary has been shown.
+
+**Which planning belongs to a run.** A plan rejected and revised in the dialog gets a new id each round, so
+planning is not matched by id alone. Each session that planned the run contributes its `planning` records
+back to its previous `run` record:
+- the run's own session, up to this run's `run` record;
+- any other session (a plan run with `/planandtier:execute-plan`), up to its latest planning record with
+  this plan's id.
 
 ### What is shown
 
-Both go to the UI as the hook output's `systemMessage`. Claude's notices are unchanged, so the numbers
-cost it no context.
+Both go to the UI as a `Stop` hook's `systemMessage`. A `SubagentStop` hook's `systemMessage` is not shown
+for a background worker (measured; see [the telemetry findings](planandtier-telemetry-findings.md#the-first-live-run)),
+so H4 only queues the attempt line and H5 shows it. Claude's notices are unchanged, so the numbers cost it no
+context.
 
-- **After each attempt** (H4): `planandtier: T02 on sonnet-medium done: 412k tokens (96% cache reads), ~$0.31. Run so far: ~$0.52.`
-  A failed attempt says `failed, retrying a tier up` or `failed, run stopped`, and an unreadable transcript
-  says `usage unavailable`.
-- **When the run ends** (H5, or H1 on a disarm), once:
-  - a row for planning, summing every `planning` record for the plan from any session;
+- **After each attempt,** at the next Stop:
+  `planandtier: T02 on sonnet-medium done: 412k tokens (96% cache reads), ~$0.31. Run so far: ~$0.52.`
+  - In a background run, that Stop is the one right after the next dispatch.
+  - A failed attempt says `failed, retrying a tier up` or `failed, run stopped`.
+  - An unreadable transcript says `usage unavailable`.
+  - Lines still queued when the session is disarmed go out with the disarm note.
+- **When the run ends** (H5, or H1 on a disarm), once, after any queued lines:
+  - a row for planning (see above);
   - a row per tier used by this run, in ladder order, with its attempts, failures and tokens;
   - a row for orchestration;
   - a total.
-
-Whether a `SubagentStop` `systemMessage` is displayed for a background worker is checked by the run
-guides. If it is not, the per-attempt line belongs on the prompt that delivers the worker's report (H1).
 
 ### Updating prices
 
@@ -1081,6 +1092,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | Claim | Document | Evidence |
 |---|---|---|
 | A background Agent result carries no usage, so worker usage comes from its transcript; repeated lines of a message need the largest value per field; the main transcript's mode entries separate planning from execution; `meta.json` types each subagent; Opus 5.5 cache reads cost 0.05× input and Sonnet 5 is $2/$10 | [`planandtier-telemetry-findings.md`](planandtier-telemetry-findings.md) | `planandtier-usage-shapes.json`, `planandtier-pricing.json` |
+| In a live interactive run: a `SubagentStop` `systemMessage` is not shown for a background worker, a `Stop` one is; the planning of a rejected round is recorded under another plan id; the `sonnet` agents resolved to `claude-sonnet-5-5` | [`planandtier-telemetry-findings.md`](planandtier-telemetry-findings.md#the-first-live-run) | `planandtier-agents-20260928-155438-session-output.txt`, `-telemetry.jsonl`, `-git-log.txt` |
 | A typed plugin skill command reaches `UserPromptSubmit` as the raw text (for example `/planandtier-agent-probe:arm`), the namespaced name resolves, and a `disable-model-invocation` skill's body still reaches the model | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#arming-what-a-typed-skill-command-looks-like-to-a-hook) | `planandtier-arm-probe.log`, `planandtier-arm-probe-results.json` |
 | Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; the Opus effort steps above `high` add little | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28) |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log`, `planandtier-agents-probe.log`, `planandtier-agents-debug.log`, `planandtier-agents-rerun-probe.log`, `planandtier-agents-rerun-debug.log` |

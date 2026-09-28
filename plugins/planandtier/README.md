@@ -100,6 +100,7 @@ The plugin estimates the tokens and cost of every run, and shows them to you as 
 
 - **After each task attempt**, a line such as
   `planandtier: T02 on sonnet-medium done: 412k tokens (96% cache reads), ~$0.31. Run so far: ~$0.52.`
+  It appears when Claude next ends a turn, which in a normal run is right after it starts the next task.
 - **When the run ends** (completed, stopped or disarmed), a summary:
 
   ```
@@ -112,8 +113,8 @@ The plugin estimates the tokens and cost of every run, and shows them to you as 
     total          ~$1.59
   ```
 
-**Planning** is what the main session spent in plan mode on this plan, plus its Explore and Plan
-subagents. Each message is priced at the model that wrote it, so an `opusplan` session is priced
+**Planning** is what the main session spent in plan mode on this plan, including rounds you rejected, plus
+its Explore and Plan subagents. Each message is priced at the model that wrote it, so an `opusplan` session is priced
 correctly. **Orchestration** is the main session's own turns during the run.
 
 Everything is also written, one JSON line per event, to `<plan>.telemetry.jsonl` beside the plan in

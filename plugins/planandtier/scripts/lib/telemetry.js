@@ -2,6 +2,7 @@
 // tasks file, and the lines shown in the UI. Nothing leaves the machine.
 //   planning       H2, each time a valid tiered plan passes the gate: plan-mode messages and planning
 //                  subagents since the session's cursor
+//   run            H3 or execute-plan, when a run starts: marks where its planning ends
 //   attempt        H4, each worker attempt: its transcript's usage, tier, task and outcome
 //   orchestration  H5 (or H1 on a disarm), when the run ends: the main session's other messages and
 //                  non-planandtier subagents since the run started
@@ -86,10 +87,37 @@ const sum = (records, pick) => records.reduce((n, r) => n + (pick(r) ?? 0), 0)
 const unpricedOf = records => [...new Set(records.flatMap(r => r.unpriced ?? []))]
 const modelsOf = records => [...new Set(records.flatMap(r => r.models ?? []))]
 
-// The end-of-run summary: planning for the plan (from any session), then this run's attempts by tier
-// and its orchestration, and a total.
+// The planning records that led to a run. A plan revised in the dialog gets a new id each round, so
+// matching by id alone would drop the rejected rounds. So each session that planned it contributes its
+// planning records up to an anchor, and back to that session's previous run start (the planning before
+// that belonged to an earlier plan):
+//   - the run's own session: anchored at the run's start record;
+//   - any other session: anchored at its latest planning record with this plan's id (a plan planned in
+//     one session and run with /planandtier:execute-plan in another).
+function planningFor(records, { planId, runId }) {
+  const planning = records.filter(r => r.kind === 'planning')
+  const starts = records.filter(r => r.kind === 'run')
+  const anchors = new Map()
+  const raise = (session, at) => {
+    if (at && (!anchors.has(session) || at > anchors.get(session))) anchors.set(session, at)
+  }
+  const own = starts.find(r => runId && r.runId === runId)
+  if (own) raise(own.sessionId, own.at)
+  for (const p of planning) if (planId && p.planId === planId) raise(p.sessionId, p.at)
+  return planning.filter(p => {
+    if (!anchors.has(p.sessionId)) return false
+    const anchor = anchors.get(p.sessionId)
+    const floor = starts
+      .filter(r => r.sessionId === p.sessionId && r.at < anchor && r !== own)
+      .reduce((latest, r) => (r.at > latest ? r.at : latest), '')
+    return p.at <= anchor && p.at > floor
+  })
+}
+
+// The end-of-run summary: the planning that led to the run (planningFor), then this run's attempts by
+// tier and its orchestration, and a total.
 function summary(records, { planId, runId }) {
-  const planning = records.filter(r => r.kind === 'planning' && planId && r.planId === planId)
+  const planning = planningFor(records, { planId, runId })
   const attempts = records.filter(r => r.kind === 'attempt' && r.runId === runId)
   const orchestration = records.filter(r => r.kind === 'orchestration' && r.runId === runId)
   const rows = []
@@ -113,4 +141,4 @@ function summary(records, { planId, runId }) {
   return [`planandtier spend (estimated, prices as of ${AS_OF}):`, ...lines].join('\n')
 }
 
-module.exports = { fileFor, append, read, usageFields, fmtTokens, fmtUsd, attemptLine, summary }
+module.exports = { fileFor, append, read, usageFields, fmtTokens, fmtUsd, attemptLine, planningFor, summary }

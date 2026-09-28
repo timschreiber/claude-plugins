@@ -98,11 +98,13 @@ function disarmNote(input) {
   state.disarm(id)
   const s = state.read(id)
   const inRun = s && (s.phase === 'running' || s.phase === 'paused')
-  const abandoned = inRun ? { ...s, phase: 'abandoned', notice: null, spendReported: true } : null
+  const abandoned = inRun ? { ...s, phase: 'abandoned', notice: null, spendReported: true, spendLines: [] } : null
   if (inRun) state.write(id, abandoned)
   else state.remove(id)
-  // A run stopped here never reaches H5's end-of-run report, so its spend is shown now.
-  const spent = inRun && s.runId && !s.spendReported ? spend.recordRunEnd(input, abandoned) : null
+  // A run stopped here never reaches H5 again (the session is unarmed), so its queued attempt lines and
+  // its spend summary are shown now.
+  const summary = inRun && s.runId && !s.spendReported ? spend.recordRunEnd(input, abandoned) : null
+  const spent = inRun ? [...(s.spendLines ?? []), ...(summary ? [summary] : [])].join('\n') || null : null
 
   if (!armed) {
     emitText('planandtier: was not armed for this session; nothing changed.')

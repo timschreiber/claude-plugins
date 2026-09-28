@@ -15,6 +15,7 @@ const git = require('./git.js')
 const { resolvePlan, planIdOf, sidecarPath, writeTasksFile } = require('./sidecar.js')
 const { extractBlock } = require('./tasks.js')
 const { startRun, dispatchText, skippedEntry, doneLabel } = require('./run.js')
+const { recordRunStart } = require('./spend.js')
 
 const PREFIX = 'planandtier:'
 const LISTED = 5
@@ -213,6 +214,7 @@ function executePlan(input, rest) {
     cwd,
   }
   if (!state.write(id, run)) return `${PREFIX} the run could not be saved, so the plan cannot run. Tell the user.`
+  recordRunStart(input, run)
 
   const count = `${result.tasks.length} tiered tasks`
   const skipped = point.done.length

@@ -69,9 +69,9 @@ test('the attempt line names the task, tier, outcome, tokens, cost and the run s
 
 test('the summary has planning from every session, this run by tier in ladder order, orchestration and a total', () => {
   const records = [
-    { kind: 'planning', planId: 'P', sessionId: 'old', subagents: 2, ...usage(0.3), models: ['claude-opus-5-5'] },
-    { kind: 'planning', planId: 'P', sessionId: 'new', subagents: 1, ...usage(0.1), models: ['claude-opus-5-5'] },
-    { kind: 'planning', planId: 'OTHER', ...usage(9) },
+    { kind: 'planning', at: '2026-09-28T10:00:00Z', planId: 'P', sessionId: 'old', subagents: 2, ...usage(0.3), models: ['claude-opus-5-5'] },
+    { kind: 'planning', at: '2026-09-28T11:00:00Z', planId: 'P', sessionId: 'new', subagents: 1, ...usage(0.1), models: ['claude-opus-5-5'] },
+    { kind: 'planning', at: '2026-09-28T09:00:00Z', planId: 'OTHER', sessionId: 'elsewhere', ...usage(9) },
     { kind: 'attempt', runId: 'r2', task: 'T02', tier: 'opus-high', outcome: 'done', ...usage(0.61) },
     { kind: 'attempt', runId: 'r2', task: 'T01', tier: 'sonnet-low', outcome: 'retry', ...usage(0.02) },
     { kind: 'attempt', runId: 'r2', task: 'T01', tier: 'sonnet-medium', outcome: 'done', ...usage(0.03) },
@@ -89,6 +89,30 @@ test('the summary has planning from every session, this run by tier in ladder or
   assert.match(text, /sonnet-low\s+~\$0\.02\s+1 attempt \(1 failed\), 100k tokens/)
   assert.match(text, /opus-high\s+~\$0\.61\s+1 attempt, 100k tokens/)
   assert.match(text, /total\s+~\$1\.26$/)
+})
+
+test('planning includes rounds rejected in the dialog, and planning from another session, but not an earlier plan', () => {
+  const plan = (at, sessionId, planId, costUsd) => ({ kind: 'planning', at, sessionId, planId, ...usage(costUsd) })
+  const start = (at, sessionId, planId, runId) => ({ kind: 'run', at, sessionId, planId, runId })
+  const records = [
+    // Session A: plan X planned and run, then plan Y planned twice (rejected once, new id), then run.
+    plan('2026-09-28T10:00:00Z', 'A', 'X', 1),
+    start('2026-09-28T10:05:00Z', 'A', 'X', 'rx'),
+    plan('2026-09-28T11:00:00Z', 'A', 'Y1', 0.26),
+    plan('2026-09-28T11:02:00Z', 'A', 'Y2', 0.02),
+    start('2026-09-28T11:03:00Z', 'A', 'Y2', 'ry'),
+    // Session B planned Z twice and left; session C runs Z with execute-plan.
+    plan('2026-09-28T12:00:00Z', 'B', 'Z1', 0.5),
+    plan('2026-09-28T12:05:00Z', 'B', 'Z2', 0.1),
+    start('2026-09-28T13:00:00Z', 'C', 'Z2', 'rz'),
+    plan('2026-09-28T14:00:00Z', 'A', 'W', 7), // later planning in A belongs to a later plan
+  ]
+  const costs = (planId, runId) => t.planningFor(records, { planId, runId }).map(r => r.costUsd)
+  assert.deepEqual(costs('Y2', 'ry'), [0.26, 0.02], 'the rejected round counts; plan X and plan W do not')
+  assert.deepEqual(costs('X', 'rx'), [1])
+  assert.deepEqual(costs('Z2', 'rz'), [0.5, 0.1], 'both rounds from the session that planned it')
+  assert.deepEqual(costs('Z2', 'unknown-run'), [0.5, 0.1], 'without a run record, the plan id still anchors')
+  assert.match(t.summary(records, { planId: 'Y2', runId: 'ry' }), /planning\s+~\$0\.28/)
 })
 
 test('a summary without planning records or orchestration still totals what it has', () => {
