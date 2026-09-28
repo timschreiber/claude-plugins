@@ -103,6 +103,23 @@ test('problem() refuses a repository that has no identity to commit with', () =>
   })
 })
 
+test('problem() says Git is missing, rather than that there is no repository, when git cannot run', () => {
+  const r = repo()
+  const saved = { PATH: process.env.PATH, Path: process.env.Path }
+  process.env.PATH = ''
+  process.env.Path = ''
+  try {
+    assert.equal(g.installed(), false)
+    assert.equal(g.problem(r), 'Git is not installed or not on the PATH')
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  }
+  assert.equal(g.installed(), true)
+})
+
 test('head, branch and isClean read the repository', () => {
   const r = repo()
   assert.match(g.head(r), /^[0-9a-f]{40}$/)

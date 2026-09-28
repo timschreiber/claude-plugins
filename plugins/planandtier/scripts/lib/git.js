@@ -18,10 +18,21 @@ function git(cwd, args) {
   }
 }
 
-// null when the directory is usable for a run, else a short reason: not a repository, no commit to
-// return to, no identity to commit with, or uncommitted changes (the first few paths are named).
+// True when a git executable runs at all. Without this, a missing Git reads as "not a repository".
+const installed = () => {
+  try {
+    return spawnSync('git', ['--version'], { encoding: 'utf8', timeout: 60000, windowsHide: true }).status === 0
+  } catch {
+    return false
+  }
+}
+
+// null when the directory is usable for a run, else a short reason: no Git, not a repository, no
+// commit to return to, no identity to commit with, or uncommitted changes (the first few paths are
+// named).
 function problem(cwd) {
   if (typeof cwd !== 'string' || !cwd) return 'the working directory is unknown'
+  if (!installed()) return 'Git is not installed or not on the PATH'
   if (git(cwd, ['rev-parse', '--is-inside-work-tree']).stdout !== 'true') return 'it is not inside a Git repository'
   if (!git(cwd, ['rev-parse', '--verify', '-q', 'HEAD']).ok) return 'the repository has no commits yet'
   // Every task is a commit: without an identity, each worker's commit fails and burns its retries.
@@ -69,4 +80,4 @@ const isPushed = (cwd, sha) => {
 // (ignored files are left alone). True when both commands succeeded.
 const resetTo = (cwd, sha) => git(cwd, ['reset', '--hard', '-q', sha]).ok && git(cwd, ['clean', '-fdq']).ok
 
-module.exports = { git, problem, head, branch, isClean, commitsSince, isPushed, resetTo }
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, isPushed, resetTo }

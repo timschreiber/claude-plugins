@@ -362,7 +362,10 @@ test('H2 denies a tiered plan outside a Git repository or with a dirty tree, wit
   assert.equal(state.read(S), null, 'not counted as a denial')
 })
 
-test('H2 denies a tiered plan in a repository with no Git identity', () => {
+// A clean repository with one commit but no identity to commit with, and the environment a hook needs
+// to see it that way: user.useConfigOnly stops Git from guessing one, the global and system config are
+// shut out, and no GIT_* identity is set.
+function repoWithoutIdentity() {
   const repo = path.join(dir, 'anon')
   fs.mkdirSync(repo)
   gitIn(repo, 'init', '-q', '-b', 'main')
@@ -373,10 +376,13 @@ test('H2 denies a tiered plan in a repository with no Git identity', () => {
   gitIn(repo, '-c', 'user.name=Setup', '-c', 'user.email=setup@example.com', 'commit', '-q', '-m', 'init')
   const emptyConfig = path.join(dir, 'empty.gitconfig')
   fs.writeFileSync(emptyConfig, '')
-  // No identity anywhere: the global and system config are shut out, and no GIT_* identity is set.
   const env = { GIT_CONFIG_GLOBAL: emptyConfig, GIT_CONFIG_NOSYSTEM: '1' }
   for (const key of ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'EMAIL']) env[key] = ''
+  return { repo, env }
+}
 
+test('H2 denies a tiered plan in a repository with no Git identity', () => {
+  const { repo, env } = repoWithoutIdentity()
   const file = writePlanFile(VALID)
   const out = hook('h2-gate-exit-plan.js', exitPre(VALID, file, repo), [], env).json.hookSpecificOutput
   assert.equal(out.permissionDecision, 'deny')
@@ -837,7 +843,32 @@ test('H6 end deletes the session state', () => {
 
 // ---- arming ---------------------------------------------------------------------------
 
-const typed = (prompt, mode = 'default') => hook('h1-plan-rules.js', { session_id: S, permission_mode: mode, prompt })
+const typed = (prompt, mode = 'default', cwd = REPO, env = {}) =>
+  hook('h1-plan-rules.js', { session_id: S, cwd, permission_mode: mode, prompt }, [], env)
+
+test('arming is refused, with the reason, where a plan could not run', () => {
+  state.disarm(S)
+  const refused = (out, reason) => {
+    assert.match(out, new RegExp(`^planandtier: not armed, because ${reason}\\.`))
+    assert.match(out, /type \/planandtier:arm again\./)
+    assert.equal(state.isArmed(S), false)
+  }
+  const plain = path.join(dir, 'plain')
+  fs.mkdirSync(plain)
+  refused(typed('/planandtier:arm', 'default', plain).stdout, 'it is not inside a Git repository')
+
+  const repo = makeRepo(path.join(dir, 'repo'))
+  fs.writeFileSync(path.join(repo, 'wip.txt'), 'x')
+  refused(typed('/planandtier:arm', 'default', repo).stdout, 'the working tree has uncommitted changes \\(wip\\.txt\\)')
+
+  const anon = repoWithoutIdentity()
+  refused(typed('/planandtier:arm', 'default', anon.repo, anon.env).stdout, 'Git has no user name and email for this repository, so the tasks cannot commit; set user.name and user.email')
+
+  refused(typed('/planandtier:arm', 'default', REPO, { PATH: '', Path: '' }).stdout, 'Git is not installed or not on the PATH')
+
+  const inPlanMode = typed('/planandtier:arm', 'plan', plain).stdout
+  assert.ok(!inPlanMode.includes(RULES), 'no rules when arming is refused')
+})
 
 test('/planandtier:arm arms the session and says so, and arming again changes nothing', () => {
   state.disarm(S)
@@ -861,7 +892,7 @@ test('arming says it failed when the flag cannot be written', () => {
   state.disarm(S)
   const blocker = path.join(dir, 'blocker')
   fs.writeFileSync(blocker, '')
-  const out = hook('h1-plan-rules.js', { session_id: S, prompt: '/planandtier:arm' }, [], { CLAUDE_PLUGIN_DATA: path.join(blocker, 'x') })
+  const out = typed('/planandtier:arm', 'default', REPO, { CLAUDE_PLUGIN_DATA: path.join(blocker, 'x') })
   assert.match(out.stdout, /^planandtier: arming failed/)
 })
 

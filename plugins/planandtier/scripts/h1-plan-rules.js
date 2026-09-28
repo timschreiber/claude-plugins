@@ -61,9 +61,21 @@ const rules = () => fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering
 // The skills themselves only tell Claude to report the note printed here.
 const COMMAND = /^\s*\/planandtier:(arm|disarm)\b/
 
+// Arming checks the repository the way H2 does at approval, so a session that could never run a plan
+// is not armed at all. H2 and H3 still check again: the tree can change after arming.
 function armNote(input) {
   const id = input.session_id
   const already = state.isArmed(id)
+  const problem = already ? null : git.problem(input.cwd)
+  if (problem) {
+    emitText(
+      `planandtier: not armed, because ${problem}. planandtier commits each task and resets a failed ` +
+        'attempt to the commit before it, so it needs Git, a repository with a commit, a user name and email ' +
+        'to commit with, and a clean working tree. Tell the user what to fix, and that they can then type ' +
+        '/planandtier:arm again.'
+    )
+    return
+  }
   if (!already && !state.arm(id)) {
     emitText('planandtier: arming failed, because its flag file could not be written, so it stays off for this session.')
     return

@@ -37,10 +37,13 @@ Tested on Claude Code 2.1.283.
 
 ## How to use
 
-1. **Arm the session: type `/planandtier:arm`.** Claude confirms it in one line. Arming lasts for the
-   session; `/clear` starts a new, unarmed one.
-2. **Commit or stash your changes.** A tiered plan cannot be approved while the working tree has
-   uncommitted changes, and Claude tells you if that is the case.
+1. **Commit or stash your changes.** Arming, and later approving a tiered plan, need a clean working
+   tree.
+2. **Arm the session: type `/planandtier:arm`.** Claude confirms it in one line. Arming is refused, with
+   the reason, if Git is missing, the directory is not a repository with a commit, Git has no user name and
+   email, or the tree has uncommitted changes; fix that and arm again. Arming lasts for the session;
+   `/clear` starts a new, unarmed one. The same checks run again when Claude submits the plan, since the
+   tree can change in between.
 3. **Start a plan as usual, in plan mode.** The plugin adds its tiering rules to the conversation.
 4. **Claude plans** and ends the plan with a `## Tasks` section holding a `json tiered-tasks` block: one
    entry per task, each with a model, an effort and a self-contained prompt. If the block is invalid,

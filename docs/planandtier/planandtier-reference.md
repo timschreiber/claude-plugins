@@ -106,7 +106,7 @@ installed. The plugin can therefore stay installed everywhere, and how Claude wa
 
 | Command | Effect |
 |---|---|
-| `/planandtier:arm` | Arms the session: writes `sessions/<session_id>.armed` beside the state file. Typed in plan mode, it also adds the tiering rules at once. |
+| `/planandtier:arm` | Checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)). If it passes, arms the session: writes `sessions/<session_id>.armed` beside the state file. Typed in plan mode, it also adds the tiering rules at once. If it fails, the session stays unarmed. |
 | `/planandtier:disarm` | Disarms the session: removes the flag. A `running` or `paused` run is marked `abandoned` with its notice cleared, so nothing more is dispatched; any other state is deleted. |
 
 Both are skills in [`skills/`](../../plugins/planandtier/skills/) with `disable-model-invocation: true`, so
@@ -122,6 +122,7 @@ The notes:
 |---|---|
 | Armed | `planandtier: armed for this session.` and what that means, then the rules if in plan mode |
 | Already armed | `planandtier: already armed for this session; nothing changed.` |
+| The repository cannot run a plan | `planandtier: not armed, because <reason>.` Git is missing, the directory is not a repository or has no commit, Git has no user name and email, or the tree has uncommitted changes. Claude tells the user what to fix and to arm again. No rules are added. |
 | The flag could not be written | `planandtier: arming failed, …` The session stays unarmed. |
 | Disarmed, no run | `planandtier: disarmed for this session.` |
 | Disarmed during a run | Which tasks are done and committed (with their commits and tiers), which are not, and, if a worker is still running, that it will not be checked or rolled back. Claude is told not to dispatch more tasks. |
@@ -460,8 +461,9 @@ Runs before every main-thread `ExitPlanMode` call.
    back to `tool_input.plan`. The file comes first because `tool_input.plan` is whatever Claude sent and
    was measured to be stale after a retry.
 2. Parses it with `resolvePlan()`. The opt-out line passes silently.
-3. For a valid tiered plan, checks the Git working directory (`cwd`) with `git.problem()`: it must be
-   inside a repository that has a commit and a commit identity (`git var GIT_COMMITTER_IDENT` succeeds),
+3. For a valid tiered plan, checks the Git working directory (`cwd`) with `git.problem()`, the same check
+   arming makes: `git` must run (`git --version`; otherwise the reason says Git is missing, not that there
+   is no repository), and the directory must be inside a repository that has a commit and a commit identity (`git var GIT_COMMITTER_IDENT` succeeds),
    with no uncommitted changes (`git status --porcelain` empty; ignored files do not count). Without an
    identity every worker's commit would fail and use up its retries, so the plan is refused up front.
    Otherwise it denies, names the problem, and tells Claude not to call `ExitPlanMode` again until the user
@@ -853,11 +855,11 @@ file and fails.
 |---|---|
 | `tests/planandtier/tasks.test.js` | Every validation rule, the allowed and rejected tiers, the tier ladder, fence handling (nested, tilde, CRLF, other info strings), the opt-out line, multiple blocks, invalid JSON, collecting all errors, key stripping; the generated table, finding and rejecting sections, and replacing a block while keeping CRLF or LF. |
 | `tests/planandtier/sidecar.test.js` | The tasks file's name and hash, moving a block, and loading a tasks file that is intact, missing, changed or invalid, or whose table was edited. |
-| `tests/planandtier/git.test.js` | The repository, commit identity and clean-tree check, HEAD and branch, commits since a base, pushed commits (with a bare remote), and the reset. |
+| `tests/planandtier/git.test.js` | The Git-installed, repository, commit identity and clean-tree check, HEAD and branch, commits since a base, pushed commits (with a bare remote), and the reset. |
 | `tests/planandtier/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt, and moving on: next, complete, retry up the ladder, halt. |
 | `tests/planandtier/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
 | `tests/planandtier/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, and the arming flag. |
-| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming and disarming, every hook silent when unarmed, disarming mid-run, the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (and refusing to arm where a plan could not run) and disarming, every hook silent when unarmed, disarming mid-run, the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
 To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandtier`, type
@@ -891,6 +893,7 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 
 | Symptom | Likely cause and fix |
 |---|---|
+| Claude says planandtier is not armed, with a reason | Arming checks the repository first. Fix what the reason names (install Git, commit or stash, set `user.name` and `user.email`), then type `/planandtier:arm` again. |
 | Plan mode behaves as if the plugin were absent | The session is not armed: type `/planandtier:arm`. If Claude says planandtier did not respond, Node is not on the `PATH` or the plugin is not enabled. Check `node --version` and `/plugin`. Set `PLANANDTIER_DEBUG=1` and look at `planandtier-debug.log` in the temp directory. |
 | `/planandtier:arm` is not recognized | The plugin is not installed or not enabled in this session. Check `/plugin`. |
 | `ExitPlanMode` keeps being denied for the task block | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
