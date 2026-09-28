@@ -6,15 +6,9 @@ Claude has to write a complete new block. If it edits only the table, H2 denies 
 so that ends well too, one denial later. What must never happen is a dialog showing the changed task
 while the old task runs.
 
-The first run (evidence `planandtier-reject-*`) showed that the plugin handles the rejection. It also showed
-that Claude Code relays the latest typed prompt to workers, but not dialog feedback, so T02's worker refused
-the changed task. planandtier now has the user launch a revised plan by typing `/planandtier:execute-plan`.
-This guide is for the second run (evidence `planandtier-reject2-*`), which checks that fix.
-
 The run passes if:
 - the second approval dialog shows the changed T02 in the table;
-- after approval, Claude does not launch the workflow itself, and asks you to type `/planandtier:execute-plan`;
-- after you type it, the workflow creates `farewell.txt`, not `bye.txt`, and both tasks finish.
+- the workflow creates `farewell.txt`, not `bye.txt`.
 
 ## Where things run
 
@@ -64,25 +58,19 @@ claude --permission-mode plan --plugin-dir "$repo\plugins\planandtier" --plugin-
    hook error) before the next dialog appears.
 
 4. **At the second approval dialog,** note what the T02 row says. Then **approve.** Auto mode is fine if
-   offered.
+   offered; if not, approve the workflow review and any worker prompts.
 
-5. **Note what Claude does after approval.** It should say the plan is approved and ask you to type
-   `/planandtier:execute-plan`, without starting the workflow itself.
+5. **Wait for the workflow to finish**, then exit with `/exit`.
 
-6. **Type `/planandtier:execute-plan`.** Approve the workflow review and any worker prompts if they appear.
-
-7. **Wait for the workflow to finish**, then exit with `/exit`.
-
-8. **Check the result** in the same PowerShell window:
+6. **Check the result** in the same PowerShell window:
    ```powershell
    Get-ChildItem $dir -Name
    ```
 
 ## Record
 
-Save this as `probes/evidence/planandtier-reject2-observations.json` (in `probes\evidence` at the repo
-root), filling in each `null`. For the `null` fields, `true` or `false` is enough; if you don't know, leave
-`null` and say so in `notes`.
+Save this as `probes/evidence/planandtier-reject-observations.json` (in `probes\evidence` at the repo
+root), filling in each `null`:
 
 ```json
 {
@@ -91,7 +79,6 @@ root), filling in each `null`. For the `null` fields, `true` or `false` is enoug
   "firstDialog": { "showedTable": null },
   "afterRejection": { "deniedBeforeSecondDialog": null, "notes": "" },
   "secondDialog": { "shownTable": null, "t02Row": "<the T02 row as shown>" },
-  "afterApproval": { "claudeAskedForTypedLaunch": null, "claudeLaunchedItself": null, "notes": "" },
   "run": { "allTasksFinished": null, "farewellTxtExists": null, "byeTxtExists": null },
   "notes": ""
 }
@@ -101,8 +88,8 @@ Then copy the two logs next to it:
 
 ```powershell
 Copy-Item "$HOME\.claude\plugins\data\planandtier-probe-inline\probe.log" `
-  "$repo\probes\evidence\planandtier-reject2-probe.log"
-Copy-Item "$env:TEMP\planandtier-debug.log" "$repo\probes\evidence\planandtier-reject2-debug.log"
+  "$repo\probes\evidence\planandtier-reject-probe.log"
+Copy-Item "$env:TEMP\planandtier-debug.log" "$repo\probes\evidence\planandtier-reject-debug.log"
 ```
 
 Tell me when all three are in place. I'll read the transcript, the plan and its tasks file myself.
@@ -110,7 +97,6 @@ Tell me when all three are in place. I'll read the transcript, the plan and its 
 ## If something goes wrong
 
 - **`claude` reports that a plugin failed to load:** keep the message and stop.
-- **The second dialog shows `farewell` but the run creates `bye.txt`, or a worker refuses its task:** that is
-  the failure this run looks for. Note it and stop.
-- **Claude starts the workflow itself after approval:** note it, let it run, and record what happened.
+- **The second dialog shows `farewell` but the run creates `bye.txt`:** that is the failure this run looks
+  for. Note it and stop.
 - **Claude is denied three times in a row:** the plan then goes through untiered. Note it and stop.

@@ -123,9 +123,7 @@ sequenceDiagram
 4. **Hand-off.** H3 reads the approved plan, loads its tasks from the tasks file, saves them, and tells
    Claude that its next action is to call the `Workflow` tool for `planandtier:execute-plan`, with no
    arguments. Until the workflow starts, H5 denies main-thread edits and shell commands and blocks the turn
-   from ending. If the user rejected an earlier version of the plan, H3 instead tells Claude to ask the user
-   to type `/planandtier:execute-plan`, and nothing is guarded (see
-   [Revised plans](#revised-plans-are-launched-by-the-user)).
+   from ending.
 5. **Launch.** Claude calls `Workflow`. H4 replaces the call's `args` with the saved tasks. When Claude Code
    confirms that the workflow started, H6 marks the state `launched`, which stands the guards down.
 6. **Execution.** The workflow runs each task through the `planandtier:worker` agent at the task's model
@@ -373,11 +371,6 @@ Runs before every main-thread `ExitPlanMode` call.
    file, the reason tells Claude to write the complete block again in place of the table. If the plan has
    no block, no table and no opt-out line at all, the full rules are appended to the reason.
 
-**Submission count.** Every plan that reaches the dialog adds one to `submissions` in the session state:
-a valid plan, an opted-out plan, and a plan let through after the denial cap. Denials do not count. H3
-resets the count on approval, so a count above one at approval means an earlier version was shown and
-not approved.
-
 **Denial cap.** H2 counts its denials in the session state. After three, it lets the next call through
 rather than spend more turns; H3 then runs the plan untiered and says so. The count is reset when a
 tiered plan is approved, not when a single `ExitPlanMode` call passes. A denial keeps any existing state
@@ -402,7 +395,6 @@ measured to hold the same shortened text, and `tool_input` held no plan text at 
 | A table that was edited, or whose tasks file is missing, changed or invalid | Deletes the state and tells Claude that nothing will run: tell the user and suggest planning again, and do not implement the plan, since its prompts are not in it. |
 | Invalid (only possible after H2's cap) | Deletes the state and tells Claude the plan will not run as a workflow: tell the user, then implement the plan normally. |
 | Valid, state saved | Writes the state as `approved` with the tasks and the tasks file's path and hash, prunes session files older than 7 days, and tells Claude: the approval is the user's request to run the plan; do not implement it or edit files; the next action is `Workflow` with name `planandtier:execute-plan` and no args; then tell the user it is running. |
-| Valid, after an earlier version was rejected (`submissions` above one) | Writes the state as `awaiting-launch` instead, and tells Claude: do not launch the workflow, implement the plan or edit files; tell the user the plan is approved and ask them to type `/planandtier:execute-plan`; then end the turn. |
 | Valid, state not saved | Tells Claude the tasks could not be saved: tell the user, then implement the plan normally. It never claims a launch it cannot supply. |
 
 ### H4: arguments
@@ -423,25 +415,8 @@ Because `updatedInput` replaces the whole tool input, H4 spreads the original in
 `permissionDecision`: `updatedInput` alone is honored, and `"allow"` would skip the user's permission
 prompt for the workflow.
 
-H4 also fires on a relaunch (`launched`), after the guard gave up (`abandoned`), and for a revised plan
-the user launches (`awaiting-launch`), so the same tasks are supplied however the workflow is started.
-
-### Revised plans are launched by the user
-
-Claude Code starts every workflow agent with the user's latest typed prompt, relayed as a request that
-wins over the agent's task. Feedback typed in the plan approval dialog is not a typed prompt, so it is never
-relayed. After a rejection with feedback that changed a task, the relayed prompt can contradict the
-approved task, and the worker then refuses it (see
-[`planandtier-dialog-findings.md`](planandtier-dialog-findings.md#rejecting-a-plan-after-its-block-was-moved)).
-
-So a plan approved after an earlier version was rejected is not launched by Claude. H3 saves it as
-`awaiting-launch` and has Claude ask the user to type `/planandtier:execute-plan`. That command then becomes
-the relayed request. The e2e relaunch showed that workers run normally with that command relayed. Nothing is
-guarded in `awaiting-launch`, so Claude can end its turn and wait. A plan approved on its first showing is
-launched by Claude as before.
-
-Any rejection counts, including Esc or feedback that changes nothing, so the typed launch sometimes asks for a
-command it did not need.
+H4 also fires on a relaunch (`launched`) and after the guard gave up (`abandoned`), so the same tasks are
+supplied however the workflow is started.
 
 ### H5: guard
 
@@ -490,9 +465,6 @@ After approval the file looks like this:
 }
 ```
 
-Before approval, H2 also keeps `submissions`, the number of plan versions that reached the dialog. H3 does
-not carry it into the approved state.
-
 `tasksFile` and `tasksHash` are null when the approved plan still held its block, which happens only when
 H2 could not rewrite the plan file. H6 adds `launchedAt` when it marks a launch. Timestamps are written by
 hooks, never by the workflow script, because the workflow runtime does not allow `Date.now()`.
@@ -501,10 +473,9 @@ hooks, never by the workflow script, because the workflow runtime does not allow
 
 ```mermaid
 stateDiagram-v2
-    [*] --> planning: H2 denies or counts a plan (no earlier state)
+    [*] --> planning: H2 denies a plan (no earlier state)
     planning --> approved: H3, valid plan approved
-    planning --> awaiting_launch: H3, approved after a rejection
-    awaiting_launch --> launched: H6, user's typed launch started
+    [*] --> approved: H3, valid plan approved
     approved --> launched: H6, workflow started
     launched --> launched: H6, relaunch started
     launched --> approved: H6, launch failed
@@ -515,19 +486,13 @@ stateDiagram-v2
     approved --> [*]: H3 opt-out or invalid, or H6 session end
     launched --> [*]: H6 session end
     abandoned --> [*]: H6 session end
-    awaiting_launch --> [*]: H6 session end
 ```
-
-The diagram writes `awaiting-launch` as `awaiting_launch`, because Mermaid state names cannot contain `-`.
-Plans approved after an earlier plan in the same session follow the same transitions from `approved`,
-`launched` or `abandoned`.
 
 | Phase | Set by | Meaning | Guards | H4 supplies tasks |
 |---|---|---|---|---|
 | (no file) | H3 opt-out or invalid, H6 end | Idle. | Off | No |
-| `planning` | H2, on a denial or a counted plan with no earlier state | Holds only the denial and submission counts. | Off | No |
+| `planning` | H2, on a denial with no earlier state | Holds only the denial count. | Off | No |
 | `approved` | H3; H6 after a failed launch | Tasks saved, workflow not yet started. A launch that was rejected or declined leaves it here. | **On** | Yes |
-| `awaiting-launch` | H3, for a plan approved after an earlier version was rejected | Tasks saved; the user has been asked to type `/planandtier:execute-plan`. | Off | Yes |
 | `launched` | H6 | The workflow started. | Off | Yes |
 | `abandoned` | H5, after giving up | Claude never launched; the session is back to normal. | Off | Yes |
 
@@ -722,10 +687,10 @@ enter plan mode, and ask for a small multi-step change.
 - **Workers see only their prompt**, plus one message from Claude Code: the user's latest typed prompt,
   relayed as the request that wins over the task. They do not see the plan or the rest of the
   conversation. A vague prompt gives a vague result.
-- **A revised plan needs a typed launch.** Feedback typed in the approval dialog is not relayed to workers,
-  so a plan approved after a rejection is launched by the user typing `/planandtier:execute-plan` (see
-  [Revised plans](#revised-plans-are-launched-by-the-user)). Launching it any other way, for example by
-  asking Claude in the same turn, can still relay a stale prompt.
+- **A plan changed through the approval dialog's feedback box can fail to run.** That feedback is not a
+  typed prompt, so Claude Code relays the older prompt to the workers. A worker whose task contradicts it
+  refuses, and the run halts there. See
+  [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md#rejecting-a-plan-after-its-block-was-moved).
 - **Relaunch repeats from `T01`.** There is no resume from the failed task.
 - **State ends with the session.** A resumed session cannot relaunch a plan approved in an earlier one.
 - **The model launches the workflow.** The plugin instructs Claude and blocks other work, but cannot call
@@ -748,8 +713,7 @@ enter plan mode, and ask for a small multi-step change.
 | `ExitPlanMode` keeps being denied | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
 | The dialog says the plan is too large to be shown in full | A line in the plan is too long for the dialog. If the plan still has its task block, H2 could not rewrite the plan file; `PLANANDTIER_DEBUG=1` logs that. If the long line is in the prose, ask Claude to wrap it. |
 | After approval Claude says the tasks could not be loaded | The tasks file was changed, moved or deleted after its table was written. Plan again. |
-| A worker reports `failed` because its task conflicts with "the relayed user request" | The task contradicts your latest typed prompt, which Claude Code shows every worker as overriding. After a revised plan, launch by typing `/planandtier:execute-plan` so that the command is the relayed request. |
-| After approval Claude asks you to type `/planandtier:execute-plan` | Expected when you rejected an earlier version of the plan. Type it to run the plan. |
+| A worker reports `failed` because its task conflicts with "the relayed user request" | The plan was changed through the approval dialog's feedback box, and the task contradicts your latest typed prompt, which Claude Code shows every worker as overriding. |
 | The launch fails with `script contains control characters` | `execute-plan.js` was checked out with CRLF line endings. The repo's `.gitattributes` keeps it LF; update or reinstall the plugin. |
 | The workflow returns "No tasks were supplied" | It was started with no approved plan in this session, or the session state was lost. Approve a plan first. |
 | A message about "no tasks" appears at launch, but the run proceeds | Unconfirmed. The `Workflow` call may be displayed as Claude made it, before H4 adds the tasks. The workflow record is what counts. |
