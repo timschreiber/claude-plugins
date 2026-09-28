@@ -44,7 +44,8 @@ test('all the agents share one body, which asks for the report block and a trail
   for (const [i, body] of bodies.entries()) assert.equal(body, bodies[0], `${TIERS[i]} differs from ${TIERS[0]}`)
   const body = bodies[0]
   assert.match(body, /Tasks file:/)
-  assert.match(body, /git commit -m "<the task's title>" -m "Planandtier-Task: <the task's id>"/)
+  assert.match(body, /git commit -m "<the task's title>" -m "Planandtier-Task: <the task's id>" -m "Planandtier-Plan: <the Plan: line's id>"/)
+  assert.match(body, /`Plan:` line/)
   assert.match(body, /STATUS: DONE \| FAILED\nCOMMIT: .*\nVERIFY: .*\nNOTE: /)
   assert.match(body, /Never push/)
 })

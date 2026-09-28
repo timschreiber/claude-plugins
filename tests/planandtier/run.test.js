@@ -44,6 +44,33 @@ test('the dispatch is a pointer to the task, with the reason added on a retry', 
   )
 })
 
+test('with a plan id, the prompt names the plan and judge requires its line in the commit', () => {
+  const s = r.startRun({ tasks: TASKS, tasksFile: 'C:/plans/p.tasks.json', branch: 'main', planId: '0123456789abcdef' })
+  assert.equal(r.expectedPrompt(s), 'Tasks file: C:/plans/p.tasks.json\nPlan: 0123456789abcdef\nTask: T01')
+  const report = { status: 'DONE', commit: 'abc', verify: 'PASS', note: '' }
+  const base = { report, taskId: 'T01', planId: '0123456789abcdef', clean: true, sameBranch: true }
+  const withPlan = { sha: 'abc123', message: 'Task 1\n\nPlanandtier-Task: T01\n\nPlanandtier-Plan: 0123456789abcdef' }
+  assert.deepEqual(r.judge({ ...base, commits: [withPlan] }), { ok: true, commit: 'abc123' })
+  const noPlan = { sha: 'abc123', message: 'Task 1\n\nPlanandtier-Task: T01' }
+  assert.match(r.judge({ ...base, commits: [noPlan] }).reason, /no "Planandtier-Plan: 0123456789abcdef" line/)
+  const otherPlan = { ...withPlan, message: withPlan.message.replace('0123456789abcdef', 'ffffffffffffffff') }
+  assert.match(r.judge({ ...base, commits: [otherPlan] }).reason, /no "Planandtier-Plan: /)
+})
+
+test('a run picked up part-way starts at its first unfinished task and names the skipped ones', () => {
+  const done = [r.skippedEntry('T01', 'aaa1111ffff', 'committed')]
+  let s = r.startRun({ tasks: TASKS, tasksFile: 'f', branch: 'main', start: 1, done })
+  assert.deepEqual([s.current.index, s.current.tier, s.current.attempt], [1, 'sonnet-medium', 1])
+  assert.match(r.expectedPrompt(s), /Task: T02$/)
+  s = r.advance(s, { ok: true, commit: 'bbb2222' }).state
+  const { state } = r.advance(s, { ok: true, commit: 'ccc3333' })
+  const text = r.completeText(state)
+  assert.match(text, /all 3 tasks are done.*: T01 aaa1111 \(earlier run\), T02 bbb2222 \(sonnet-medium\), T03 ccc3333 \(opus-xhigh\)\./)
+  assert.match(text, /were not run this time/)
+  assert.equal(r.doneLabel(r.skippedEntry('T01', null, 'from')), 'T01 (skipped by --from)')
+  assert.ok(!r.completeText(r.advance(r.advance(r.advance(start(), { ok: true, commit: 'a' }).state, { ok: true, commit: 'b' }).state, { ok: true, commit: 'c' }).state).includes('not run this time'))
+})
+
 test('dispatchText spells out the exact call', () => {
   const text = r.dispatchText(start())
   assert.match(text, /subagent_type "planandtier:sonnet-low"/)

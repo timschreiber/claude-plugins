@@ -309,7 +309,7 @@ test('H3 starts the run and gives the exact first dispatch', () => {
   assert.equal(out.hookEventName, 'PostToolUse')
   assert.match(out.additionalContext, /3 tiered tasks \(T01 to T03\)/)
   assert.match(out.additionalContext, /subagent_type "planandtier:sonnet-medium", description "T01: Task 1", and exactly this prompt/)
-  assert.ok(out.additionalContext.includes(`exactly this prompt (2 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nTask: T01\n`))
+  assert.ok(out.additionalContext.includes(`exactly this prompt (3 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nPlan: ${s.planId}\nTask: T01\n`))
   assert.match(out.additionalContext, /Do not implement the plan yourself/)
 })
 
@@ -411,7 +411,9 @@ test('H3 loads the tasks from the tasks file H2 wrote and records it', () => {
   assert.deepEqual(s.tasks, parsePlan(VALID).tasks)
   assert.equal(s.tasksFile, TASKS_FILE())
   assert.equal(s.tasksHash, sidecar.hashOf(blockBody(VALID)))
+  assert.equal(s.planId, s.tasksHash, 'the plan id is the tasks file hash')
   assert.match(r.json.hookSpecificOutput.additionalContext, /3 tiered tasks/)
+  assert.match(r.json.hookSpecificOutput.additionalContext, new RegExp(`\\nPlan: ${s.planId}\\nTask: T01`))
 })
 
 test('H3 runs nothing when the tasks file changed after the table was shown', () => {
@@ -485,6 +487,7 @@ test('H3 does not claim a launch when the state cannot be saved', () => {
 
 const RUN_TASKS = [task(1, { effort: 'low' }), task(2), task(3, { model: 'opus', effort: 'high' })]
 let repo // the run's repository, per test
+const PLAN_ID = 'feedfacecafebeef'
 const toolPre = (name, extra = {}) => ({ session_id: S, tool_name: name, tool_input: {}, ...extra })
 
 // Starts a run on its own repository and returns its state.
@@ -492,7 +495,7 @@ function startTestRun(over = {}) {
   repo = makeRepo(path.join(dir, 'repo'))
   const tasksFile = path.join(dir, 'plan.tasks.json')
   fs.writeFileSync(tasksFile, JSON.stringify({ tasks: RUN_TASKS }))
-  const s = { ...runLib.startRun({ tasks: RUN_TASKS, tasksFile, branch: 'main' }), cwd: repo, ...over }
+  const s = { ...runLib.startRun({ tasks: RUN_TASKS, tasksFile, branch: 'main', planId: PLAN_ID }), cwd: repo, ...over }
   state.write(S, s)
   return s
 }
@@ -510,10 +513,11 @@ const agentPost = (toolInput, extra = {}) => ({
   session_id: S, cwd: repo, tool_name: 'Agent', tool_input: toolInput, tool_response: { status: 'completed' }, ...extra,
 })
 // What a worker does for task `id`: a file and one commit with the trailer.
-function workerCommits(id, file = `${id}.txt`) {
+function workerCommits(id, file = `${id}.txt`, planId = PLAN_ID) {
   fs.writeFileSync(path.join(repo, file), id)
   gitIn(repo, 'add', '-A')
-  gitIn(repo, 'commit', '-q', '-m', `Task ${id}`, '-m', `Planandtier-Task: ${id}`)
+  const plan = planId ? ['-m', `Planandtier-Plan: ${planId}`] : []
+  gitIn(repo, 'commit', '-q', '-m', `Task ${id}`, '-m', `Planandtier-Task: ${id}`, ...plan)
   return gitIn(repo, 'rev-parse', 'HEAD')
 }
 const report = (status, commit = 'NONE', note = 'did it') => `STATUS: ${status}\nCOMMIT: ${commit}\nVERIFY: PASS\nNOTE: ${note}`
@@ -712,6 +716,8 @@ test('a DONE report the Git facts do not back up is a failed attempt', () => {
   assert.match(noCommit, /made 0 commits instead of one/)
   const noReport = attempt(() => 'All done!')
   assert.match(noReport, /returned no STATUS report/)
+  const noPlanLine = attempt(() => report('DONE', workerCommits('T01', 'T01.txt', null)))
+  assert.match(noPlanLine, /no "Planandtier-Plan: feedfacecafebeef" line/)
 })
 
 test('after two retries the run halts and leaves the last attempt in place', () => {
@@ -935,7 +941,7 @@ test('disarming mid-run stops it: nothing more is dispatched, and the worker in 
 
   const out = typed('/planandtier:disarm').stdout
   assert.match(out, /^planandtier: disarmed for this session, which stops the run of the approved plan\./)
-  assert.match(out, /Done and committed: T01 \(commit [0-9a-f]{7}, sonnet-low\)\. Not done: T02, T03\./)
+  assert.match(out, /Done and committed: T01 [0-9a-f]{7} \(sonnet-low\)\. Not done: T02, T03\./)
   assert.match(out, /T02's worker is still running; planandtier will not check it or roll it back/)
   assert.match(out, /Do not dispatch more tasks\./)
   const s = state.read(S)

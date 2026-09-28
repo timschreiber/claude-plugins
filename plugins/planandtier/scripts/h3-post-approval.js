@@ -6,7 +6,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { resolvePlan } = require('./lib/sidecar.js')
+const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const { startRun, dispatchText } = require('./lib/run.js')
@@ -47,7 +47,8 @@ run(async () => {
   const input = await readInput()
   if (!input || input.agent_id || input.tool_response?.isAgent || !state.isArmed(input.session_id)) return
 
-  const result = resolvePlan(readPlan(input))
+  const text = readPlan(input)
+  const result = resolvePlan(text)
 
   if (result.optOut) {
     state.remove(input.session_id) // an untiered plan replaces any earlier tiered one
@@ -90,6 +91,7 @@ run(async () => {
       tasksHash: result.section?.hash ?? null,
       planFile: input.tool_response?.filePath ?? input.tool_input?.planFilePath ?? null,
       branch: git.branch(input.cwd),
+      planId: planIdOf(result, text),
     }),
     cwd: input.cwd ?? null,
   }

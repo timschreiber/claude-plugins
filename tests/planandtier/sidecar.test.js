@@ -142,3 +142,18 @@ test('resolvePlan passes an ordinary plan straight through', () => {
   assert.deepEqual([r.ok, r.tasks.length, r.section], [true, 1, undefined])
   assert.equal(sidecar.resolvePlan('').ok, false)
 })
+
+test('planIdOf gives a plan the same id before and after its block is moved', () => {
+  const text = planText([task(1), task(2)])
+  const before = sidecar.planIdOf(sidecar.resolvePlan(text), text)
+  assert.match(before, /^[0-9a-f]{16}$/)
+  const file = writePlan(text)
+  assert.equal(sidecar.moveBlock(file, text, parsePlan(text).tasks), true)
+  const moved = fs.readFileSync(file, 'utf8')
+  assert.equal(sidecar.planIdOf(sidecar.resolvePlan(moved), moved), before)
+
+  const other = planText([task(1), task(2, { title: 'Different' })])
+  assert.notEqual(sidecar.planIdOf(sidecar.resolvePlan(other), other), before)
+  const plain = '# Plan\n\nNo tasks.\n'
+  assert.equal(sidecar.planIdOf(sidecar.resolvePlan(plain), plain), null)
+})

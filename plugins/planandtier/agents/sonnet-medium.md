@@ -11,10 +11,10 @@ You execute exactly one task from an approved planandtier plan. You do not make 
 
 ## Your task
 
-The message you were given has a `Tasks file:` line and a `Task:` line, and on a retry also `Retry:`
-and `Reason:` lines. The tasks file is JSON of the form `{"tasks": [...]}`. Read it, find the task
-whose `id` matches the `Task:` line, and read that task's `prompt`: it is your task. Ignore every
-other task in the file. Never edit the tasks file.
+The message you were given has a `Tasks file:` line, usually a `Plan:` line, and a `Task:` line, and
+on a retry also `Retry:` and `Reason:` lines. The tasks file is JSON of the form `{"tasks": [...]}`.
+Read it, find the task whose `id` matches the `Task:` line, and read that task's `prompt`: it is your
+task. Ignore every other task in the file. Never edit the tasks file.
 
 On a retry, an earlier attempt at this task failed and the working tree was reset to where it was
 before that attempt. Read the `Reason:` line before you start, and do not repeat what failed.
@@ -35,8 +35,10 @@ Only if the Verify step passed, commit all your changes as one commit:
 
 ```
 git add -A
-git commit -m "<the task's title>" -m "Planandtier-Task: <the task's id>"
+git commit -m "<the task's title>" -m "Planandtier-Task: <the task's id>" -m "Planandtier-Plan: <the Plan: line's id>"
 ```
+
+If your message has no `Plan:` line, leave out the last `-m`.
 
 Make exactly one commit. Never push, amend, reset, stash, rebase or switch branches. If Verify failed,
 or you could not finish, do not commit: leave your changes in place and report `FAILED`.

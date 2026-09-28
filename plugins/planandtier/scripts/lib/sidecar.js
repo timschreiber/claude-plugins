@@ -89,4 +89,17 @@ function moveBlock(planFile, text, tasks) {
   return writeFile(file, blocks[0]) && writeFile(planFile, next)
 }
 
-module.exports = { sidecarPath, hashOf, loadSidecar, resolvePlan, moveBlock }
+// A plan's id: the hash of its block text. moveBlock writes that same text to the tasks file and puts
+// its hash in the table, so a plan keeps one id whether or not its block was moved. `result` is what
+// resolvePlan returned for `text`. null for a plan with neither.
+function planIdOf(result, text) {
+  if (result?.section?.hash) return result.section.hash
+  try {
+    const { blocks } = extractBlock(text)
+    return blocks.length === 1 ? hashOf(blocks[0]) : null
+  } catch {
+    return null
+  }
+}
+
+module.exports = { sidecarPath, hashOf, loadSidecar, resolvePlan, moveBlock, planIdOf }

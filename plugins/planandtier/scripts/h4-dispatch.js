@@ -95,6 +95,7 @@ function settle(s, cwd, failure) {
     r.judge({
       report: s.current.report,
       taskId: task.id,
+      planId: s.planId,
       commits,
       clean: git.isClean(cwd),
       sameBranch: git.branch(cwd) === s.branch,

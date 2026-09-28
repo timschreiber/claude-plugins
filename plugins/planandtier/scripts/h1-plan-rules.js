@@ -14,7 +14,7 @@ const fs = require('fs')
 const path = require('path')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
-const { dispatchText } = require('./lib/run.js')
+const { dispatchText, doneLabel } = require('./lib/run.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
 // Subagent reports and task notifications also arrive as prompts; they are not the user speaking.
@@ -107,7 +107,7 @@ function disarmNote(input) {
     return
   }
   const finished = new Set(s.done.map(d => d.id))
-  const done = s.done.map(d => `${d.id} (commit ${d.commit.slice(0, 7)}, ${d.tier})`).join(', ') || 'none'
+  const done = s.done.map(doneLabel).join(', ') || 'none'
   const notRun = s.tasks.filter(t => !finished.has(t.id)).map(t => t.id).join(', ') || 'none'
   const running = s.current?.inFlight
     ? ` ${s.tasks[s.current.index].id}'s worker is still running; planandtier will not check it or roll it back, so whatever ` +

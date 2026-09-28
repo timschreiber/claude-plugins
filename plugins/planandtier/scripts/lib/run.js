@@ -2,10 +2,10 @@
 // dispatch matches it, how a worker's report is read and judged, and how the run moves on. The hooks
 // add the file and Git work around these.
 //
-// Run state: {phase, tasks, tasksFile, tasksHash, planFile, branch, current, done, notice, ...}
+// Run state: {phase, tasks, tasksFile, tasksHash, planFile, planId, branch, current, done, notice, ...}
 //   phase    running | halted | complete | abandoned (or paused, before the run starts)
 //   current  {index, attempt, tier, tried[], head, inFlight, report, lastFailure, dispatchFailures}
-//   done     [{id, tier, commit, attempts}]
+//   done     [{id, tier, commit, attempts, skipped?}]; skipped tasks were finished by an earlier run
 //   notice   what Claude must be told next, set when an attempt is judged and cleared once shown
 'use strict'
 
@@ -27,21 +27,36 @@ const fresh = (task, index) => ({
   dispatchFailures: 0,
 })
 
-// The state for a run that has just been approved.
-function startRun({ tasks, tasksFile, tasksHash = null, planFile = null, branch = '' }) {
+// The state for a run that has just been approved, or picked up again by /planandtier:execute-plan.
+// planId marks every worker commit, so a later execute-plan can tell this plan's finished tasks apart.
+// A run picked up part-way starts at `start`, with the tasks before it already in `done` (see
+// skippedEntry).
+function startRun({ tasks, tasksFile, tasksHash = null, planFile = null, branch = '', planId = null, start = 0, done = [] }) {
   return {
     phase: 'running',
     tasks,
     tasksFile,
     tasksHash,
     planFile,
+    planId,
     branch,
-    current: fresh(tasks[0], 0),
-    done: [],
+    current: fresh(tasks[start], start),
+    done,
     approvedAt: new Date().toISOString(),
     denials: 0,
     guardDenials: 0,
   }
+}
+
+// The `done` entry for a task an earlier run finished: `commit` is its sha when found on the branch
+// ('committed'), or null when the user skipped it with --from ('from').
+const skippedEntry = (id, commit, skipped) => ({ id, tier: null, commit, attempts: 0, skipped })
+
+// How a finished task is named in Claude's notes.
+function doneLabel(d) {
+  if (d.skipped === 'from') return `${d.id} (skipped by --from)`
+  if (d.skipped) return `${d.id} ${String(d.commit).slice(0, 7)} (earlier run)`
+  return `${d.id} ${String(d.commit).slice(0, 7)} (${d.tier})`
 }
 
 const currentTask = state => state.tasks[state.current.index]
@@ -49,7 +64,9 @@ const currentTask = state => state.tasks[state.current.index]
 // The dispatch prompt: a pointer to the task, plus the reason for a retry.
 function expectedPrompt(state) {
   const { attempt, lastFailure } = state.current
-  const lines = [`Tasks file: ${state.tasksFile}`, `Task: ${currentTask(state).id}`]
+  const lines = [`Tasks file: ${state.tasksFile}`]
+  if (state.planId) lines.push(`Plan: ${state.planId}`)
+  lines.push(`Task: ${currentTask(state).id}`)
   if (attempt > 1 && lastFailure) {
     lines.push(
       `Retry: attempt ${attempt} of ${MAX_RETRIES + 1}; the attempt at ${lastFailure.tier} failed and was rolled back.`,
@@ -142,8 +159,9 @@ function parseReport(text) {
 }
 
 // Judges a finished attempt from its report and the Git facts after it. Returns {ok: true, commit},
-// {ok: false, reason}, or {ok: false, fatal} when the run must stop without a reset.
-function judge({ report, taskId, commits, clean, sameBranch }) {
+// {ok: false, reason}, or {ok: false, fatal} when the run must stop without a reset. With a planId, the
+// commit must also carry the plan's line.
+function judge({ report, taskId, planId = null, commits, clean, sameBranch }) {
   if (!sameBranch) return { ok: false, fatal: 'the worker left the branch the run started on' }
   if (!report) return { ok: false, reason: 'the worker returned no STATUS report' }
   if (report.status !== 'DONE') return { ok: false, reason: report.note || 'the worker reported FAILED' }
@@ -152,6 +170,9 @@ function judge({ report, taskId, commits, clean, sameBranch }) {
   }
   if (!commits[0].message.includes(`Planandtier-Task: ${taskId}`)) {
     return { ok: false, reason: `the worker's commit has no "Planandtier-Task: ${taskId}" trailer` }
+  }
+  if (planId && !commits[0].message.includes(`Planandtier-Plan: ${planId}`)) {
+    return { ok: false, reason: `the worker's commit has no "Planandtier-Plan: ${planId}" line` }
   }
   if (!clean) return { ok: false, reason: 'the worker left uncommitted changes' }
   return { ok: true, commit: commits[0].sha }
@@ -191,9 +212,10 @@ function advance(state, outcome) {
 }
 
 function completeText(state) {
-  const list = state.done.map(d => `${d.id} ${d.commit.slice(0, 7)} (${d.tier})`).join(', ')
+  const list = state.done.map(doneLabel).join(', ')
   return (
     `planandtier: all ${state.tasks.length} tasks are done, each in its own commit: ${list}. ` +
+    (state.done.some(d => d.skipped) ? 'Tasks marked "earlier run" or "skipped" were not run this time. ' : '') +
     'Tell the user the run is complete and summarize what changed.'
   )
 }
@@ -214,6 +236,8 @@ module.exports = {
   AGENT_PREFIX,
   agentName,
   startRun,
+  skippedEntry,
+  doneLabel,
   currentTask,
   expectedPrompt,
   expectedCall,
