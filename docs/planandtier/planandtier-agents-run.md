@@ -45,18 +45,27 @@ $dir = "$env:TEMP\tier-agents-$stamp"
 New-Item -ItemType Directory $dir | Out-Null
 Set-Location $dir
 git init -q
+# There is no global Git identity on this machine, only claude-plugins' own, so copy it in: without it
+# the setup's commit and every worker's commit fail with "Author identity unknown".
+git config user.name (git -C $repo config user.name)
+git config user.email (git -C $repo config user.email)
 "# Greeter`n`nStatus: draft" | Set-Content README.md
-git add -A; git commit -qm init
-git log --oneline -1   # must print one commit, "init"; if it doesn't, stop and tell me
-git status --short     # must print nothing
+git add -A
+git -c commit.gpgsign=false commit -m init
 
-# 4. Start Claude Code in plan mode with both plugins
+# 4. Start Claude Code in plan mode with both plugins, but only if the README is committed and the
+#    tree is clean: planandtier refuses a tiered plan otherwise.
 $env:PLANANDTIER_DEBUG = '1'
 $env:PROBE_OBSERVE = '1'
-claude --permission-mode plan --plugin-dir "$repo\plugins\planandtier" --plugin-dir "$repo\probes\planandtier\agent-probe-plugin"
+if ((git rev-parse --verify -q HEAD) -and -not (git status --porcelain)) {
+  claude --permission-mode plan --plugin-dir "$repo\plugins\planandtier" --plugin-dir "$repo\probes\planandtier\agent-probe-plugin"
+} else {
+  Write-Host 'Not started: the throwaway repo has no commit or has uncommitted changes. Check the git output above.' -ForegroundColor Red
+}
 ```
 
-If it asks whether you trust the folder, say yes. Always start the session with this exact `claude` line: a
+If it asks whether you trust the folder, say yes. If Claude doesn't start, read the red line and the Git error
+above it, fix that, and run the `if` block again. Always start the session with this exact `claude` line: a
 session started without the two `--plugin-dir` flags plans without planandtier.
 
 ## Steps in the session
