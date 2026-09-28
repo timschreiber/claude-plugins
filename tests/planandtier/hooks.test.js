@@ -644,10 +644,38 @@ test('a report that arrives before its worker stops gets a note to end the turn,
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   const early = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<agent-message from="w">STATUS: DONE</agent-message>' }).stdout
   assert.match(early, /^planandtier: this is T01's report, which arrived before planandtier finished checking the task\. Nothing is wrong\./)
-  assert.match(early, /end your turn: planandtier gives the next step when you do\. Do not dispatch anything, and do not ask the user to re-run/)
+  assert.match(early, /end your turn: planandtier gives the next step when the task's "finished" notification arrives, shortly after\. Do not dispatch anything, and do not ask the user to re-run/)
   assert.equal(state.read(S).current.inFlight, true, 'nothing changes in the run')
   const notification = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>x</task-notification>' }).stdout
   assert.equal(notification, '', 'only the hand-back gets the note')
+})
+
+test('a background task\'s next step comes with its "finished" notification, and the stop in between is not blocked', () => {
+  // The order in every live run: launch (async), the hand-back, Claude's turn ends, SubagentStop, then
+  // the "finished" notification.
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  hook('h4-dispatch.js', agentPost(call, { tool_response: { isAsync: true, status: 'async_launched' } }), ['post'])
+  assert.equal(state.read(S).current.background, true)
+  hook('h4-dispatch.js', subStop(report('DONE', workerCommits('T01'))), ['stop'])
+  assert.deepEqual([!!state.read(S).notice, state.read(S).noticeByNotification], [true, true])
+
+  const stop = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop'])
+  assert.equal(stop.json.decision, undefined, 'no block, so no "Stop hook error"')
+  assert.match(stop.json.systemMessage, /^planandtier: T01 on sonnet-low done/, 'the spend line still shows')
+  assert.ok(state.read(S).notice, 'the notice waits for the notification')
+
+  const arrived = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>done</task-notification>' }).stdout
+  assert.match(arrived, /T01 is done .*Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.deepEqual([state.read(S).notice, state.read(S).noticeByNotification], [null, false])
+})
+
+test('with nothing in flight and no notice, a stop is still blocked', () => {
+  startTestRun()
+  const out = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).json
+  assert.equal(out.decision, 'block')
+  assert.match(out.reason, /Call the Agent tool now/)
 })
 
 test('a background run: the launch says to wait, the worker stopping moves the run on, and its report delivers the notice', () => {

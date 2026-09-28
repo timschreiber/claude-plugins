@@ -27,20 +27,20 @@ function runNote(input) {
   const s = state.read(input.session_id)
   if (!s) return
   if (s.notice) {
-    if (!state.write(input.session_id, { ...s, notice: null })) return
+    if (!state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })) return
     emitText(s.notice)
     return
   }
   if (fromHarness(input.prompt)) {
     // The worker's hand-back often arrives before its SubagentStop, so the attempt is not judged yet.
     // Without a word here, Claude has told the user the run is stuck and to re-run a command. The next
-    // step comes when Claude ends its turn (H5), so that is all it should do.
+    // step comes with the task's "finished" notification, so ending the turn is all it should do.
     if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) {
       emitText(
         `planandtier: this is ${s.tasks[s.current.index].id}'s report, which arrived before planandtier finished ` +
           'checking the task. Nothing is wrong. Tell the user the report in one line, then end your turn: ' +
-          'planandtier gives the next step when you do. Do not dispatch anything, and do not ask the user to ' +
-          're-run or type anything.'
+          "planandtier gives the next step when the task's \"finished\" notification arrives, shortly after. " +
+          'Do not dispatch anything, and do not ask the user to re-run or type anything.'
       )
     }
     return

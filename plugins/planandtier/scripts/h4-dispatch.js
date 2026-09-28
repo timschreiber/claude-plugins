@@ -124,7 +124,9 @@ function stop(input, s) {
   // The attempt's tokens and estimated cost go to the plan's telemetry file, and its UI line is queued
   // for the next Stop (H5); Claude's notice is unchanged.
   const { next } = spend.recordAttempt(input, s, settle(reported, s.cwd ?? input.cwd))
-  state.write(input.session_id, next)
+  // A background worker's "finished" notification always arrives after this, and H1 gives the notice on
+  // it; H5 then lets Claude's turn end instead of blocking it, which Claude Code shows as an error.
+  state.write(input.session_id, { ...next, noticeByNotification: !!(next.notice && s.current.background) })
 }
 
 function post(input, s) {
@@ -134,6 +136,8 @@ function post(input, s) {
     state.write(input.session_id, { ...s, notice: null })
     context('PostToolUse', s.notice)
   } else if (s.phase === 'running' && s.current.inFlight) {
+    // A background launch: remember it, so the notice waits for the worker's "finished" notification.
+    if (input.tool_response?.isAsync) state.write(input.session_id, { ...s, current: { ...s.current, background: true } })
     context('PostToolUse', r.runningText(s))
   }
 }
