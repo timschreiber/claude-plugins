@@ -64,8 +64,10 @@ const usageFields = u =>
         unpriced: u.unpriced,
         models: Object.keys(u.byModel),
         cacheReadPct: u.total > 0 ? Math.round((100 * u.tokens.cacheRead) / u.total) : null,
+        contextStart: u.firstContext ?? null,
+        contextEnd: u.lastContext ?? null,
       }
-    : { tokens: null, total: null, messages: null, costUsd: null, unpriced: [], models: [], cacheReadPct: null }
+    : { tokens: null, total: null, messages: null, costUsd: null, unpriced: [], models: [], cacheReadPct: null, contextStart: null, contextEnd: null }
 
 function fmtTokens(n) {
   if (n == null) return '? tokens'

@@ -16,6 +16,8 @@ const { costOf } = require('./prices.js')
 const KINDS = ['input', 'output', 'cacheWrite5m', 'cacheWrite1h', 'cacheRead']
 const zero = () => Object.fromEntries(KINDS.map(k => [k, 0]))
 const totalOf = tokens => KINDS.reduce((n, k) => n + (tokens[k] ?? 0), 0)
+// What a message read as its context: everything sent in, not the output.
+const contextOf = tokens => tokens.input + tokens.cacheWrite5m + tokens.cacheWrite1h + tokens.cacheRead
 
 function readLines(file) {
   try {
@@ -89,7 +91,7 @@ function messagesOf(lines, { from = null, to = null, mode = null } = {}) {
 // Totals for a list of messages: {tokens, total, messages, costUsd, unpriced, byModel, firstAt, lastAt}.
 // costUsd sums the priced messages; unpriced names the models with no price.
 function tally(messages) {
-  const t = { tokens: zero(), total: 0, messages: 0, costUsd: 0, unpriced: [], byModel: {}, firstAt: null, lastAt: null }
+  const t = { tokens: zero(), total: 0, messages: 0, costUsd: 0, unpriced: [], byModel: {}, firstAt: null, lastAt: null, firstContext: null, lastContext: null, lastModel: null }
   for (const m of messages) {
     const cost = costOf(m.model, m.tokens, m.geo)
     const b = (t.byModel[m.model] ??= { tokens: zero(), messages: 0, costUsd: cost === null ? null : 0 })
@@ -105,8 +107,15 @@ function tally(messages) {
       t.costUsd += cost
       b.costUsd += cost
     }
-    if (m.at && (!t.firstAt || m.at < t.firstAt)) t.firstAt = m.at
-    if (m.at && (!t.lastAt || m.at > t.lastAt)) t.lastAt = m.at
+    if (m.at && (!t.firstAt || m.at < t.firstAt)) {
+      t.firstAt = m.at
+      t.firstContext = contextOf(m.tokens)
+    }
+    if (m.at && (!t.lastAt || m.at > t.lastAt)) {
+      t.lastAt = m.at
+      t.lastContext = contextOf(m.tokens)
+      t.lastModel = m.model
+    }
   }
   t.total = totalOf(t.tokens)
   return t
@@ -167,4 +176,4 @@ function subagentUsage(dir, { from = null, to = null, exclude = () => false } = 
   return { ...combine(...tallies), count: tallies.length }
 }
 
-module.exports = { KINDS, tokensOf, messagesOf, tally, combine, transcriptUsage, subagentUsage, subagentsDir }
+module.exports = { KINDS, contextOf, tokensOf, messagesOf, tally, combine, transcriptUsage, subagentUsage, subagentsDir }

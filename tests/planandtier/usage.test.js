@@ -57,6 +57,17 @@ test('repeated lines of one message count once, with the largest value of each f
   assert.deepEqual(Object.keys(t.byModel), ['claude-sonnet-5'])
 })
 
+test('tally takes first and last context and the last model by time, whatever the line order', () => {
+  const file = write(path.join(dir, 'ctx.jsonl'), [
+    line('b', '2026-09-28T10:00:05Z', { input_tokens: 1, output_tokens: 9, cache_read_input_tokens: 200, cache_creation: { ephemeral_5m_input_tokens: 30, ephemeral_1h_input_tokens: 0 } }, 'claude-opus-5-5'),
+    line('a', '2026-09-28T10:00:00Z', { input_tokens: 2, output_tokens: 9, cache_read_input_tokens: 100 }),
+  ])
+  const t = u.transcriptUsage(file)
+  assert.deepEqual([t.firstContext, t.lastContext, t.lastModel], [102, 231, 'claude-opus-5-5'])
+  const none = u.tally([])
+  assert.deepEqual([none.firstContext, none.lastContext, none.lastModel], [null, null, null])
+})
+
 test('cache writes without a 5m/1h split count as 5-minute writes; 1-hour writes are priced as such', () => {
   const file = write(path.join(dir, 'w.jsonl'), [
     { ...line('a', '2026-09-28T10:00:00Z', {}), message: { id: 'a', model: 'claude-sonnet-5', usage: { cache_creation_input_tokens: 1000 } } },

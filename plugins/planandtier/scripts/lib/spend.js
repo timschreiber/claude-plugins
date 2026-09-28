@@ -22,7 +22,7 @@ const safe = (fn, fallback) => {
 function sessionUsage(transcript, { from, to, mode }) {
   const main = transcriptUsage(transcript, { from, to, mode })
   const subs = subagentUsage(subagentsDir(transcript), { from, to, exclude: WORKER })
-  return { usage: main || subs.count ? combine(main, subs) : null, subagents: subs.count }
+  return { usage: main || subs.count ? combine(main, subs) : null, subagents: subs.count, main }
 }
 
 // H2: a valid tiered plan passed the gate. Records the planning since the session's cursor, then moves
@@ -31,13 +31,14 @@ function recordPlanning(input, planId, planFile) {
   return safe(() => {
     const to = new Date().toISOString()
     const from = state.cursor(input.session_id)
-    const { usage, subagents } = sessionUsage(input.transcript_path, { from, to, mode: 'plan' })
+    const { usage, subagents, main } = sessionUsage(input.transcript_path, { from, to, mode: 'plan' })
     const record = t.append(t.fileFor(planFile, input.session_id), {
       kind: 'planning',
       sessionId: input.session_id,
       planId,
       window: { from, to },
       subagents,
+      mainModel: main?.lastModel ?? null,
       ...t.usageFields(usage),
     })
     state.setCursor(input.session_id, to)
@@ -101,6 +102,7 @@ function recordRunStart(input, run) {
         planId: run.planId ?? null,
         runId: run.runId ?? null,
         startTask: run.tasks?.[run.current?.index]?.id ?? null,
+        contextTokens: transcriptUsage(input.transcript_path)?.lastContext ?? null,
       }),
     null
   )
