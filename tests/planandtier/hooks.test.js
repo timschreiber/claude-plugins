@@ -11,9 +11,9 @@ const PLUGIN = path.join(__dirname, '..', '..', 'plugins', 'planandtier')
 const state = require(path.join(PLUGIN, 'scripts', 'lib', 'state.js'))
 const sidecar = require(path.join(PLUGIN, 'scripts', 'lib', 'sidecar.js'))
 const { extractBlock, parsePlan } = require(path.join(PLUGIN, 'scripts', 'lib', 'tasks.js'))
+const runLib = require(path.join(PLUGIN, 'scripts', 'lib', 'run.js'))
 const RULES = fs.readFileSync(path.join(PLUGIN, 'rules', 'tiering.md'), 'utf8')
 const OPT_OUT = 'Tiered execution: off'
-const WORKFLOW = 'planandtier:execute-plan'
 
 // Git in a test repository; fails the test on an error.
 const gitIn = (cwd, ...args) => {
@@ -438,181 +438,284 @@ test('H3 does not claim a launch when the state cannot be saved', () => {
   assert.ok(!r.json.hookSpecificOutput.additionalContext.includes('Your next action'))
 })
 
-// ---- H4 ----------------------------------------------------------------------------
+// ---- the run: H4 dispatch, H5 guard, H1 resume note ---------------------------------
 
-const wfPre = (toolInput, extra = {}) => ({ session_id: S, tool_name: 'Workflow', tool_input: toolInput, ...extra })
-
-test('H4 replaces args with the stored tasks, keeps the rest of the input, and never sets a permission decision', () => {
-  state.write(S, approvedState())
-  const r = hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW, resumeFromRunId: 'wf_x' }))
-  assert.deepEqual(r.json, {
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      updatedInput: { name: WORKFLOW, resumeFromRunId: 'wf_x', args: { tasks: approvedState().tasks } },
-    },
-  })
-  assert.ok(!r.stdout.includes('permissionDecision'))
-})
-
-test('H4 leaves the state alone: only a confirmed launch changes it', () => {
-  state.write(S, approvedState({ guardDenials: 2 }))
-  hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
-  assert.deepEqual(state.read(S), approvedState({ guardDenials: 2 }))
-})
-
-test('H4 overrides args the model passed', () => {
-  state.write(S, approvedState())
-  const r = hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW, args: { tasks: [{ id: 'T99' }] } }))
-  assert.equal(r.json.hookSpecificOutput.updatedInput.args.tasks[0].id, 'T01')
-})
-
-test('H4 also injects the tasks on a relaunch (launched) and after the guard gave up (abandoned)', () => {
-  for (const phase of ['launched', 'abandoned']) {
-    state.write(S, approvedState({ phase }))
-    const r = hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
-    assert.equal(r.json.hookSpecificOutput.updatedInput.args.tasks.length, 2, phase)
-    assert.equal(state.read(S).phase, phase)
-  }
-})
-
-test('H4 ignores other workflows, a missing state, the planning phase and subagents', () => {
-  state.write(S, approvedState())
-  assert.equal(hook('h4-rewrite-workflow-args.js', wfPre({ name: 'other:thing' })).stdout, '')
-  assert.equal(hook('h4-rewrite-workflow-args.js', wfPre({ script: 'x' })).stdout, '')
-  assert.equal(state.read(S).phase, 'approved')
-  assert.equal(hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }, { session_id: 'other' })).stdout, '')
-  state.write(S, approvedState({ phase: 'planning', tasks: [] }))
-  assert.equal(hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW })).stdout, '')
-  state.write(S, approvedState())
-  assert.equal(hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }, { agent_id: 'a1' })).stdout, '')
-})
-
-// ---- H5 ----------------------------------------------------------------------------
-
+const RUN_TASKS = [task(1, { model: 'haiku', effort: 'default' }), task(2), task(3, { model: 'opus', effort: 'high' })]
+let repo // the run's repository, per test
 const toolPre = (name, extra = {}) => ({ session_id: S, tool_name: name, tool_input: {}, ...extra })
 
-test('H5 pre denies main-thread work while approved, and counts the denial', () => {
-  state.write(S, approvedState())
-  const r = hook('h5-guard.js', toolPre('Edit'), ['pre'])
-  const out = r.json.hookSpecificOutput
-  assert.equal(out.permissionDecision, 'deny')
-  assert.match(out.permissionDecisionReason, /Call the Workflow tool with name "planandtier:execute-plan"/)
-  assert.equal(state.read(S).guardDenials, 1)
+// Starts a run on its own repository and returns its state.
+function startTestRun(over = {}) {
+  repo = makeRepo(path.join(dir, 'repo'))
+  const tasksFile = path.join(dir, 'plan.tasks.json')
+  fs.writeFileSync(tasksFile, JSON.stringify({ tasks: RUN_TASKS }))
+  const s = { ...runLib.startRun({ tasks: RUN_TASKS, tasksFile, branch: 'main' }), cwd: repo, ...over }
+  state.write(S, s)
+  return s
+}
+const agentPre = (toolInput, extra = {}) => ({ session_id: S, cwd: repo, tool_name: 'Agent', tool_input: toolInput, ...extra })
+const expected = (over = {}) => ({ ...runLib.expectedCall(state.read(S)), ...over })
+const subStop = (text, over = {}) => ({
+  session_id: S,
+  agent_id: 'worker-1',
+  agent_type: `planandtier:${state.read(S).current.tier}`,
+  hook_event_name: 'SubagentStop',
+  last_assistant_message: text,
+  ...over,
+})
+const agentPost = (toolInput, extra = {}) => ({
+  session_id: S, cwd: repo, tool_name: 'Agent', tool_input: toolInput, tool_response: { status: 'completed' }, ...extra,
+})
+// What a worker does for task `id`: a file and one commit with the trailer.
+function workerCommits(id, file = `${id}.txt`) {
+  fs.writeFileSync(path.join(repo, file), id)
+  gitIn(repo, 'add', '-A')
+  gitIn(repo, 'commit', '-q', '-m', `Task ${id}`, '-m', `Planandtier-Task: ${id}`)
+  return gitIn(repo, 'rev-parse', 'HEAD')
+}
+const report = (status, commit = 'NONE', note = 'did it') => `STATUS: ${status}\nCOMMIT: ${commit}\nVERIFY: PASS\nNOTE: ${note}`
+
+// One attempt of the current task, through the hooks: dispatch, the worker's work, its report, and
+// the PostToolUse that judges it. Returns the PostToolUse context.
+function attempt(work) {
+  const call = expected()
+  assert.equal(hook('h4-dispatch.js', agentPre(call), ['pre']).stdout, '', 'the expected dispatch passes')
+  const text = work()
+  hook('h4-dispatch.js', subStop(text), ['stop'])
+  return hook('h4-dispatch.js', agentPost(call), ['post']).json?.hookSpecificOutput?.additionalContext ?? ''
+}
+
+test('H4 pre lets the expected dispatch through and records HEAD', () => {
+  startTestRun()
+  const r = hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  assert.equal(r.stdout, '')
+  const s = state.read(S)
+  assert.equal(s.current.inFlight, true)
+  assert.equal(s.current.head, gitIn(repo, 'rev-parse', 'HEAD'))
 })
 
-test('H5 pre is silent in every other phase, with no state, and for subagents', () => {
-  for (const phase of ['planning', 'launched', 'abandoned']) {
-    state.write(S, approvedState({ phase }))
-    assert.equal(hook('h5-guard.js', toolPre('Bash'), ['pre']).stdout, '', phase)
+test('H4 pre refuses a wrong tier, a background run, a wrong prompt, and a second dispatch, repeating the right call', () => {
+  startTestRun()
+  for (const [over, why] of [
+    [{ subagent_type: 'planandtier:sonnet-low' }, /runs on planandtier:haiku-default, not planandtier:sonnet-low/],
+    [{ run_in_background: true }, /run_in_background must be false/],
+    [{ prompt: 'Do T01 please' }, /prompt is not the expected one/],
+  ]) {
+    const out = hook('h4-dispatch.js', agentPre(expected(over)), ['pre']).json.hookSpecificOutput
+    assert.equal(out.permissionDecision, 'deny')
+    assert.match(out.permissionDecisionReason, why)
+    assert.match(out.permissionDecisionReason, /subagent_type "planandtier:haiku-default"/)
+    assert.equal(state.read(S).current.inFlight, false)
   }
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  const again = hook('h4-dispatch.js', agentPre(expected()), ['pre']).json.hookSpecificOutput
+  assert.match(again.permissionDecisionReason, /T01 is already running/)
+})
+
+test('H4 pre leaves other agent types alone, and refuses planandtier agents when no run is in progress', () => {
+  startTestRun()
+  assert.equal(hook('h4-dispatch.js', agentPre({ subagent_type: 'Explore', prompt: 'look' }), ['pre']).stdout, '')
   state.remove(S)
-  assert.equal(hook('h5-guard.js', toolPre('Bash'), ['pre']).stdout, '')
-  state.write(S, approvedState())
-  assert.equal(hook('h5-guard.js', toolPre('Bash', { agent_id: 'a1' }), ['pre']).stdout, '')
-  assert.equal(state.read(S).guardDenials, 0)
+  const out = hook('h4-dispatch.js', agentPre({ subagent_type: 'planandtier:sonnet-low', prompt: 'x', run_in_background: false }), ['pre'])
+  assert.match(out.json.hookSpecificOutput.permissionDecisionReason, /no planandtier run is in progress\. Tell the user/)
 })
 
-test('H5 pre gives up after three denials and stands down', () => {
-  state.write(S, approvedState())
-  for (let i = 0; i < 3; i++) {
-    assert.equal(hook('h5-guard.js', toolPre('Write'), ['pre']).json.hookSpecificOutput.permissionDecision, 'deny')
-  }
-  assert.equal(hook('h5-guard.js', toolPre('Write'), ['pre']).stdout, '')
-  assert.equal(state.read(S).phase, 'abandoned')
-  assert.equal(hook('h5-guard.js', toolPre('Write'), ['pre']).stdout, '')
+test('H4 pre halts the run when the tree is dirty or the branch changed, before any work', () => {
+  startTestRun()
+  fs.writeFileSync(path.join(repo, 'stray.txt'), 'x')
+  const dirty = hook('h4-dispatch.js', agentPre(expected()), ['pre']).json.hookSpecificOutput
+  assert.equal(dirty.permissionDecision, 'deny')
+  assert.match(dirty.permissionDecisionReason, /stopped at T01.*uncommitted changes that no task made/)
+  assert.equal(state.read(S).phase, 'halted')
+
+  startTestRun()
+  gitIn(repo, 'switch', '-q', '-c', 'other')
+  const moved = hook('h4-dispatch.js', agentPre(expected()), ['pre']).json.hookSpecificOutput
+  assert.match(moved.permissionDecisionReason, /no longer on the branch the run started on \(main\)/)
+  assert.equal(state.read(S).phase, 'halted')
 })
 
-test('H5 stop blocks once, then allows and abandons on the second consecutive stop', () => {
-  state.write(S, approvedState())
-  const first = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop'])
-  assert.equal(first.json.decision, 'block')
-  assert.match(first.json.reason, /planandtier:execute-plan/)
-  assert.equal(state.read(S).phase, 'approved')
-  const second = hook('h5-guard.js', { session_id: S, stop_hook_active: true }, ['stop'])
-  assert.equal(second.stdout, '')
-  assert.equal(state.read(S).phase, 'abandoned')
+test('H4 stop records the report of the dispatched worker only, falling back to its transcript', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  hook('h4-dispatch.js', subStop(report('DONE'), { agent_type: 'Explore' }), ['stop'])
+  assert.equal(state.read(S).current.report, null)
+  hook('h4-dispatch.js', subStop(report('DONE', 'abc')), ['stop'])
+  assert.deepEqual(state.read(S).current.report, { status: 'DONE', commit: 'abc', verify: 'PASS', note: 'did it' })
+
+  const transcript = path.join(dir, 'agent.jsonl')
+  const line = o => JSON.stringify(o) + '\n'
+  fs.writeFileSync(
+    transcript,
+    line({ type: 'assistant', message: { content: [{ type: 'text', text: report('FAILED', 'NONE', 'from transcript') }] } }) +
+      line({ type: 'user', message: { content: 'x' } })
+  )
+  hook('h4-dispatch.js', subStop('', { agent_transcript_path: transcript }), ['stop'])
+  assert.equal(state.read(S).current.report.note, 'from transcript')
 })
 
-test('H5 stop is silent unless the state is approved', () => {
-  assert.equal(hook('h5-guard.js', { session_id: S }, ['stop']).stdout, '')
-  state.write(S, approvedState({ phase: 'launched' }))
-  assert.equal(hook('h5-guard.js', { session_id: S }, ['stop']).stdout, '')
+test('a run goes through every task, one commit each, then completes', () => {
+  startTestRun()
+  const first = attempt(() => report('DONE', workerCommits('T01')))
+  assert.match(first, /T01 is done \(commit [0-9a-f]{7}, haiku-default\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium", description "T02: Task 2"/)
+  const second = attempt(() => report('DONE', workerCommits('T02')))
+  assert.match(second, /subagent_type "planandtier:opus-high"/)
+  const last = attempt(() => report('DONE', workerCommits('T03')))
+  assert.match(last, /all 3 tasks are done, each in its own commit: T01 [0-9a-f]{7} \(haiku-default\), T02 [0-9a-f]{7} \(sonnet-medium\), T03 [0-9a-f]{7} \(opus-high\)/)
+  const s = state.read(S)
+  assert.equal(s.phase, 'complete')
+  assert.deepEqual(s.done.map(d => [d.id, d.attempts]), [['T01', 1], ['T02', 1], ['T03', 1]])
+  assert.equal(gitIn(repo, 'log', '--format=%s', '-3'), 'Task T03\nTask T02\nTask T01')
 })
 
-// ---- H6 ----------------------------------------------------------------------------
-
-const wfPost = (extra = {}) => ({ session_id: S, tool_name: 'Workflow', tool_input: { name: WORKFLOW }, ...extra })
-
-test('H6 launched marks a confirmed launch and resets the guard count', () => {
-  for (const phase of ['approved', 'abandoned', 'launched']) {
-    state.write(S, approvedState({ phase, guardDenials: 2 }))
-    hook('h6-cleanup.js', wfPost(), ['launched'])
-    const s = state.read(S)
-    assert.equal(s.phase, 'launched', phase)
-    assert.equal(s.guardDenials, 0)
-    assert.equal(s.tasks.length, 2)
-    assert.ok(!Number.isNaN(Date.parse(s.launchedAt)))
-  }
+test('a failed attempt is reset and retried one tier up, with the reason in the prompt', () => {
+  startTestRun()
+  const base = gitIn(repo, 'rev-parse', 'HEAD')
+  const out = attempt(() => {
+    workerCommits('T01', 'half.txt')
+    fs.writeFileSync(path.join(repo, 'loose.txt'), 'x')
+    return report('FAILED', 'NONE', 'Verify failed: 2 tests')
+  })
+  assert.match(out, /T01 failed at haiku-default: Verify failed: 2 tests\. The working tree was reset to [0-9a-f]{7}/)
+  assert.match(out, /subagent_type "planandtier:sonnet-low"/)
+  assert.match(out, /Retry: attempt 2 of 3; the attempt at haiku-default failed and was rolled back\.\nReason: Verify failed: 2 tests/)
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), base)
+  assert.equal(gitIn(repo, 'status', '--porcelain'), '')
+  assert.equal(fs.existsSync(path.join(repo, 'half.txt')), false)
+  const s = state.read(S)
+  assert.deepEqual([s.phase, s.current.attempt, s.current.tier, s.current.inFlight], ['running', 2, 'sonnet-low', false])
 })
 
-test('H6 launched ignores other workflows, planning, no state and subagents', () => {
-  state.write(S, approvedState())
-  hook('h6-cleanup.js', wfPost({ tool_input: { name: 'other:thing' } }), ['launched'])
-  hook('h6-cleanup.js', wfPost({ agent_id: 'a1' }), ['launched'])
-  assert.equal(state.read(S).phase, 'approved')
-  state.write(S, approvedState({ phase: 'planning', tasks: [] }))
-  hook('h6-cleanup.js', wfPost(), ['launched'])
-  assert.equal(state.read(S).phase, 'planning')
-  state.remove(S)
-  hook('h6-cleanup.js', wfPost(), ['launched'])
-  assert.equal(state.read(S), null)
+test('a DONE report the Git facts do not back up is a failed attempt', () => {
+  startTestRun()
+  const noCommit = attempt(() => report('DONE', 'abc'))
+  assert.match(noCommit, /made 0 commits instead of one/)
+  const noReport = attempt(() => 'All done!')
+  assert.match(noReport, /returned no STATUS report/)
 })
 
-test('a launch rejected after H4 keeps the guards on until the guard gives up', () => {
-  state.write(S, approvedState())
-  hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
-  // The workflow never starts, so no PostToolUse marks the launch.
-  for (let i = 0; i < 3; i++) {
-    hook('h4-rewrite-workflow-args.js', wfPre({ name: WORKFLOW }))
-    assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).json.hookSpecificOutput.permissionDecision, 'deny')
+test('after two retries the run halts and leaves the last attempt in place', () => {
+  startTestRun()
+  attempt(() => report('FAILED', 'NONE', 'one'))
+  attempt(() => report('FAILED', 'NONE', 'two'))
+  const out = attempt(() => {
+    fs.writeFileSync(path.join(repo, 'last.txt'), 'x')
+    return report('FAILED', 'NONE', 'three')
+  })
+  assert.match(out, /stopped at T01, after 3 attempt\(s\) \(haiku-default, sonnet-low, sonnet-medium\)\. Reason: three\./)
+  assert.equal(state.read(S).phase, 'halted')
+  assert.equal(fs.existsSync(path.join(repo, 'last.txt')), true, 'nothing is reset after the last attempt')
+})
+
+test('a failed attempt whose commit was pushed halts without a reset', () => {
+  startTestRun()
+  const remote = path.join(dir, 'remote.git')
+  gitIn(dir, 'init', '-q', '--bare', remote)
+  gitIn(repo, 'remote', 'add', 'origin', remote)
+  const out = attempt(() => {
+    const sha = workerCommits('T01')
+    gitIn(repo, 'push', '-q', 'origin', 'main')
+    return report('FAILED', sha, 'oops')
+  })
+  assert.match(out, /stopped at T01.*is on a remote branch, so it cannot be reset/)
+  assert.equal(fs.existsSync(path.join(repo, 'T01.txt')), true)
+})
+
+test('H4 failure counts a failed Agent call as a failed attempt', () => {
+  startTestRun()
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  const out = hook('h4-dispatch.js', { ...agentPre(call), error: 'Agent type not found\nmore' }, ['failure']).json.hookSpecificOutput
+  assert.equal(out.hookEventName, 'PostToolUseFailure')
+  assert.match(out.additionalContext, /T01 failed at haiku-default: the Agent call failed: Agent type not found\./)
+  assert.equal(state.read(S).current.tier, 'sonnet-low')
+})
+
+test('H4 post and failure ignore calls that were not dispatched by the run', () => {
+  startTestRun()
+  assert.equal(hook('h4-dispatch.js', agentPost(expected()), ['post']).stdout, '')
+  assert.equal(hook('h4-dispatch.js', agentPost({ subagent_type: 'Explore' }), ['post']).stdout, '')
+  assert.equal(state.read(S).current.attempt, 1)
+})
+
+test('H5 pre denies main-thread edits during a run, with the next dispatch, then gives up', () => {
+  startTestRun()
+  for (let i = 1; i <= 3; i++) {
+    const out = hook('h5-guard.js', toolPre('Edit'), ['pre']).json.hookSpecificOutput
+    assert.equal(out.permissionDecision, 'deny')
+    assert.match(out.permissionDecisionReason, /do not do the work yourself\. Call the Agent tool now/)
+    assert.equal(state.read(S).guardDenials, i)
   }
   assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
   assert.equal(state.read(S).phase, 'abandoned')
 })
 
-test('state changes are logged with a timestamp only when PLANANDTIER_DEBUG is set', () => {
-  const env = { TEMP: dir, TMP: dir, TMPDIR: dir }
-  const log = path.join(dir, 'planandtier-debug.log')
-  state.write(S, approvedState())
-  hook('h6-cleanup.js', wfPost(), ['launched'], env)
-  assert.equal(fs.existsSync(log), false)
-  hook('h6-cleanup.js', wfPost(), ['launched'], { ...env, PLANANDTIER_DEBUG: '1' })
-  hook('h6-cleanup.js', { session_id: S }, ['end'], { ...env, PLANANDTIER_DEBUG: '1' })
-  const lines = fs.readFileSync(log, 'utf8').trim().split('\n')
-  assert.match(lines[0], /^\d{4}-\d\d-\d\dT\S+Z state sess-1: phase=launched denials=0 guardDenials=0$/)
-  assert.match(lines[1], /state sess-1: removed$/)
+test('H5 is silent while a task is in flight, in other phases, with no state, and for subagents', () => {
+  startTestRun()
+  assert.equal(hook('h5-guard.js', toolPre('Write', { agent_id: 'a1' }), ['pre']).stdout, '')
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  assert.equal(hook('h5-guard.js', toolPre('Edit'), ['pre']).stdout, '')
+  assert.equal(hook('h5-guard.js', { session_id: S }, ['stop']).stdout, '')
+  for (const phase of ['paused', 'halted', 'complete', 'abandoned']) {
+    state.write(S, { ...state.read(S), phase, current: { ...state.read(S).current, inFlight: false } })
+    assert.equal(hook('h5-guard.js', toolPre('Write'), ['pre']).stdout, '', phase)
+    assert.equal(hook('h5-guard.js', { session_id: S }, ['stop']).stdout, '', phase)
+  }
+  state.remove(S)
+  assert.equal(hook('h5-guard.js', toolPre('Write'), ['pre']).stdout, '')
 })
 
-test('H6 failure reverts a launched state to approved and keeps the tasks', () => {
-  state.write(S, approvedState({ phase: 'launched', guardDenials: 2 }))
-  hook('h6-cleanup.js', { session_id: S, tool_name: 'Workflow', tool_input: { name: WORKFLOW } }, ['failure'])
-  const s = state.read(S)
-  assert.equal(s.phase, 'approved')
-  assert.equal(s.guardDenials, 0)
-  assert.equal(s.tasks.length, 2)
-})
-
-test('H6 failure leaves other workflows and other phases alone', () => {
-  state.write(S, approvedState({ phase: 'launched' }))
-  hook('h6-cleanup.js', { session_id: S, tool_input: { name: 'other:thing' } }, ['failure'])
-  assert.equal(state.read(S).phase, 'launched')
-  state.write(S, approvedState({ phase: 'abandoned' }))
-  hook('h6-cleanup.js', { session_id: S, tool_input: { name: WORKFLOW } }, ['failure'])
+test('H5 stop blocks once with the next dispatch, then allows and abandons on the second consecutive stop', () => {
+  startTestRun()
+  const first = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop'])
+  assert.equal(first.json.decision, 'block')
+  assert.match(first.json.reason, /subagent_type "planandtier:haiku-default"/)
+  assert.equal(state.read(S).phase, 'running')
+  const second = hook('h5-guard.js', { session_id: S, stop_hook_active: true }, ['stop'])
+  assert.equal(second.stdout, '')
   assert.equal(state.read(S).phase, 'abandoned')
 })
 
+test('H1 reminds Claude of a run in progress outside plan mode, but not for reports and notifications', () => {
+  startTestRun()
+  const out = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'continue' }).stdout
+  assert.match(out, /a run of the approved plan is in progress\. 0 of 3 tasks are done\./)
+  assert.match(out, /subagent_type "planandtier:haiku-default"/)
+  for (const prompt of ['<agent-message from="x">report</agent-message>', '<task-notification>x</task-notification>']) {
+    assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt }).stdout, '')
+  }
+  assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'plan', prompt: 'x' }).stdout, RULES)
+})
+
+test('H1 starts a paused run once the tree is clean, and says why it is still waiting until then', () => {
+  startTestRun({ phase: 'paused', pausedBecause: 'dirty' })
+  fs.writeFileSync(path.join(repo, 'wip.txt'), 'x')
+  const waiting = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'go' }).stdout
+  assert.match(waiting, /still waiting to run, because the working tree has uncommitted changes \(wip\.txt\)/)
+  assert.equal(state.read(S).phase, 'paused')
+  fs.rmSync(path.join(repo, 'wip.txt'))
+  const started = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'go' }).stdout
+  assert.match(started, /the working tree is clean now, so the approved plan's run starts\. Call the Agent tool now/)
+  const s = state.read(S)
+  assert.equal(s.phase, 'running')
+  assert.equal(s.pausedBecause, undefined)
+})
+
+test('state changes are logged with a timestamp only when PLANANDTIER_DEBUG is set', () => {
+  startTestRun()
+  const env = { TEMP: dir, TMP: dir, TMPDIR: dir }
+  const log = path.join(dir, 'planandtier-debug.log')
+  hook('h5-guard.js', toolPre('Edit'), ['pre'], env)
+  assert.equal(fs.existsSync(log), false)
+  hook('h5-guard.js', toolPre('Edit'), ['pre'], { ...env, PLANANDTIER_DEBUG: '1' })
+  hook('h6-cleanup.js', { session_id: S }, ['end'], { ...env, PLANANDTIER_DEBUG: '1' })
+  const lines = fs.readFileSync(log, 'utf8').trim().split('\n')
+  assert.match(lines[0], /^\d{4}-\d\d-\d\dT\S+Z state sess-1: phase=running denials=0 guardDenials=2$/)
+  assert.match(lines[1], /state sess-1: removed$/)
+})
+
 test('H6 end deletes the session state', () => {
-  state.write(S, approvedState())
+  startTestRun()
   const r = hook('h6-cleanup.js', { session_id: S, hook_event_name: 'SessionEnd' }, ['end'])
   assert.equal(r.stdout, '')
   assert.equal(state.read(S), null)
@@ -625,10 +728,12 @@ const HOOKS = [
   ['h1-plan-rules.js', ['enter']],
   ['h2-gate-exit-plan.js', []],
   ['h3-post-approval.js', []],
-  ['h4-rewrite-workflow-args.js', []],
+  ['h4-dispatch.js', ['pre']],
+  ['h4-dispatch.js', ['stop']],
+  ['h4-dispatch.js', ['post']],
+  ['h4-dispatch.js', ['failure']],
   ['h5-guard.js', ['pre']],
   ['h5-guard.js', ['stop']],
-  ['h6-cleanup.js', ['failure']],
   ['h6-cleanup.js', ['end']],
 ]
 
@@ -646,11 +751,11 @@ test('every hook exits 0 when the data directory is unwritable', () => {
   const blocker = path.join(dir, 'blocker')
   fs.writeFileSync(blocker, '')
   const env = { CLAUDE_PLUGIN_DATA: path.join(blocker, 'x') }
+  const agent = { session_id: S, cwd: REPO, tool_name: 'Agent', tool_input: { subagent_type: 'planandtier:sonnet-low' } }
   const inputs = {
     'h2-gate-exit-plan.js': exitPre(NO_BLOCK, path.join(dir, 'none.md')),
-    'h4-rewrite-workflow-args.js': wfPre({ name: WORKFLOW }),
+    'h4-dispatch.js': agent,
     'h5-guard.js': toolPre('Edit'),
-    'h6-cleanup.js': { session_id: S, tool_input: { name: WORKFLOW } },
   }
   for (const [script, args] of HOOKS) {
     const r = hook(script, inputs[script] ?? { session_id: S }, args, env)
@@ -658,16 +763,20 @@ test('every hook exits 0 when the data directory is unwritable', () => {
   }
 })
 
-test('hooks.json is valid and every command names a script that exists', () => {
+test('hooks.json is valid, every command names a script that exists, and Agent events go to H4', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 10)
-  const launched = config.hooks.PostToolUse.find(g => g.matcher === 'Workflow')
-  assert.match(launched.hooks[0].command, /h6-cleanup\.js" launched$/)
+  assert.equal(commands.length, 11)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)
   }
+  const h4 = (event, matcher) => config.hooks[event].find(g => g.matcher === matcher)?.hooks[0].command
+  assert.match(h4('PreToolUse', 'Agent'), /h4-dispatch\.js" pre$/)
+  assert.match(h4('PostToolUse', 'Agent'), /h4-dispatch\.js" post$/)
+  assert.match(h4('PostToolUseFailure', 'Agent'), /h4-dispatch\.js" failure$/)
+  assert.match(config.hooks.SubagentStop[0].hooks[0].command, /h4-dispatch\.js" stop$/)
+  assert.ok(!JSON.stringify(config).includes('Workflow'))
 })
 
 test('no hook script ever grants permission', () => {

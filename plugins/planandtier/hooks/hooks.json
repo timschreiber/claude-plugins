@@ -11,17 +11,17 @@
       {
         "matcher": "ExitPlanMode",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h2-gate-exit-plan.js\"", "timeout": 15 }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h2-gate-exit-plan.js\"", "timeout": 30 }
         ]
       },
       {
-        "matcher": "Workflow",
+        "matcher": "Agent",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-rewrite-workflow-args.js\"", "timeout": 15 }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" pre", "timeout": 30 }
         ]
       },
       {
-        "matcher": "Edit|Write|NotebookEdit|Bash|PowerShell",
+        "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h5-guard.js\" pre", "timeout": 15 }
         ]
@@ -37,21 +37,28 @@
       {
         "matcher": "ExitPlanMode",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h3-post-approval.js\"", "timeout": 15 }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h3-post-approval.js\"", "timeout": 30 }
         ]
       },
       {
-        "matcher": "Workflow",
+        "matcher": "Agent",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h6-cleanup.js\" launched", "timeout": 15 }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" post", "timeout": 60 }
         ]
       }
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Workflow",
+        "matcher": "Agent",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h6-cleanup.js\" failure", "timeout": 15 }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" failure", "timeout": 60 }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" stop", "timeout": 15 }
         ]
       }
     ],

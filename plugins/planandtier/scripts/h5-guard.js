@@ -1,32 +1,33 @@
-// H5: keeps the main thread from doing the plan's work itself before the workflow launches.
-// Active only while the state is "approved"; it stands down at launch, not at completion,
-// because the workflow runs in the background and the main thread is idle meanwhile.
-//   pre   PreToolUse Edit|Write|NotebookEdit|Bash|PowerShell: deny main-thread work
-//   stop  Stop: block stopping before the launch
-// Both give up after a few blocks and mark the state "abandoned", so a stuck session
-// cannot loop forever.
+// H5: keeps the main thread dispatching while a run is in progress, instead of doing the tasks'
+// work itself or stopping halfway.
+//   pre   PreToolUse Edit|Write|NotebookEdit: deny main-thread file edits. Shell commands are not
+//         guarded; H4 refuses the next dispatch if they left the tree dirty.
+//   stop  Stop: block stopping while a task is due to be dispatched.
+// Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
+// forever. Workers are subagents, which every hook ignores.
 'use strict'
 
 const state = require('./lib/state.js')
+const { dispatchText } = require('./lib/run.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const MAX_TOOL_DENIALS = 3
-const REASON =
-  'planandtier: the approved plan has not been launched. Call the Workflow tool with name ' +
-  '"planandtier:execute-plan" and no args first. Its tasks run in subagents; do not do the work yourself.'
+const REASON = s =>
+  'planandtier: a run of the approved plan is in progress. Its tasks are done by subagents; do not do ' +
+  `the work yourself. ${dispatchText(s)}`
 
 run(async () => {
   const input = await readInput()
   if (!input || input.agent_id) return
   const current = state.read(input.session_id)
-  if (!current || current.phase !== 'approved') return
+  if (!current || current.phase !== 'running' || current.current?.inFlight) return
 
   if (process.argv[2] === 'stop') {
     if (input.stop_hook_active) {
       state.write(input.session_id, { ...current, phase: 'abandoned' })
       return
     }
-    emit({ decision: 'block', reason: REASON })
+    emit({ decision: 'block', reason: REASON(current) })
     return
   }
 
@@ -40,7 +41,7 @@ run(async () => {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
-      permissionDecisionReason: REASON,
+      permissionDecisionReason: REASON(current),
     },
   })
 })
