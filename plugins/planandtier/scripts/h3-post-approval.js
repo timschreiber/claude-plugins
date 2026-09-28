@@ -5,8 +5,7 @@
 'use strict'
 
 const fs = require('fs')
-const path = require('path')
-const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
+const { resolvePlan, planIdOf, writeTasksFile } = require('./lib/sidecar.js')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const { startRun, dispatchText } = require('./lib/run.js')
@@ -30,14 +29,8 @@ function readPlan(input) {
 // tasks are written beside the session state instead. null if that fails too.
 function tasksFileFor(input, result) {
   if (result.section?.file) return result.section.file
-  try {
-    const file = state.fileFor(input.session_id).replace(/\.json$/, '.tasks.json')
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, JSON.stringify({ tasks: result.tasks }, null, 2))
-    return file
-  } catch {
-    return null
-  }
+  const file = state.fileFor(input.session_id)?.replace(/\.json$/, '.tasks.json')
+  return writeTasksFile([file], JSON.stringify({ tasks: result.tasks }, null, 2))
 }
 
 const context = additionalContext =>

@@ -70,6 +70,22 @@ function commitsSince(cwd, base) {
     })
 }
 
+// The tasks of plan `planId` already committed on the current branch, as {taskId: sha}, from the
+// "Planandtier-Plan:" and "Planandtier-Task:" lines workers write. When a task was committed more than
+// once, the newest commit wins.
+function committedTasks(cwd, planId) {
+  if (!/^[0-9a-f]{16}$/.test(String(planId))) return {}
+  const r = git(cwd, ['log', 'HEAD', '--fixed-strings', `--grep=Planandtier-Plan: ${planId}`, '--format=%H%x1f%B%x1e'])
+  if (!r.ok) return {}
+  const found = {}
+  for (const entry of r.stdout.split('\x1e')) {
+    const [sha, message = ''] = entry.trim().split('\x1f')
+    const id = /^Planandtier-Task: (T\d+)\s*$/m.exec(message)?.[1]
+    if (sha && id && !(id in found)) found[id] = sha.trim()
+  }
+  return found
+}
+
 // True when any remote-tracking branch contains the commit, that is, it may have been pushed.
 const isPushed = (cwd, sha) => {
   const r = git(cwd, ['branch', '-r', '--contains', sha])
@@ -80,4 +96,4 @@ const isPushed = (cwd, sha) => {
 // (ignored files are left alone). True when both commands succeeded.
 const resetTo = (cwd, sha) => git(cwd, ['reset', '--hard', '-q', sha]).ok && git(cwd, ['clean', '-fdq']).ok
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, isPushed, resetTo }
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo }

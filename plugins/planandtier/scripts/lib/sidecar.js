@@ -89,6 +89,19 @@ function moveBlock(planFile, text, tasks) {
   return writeFile(file, blocks[0]) && writeFile(planFile, next)
 }
 
+// Writes `text` to the first of `files` that can be written, creating its directory. Returns that
+// path, or null when none could be written.
+function writeTasksFile(files, text) {
+  for (const file of files) {
+    if (!file) continue
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+    } catch {}
+    if (writeFile(file, text)) return file
+  }
+  return null
+}
+
 // A plan's id: the hash of its block text. moveBlock writes that same text to the tasks file and puts
 // its hash in the table, so a plan keeps one id whether or not its block was moved. `result` is what
 // resolvePlan returned for `text`. null for a plan with neither.
@@ -102,4 +115,4 @@ function planIdOf(result, text) {
   }
 }
 
-module.exports = { sidecarPath, hashOf, loadSidecar, resolvePlan, moveBlock, planIdOf }
+module.exports = { sidecarPath, hashOf, loadSidecar, resolvePlan, moveBlock, planIdOf, writeTasksFile }

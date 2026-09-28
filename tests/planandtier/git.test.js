@@ -189,3 +189,25 @@ test('resetTo reports failure instead of throwing', () => {
   const r = repo()
   assert.equal(g.resetTo(r, 'not-a-commit'), false)
 })
+
+test('committedTasks finds only the given plan\'s task commits on the current branch, newest first', () => {
+  const r = repo()
+  const commit = (file, ...lines) => {
+    write(r, file, file)
+    run(r, 'add', '-A')
+    run(r, 'commit', '-q', '-m', `Add ${file}`, ...lines.flatMap(l => ['-m', l]))
+    return g.head(r)
+  }
+  const plan = '0123456789abcdef'
+  const t1 = commit('a.txt', 'Planandtier-Task: T01', `Planandtier-Plan: ${plan}`)
+  commit('b.txt', 'Planandtier-Task: T02', 'Planandtier-Plan: ffffffffffffffff')
+  commit('c.txt', 'Planandtier-Task: T03')
+  run(r, 'switch', '-q', '-c', 'side')
+  commit('d.txt', 'Planandtier-Task: T02', `Planandtier-Plan: ${plan}`)
+  run(r, 'switch', '-q', 'main')
+  assert.deepEqual(g.committedTasks(r, plan), { T01: t1 }, 'other plans, no plan line and other branches do not count')
+  const again = commit('e.txt', 'Planandtier-Task: T01', `Planandtier-Plan: ${plan}`)
+  assert.deepEqual(g.committedTasks(r, plan), { T01: again })
+  assert.deepEqual(g.committedTasks(r, 'not-an-id'), {})
+  assert.deepEqual(g.committedTasks(path.join(dir, 'nope'), plan), {})
+})

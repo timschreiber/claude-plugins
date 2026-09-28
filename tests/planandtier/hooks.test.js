@@ -967,12 +967,181 @@ test('SessionEnd removes the arming flag', () => {
   assert.equal(state.isArmed(S), false)
 })
 
-test('the arm and disarm skills can only be run by the user', () => {
-  for (const name of ['arm', 'disarm']) {
+test('the arm, disarm and execute-plan skills can only be run by the user', () => {
+  const skills = fs.readdirSync(path.join(PLUGIN, 'skills')).sort()
+  assert.deepEqual(skills, ['arm', 'disarm', 'execute-plan'])
+  for (const name of skills) {
     const skill = fs.readFileSync(path.join(PLUGIN, 'skills', name, 'SKILL.md'), 'utf8')
     assert.match(skill, new RegExp(`^---\\r?\\nname: ${name}\\r?\\n`))
     assert.match(skill, /^disable-model-invocation: true$/m)
   }
+  const execute = fs.readFileSync(path.join(PLUGIN, 'skills', 'execute-plan', 'SKILL.md'), 'utf8')
+  assert.match(execute, /^argument-hint: "\[plan path\] \[--from Txx\]"$/m)
+})
+
+// ---- execute-plan ----------------------------------------------------------------------
+
+const execute = (args, { mode = 'default', cwd = repo, env = {} } = {}) =>
+  typed(`/planandtier:execute-plan ${args}`.trimEnd(), mode, cwd, env).stdout
+// A saved plan with a raw block at dir/<name>, and a fresh repository for it to run in.
+function savedPlan(text = VALID, name = 'plan.md') {
+  repo = makeRepo(path.join(dir, 'repo'))
+  const file = path.join(dir, name)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, text)
+  state.disarm(S)
+  return file
+}
+const idOf = text => sidecar.hashOf(blockBody(text))
+// Has H2 move the plan's block to its tasks file, as it does when Claude submits the plan in an armed
+// session, and leaves the session unarmed again.
+function moveBlock(file) {
+  state.arm(S)
+  hook('h2-gate-exit-plan.js', exitPre(fs.readFileSync(file, 'utf8'), file))
+  state.disarm(S)
+  assert.match(fs.readFileSync(file, 'utf8'), /<!-- planandtier:tasks -->/)
+}
+
+test('execute-plan runs a saved plan with a raw block: arms, saves the run, and gives the first dispatch', () => {
+  const file = savedPlan()
+  const out = execute(file)
+  const planId = idOf(VALID)
+  assert.match(out, /^planandtier: the user asked to execute the plan in .*plan\.md \(3 tiered tasks\), and the session is now armed\./)
+  assert.ok(out.includes(`exactly this prompt (3 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nPlan: ${planId}\nTask: T01\n`))
+  assert.match(out, /Do not implement the plan yourself/)
+  assert.equal(state.isArmed(S), true)
+  const s = state.read(S)
+  assert.deepEqual([s.phase, s.planId, s.cwd, s.branch, s.planFile], ['running', planId, repo, 'main', file])
+  assert.equal(fs.readFileSync(TASKS_FILE(), 'utf8'), blockBody(VALID), 'the tasks file is the block')
+  assert.equal(fs.readFileSync(file, 'utf8'), VALID, 'the plan file is not rewritten')
+})
+
+test('execute-plan runs a plan whose block H2 moved, from its tasks file, with the same plan id', () => {
+  const file = savedPlan()
+  moveBlock(file)
+  execute(file)
+  const s = state.read(S)
+  assert.equal(s.tasksFile, TASKS_FILE())
+  assert.equal(s.planId, idOf(VALID))
+  assert.equal(s.tasksHash, idOf(VALID))
+})
+
+test('execute-plan skips the tasks already committed for this plan, and the run goes on from there', () => {
+  const file = savedPlan()
+  const planId = idOf(VALID)
+  workerCommits('T01', 'T01.txt', planId)
+  workerCommits('T02', 'other.txt', 'ffffffffffffffff') // another plan's T02 does not count
+  const out = execute(file)
+  assert.match(out, /T01 [0-9a-f]{7} \(earlier run\) is not run again\./)
+  assert.match(out, /subagent_type "planandtier:opus-high", description "T02: Task 2"/)
+  const s = state.read(S)
+  assert.deepEqual([s.current.index, s.done.map(d => [d.id, d.skipped])], [1, [['T01', 'committed']]])
+
+  attempt(() => report('DONE', workerCommits('T02', 'T02.txt', planId)))
+  const last = attempt(() => report('DONE', workerCommits('T03', 'T03.txt', planId)))
+  assert.match(last, /all 3 tasks are done.*T01 [0-9a-f]{7} \(earlier run\), T02 [0-9a-f]{7} \(opus-high\), T03 [0-9a-f]{7} \(sonnet-medium\)/)
+})
+
+test('execute-plan refuses when committed tasks have a gap, and --from chooses the start', () => {
+  const file = savedPlan()
+  workerCommits('T02', 'T02.txt', idOf(VALID))
+  const gap = execute(file)
+  assert.match(gap, /was not started: T02 is already committed on this branch, but T01 is not\..*--from/)
+  assert.equal(state.isArmed(S), false)
+  assert.equal(state.read(S), null)
+
+  const from = execute(`${file} --from t03`)
+  assert.match(from, /T01 \(skipped by --from\), T02 [0-9a-f]{7} \(earlier run\) are not run again\./)
+  assert.match(from, /description "T03: Task 3"/)
+  assert.equal(state.read(S).current.index, 2)
+})
+
+test('execute-plan reports a plan that is already done, and a --from it cannot use', () => {
+  const file = savedPlan()
+  for (const id of ['T01', 'T02', 'T03']) workerCommits(id, `${id}.txt`, idOf(VALID))
+  assert.match(execute(file), /every task in .* is already committed on this branch: T01 [0-9a-f]{7} \(earlier run\), .*Nothing was run\./)
+  assert.equal(state.read(S), null)
+  assert.match(execute(`${file} --from T09`), /the plan has no task T09; its tasks are T01 to T03/)
+  assert.match(execute(`${file} --from`), /--from needs a task id/)
+})
+
+test('execute-plan takes quoted paths with spaces, unquoted ones, ~ and paths relative to cwd', () => {
+  const file = savedPlan(VALID, path.join('my plans', 'plan one.md'))
+  assert.match(execute(`"${file}"`), /session is now armed/)
+  state.remove(S)
+  assert.match(execute(file), /session is now armed/)
+  state.remove(S)
+  assert.match(execute(`'../my plans/plan one.md' --from T02`), /session is now armed/)
+  assert.equal(state.read(S).planFile, file)
+  state.remove(S)
+  const home = { USERPROFILE: dir, HOME: dir }
+  assert.match(execute(`"~/my plans/plan one.md"`, { env: home }), /session is now armed/)
+})
+
+test('execute-plan runs a plain or opted-out plan without planandtier, unarmed', () => {
+  for (const [text, why] of [[NO_BLOCK, /it has no planandtier task table or task block/], [`# Plan\n\n${OPT_OUT}\n`, /it says "Tiered execution: off"/]]) {
+    const file = savedPlan(text)
+    const out = execute(file)
+    assert.match(out, /is not a tiered planandtier plan/)
+    assert.match(out, why)
+    assert.match(out, /Read the plan file and implement it in this session as you normally would/)
+    assert.equal(state.isArmed(S), false)
+    assert.equal(state.read(S), null)
+    fs.rmSync(repo, { recursive: true, force: true })
+  }
+})
+
+test('execute-plan refuses a plan whose tasks cannot be loaded, and an invalid block', () => {
+  const file = savedPlan()
+  moveBlock(file)
+  fs.appendFileSync(TASKS_FILE(), ' ')
+  const changed = execute(file)
+  assert.match(changed, /cannot run, because its tasks cannot be loaded: .*has changed since its table was written/)
+  assert.match(changed, /do not implement it yourself/)
+
+  const bad = path.join(dir, 'bad.md')
+  fs.writeFileSync(bad, INVALID)
+  assert.match(execute(bad), /the task block in .*bad\.md is not valid, so the plan cannot run: /)
+  assert.equal(state.isArmed(S), false)
+})
+
+test('execute-plan refuses in plan mode, during a run, for an unreadable file, and where Git cannot run it', () => {
+  const file = savedPlan()
+  assert.match(execute(file, { mode: 'plan' }), /cannot be executed in plan mode.*leave plan mode/)
+  assert.match(execute(path.join(dir, 'nope.md')), /the plan file .*nope\.md cannot be read/)
+  fs.writeFileSync(path.join(repo, 'wip.txt'), 'x')
+  assert.match(execute(file), /cannot run here, because the working tree has uncommitted changes \(wip\.txt\)/)
+  assert.equal(state.isArmed(S), false)
+
+  startTestRun()
+  state.arm(S)
+  assert.match(execute(file), /a run of a plan is already in progress.*\/planandtier:disarm first/)
+  assert.equal(state.read(S).planId, PLAN_ID, 'the run is untouched')
+})
+
+test('execute-plan with no path lists recent planandtier plans, newest first', () => {
+  savedPlan()
+  const config = path.join(dir, 'config')
+  const plans = path.join(config, 'plans')
+  fs.mkdirSync(plans, { recursive: true })
+  const put = (name, text, minutesAgo) => {
+    const file = path.join(plans, name)
+    fs.writeFileSync(file, text)
+    const t = new Date(Date.now() - minutesAgo * 60000)
+    fs.utimesSync(file, t, t)
+  }
+  put('older.md', planText([task(1)]).replace('# Plan', '# Older plan'), 30)
+  put('plain.md', NO_BLOCK, 1)
+  put('newer.md', VALID.replace('# Plan', '# Newer plan'), 5)
+  const out = execute('', { env: { CLAUDE_CONFIG_DIR: config } })
+  assert.match(out, /^planandtier: no plan path was given\. These are the most recent planandtier plans in /)
+  assert.match(out, /newer\.md: "Newer plan", 3 tasks, changed .*\n- .*older\.md: "Older plan", 1 tasks, changed/)
+  assert.ok(!out.includes('plain.md'))
+  assert.match(out, /ask which one to run/)
+  assert.equal(state.isArmed(S), false)
+
+  const empty = execute('', { env: { CLAUDE_CONFIG_DIR: path.join(dir, 'none') } })
+  assert.match(empty, /there are no planandtier plans in .*plansDirectory/)
 })
 
 // ---- every hook ---------------------------------------------------------------------

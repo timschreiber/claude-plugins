@@ -7,7 +7,8 @@
 //             - a paused run (its tree was dirty at approval) starts here once the tree is clean.
 //   enter     PostToolUse EnterPlanMode: the model entered plan mode itself, so add the rules then.
 // All of that happens only in an armed session. The one thing H1 does unarmed is handle the typed
-// commands /planandtier:arm and /planandtier:disarm, which set and clear the session's flag.
+// commands: /planandtier:arm and /planandtier:disarm, which set and clear the session's flag, and
+// /planandtier:execute-plan, which picks a saved plan up again (lib/execute.js).
 'use strict'
 
 const fs = require('fs')
@@ -15,6 +16,7 @@ const path = require('path')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const { dispatchText, doneLabel } = require('./lib/run.js')
+const { executePlan } = require('./lib/execute.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
 // Subagent reports and task notifications also arrive as prompts; they are not the user speaking.
@@ -59,7 +61,7 @@ const rules = () => fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering
 
 // /planandtier:arm and /planandtier:disarm, as typed (the hook sees the raw text, not the skill body).
 // The skills themselves only tell Claude to report the note printed here.
-const COMMAND = /^\s*\/planandtier:(arm|disarm)\b/
+const COMMAND = /^\s*\/planandtier:(arm|disarm|execute-plan)(?![\w-])/
 
 // Arming checks the repository the way H2 does at approval, so a session that could never run a plan
 // is not armed at all. H2 and H3 still check again: the tree can change after arming.
@@ -125,9 +127,11 @@ run(async () => {
   if (!input || input.agent_id) return
   const enter = process.argv[2] === 'enter'
 
-  const command = enter ? null : COMMAND.exec(String(input.prompt ?? ''))?.[1]
+  const typed = enter ? null : COMMAND.exec(String(input.prompt ?? ''))
+  const command = typed?.[1]
   if (command === 'arm') return armNote(input)
   if (command === 'disarm') return disarmNote(input)
+  if (command === 'execute-plan') return emitText(executePlan(input, String(input.prompt).slice(typed[0].length)))
   if (!state.isArmed(input.session_id)) return
 
   if (enter) {
