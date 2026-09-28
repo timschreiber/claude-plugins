@@ -94,9 +94,9 @@ cannot start agents or workflows.
   non-interactive session), a worker that needs permission fails, and the workflow stops at that task.
 - **The state is deleted at session end**, so a resumed session cannot relaunch the old plan.
 - **The model launches the workflow.** The plugin tells it to and blocks other work until it does, but it
-  cannot launch the workflow itself. If Claude never does, the guard steps aside after a few blocks. The
-  guard also stays on after a launch that was rejected or that you declined at the workflow review, so
-  Claude tries again once or twice before the guard steps aside.
+  cannot launch the workflow itself. If Claude never does, the guard steps aside after a few blocks. If you
+  decline the workflow review, Claude stops and waits, and the plan stays approved. Ask Claude to launch
+  it again, or type `/planandtier:execute-plan`.
 - **You approve a table, not the prompts.** The prompts are in the tasks file. If the tasks file is changed
   after the table was written, the plan does not run, and Claude says so.
 

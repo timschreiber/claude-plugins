@@ -11,6 +11,9 @@ probes, both on Claude Code 2.1.283 (Windows), measured why:
   `planandtier-dialog-shapes-probe.log` (what each hook received). Steps:
   `probes/planandtier/dialog-shapes-run.md`.
 
+A third run then checked the plugin as changed in response: see
+[the last section](#the-built-plugin-tasks-file-and-confirmed-launch).
+
 ## Result
 
 | Question | Answer |
@@ -18,6 +21,7 @@ probes, both on Claude Code 2.1.283 (Windows), measured why:
 | What rejected the launch? | **A CRLF workflow script.** Multi-line prompts and non-ASCII prompts launch fine. |
 | What makes the dialog withhold a plan? | **One long line.** Total size does not: a 21 KB plan with short lines was shown. |
 | Can a hook shrink the plan before the dialog shows it? | **Yes.** The dialog reads the plan file after `PreToolUse` hooks have run. |
+| Does the built plugin's tasks file work end to end? | **Yes.** A plan with a 5,781-character line was shown as a table, approved, and run from its tasks file. See [the last section](#the-built-plugin-tasks-file-and-confirmed-launch). |
 
 ## The launch rejection
 
@@ -86,8 +90,48 @@ So the dialog re-reads the plan file after `PreToolUse` hooks run, and `tool_inp
 taken when the call was made. This is what lets planandtier keep long task prompts in a side file and show
 a short table for approval.
 
+## The built plugin: tasks file and confirmed launch
+
+planandtier was then changed. H2 moves every valid task block to a tasks file and leaves a table, and a launch
+is recorded only when `PostToolUse` confirms it. One interactive session ran the result on Claude Code
+2.1.283, in manual permission mode, following `planandtier-sidecar-run.md`. Evidence, all under
+`probes/evidence/`:
+- `planandtier-sidecar-observations.json`: what you saw;
+- `planandtier-sidecar-probe.log`: every hook input;
+- `planandtier-sidecar-debug.log`: every state change;
+- `planandtier-sidecar-plan.md` and `planandtier-sidecar-plan.tasks.json`: the approved plan and its tasks
+  file.
+
+The session transcript is the source for what Claude did.
+
+| Check | Result |
+|---|---|
+| The plan Claude wrote | 7,622 bytes, 43 lines, longest line 5,781 characters (T01's prompt, which embeds a 5,000-character text). The dialog-shape results say a plan like this is withheld. |
+| After H2 | The plan file was 1,529 bytes, longest line 116, with the task table in place of the block. The tasks file held the block, and its sha256 prefix matches the table's (`899932a0de2b3a06`). |
+| Approval dialog | **Shown**, with the table. The tasks file held T01's long prompt. |
+| What H3 received | `tool_response.plan` was the **shortened** text (1,523 characters, table and no block), with `tool_response.filePath` set to the plan file. `tool_input` held no plan text. |
+| Tasks run | Both, from the tasks file. The workflow's `args` held the two tasks. The workers ran at `medium` and `low`, matching their `sonnet` / `medium` and `sonnet` / `low` tags. The result was `complete`, and `notes.md` matched the original text byte for byte. |
+| Phases | `approved` at approval, `launched` at 02:59:29, which is when the second `Workflow` call started, then `removed` at session end. Nothing in between. |
+
+### Declining the workflow review
+
+You declined the first "Review dynamic workflow before running" prompt.
+
+- **Claude Code treated the decline as a user interrupt.** The transcript records `[Request interrupted by
+  user for tool use]`, and Claude stopped.
+- **No hook ran at that turn's end.** The transcript's `stop_hook_summary` records appear only after later
+  turns, so H5's `stop` mode never got to ask for a relaunch.
+- **No event followed the declined call.** The probe log has a `PreToolUse` record for it and nothing
+  after it.
+- **The state stayed `approved`** until you asked Claude to present the workflow again. That second call
+  launched, and `PostToolUse` marked it `launched`.
+
+So a decline leaves the plan approved with the guard on. Claude does not retry, and it waits for the user,
+which is the intended result. The earlier expectation that H5 would make Claude offer the launch once more
+was wrong.
+
 ## Not measured
 
-- What `PostToolUse` receives in `tool_response.plan` after a plan the hook shortened is approved. Every
-  shape was left with Esc, so no `PostToolUse` fired.
 - The exact limit, and whether it depends on the terminal size.
+- Whether a launch rejected after H4 (the CRLF case) fires `PostToolUseFailure`. Either way the state now
+  stays `approved`, because only a confirmed launch marks it `launched`.

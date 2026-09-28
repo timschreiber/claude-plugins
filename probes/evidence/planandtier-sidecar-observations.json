@@ -1,0 +1,24 @@
+{
+  "generated": "2026-09-28T02:49:26Z",
+  "claudeCodeVersion": "2.1.283",
+  "dialog": {
+    "shown": true,
+    "showedTable": true,
+    "tasksFileHadLongPrompt": true
+  },
+  "firstReviewDeclined": {
+    "claudeRelaunched": false,
+    "claudeDidWorkItself": false,
+    "notes": "Claude stoped after workflow rejected"
+  },
+  "run": {
+    "launchedAfterSecondReview": true,
+    "allTasksFinished": true,
+    "notes": "I had to ask it to present the workflow for approval again"
+  },
+  "notes": "generated was recorded as local time (Sunday, September 27, 2026, 10:49:26 PM, UTC-4) and converted to UTC. The terminal size was not recorded. The probe log holds a pre-exit:measure record, which the probe writes only with PROBE_DIALOG=1, so that variable was still set from the dialog-shapes run; in that mode the probe only logs.",
+  "terminal": {
+    "columns": null,
+    "rows": null
+  }
+}

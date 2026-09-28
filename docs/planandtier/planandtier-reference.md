@@ -382,7 +382,8 @@ fire it. Calls from agents (`tool_response.isAgent`) are ignored.
 
 It reads the approved text from the file at `tool_response.filePath`, then `tool_input.planFilePath`, then
 `tool_response.plan`, then `tool_input.plan`, taking the first that is non-empty. The file comes first
-because the dialog shows the file as H2 left it, and the user can edit it there. It parses the text with
+because the dialog shows the file as H2 left it, and the user can edit it there. `tool_response.plan` was
+measured to hold the same shortened text, and `tool_input` held no plan text at all. It parses the text with
 `resolvePlan()`, which loads the tasks file when the plan has H2's table. Then:
 
 | Parse result | What H3 does |
@@ -402,8 +403,9 @@ Runs before every main-thread `Workflow` call. It acts only when:
 
 It then returns `updatedInput`: the original tool input with `args` replaced by `{ "tasks": [...] }` from
 the state file. Any `args` Claude passed are overridden. It does not change the state: the call can still
-be rejected after H4 runs, or declined at the workflow review, and neither is known to fire a failure
-event. H6 records the launch once it is confirmed. H4 does not reset the guard's count either, so a launch that is
+be rejected after H4 runs, or declined at the workflow review. A declined review was measured to fire no
+later event; whether a rejected call fires `PostToolUseFailure` is not known. H6 records the launch once it
+is confirmed. H4 does not reset the guard's count either, so a launch that is
 rejected every time cannot keep the guard going forever.
 
 Because `updatedInput` replaces the whole tool input, H4 spreads the original input first. It never sets
@@ -591,7 +593,7 @@ How the plugin behaves when something goes wrong:
 | A task fails its verify step | The worker reports `failed`; the workflow halts at that task and returns `halted`. |
 | A worker throws or is stopped | Recorded as `failed` or `stopped`; the workflow halts. |
 | The workflow is started with no approved plan | H4 supplies nothing; the workflow returns `error` with a message saying to approve a plan first. |
-| The user declines the workflow review prompt (manual mode) | Not run. From the code: the workflow never starts, so the state stays `approved`. H5 blocks Claude from stopping once, so Claude offers the launch again, and one more review prompt appears. Declining that too lets Claude stop and marks the state `abandoned`. The tasks remain available for a later `/planandtier:execute-plan`. |
+| The user declines the workflow review prompt (manual mode) | Measured. Claude Code treats the decline as a user interrupt, so Claude stops and no Stop hook runs. The state stays `approved` and the guard stays on. Ask Claude to launch again, or type `/planandtier:execute-plan`. |
 
 ## Configuration and environment
 
@@ -722,6 +724,7 @@ Every measured claim above traces to one of these. Evidence files are under `pro
 | End to end in auto mode: gate, rejection, automatic launch, relaunch, cleanup at session end | [`planandtier-e2e-findings.md`](planandtier-e2e-findings.md), steps in [`planandtier-e2e-run.md`](planandtier-e2e-run.md) | `planandtier-e2e-results.json` |
 | Manual permissions: gated launch, worker prompts, clean failure with no approver, Opus model confirmed | [`planandtier-manual-mode-findings.md`](planandtier-manual-mode-findings.md), steps in [`planandtier-manual-mode-run.md`](planandtier-manual-mode-run.md) | `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 | A CRLF workflow script fails the launch; multi-line and non-ASCII prompts do not. The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-launch-shapes-results.json`, `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
+| The tasks file end to end: a plan with a 5,781-character line shown as a table and run from its tasks file; `tool_response.plan` holds the shortened text; a declined workflow review is an interrupt and leaves the state `approved` | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |
 
 The probe plugin and its analysis script are in `probes/planandtier/`.
 
