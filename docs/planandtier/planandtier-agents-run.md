@@ -16,7 +16,7 @@ The run passes if:
 
 | What | Where |
 |---|---|
-| The session | A **throwaway repo** at `%TEMP%\tier-agents`, created by the setup. The workers commit there. |
+| The session | A **new throwaway repo** at `%TEMP%\tier-agents-<date-time>`, created by the setup for each run. The workers commit there. Old ones can be deleted by hand once no session is using them. |
 | The plugin under test | `plugins/planandtier` in this repo, loaded with `--plugin-dir`, with `PLANANDTIER_DEBUG=1` so every state change is logged. |
 | A logger that changes nothing | `probes/planandtier/agent-probe-plugin`, loaded beside it with `PROBE_OBSERVE=1`. It records every Agent call, report and prompt. |
 
@@ -37,10 +37,11 @@ Remove-Item Env:PROBE_DIALOG -ErrorAction SilentlyContinue
 claude --version
 $Host.UI.RawUI.WindowSize
 
-# 3. Make a throwaway repo with one commit
-$dir = "$env:TEMP\tier-agents"
-Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
-if (Test-Path $dir) { throw "Could not remove $dir. Exit any Claude session still running there, then run this block again." }
+# 3. Make a new throwaway repo with one commit. Each run gets its own folder, so nothing has to be
+#    deleted: Windows won't remove a folder that this window or an old Claude session is still in.
+Set-Location $env:TEMP
+$stamp = Get-Date -Format yyyyMMdd-HHmmss
+$dir = "$env:TEMP\tier-agents-$stamp"
 New-Item -ItemType Directory $dir | Out-Null
 Set-Location $dir
 git init -q
@@ -87,7 +88,8 @@ session started without the two `--plugin-dir` flags plans without planandtier.
 
 ## Record
 
-Save this as `probes/evidence/planandtier-agents-observations.json` (in `probes\evidence` at the repo root).
+Save this as `probes/evidence/planandtier-agents-<stamp>-observations.json` (in `probes\evidence` at the
+repo root), where `<stamp>` is the date-time in the throwaway folder's name (`$stamp` in the setup window).
 For each `null`, `true` or `false` is enough; if you don't know, leave `null` and say so in `notes`.
 
 ```json
@@ -103,11 +105,11 @@ For each `null`, `true` or `false` is enough; if you don't know, leave `null` an
 }
 ```
 
-Then copy the two logs next to it:
+Then copy the two logs next to it, from the same window:
 
 ```powershell
-Copy-Item $env:PROBE_LOG "$repo\probes\evidence\planandtier-agents-probe.log"
-Copy-Item "$env:TEMP\planandtier-debug.log" "$repo\probes\evidence\planandtier-agents-debug.log"
+Copy-Item $env:PROBE_LOG "$repo\probes\evidence\planandtier-agents-$stamp-probe.log"
+Copy-Item "$env:TEMP\planandtier-debug.log" "$repo\probes\evidence\planandtier-agents-$stamp-debug.log"
 ```
 
 Tell me when all three are in place. I'll read the transcript, the plan, its tasks file and the throwaway
