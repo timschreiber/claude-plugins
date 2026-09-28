@@ -687,8 +687,8 @@ test('a report that arrives before its worker stops gets a note to end the turn,
   startTestRun()
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   const early = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<agent-message from="w">STATUS: DONE</agent-message>' }).stdout
-  assert.match(early, /^planandtier: this is T01's report, which arrived before planandtier finished checking the task\. Nothing is wrong\./)
-  assert.match(early, /end your turn: planandtier gives the next step when the task's "finished" notification arrives, shortly after\. Do not dispatch anything, and do not ask the user to re-run/)
+  assert.match(early, /^planandtier: T01's report arrived before planandtier checked it\./)
+  assert.match(early, /end your turn: the next step comes with the task's "finished" notification\. Do not dispatch anything or ask the user to act/)
   assert.equal(state.read(S).current.inFlight, true, 'nothing changes in the run')
   const notification = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>x</task-notification>' }).stdout
   assert.equal(notification, '', 'only the hand-back gets the note')
@@ -744,7 +744,7 @@ test('a notice is shown on an ordinary prompt too, and by the stop guard, but on
   hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'tests fail')), ['stop'])
   const typed = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'what happened?' }).stdout
   assert.match(typed, /T01 failed at sonnet-low: tests fail\. The working tree was reset/)
-  assert.match(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'and now?' }).stdout, /a run of the approved plan is in progress/)
+  assert.match(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'and now?' }).stdout, /a run is in progress/)
 
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'still failing')), ['stop'])
@@ -893,7 +893,7 @@ test('H5 stop blocks once with the next dispatch, then allows and abandons on th
 test('H1 reminds Claude of a run in progress outside plan mode, but not for reports and notifications', () => {
   startTestRun()
   const out = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'continue' }).stdout
-  assert.match(out, /a run of the approved plan is in progress\. 0 of 3 tasks are done\./)
+  assert.match(out, /a run is in progress; 0 of 3 tasks are done\./)
   assert.match(out, /subagent_type "planandtier:sonnet-low"/)
   for (const prompt of ['<agent-message from="x">report</agent-message>', '<task-notification>x</task-notification>']) {
     assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt }).stdout, '')
@@ -906,11 +906,11 @@ test('H1 starts a paused run once the tree is clean, and says why it is still wa
   startTestRun({ phase: 'paused', pausedBecause: 'dirty' })
   fs.writeFileSync(path.join(repo, 'wip.txt'), 'x')
   const waiting = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'go' }).stdout
-  assert.match(waiting, /still waiting to run, because the working tree has uncommitted changes \(wip\.txt\)/)
+  assert.match(waiting, /the approved plan is waiting to run: the working tree has uncommitted changes \(wip\.txt\)/)
   assert.equal(state.read(S).phase, 'paused')
   fs.rmSync(path.join(repo, 'wip.txt'))
   const started = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'go' }).stdout
-  assert.match(started, /the working tree is clean now, so the approved plan's run starts\. Call the Agent tool now/)
+  assert.match(started, /the working tree is clean, so the run starts. Call the Agent tool now/)
   const s = state.read(S)
   assert.equal(s.phase, 'running')
   assert.equal(s.pausedBecause, undefined)
@@ -944,8 +944,8 @@ const typed = (prompt, mode = 'default', cwd = REPO, env = {}) =>
 test('arming is refused, with the reason, where a plan could not run', () => {
   state.disarm(S)
   const refused = (out, reason) => {
-    assert.match(out, new RegExp(`^planandtier: not armed, because ${reason}\\.`))
-    assert.match(out, /type \/planandtier:arm again\./)
+    assert.match(out, new RegExp(`^planandtier: not armed: ${reason}\\.`))
+    assert.match(out, /then to type \/planandtier:arm again\./)
     assert.equal(state.isArmed(S), false)
   }
   const plain = path.join(dir, 'plain')
@@ -968,21 +968,21 @@ test('arming is refused, with the reason, where a plan could not run', () => {
 test('/planandtier:arm arms the session and says so, and arming again changes nothing', () => {
   state.disarm(S)
   const out = typed('/planandtier:arm').stdout
-  assert.match(out, /^planandtier: armed for this session\. A plan made in plan mode is now split into tiered tasks/)
+  assert.match(out, /^planandtier: armed\. Plans made in plan mode now run as tiered tasks/)
   assert.ok(!out.includes(RULES), 'no rules outside plan mode')
   assert.equal(state.isArmed(S), true)
-  assert.match(typed('  /planandtier:arm please').stdout, /^planandtier: already armed for this session; nothing changed\./)
+  assert.match(typed('  /planandtier:arm please').stdout, /^planandtier: already armed; nothing changed\./)
   assert.equal(typed('/planandtier:armed').stdout, '', 'only the exact command')
   assert.equal(typed('please /planandtier:arm').stdout, '', 'only at the start of the prompt')
 })
 
 test('arming outside plan mode asks Claude to switch to plan mode, then entering it gives the rules', () => {
   state.disarm(S)
-  const ask = /The session is not in plan mode\. Switch to it now: call the EnterPlanMode tool \(if it is only listed as a deferred tool, load it with ToolSearch first\)\./
+  const ask = /Call the EnterPlanMode tool now \(load it with ToolSearch first if it is deferred\)/
   for (const mode of ['default', 'auto', 'acceptEdits']) {
     state.disarm(S)
     const out = typed('/planandtier:arm', mode).stdout
-    assert.match(out, /^planandtier: armed for this session\./, mode)
+    assert.match(out, /^planandtier: armed\./, mode)
     assert.match(out, ask, mode)
     assert.ok(!out.includes(RULES), 'the rules come when plan mode is entered')
   }
@@ -995,7 +995,7 @@ test('arming outside plan mode asks Claude to switch to plan mode, then entering
 test('arming never switches to plan mode during a run, and execute-plan never asks for it', () => {
   startTestRun()
   const during = typed('/planandtier:arm', 'default', repo).stdout
-  assert.match(during, /^planandtier: already armed for this session; nothing changed\.$/m)
+  assert.match(during, /^planandtier: already armed; nothing changed\.$/m)
   assert.ok(!during.includes('EnterPlanMode'), 'workers inherit the mode')
 
   state.remove(S)
@@ -1007,13 +1007,13 @@ test('arming never switches to plan mode during a run, and execute-plan never as
 
 test('the arm skill tells Claude to follow the note into plan mode', () => {
   const skill = fs.readFileSync(path.join(PLUGIN, 'skills', 'arm', 'SKILL.md'), 'utf8')
-  assert.match(skill, /If the note tells you to switch to plan mode, do exactly what it says: call the EnterPlanMode tool/)
+  assert.match(skill, /If the note says to call EnterPlanMode, call it/)
 })
 
 test('arming in plan mode also prints the rules', () => {
   state.disarm(S)
   const out = typed('/planandtier:arm', 'plan').stdout
-  assert.match(out, /^planandtier: armed for this session\./)
+  assert.match(out, /^planandtier: armed\./)
   assert.ok(out.endsWith(RULES))
 })
 
@@ -1027,10 +1027,10 @@ test('arming says it failed when the flag cannot be written', () => {
 
 test('/planandtier:disarm disarms, and says so when there was nothing to disarm', () => {
   state.write(S, { phase: 'planning', tasks: [], denials: 1 })
-  assert.match(typed('/planandtier:disarm').stdout, /^planandtier: disarmed for this session\. Plans are no longer tiered/)
+  assert.match(typed('/planandtier:disarm').stdout, /^planandtier: disarmed\. Plans are no longer tiered/)
   assert.equal(state.isArmed(S), false)
   assert.equal(state.read(S), null, 'planning state is removed')
-  assert.match(typed('/planandtier:disarm').stdout, /^planandtier: was not armed for this session; nothing changed\./)
+  assert.match(typed('/planandtier:disarm').stdout, /^planandtier: not armed; nothing changed\./)
 })
 
 test('an unarmed session is left alone by every hook', () => {
@@ -1071,10 +1071,10 @@ test('disarming mid-run stops it: nothing more is dispatched, and the worker in 
     "the queued line and the stopped run's spend go to the UI"
   )
   assert.deepEqual(state.read(S).spendLines, [])
-  assert.match(out, /^planandtier: disarmed for this session, which stops the run of the approved plan\./)
-  assert.match(out, /Done and committed: T01 [0-9a-f]{7} \(sonnet-low\)\. Not done: T02, T03\./)
-  assert.match(out, /T02's worker is still running; planandtier will not check it or roll it back/)
-  assert.match(out, /Do not dispatch more tasks\./)
+  assert.match(out, /^planandtier: disarmed, which stops the run\./)
+  assert.match(out, /Done: T01 [0-9a-f]{7} \(sonnet-low\)\. Not done: T02, T03\./)
+  assert.match(out, /T02's worker is still running; whatever it commits or leaves in the working tree stays unchecked/)
+  assert.match(out, /dispatch nothing more\./)
   const s = state.read(S)
   assert.deepEqual([s.phase, s.notice], ['abandoned', null])
 
@@ -1089,7 +1089,7 @@ test('disarming mid-run stops it: nothing more is dispatched, and the worker in 
 test('disarming a run between tasks says nothing is running', () => {
   startTestRun()
   const out = typed('/planandtier:disarm').json.hookSpecificOutput.additionalContext
-  assert.match(out, /Done and committed: none\. Not done: T01, T02, T03\. Tell the user/)
+  assert.match(out, /Done: none\. Not done: T01, T02, T03\. Tell the user/)
   assert.ok(!out.includes('still running'))
 })
 

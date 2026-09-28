@@ -4,10 +4,9 @@ description: Turn planandtier off for this session. Plans are no longer tiered, 
 disable-model-invocation: true
 ---
 
-planandtier's hook has already handled this command. It added a note that starts with "planandtier:".
+planandtier's hook has handled this command and added a note starting "planandtier:".
 
-Tell the user what that note says happened. If it stopped a run, also give what it lists as done and not
-done, and do exactly what it says. If there is no such note, tell the user that planandtier did not
-respond: the plugin may not be installed or enabled in this session.
+Tell the user in one line what it says happened; if it stopped a run, add what is done and not done, and
+follow its instructions. With no note, say planandtier did not respond.
 
 Do nothing else.

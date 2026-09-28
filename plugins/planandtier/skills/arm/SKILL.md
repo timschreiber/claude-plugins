@@ -4,13 +4,10 @@ description: Turn planandtier on for this session and switch to plan mode, so a 
 disable-model-invocation: true
 ---
 
-planandtier's hook has already handled this command. It added a note that starts with "planandtier:".
+planandtier's hook has handled this command and added a note starting "planandtier:".
 
-If the note tells you to switch to plan mode, do exactly what it says: call the EnterPlanMode tool (loading
-it with ToolSearch first if it is only listed as deferred), then tell the user in one line what the note
-says. Otherwise, tell the user in one line what the note says happened.
-
-If there is no such note, tell the user that planandtier did not respond, so it is not armed: the plugin
-may not be installed or enabled in this session.
+If the note says to call EnterPlanMode, call it (load it with ToolSearch first if it is deferred). Then
+tell the user in one line what the note says. With no note, say planandtier did not respond, so it is
+not armed.
 
 Do nothing else.

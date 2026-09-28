@@ -43,35 +43,35 @@ function runNote(input) {
     // step comes with the task's "finished" notification, so ending the turn is all it should do.
     if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) {
       emitText(
-        `planandtier: this is ${s.tasks[s.current.index].id}'s report, which arrived before planandtier finished ` +
-          'checking the task. Nothing is wrong. Tell the user the report in one line, then end your turn: ' +
-          "planandtier gives the next step when the task's \"finished\" notification arrives, shortly after. " +
-          'Do not dispatch anything, and do not ask the user to re-run or type anything.'
+        `planandtier: ${s.tasks[s.current.index].id}'s report arrived before planandtier checked it. ` +
+          'Relay it to the user in one line and end your turn: ' +
+          "the next step comes with the task's \"finished\" notification. " +
+          'Do not dispatch anything or ask the user to act.'
       )
     }
     return
   }
-  const where = () => `${s.done.length} of ${s.tasks.length} tasks are done.`
+  const where = () => `${s.done.length} of ${s.tasks.length} tasks are done`
 
   if (s.phase === 'paused') {
     const problem = git.problem(s.cwd ?? input.cwd)
     if (problem) {
       emitText(
-        `planandtier: the approved plan is still waiting to run, because ${problem}. If the user wants it to ` +
-          'run, they need to commit or stash those changes first.'
+        `planandtier: the approved plan is waiting to run: ${problem}. ` +
+          'The user must commit or stash those changes first.'
       )
       return
     }
     const started = { ...s, phase: 'running' }
     delete started.pausedBecause
     if (!state.write(input.session_id, started)) return
-    emitText(`planandtier: the working tree is clean now, so the approved plan's run starts. ${dispatchText(started)}`)
+    emitText(`planandtier: the working tree is clean, so the run starts. ${dispatchText(started)}`)
     return
   }
   if (s.phase === 'running' && !s.current?.inFlight) {
     emitText(
-      `planandtier: a run of the approved plan is in progress. ${where()} If the user wants it to continue, ` +
-        `${dispatchText(s)} If they want to stop it, do not dispatch anything and tell them what is done.`
+      `planandtier: a run is in progress; ${where()}. To continue: ${dispatchText(s)} ` +
+        'To stop: dispatch nothing and tell the user what is done.'
     )
   }
 }
@@ -91,22 +91,19 @@ function armNote(input) {
   const problem = already ? null : git.problem(input.cwd)
   if (problem) {
     emitText(
-      `planandtier: not armed, because ${problem}. planandtier commits each task and resets a failed ` +
-        'attempt to the commit before it, so it needs Git, a repository with a commit, a user name and email ' +
-        'to commit with, and a clean working tree. Tell the user what to fix, and that they can then type ' +
-        '/planandtier:arm again.'
+      `planandtier: not armed: ${problem}. It needs a Git repository with a commit, a user name and email, ` +
+        'and a clean working tree. Tell the user what to fix, then to type /planandtier:arm again.'
     )
     return
   }
   if (!already && !state.arm(id)) {
-    emitText('planandtier: arming failed, because its flag file could not be written, so it stays off for this session.')
+    emitText('planandtier: arming failed: its flag file could not be written.')
     return
   }
   state.prune(PRUNE_DAYS)
   const note = already
-    ? 'planandtier: already armed for this session; nothing changed.'
-    : 'planandtier: armed for this session. A plan made in plan mode is now split into tiered tasks, and ' +
-      'approving it runs each task in its own subagent at its model and effort. /planandtier:disarm turns it off.'
+    ? 'planandtier: already armed; nothing changed.'
+    : 'planandtier: armed. Plans made in plan mode now run as tiered tasks; /planandtier:disarm turns it off.'
   if (input.permission_mode === 'plan') {
     emitText(`${note}\n\n${rules()}`)
     state.markRulesShown(id)
@@ -118,9 +115,8 @@ function armNote(input) {
   const s = state.read(id)
   if (s?.phase === 'running' || s?.phase === 'paused') return emitText(note)
   emitText(
-    `${note} The session is not in plan mode. Switch to it now: call the EnterPlanMode tool (if it is only ` +
-      'listed as a deferred tool, load it with ToolSearch first). Then tell the user, in one line, that ' +
-      'planandtier is armed and the session is in plan mode, ready for them to describe what to plan.'
+    `${note} Call the EnterPlanMode tool now (load it with ToolSearch first if it is deferred), then tell ` +
+      'the user in one line that planandtier is armed and ready for them to describe what to plan.'
   )
 }
 
@@ -140,24 +136,23 @@ function disarmNote(input) {
   const spent = inRun ? [...(s.spendLines ?? []), ...(summary ? [summary] : [])].join('\n') || null : null
 
   if (!armed) {
-    emitText('planandtier: was not armed for this session; nothing changed.')
+    emitText('planandtier: not armed; nothing changed.')
     return
   }
   if (!inRun) {
-    emitText('planandtier: disarmed for this session. Plans are no longer tiered, and nothing is dispatched.')
+    emitText('planandtier: disarmed. Plans are no longer tiered.')
     return
   }
   const finished = new Set(s.done.map(d => d.id))
   const done = s.done.map(doneLabel).join(', ') || 'none'
   const notRun = s.tasks.filter(t => !finished.has(t.id)).map(t => t.id).join(', ') || 'none'
   const running = s.current?.inFlight
-    ? ` ${s.tasks[s.current.index].id}'s worker is still running; planandtier will not check it or roll it back, so whatever ` +
-      'it commits or leaves in the working tree stays.'
+    ? ` ${s.tasks[s.current.index].id}'s worker is still running; ` +
+      'whatever it commits or leaves in the working tree stays unchecked.'
     : ''
   const note =
-    'planandtier: disarmed for this session, which stops the run of the approved plan. ' +
-    `Done and committed: ${done}. Not done: ${notRun}.${running} Tell the user what is done and what is not. ` +
-    'Do not dispatch more tasks.'
+    'planandtier: disarmed, which stops the run. ' +
+    `Done: ${done}. Not done: ${notRun}.${running} Tell the user, and dispatch nothing more.`
   if (!spent) return emitText(note)
   emit({ systemMessage: spent, hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: note } })
 }
