@@ -910,7 +910,7 @@ test('H1 starts a paused run once the tree is clean, and says why it is still wa
   assert.equal(state.read(S).phase, 'paused')
   fs.rmSync(path.join(repo, 'wip.txt'))
   const started = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'go' }).stdout
-  assert.match(started, /the working tree is clean, so the run starts. Call the Agent tool now/)
+  assert.match(started, /the working tree is clean, so the run starts\. Call the Agent tool now/)
   const s = state.read(S)
   assert.equal(s.phase, 'running')
   assert.equal(s.pausedBecause, undefined)

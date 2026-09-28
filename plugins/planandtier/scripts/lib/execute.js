@@ -81,9 +81,11 @@ function recentPlans(dir = plansDir(), limit = LISTED) {
 // pick one. `why` opens the note (for example "no plan path was given").
 function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
   const plans = recentPlans(dir)
-  const custom = 'A plan elsewhere (plansDirectory setting) needs its path.'
   if (plans.length === 0) {
-    return `${PREFIX} ${why}, and there are no planandtier plans in ${dir}. ${custom} Tell the user.`
+    return (
+      `${PREFIX} ${why}, and there are no planandtier plans in ${dir}. ` +
+      'A plan elsewhere (plansDirectory setting) needs its path. Tell the user.'
+    )
   }
   state.saveListing(sessionId, plans.map(p => p.file))
   const rows = plans.map(
@@ -96,7 +98,7 @@ function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
     `${rows.join('\n')}\n` +
     'Show the user this numbered list and ask which to run: they type /planandtier:execute-plan with its ' +
     'number (for example /planandtier:execute-plan 1) or its path. Do not run anything yourself. ' +
-    custom.replace('A plan elsewhere', 'A plan outside this directory')
+    'A plan outside this directory (plansDirectory setting) needs its path.'
   )
 }
 
