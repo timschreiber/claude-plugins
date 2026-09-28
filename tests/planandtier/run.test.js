@@ -33,7 +33,6 @@ test('the dispatch is a pointer to the task, with the reason added on a retry', 
   assert.deepEqual(r.expectedCall(s), {
     subagent_type: 'planandtier:sonnet-low',
     description: 'T01: Task 1',
-    run_in_background: false,
     prompt: 'Tasks file: C:/plans/p.tasks.json\nTask: T01',
   })
   const retry = r.advance(s, { ok: false, reason: 'Verify failed' }).state
@@ -49,14 +48,38 @@ test('dispatchText spells out the exact call', () => {
   const text = r.dispatchText(start())
   assert.match(text, /subagent_type "planandtier:sonnet-low"/)
   assert.match(text, /description "T01: Task 1"/)
-  assert.match(text, /run_in_background false/)
+  assert.ok(!text.includes('run_in_background'))
   assert.match(text, /exactly this prompt \(2 lines, nothing added\):\nTasks file: C:\/plans\/p\.tasks\.json\nTask: T01\n/)
   assert.match(text, /Do not do the task yourself/)
+  assert.match(text, /If the task runs in the background, end your turn/)
 })
 
-test('checkDispatch accepts the expected call, allowing line endings and trailing spaces to differ', () => {
+test('runningText tells Claude to end its turn while a background task runs', () => {
+  const text = r.runningText(start())
+  assert.match(text, /T01 is running in the background on planandtier:sonnet-low\. End your turn now/)
+})
+
+test('noticeText says what happened and what comes next, for each outcome', () => {
+  const s = { ...start(), current: { ...start().current, head: 'abcdef1234' } }
+  const next = r.advance(s, { ok: true, commit: 'aaa1111bbb' })
+  assert.match(r.noticeText(s, next.state, next.action, { ok: true }), /^planandtier: T01 is done \(commit aaa1111, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  const outcome = { ok: false, reason: 'Verify failed' }
+  const retry = r.advance(s, outcome)
+  assert.match(r.noticeText(s, retry.state, retry.action, outcome), /T01 failed at sonnet-low: Verify failed\. The working tree was reset to abcdef1, and the task is retried one tier up\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  const fatal = { ok: false, fatal: 'the worker left the branch the run started on' }
+  const halt = r.advance(s, fatal)
+  assert.equal(r.noticeText(s, halt.state, halt.action, fatal), r.haltText(halt.state))
+  let done = s
+  for (let i = 0; i < 3; i++) done = r.advance(done, { ok: true, commit: `c${i}000000` }).state
+  assert.equal(done.phase, 'complete')
+  assert.match(r.noticeText(s, done, 'complete', { ok: true }), /all 3 tasks are done/)
+})
+
+test('checkDispatch accepts the expected call in the foreground or the background', () => {
   const s = start()
   assert.equal(r.checkDispatch(s, call(s)), null)
+  assert.equal(r.checkDispatch(s, call(s, { run_in_background: false })), null)
+  assert.equal(r.checkDispatch(s, call(s, { run_in_background: true })), null)
   assert.equal(r.checkDispatch(s, call(s, { prompt: 'Tasks file: C:/plans/p.tasks.json  \r\nTask: T01\r\n' })), null)
   assert.equal(r.checkDispatch(s, call(s, { description: 'anything' })), null, 'the description is not checked')
 })
@@ -64,10 +87,6 @@ test('checkDispatch accepts the expected call, allowing line endings and trailin
 test('checkDispatch names what is wrong', () => {
   const s = start()
   assert.match(r.checkDispatch(s, call(s, { subagent_type: 'planandtier:sonnet-medium' })), /runs on planandtier:sonnet-low, not planandtier:sonnet-medium/)
-  assert.match(r.checkDispatch(s, call(s, { run_in_background: true })), /run_in_background must be false/)
-  const noFlag = call(s)
-  delete noFlag.run_in_background
-  assert.match(r.checkDispatch(s, noFlag), /run_in_background must be false/)
   assert.match(r.checkDispatch(s, call(s, { prompt: 'Task: T01' })), /prompt is not the expected one/)
   assert.match(r.checkDispatch(s, call(s, { prompt: 'Tasks file: C:/plans/p.tasks.json\nTask: T02' })), /not the expected one/)
   assert.match(r.checkDispatch({ ...s, current: { ...s.current, inFlight: true } }, call(s)), /T01 is already running/)

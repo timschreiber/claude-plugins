@@ -1,11 +1,16 @@
-// H4: runs the approved tasks through the tier agents (planandtier:<tier>), one at a time, in the
-// foreground. Agent-tool subagents are not shown the user's latest prompt as overriding their task,
-// which is why the run no longer uses a workflow (planandtier-agent-dispatch-findings.md).
+// H4: runs the approved tasks through the tier agents (planandtier:<tier>), one at a time.
+// Agent-tool subagents are not shown the user's latest prompt as overriding their task, which is why
+// the run no longer uses a workflow (planandtier-agent-dispatch-findings.md). In an interactive
+// session the Agent tool always runs a subagent in the background, so the attempt is judged when the
+// worker stops, and what Claude must hear next is kept in the state as `notice` until it can be told:
+// at PostToolUse for a foreground run, or by H1 when the worker's report arrives as a prompt.
 //   pre      PreToolUse Agent: only the dispatch the run expects may start, from a clean tree on the
 //            run's branch. On a pass it records HEAD, which a retry resets to.
-//   stop     SubagentStop: records the worker's report (it fires before PostToolUse).
-//   post     PostToolUse Agent: judges the attempt against Git and moves the run on: the next task,
-//            a retry one tier up after a reset, completion, or a halt.
+//   stop     SubagentStop: the worker finished. Judges the attempt against Git and moves the run on
+//            (the next task, a retry one tier up after a reset, completion, or a halt), saving the
+//            notice.
+//   post     PostToolUse Agent: gives Claude the notice if there is one (a foreground run); otherwise
+//            the task is running in the background, and Claude is told to end its turn and wait.
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
 // Agent calls for other agent types are left alone.
 'use strict'
@@ -61,23 +66,22 @@ function pre(input, s) {
     deny(r.haltText(halted))
     return
   }
-  state.write(input.session_id, { ...s, current: { ...s.current, head: git.head(cwd), inFlight: true, report: null } })
+  // A notice not yet shown is stale once Claude has made the next dispatch.
+  state.write(input.session_id, {
+    ...s,
+    notice: null,
+    current: { ...s.current, head: git.head(cwd), inFlight: true, report: null },
+  })
 }
 
-function stop(input, s) {
-  if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
-  const text = input.last_assistant_message || lastAssistantText(input.agent_transcript_path)
-  state.write(input.session_id, { ...s, current: { ...s.current, report: r.parseReport(text) } })
-}
-
-// Judges the finished attempt (or takes the given failure) and tells Claude what comes next.
-function finish(input, s, event, failure) {
-  if (!ours(input.tool_input?.subagent_type) || s?.phase !== 'running' || !s.current.inFlight) return
-  const cwd = s.cwd ?? input.cwd
+// Judges the finished attempt (from its report, or the given failure), moves the run on, and returns
+// the new state with the notice Claude must be told next. Does the Git work: the checks, and the
+// reset before a retry.
+function settle(s, cwd, failure) {
   const task = r.currentTask(s)
-  const { head, tier } = s.current
+  const { head } = s.current
   const commits = git.commitsSince(cwd, head)
-  let outcome =
+  const outcome =
     failure ??
     r.judge({
       report: s.current.report,
@@ -96,24 +100,36 @@ function finish(input, s, event, failure) {
       : !git.resetTo(cwd, head)
         ? `the reset to ${short(head)} before the retry failed`
         : null
-    if (fatal) ({ state: next, action } = r.advance(s, { ok: false, fatal }))
+    if (fatal) return settled(s, r.advance(s, { ok: false, fatal }), { ok: false, fatal })
   }
-  state.write(input.session_id, next)
+  return settled(s, { state: next, action }, outcome)
+}
+const settled = (s, { state: next, action }, outcome) => ({ ...next, notice: r.noticeText(s, next, action, outcome) })
 
-  if (action === 'next') {
-    const done = next.done[next.done.length - 1]
-    context(event, `planandtier: ${done.id} is done (commit ${short(done.commit)}, ${done.tier}). ${r.dispatchText(next)}`)
-  } else if (action === 'retry') {
-    context(
-      event,
-      `planandtier: ${task.id} failed at ${tier}: ${outcome.reason}. The working tree was reset to ` +
-        `${short(head)}, and the task is retried one tier up. ${r.dispatchText(next)}`
-    )
-  } else if (action === 'complete') {
-    context(event, r.completeText(next))
-  } else {
-    context(event, r.haltText(next))
+function stop(input, s) {
+  if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
+  const text = input.last_assistant_message || lastAssistantText(input.agent_transcript_path)
+  const reported = { ...s, current: { ...s.current, report: r.parseReport(text) } }
+  state.write(input.session_id, settle(reported, s.cwd ?? input.cwd))
+}
+
+function post(input, s) {
+  if (!ours(input.tool_input?.subagent_type) || !s) return
+  if (s.notice) {
+    // The worker already stopped: a foreground run. Tell Claude what comes next.
+    state.write(input.session_id, { ...s, notice: null })
+    context('PostToolUse', s.notice)
+  } else if (s.phase === 'running' && s.current.inFlight) {
+    context('PostToolUse', r.runningText(s))
   }
+}
+
+function failure(input, s) {
+  if (!ours(input.tool_input?.subagent_type) || s?.phase !== 'running' || !s.current.inFlight) return
+  const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
+  const next = settle(s, s.cwd ?? input.cwd, { ok: false, reason: `the Agent call failed: ${error}` })
+  state.write(input.session_id, { ...next, notice: null })
+  context('PostToolUseFailure', next.notice)
 }
 
 run(async () => {
@@ -128,9 +144,6 @@ run(async () => {
   if (input.agent_id) return
   const s = state.read(input.session_id)
   if (mode === 'pre') pre(input, s)
-  else if (mode === 'post') finish(input, s, 'PostToolUse')
-  else if (mode === 'failure') {
-    const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
-    finish(input, s, 'PostToolUseFailure', { ok: false, reason: `the Agent call failed: ${error}` })
-  }
+  else if (mode === 'post') post(input, s)
+  else if (mode === 'failure') failure(input, s)
 })

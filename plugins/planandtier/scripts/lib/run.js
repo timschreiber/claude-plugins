@@ -2,10 +2,11 @@
 // dispatch matches it, how a worker's report is read and judged, and how the run moves on. The hooks
 // add the file and Git work around these.
 //
-// Run state: {phase, tasks, tasksFile, tasksHash, planFile, branch, current, done, ...}
-//   phase    running | halted | complete | abandoned
+// Run state: {phase, tasks, tasksFile, tasksHash, planFile, branch, current, done, notice, ...}
+//   phase    running | halted | complete | abandoned (or paused, before the run starts)
 //   current  {index, attempt, tier, tried[], head, inFlight, report, lastFailure, dispatchFailures}
 //   done     [{id, tier, commit, attempts}]
+//   notice   what Claude must be told next, set when an attempt is judged and cleared once shown
 'use strict'
 
 const { tierOf, nextTier } = require('./tasks.js')
@@ -58,12 +59,14 @@ function expectedPrompt(state) {
   return lines.join('\n')
 }
 
+// The Agent call the run expects next. Whether it runs in the foreground is not part of it: in an
+// interactive session the Agent tool always runs subagents in the background, with no setting for it
+// (planandtier-agent-dispatch-findings.md).
 function expectedCall(state) {
   const task = currentTask(state)
   return {
     subagent_type: agentName(state.current.tier),
     description: `${task.id}: ${task.title}`,
-    run_in_background: false,
     prompt: expectedPrompt(state),
   }
 }
@@ -73,11 +76,40 @@ function dispatchText(state) {
   const call = expectedCall(state)
   return (
     `Call the Agent tool now with subagent_type "${call.subagent_type}", description ` +
-    `${JSON.stringify(call.description)}, run_in_background false, and exactly this prompt ` +
+    `${JSON.stringify(call.description)}, and exactly this prompt ` +
     `(${call.prompt.split('\n').length} lines, nothing added):\n${call.prompt}\n` +
-    'Do not do the task yourself and do not edit files. After the agent returns, follow the ' +
-    'planandtier message that comes back.'
+    'Do not do the task yourself and do not edit files. If the task runs in the background, end your ' +
+    'turn; planandtier gives the next step when its report arrives.'
   )
+}
+
+// What Claude is told when its Agent call returns while the task is still running in the background.
+function runningText(state) {
+  const task = currentTask(state)
+  return (
+    `planandtier: ${task.id} is running in the background on ${agentName(state.current.tier)}. End your ` +
+    'turn now and do nothing else: when its report arrives, planandtier will give you the next step. Do ' +
+    'not do the task yourself.'
+  )
+}
+
+// What Claude is told after an attempt has been judged and the run moved on. prev is the state the
+// attempt ran in, next the state after it, action what advance() returned, outcome what judge() did.
+function noticeText(prev, next, action, outcome) {
+  const task = currentTask(prev)
+  const short = sha => String(sha ?? '').slice(0, 7)
+  if (action === 'next') {
+    const done = next.done[next.done.length - 1]
+    return `planandtier: ${done.id} is done (commit ${short(done.commit)}, ${done.tier}). ${dispatchText(next)}`
+  }
+  if (action === 'retry') {
+    return (
+      `planandtier: ${task.id} failed at ${prev.current.tier}: ${outcome.reason}. The working tree was reset ` +
+      `to ${short(prev.current.head)}, and the task is retried one tier up. ${dispatchText(next)}`
+    )
+  }
+  if (action === 'complete') return completeText(next)
+  return haltText(next)
 }
 
 const normalize = text =>
@@ -96,7 +128,6 @@ function checkDispatch(state, toolInput) {
   if (toolInput?.subagent_type !== want.subagent_type) {
     return `the next task runs on ${want.subagent_type}, not ${toolInput?.subagent_type}`
   }
-  if (toolInput?.run_in_background !== false) return 'run_in_background must be false'
   if (normalize(toolInput?.prompt) !== normalize(want.prompt)) return 'the prompt is not the expected one'
   return null
 }
@@ -187,6 +218,8 @@ module.exports = {
   expectedPrompt,
   expectedCall,
   dispatchText,
+  runningText,
+  noticeText,
   checkDispatch,
   parseReport,
   judge,

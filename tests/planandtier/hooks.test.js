@@ -305,7 +305,7 @@ test('H3 starts the run and gives the exact first dispatch', () => {
   const out = r.json.hookSpecificOutput
   assert.equal(out.hookEventName, 'PostToolUse')
   assert.match(out.additionalContext, /3 tiered tasks \(T01 to T03\)/)
-  assert.match(out.additionalContext, /subagent_type "planandtier:sonnet-medium", description "T01: Task 1", run_in_background false/)
+  assert.match(out.additionalContext, /subagent_type "planandtier:sonnet-medium", description "T01: Task 1", and exactly this prompt/)
   assert.ok(out.additionalContext.includes(`exactly this prompt (2 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nTask: T01\n`))
   assert.match(out.additionalContext, /Do not implement the plan yourself/)
 })
@@ -505,11 +505,10 @@ test('H4 pre lets the expected dispatch through and records HEAD', () => {
   assert.equal(s.current.head, gitIn(repo, 'rev-parse', 'HEAD'))
 })
 
-test('H4 pre refuses a wrong tier, a background run, a wrong prompt, and a second dispatch, repeating the right call', () => {
+test('H4 pre refuses a wrong tier, a wrong prompt, and a second dispatch, repeating the right call', () => {
   startTestRun()
   for (const [over, why] of [
     [{ subagent_type: 'planandtier:sonnet-medium' }, /runs on planandtier:sonnet-low, not planandtier:sonnet-medium/],
-    [{ run_in_background: true }, /run_in_background must be false/],
     [{ prompt: 'Do T01 please' }, /prompt is not the expected one/],
   ]) {
     const out = hook('h4-dispatch.js', agentPre(expected(over)), ['pre']).json.hookSpecificOutput
@@ -546,14 +545,29 @@ test('H4 pre halts the run when the tree is dirty or the branch changed, before 
   assert.equal(state.read(S).phase, 'halted')
 })
 
-test('H4 stop records the report of the dispatched worker only, falling back to its transcript', () => {
+test('H4 accepts a dispatch whether or not it sets run_in_background', () => {
+  startTestRun()
+  const call = expected()
+  assert.ok(!('run_in_background' in call))
+  assert.equal(hook('h4-dispatch.js', agentPre({ ...call, run_in_background: true }), ['pre']).stdout, '')
+  assert.equal(state.read(S).current.inFlight, true)
+})
+
+test('H4 stop judges the dispatched worker only, and leaves the notice for Claude', () => {
   startTestRun()
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   hook('h4-dispatch.js', subStop(report('DONE'), { agent_type: 'Explore' }), ['stop'])
-  assert.equal(state.read(S).current.report, null)
-  hook('h4-dispatch.js', subStop(report('DONE', 'abc')), ['stop'])
-  assert.deepEqual(state.read(S).current.report, { status: 'DONE', commit: 'abc', verify: 'PASS', note: 'did it' })
+  assert.deepEqual([state.read(S).current.inFlight, state.read(S).notice], [true, null], 'another agent type is ignored')
+  hook('h4-dispatch.js', subStop(report('DONE', workerCommits('T01'))), ['stop'])
+  const s = state.read(S)
+  assert.equal(s.current.inFlight, false)
+  assert.deepEqual(s.done.map(d => d.id), ['T01'])
+  assert.match(s.notice, /^planandtier: T01 is done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+})
 
+test('H4 stop reads the report from the worker transcript when SubagentStop has none', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   const transcript = path.join(dir, 'agent.jsonl')
   const line = o => JSON.stringify(o) + '\n'
   fs.writeFileSync(
@@ -562,7 +576,49 @@ test('H4 stop records the report of the dispatched worker only, falling back to 
       line({ type: 'user', message: { content: 'x' } })
   )
   hook('h4-dispatch.js', subStop('', { agent_transcript_path: transcript }), ['stop'])
-  assert.equal(state.read(S).current.report.note, 'from transcript')
+  assert.match(state.read(S).notice, /T01 failed at sonnet-low: from transcript\./)
+})
+
+test('a background run: the launch says to wait, the worker stopping moves the run on, and its report delivers the notice', () => {
+  startTestRun()
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  const launched = hook('h4-dispatch.js', agentPost(call, { tool_response: { isAsync: true, status: 'async_launched' } }), ['post'])
+  assert.match(launched.json.hookSpecificOutput.additionalContext, /T01 is running in the background on planandtier:sonnet-low\. End your turn now/)
+  assert.equal(hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).stdout, '', 'Claude may end its turn')
+
+  const sha = workerCommits('T01')
+  hook('h4-dispatch.js', subStop(report('DONE', sha)), ['stop'])
+  const arrived = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<agent-message from="w">STATUS: DONE</agent-message>' }).stdout
+  assert.match(arrived, /T01 is done \(commit [0-9a-f]{7}, sonnet-low\)\. Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.equal(state.read(S).notice, null, 'shown once')
+  assert.equal(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>x</task-notification>' }).stdout, '')
+})
+
+test('a notice is shown on an ordinary prompt too, and by the stop guard, but only once', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'tests fail')), ['stop'])
+  const typed = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'what happened?' }).stdout
+  assert.match(typed, /T01 failed at sonnet-low: tests fail\. The working tree was reset/)
+  assert.match(hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'and now?' }).stdout, /a run of the approved plan is in progress/)
+
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'still failing')), ['stop'])
+  const blocked = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).json
+  assert.equal(blocked.decision, 'block')
+  assert.match(blocked.reason, /T01 failed at sonnet-medium: still failing\./)
+  assert.equal(state.read(S).notice, null)
+})
+
+test('a dispatch clears a notice that was never shown', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'x')), ['stop'])
+  assert.ok(state.read(S).notice)
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  assert.equal(state.read(S).notice, null)
+  assert.equal(hook('h4-dispatch.js', agentPost(expected()), ['post']).json.hookSpecificOutput.additionalContext.includes('running in the background'), true)
 })
 
 test('a run goes through every task, one commit each, then completes', () => {

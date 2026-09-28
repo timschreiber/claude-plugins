@@ -27,7 +27,10 @@ run(async () => {
       state.write(input.session_id, { ...current, phase: 'abandoned' })
       return
     }
-    emit({ decision: 'block', reason: REASON(current) })
+    // A notice H4 left (what the last attempt did, and the next dispatch) says more than the bare
+    // dispatch; once given here it is not repeated.
+    if (current.notice) state.write(input.session_id, { ...current, notice: null })
+    emit({ decision: 'block', reason: current.notice ?? REASON(current) })
     return
   }
 
