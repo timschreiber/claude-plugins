@@ -50,8 +50,8 @@
       "repository": "https://github.com/timschreiber/claude-plugins",
       "license": "Apache-2.0",
       "category": "dev",
-      "tags": ["planning", "workflows", "subagents", "token-efficiency"],
-      "keywords": ["planning", "plan-mode", "workflows", "subagents", "hooks"]
+      "tags": ["planning", "subagents", "git", "token-efficiency"],
+      "keywords": ["planning", "plan-mode", "subagents", "hooks", "git"]
     }
   ],
   "renames": {}
