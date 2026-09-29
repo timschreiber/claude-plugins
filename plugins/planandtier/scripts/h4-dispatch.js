@@ -16,44 +16,18 @@
 // Agent calls for other agent types are left alone.
 'use strict'
 
-const fs = require('fs')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const r = require('./lib/run.js')
 const spend = require('./lib/spend.js')
+const { settle, reportFromTranscript } = require('./lib/settle.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const ours = type => typeof type === 'string' && type.startsWith(r.AGENT_PREFIX)
-const short = sha => String(sha ?? '').slice(0, 7)
 
 const deny = reason =>
   emit({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } })
 const context = (event, additionalContext) => emit({ hookSpecificOutput: { hookEventName: event, additionalContext } })
-
-// The worker's report block, from its transcript, newest first. A worker often delivers the block
-// through Claude Code's SubagentHandback tool and then ends with a line such as "Task complete.",
-// so its last message is not reliably the report. Each assistant message is searched in its tool
-// calls' `message` inputs, then its text. null when no block is found.
-function reportFromTranscript(transcript) {
-  try {
-    const lines = fs.readFileSync(transcript, 'utf8').split('\n').filter(Boolean).reverse()
-    for (const line of lines) {
-      const o = JSON.parse(line)
-      if (o.type !== 'assistant') continue
-      const c = o.message?.content
-      const blocks = typeof c === 'string' ? [{ type: 'text', text: c }] : (c ?? [])
-      const candidates = [
-        ...blocks.filter(x => x.type === 'tool_use' && typeof x.input?.message === 'string').map(x => x.input.message),
-        ...blocks.filter(x => x.type === 'text').map(x => x.text),
-      ]
-      for (const text of candidates) {
-        const report = r.parseReport(text)
-        if (report) return report
-      }
-    }
-  } catch {}
-  return null
-}
 
 function pre(input, s) {
   const toolInput = input.tool_input ?? {}
@@ -86,39 +60,6 @@ function pre(input, s) {
   // The dispatch answers any hand-back that was waiting for its next step (H5).
   if (started) state.clearHandback(input.session_id)
 }
-
-// Judges the finished attempt (from its report, or the given failure), moves the run on, and returns
-// the new state with the notice Claude must be told next. Does the Git work: the checks, and the
-// reset before a retry.
-function settle(s, cwd, failure) {
-  const task = r.currentTask(s)
-  const { head } = s.current
-  const commits = git.commitsSince(cwd, head)
-  const outcome =
-    failure ??
-    r.judge({
-      report: s.current.report,
-      taskId: task.id,
-      planId: s.planId,
-      commits,
-      clean: git.isClean(cwd),
-      sameBranch: git.branch(cwd) === s.branch,
-    })
-  let { state: next, action } = r.advance(s, outcome)
-
-  if (action === 'retry') {
-    // Never reset away a commit that may have been pushed; stop instead.
-    const pushed = commits.find(c => git.isPushed(cwd, c.sha))
-    const fatal = pushed
-      ? `the failed attempt's commit ${short(pushed.sha)} is on a remote branch, so it cannot be reset`
-      : !git.resetTo(cwd, head)
-        ? `the reset to ${short(head)} before the retry failed`
-        : null
-    if (fatal) return settled(s, r.advance(s, { ok: false, fatal }), { ok: false, fatal })
-  }
-  return settled(s, { state: next, action }, outcome)
-}
-const settled = (s, { state: next, action }, outcome) => ({ ...next, notice: r.noticeText(s, next, action, outcome) })
 
 function stop(input, s) {
   if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
