@@ -150,13 +150,23 @@ Evidence: `probes/evidence/planandtier-handback-stall.json`, made by
 are the transcript's own line numbers (0-based).
 
 - When a worker hands its report back with `SubagentHandback`, the report arrives as an `<agent-message>`
-  prompt. Its record has `origin.handback: true` (entries 266-268), and `UserPromptSubmit` fires on it
+  prompt. Its record has `origin: {handback: true}` (entries 266-268), and `UserPromptSubmit` fires on it
   (entry 269).
 - The later `<task-notification>` is recorded with `queueTranscriptOnly: true` (entry 277). Its text says
   the report is not repeated. It starts no turn and fires no `UserPromptSubmit`. The `Stop` hook had
   already run for the hand-back turn (entries 273-274), before the notification was recorded.
 - So a notice that H4 left for the notification (`noticeByNotification`) was never delivered. H5 let the
   turn end, H1 had no prompt to give the notice on, and the run stalled after T01 until the user typed.
+- The notice is now delivered by judging in H1, in the hand-back turn. H1 sees the `<agent-message>`,
+  takes the report from the prompt (or the worker's transcript), judges the attempt and gives Claude the
+  next step in that same turn. No later event is needed.
+
+### Why not wait at Stop
+
+An earlier fix had H5 wait at Stop for H4's `SubagentStop` to judge the attempt. Whether `SubagentStop`
+had run by then varied from run to run, so the wait was timing-dependent and its test was flaky.
+Orcastrat avoids the problem because its orchestrator judges a report when it reads it, and its Stop
+guard is level-triggered (`plugins/orcastrat/hooks/stop-guard`).
 
 ## Not measured
 

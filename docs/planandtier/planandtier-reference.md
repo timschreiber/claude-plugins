@@ -428,7 +428,7 @@ Six scripts under [`scripts/`](../../plugins/planandtier/scripts/), registered i
 | H4 Dispatch | `PostToolUse` | `Agent` | `h4-dispatch.js post` | 60 s |
 | H4 Dispatch | `PostToolUseFailure` | `Agent` | `h4-dispatch.js failure` | 60 s |
 | H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `h5-guard.js pre` | 15 s |
-| H5 Guard | `Stop` | none | `h5-guard.js stop` | 45 s |
+| H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
 | H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
 
 Every hook ignores calls made by subagents (any input with an `agent_id`), so workers and other agents are
@@ -465,18 +465,17 @@ subagent itself.
 - On `UserPromptSubmit` outside plan mode, if H4 left a **notice** (a worker finished and its attempt was
   judged), it prints the notice and clears it. The worker's report arrives as an `<agent-message>` or
   task-notification prompt, so this is how a background run moves on to its next step with nothing typed.
-- If a worker's `<agent-message>` hand-back arrives while its task is still in flight (before its
-  `SubagentStop`, which is the usual order), it tells Claude that nothing is wrong and to end its turn: the
-  next step comes with the task's "finished" notification. Without this, Claude told the user the run was
-  stuck and to re-run a command.
 - The notice H4 leaves for a background worker (`noticeByNotification`) is normally given on that
   `<task-notification>` prompt, which always follows the worker's `SubagentStop`. Any other prompt gives it
   too.
 - A hand-back's `<task-notification>` is transcript-only: it starts no turn and fires no `UserPromptSubmit`
   (see [the findings](planandtier-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2285)).
-  So when an `<agent-message>` arrives while the task is in flight, H1 also writes the hand-back marker,
-  `sessions/<session_id>.handback`, holding the task id, and tells Claude to relay the report in one line and
-  end its turn. Delivering a waiting notice on a prompt clears the marker.
+  So H1 judges the hand-back itself. When an `<agent-message>` arrives while the task is still in flight,
+  it takes the report from the prompt, or else from the worker's transcript at
+  `subagents/agent-<id>.jsonl`, runs `settle()` from `lib/settle.js`, records the attempt's spend, and
+  saves the state with the agent id in `handedBack`. It then gives Claude the notice (the next dispatch, a
+  retry, a halt or the completion message) in that same turn. If H4 already judged the attempt, it gives
+  that notice once and does not judge again. With no task in flight it prints nothing.
 - Otherwise, for a prompt the user typed, with a run `running` and no task in flight, it prints where the
   run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
   reports and task notifications get no such note.
@@ -544,8 +543,7 @@ other agent types are left alone.
   no task already in flight. With no run in progress it refuses every planandtier dispatch. It then checks
   the tree: uncommitted changes that no task made, or a different branch from the one the run started on,
   **halt** the run at once. On a pass it records HEAD, marks the task in flight, and drops any notice not
-  yet shown (it is stale once Claude has made the next dispatch). It also clears the hand-back marker, which
-  belongs to the previous attempt.
+  yet shown (it is stale once Claude has made the next dispatch).
 - **`stop`** (`SubagentStop`) fires when the dispatched worker finishes, in the foreground or the
   background. It reads the report from `last_assistant_message` if that holds a STATUS block; otherwise it
   searches the worker's transcript (`agent_transcript_path`), newest first, in the `message` of a
@@ -553,7 +551,8 @@ other agent types are left alone.
   and then ends with a line such as "Task complete.", so its last message is not reliably the report. It
   then judges the attempt (see [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what
   Claude must be told next as the state's `notice`. It also records the attempt's tokens and cost, and queues
-  the line H5 shows the user (see [Spend telemetry](#spend-telemetry)).
+  the line H5 shows the user (see [Spend telemetry](#spend-telemetry)). It ignores an agent listed in the
+  state's `handedBack`: H1 already judged that worker's hand-back, and the run's next task may be in flight.
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
   already finished (a foreground run, as in a headless session): it gives Claude the notice as
   `additionalContext` and clears it. Otherwise the task is running in the background: it marks the attempt
@@ -580,17 +579,10 @@ is in flight.
   dispatch.
 - **`stop`:** blocks the turn from ending, with the same reason, or with H4's notice if one is waiting
   (which it then clears). The exception is a background worker's notice (`noticeByNotification`): that
-  stop is allowed and the notice left for H1, unless the hand-back marker is set (see below). Claude Code labels a blocked stop "Stop hook error", and in
+  stop is allowed and the notice left for H1. Claude Code labels a blocked stop "Stop hook error", and in
   the live runs every task's hand-off went through that block. If Claude Code reports the stop hook is already active (a second consecutive
   stop), it allows the stop and marks the run `abandoned`. While a task is in flight it is silent, so
   Claude can end its turn while a background worker runs.
-- **With the hand-back marker set** (`<session_id>.handback`, left by H1 when a worker's report arrived before
-  its attempt was judged), the "finished" notification will start no turn, so H5 gives the next step itself.
-  While the task is still in flight, `stop` waits, polling every 250 ms, for up to 30 s
-  (`PLANANDTIER_HANDBACK_WAIT_MS`, in milliseconds) for H4 to judge the attempt. It then blocks the stop with
-  the notice and clears the notice and the marker. If the wait runs out, it lets the stop through with a
-  message telling the user to type `continue`. A notice waiting when the run is no longer running (a halt or
-  the completion message) is given the same way, so it is not lost. Without the marker nothing changes.
 - **After the run ends** (`complete`, `halted` or `abandoned`), the first Stop records the run's
   orchestration and shows the spend summary, once (see [Spend telemetry](#spend-telemetry)).
 
@@ -628,8 +620,7 @@ In an interactive session the worker runs in the background: Claude's Agent call
 Claude to end its turn, and the run continues when the worker's report arrives as a prompt. So Claude's
 turn ends between tasks, and each report starts the next with nothing typed. When the worker hands its
 report back through `SubagentHandback`, the notification that follows starts no turn, so the next step is
-given by H5 when Claude's turn ends (the hand-back marker, described under H5). If that wait runs out,
-the user types `continue`. In a headless session the
+given by H1, which judges the hand-back in the turn it arrives (see H1). In a headless session the
 call can run in the foreground, and the run continues within the turn.
 
 ### The worker
@@ -846,7 +837,7 @@ it:
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
 The arming flag is a separate file beside it, `<session_id>.armed` (its content is the time it was armed),
-so the run state's own removals never disarm the session. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. A third, `<session_id>.handback`, holds the id of the task whose report arrived before its attempt was judged, and is removed when the next step is given, at the next dispatch and on disarm. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
+so the run state's own removals never disarm the session. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/planandtier/sessions/` is used. With `--plugin-dir`, Claude
 Code sets `CLAUDE_PLUGIN_DATA` itself, to `~/.claude/plugins/data/planandtier-inline`.
 
 During a run the file looks like this:
@@ -1044,6 +1035,7 @@ plugins/planandtier/
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
     lib/execute.js               # /planandtier:execute-plan: arguments, the plan listing, where to start
     lib/prices.js                # per-model prices by token category, from Anthropic's pricing page
+    lib/settle.js                # judging a worker's report: the report from a transcript, and settle()
     lib/spend.js                 # what each hook records for telemetry, and the UI text
     lib/telemetry.js             # <plan>.telemetry.jsonl: records, the attempt line, the summary
     lib/usage.js                 # token usage from transcripts: de-duplicated, windowed, by mode
@@ -1105,6 +1097,8 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 - **Workers see only their prompt**, not the plan or the conversation. A vague prompt gives a vague result.
 - **Orchestration uses model turns.** One Agent call and one short report per attempt reach the main
   session.
+- **A hand-back's usage is as of the hand-back.** H1 records the worker's spend when it judges the
+  hand-back, so tokens the worker uses after handing back are not counted.
 - **A background task's next step waits for its "finished" notification.** That notification arrived after
   the worker's `SubagentStop` in every live run. If one never came, the run would wait until the user types
   something, and H1 would give the next step then.
@@ -1143,7 +1137,7 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 | execute-plan reports a gap in the committed tasks | A later task is committed on this branch but an earlier one is not. Check `git log`, then type the command again with `--from` and the task to start at. |
 | execute-plan says the plan's tasks cannot be loaded | The tasks file beside the plan is missing or was changed, or the table was edited. The prompts are gone from the plan, so plan it again. |
 | execute-plan reruns tasks that an old run finished | Those commits predate the `Planandtier-Plan:` line. Use `--from` to start after them. |
-| The run goes idle after a task reports | Type `continue`. The hand-back marker (`<session_id>.handback`) normally prevents this: a hand-back's finished notification starts no turn, so H5 waits for the judgment and gives the next step, and only after 30 s does it ask you to type `continue`. A saved plan resumes with `/planandtier:execute-plan`, which skips committed tasks. |
+| The run goes idle after a task reports | A hand-back is judged when it arrives, so idling means something else. Check the run state, or resume a saved plan with `/planandtier:execute-plan`, which skips committed tasks. |
 | A dispatch is refused | Claude's call did not match the expected one. The refusal repeats the right call; Claude should make it. |
 | The run stopped at a task | Read Claude's report: the task, the tiers tried and the reason. The last attempt's changes are in the working tree. Fix or discard them, then plan the rest again. |
 | The run stopped because of uncommitted changes or a branch change | Something other than a task changed the tree or the branch during the run. Nothing was reset. |
@@ -1164,7 +1158,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | `/planandtier:execute-plan` live: a plan left unapproved runs in a later session; committed tasks are skipped; planning is counted across sessions; a plain plan runs without planandtier | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#executing-a-saved-plan-live) | `planandtier-execute-plan-20260928-162334-partB-*`, `-partC-*`, `-partD-*`, `-telemetry.jsonl` |
 | A typed plugin skill command reaches `UserPromptSubmit` as the raw text (for example `/planandtier-agent-probe:arm`), the namespaced name resolves, and a `disable-model-invocation` skill's body still reaches the model | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#arming-what-a-typed-skill-command-looks-like-to-a-hook) | `planandtier-arm-probe.log`, `planandtier-arm-probe-results.json` |
 | Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; Sonnet 5.5 at `high` scores above Opus 5.5 at `low`, Opus 5.5 at `high` matches or beats Sonnet 5.5 at `xhigh` for equal or less, and Opus 5.5 at `xhigh` adds little over `high` | [`planandtier-tier-findings.md`](planandtier-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28), `planandtier-sonnet-5-5-charts.json` (Anthropic's Sonnet 5.5 launch charts) |
-| A worker's `SubagentHandback` report arrives as an `<agent-message>` prompt, and the later `<task-notification>` is transcript-only (`queueTranscriptOnly`): no turn, no `UserPromptSubmit`, so H5 delivers the next step when a hand-back marker is set | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2285) | `planandtier-handback-stall.json` |
+| A worker's `SubagentHandback` report arrives as an `<agent-message>` prompt, and the later `<task-notification>` is transcript-only (`queueTranscriptOnly`): no turn, no `UserPromptSubmit`, so H1 judges the hand-back when it arrives | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2285) | `planandtier-handback-stall.json` |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`planandtier-agent-dispatch-findings.md`](planandtier-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log`, `planandtier-agents-probe.log`, `planandtier-agents-debug.log`, `planandtier-agents-rerun-probe.log`, `planandtier-agents-rerun-debug.log` |
 | The dialog withholds a plan with one line of about 4,500 characters but shows a 21 KB plan with short lines, and it reads the plan file after `PreToolUse` hooks run | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`dialog-shapes-run.md`](../../probes/planandtier/dialog-shapes-run.md) | `planandtier-dialog-shapes-observations.json`, `planandtier-dialog-shapes-probe.log` |
 | The tasks file end to end: a plan with a 5,781-character line shown as a table and loaded from its tasks file; `tool_response.plan` holds the shortened text (*workflow era*) | [`planandtier-dialog-findings.md`](planandtier-dialog-findings.md), steps in [`planandtier-sidecar-run.md`](planandtier-sidecar-run.md) | `planandtier-sidecar-observations.json`, `planandtier-sidecar-probe.log`, `planandtier-sidecar-debug.log`, `planandtier-sidecar-plan.md`, `planandtier-sidecar-plan.tasks.json` |
