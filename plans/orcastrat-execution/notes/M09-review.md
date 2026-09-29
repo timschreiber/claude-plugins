@@ -1,0 +1,12 @@
+## Blocking
+
+None.
+
+## Advisory
+
+- `plugins/orcastrat/skills/run/SKILL.md:304` — 3e item 5 still says a task that leaves the wave should "Leave its worktree: item 11 or item 12 settles the task once the wave is integrated". But the new removal step (lines 307–311) now removes every worktree of the wave before item 7, and items 11 and 12 settle the task from the hold and its branch. The wording is out of date and contradicts D174's "No worktree stays for the user". (M09-T16, D174)
+- `plugins/orcastrat/skills/run/SKILL.md:340` — item 11's first bullet (reached from item 9's second bullet, line 334) needs `<n>`, "the failed attempt's number", for an escalated task. That number was counted in the worktree's failure log, which is gone by then. The removal step (line 310) notes `<n>` for GAP, VACUOUS and STUCK tasks only, not for escalated ones. So `<n>` survives only in the orchestrator's context from item 5, and the `hold restore` command that would write the failure log back into MAIN needs `<n>` before it can run. (M09-T16, D174)
+- `plugins/orcastrat/skills/run/SKILL.md:309` — the removal step's `hold save` and `git worktree remove` commands aren't prefixed with `cd "<MAIN>" &&`. Meanwhile `hold` resolves `<plan-dir>` against the current directory (`plugins/orcastrat/scripts/hold:50`), and 3e item 1's Worktree setup runs `cd "<worktree>" && ...`. If the session's shell is still inside a worktree when that worktree is removed, the next task's `hold save "<plan dir>"` could exit 2 with `not a directory` and stop the run with SETUP. Before M09, item 7's `cd "<MAIN>"` always ran before any worktree removal. Unconfirmed: this depends on Claude Code keeping the shell's working directory between calls. (M09-T16, M09-T04)
+- `plugins/orcastrat/scripts/instructions-ack:60` — when the write fails, `"$ack.tmp"` is left inside `.git`. The `mv -f` at line 62 is unchecked, so a failed rename still exits 0 and leaves the old ack in place. (M09-T03, D55)
+- `plugins/orcastrat/scripts/hold:46` — an empty `<key>` passes the argument checks. `rm -rf "$key_dir"` (line 66) then deletes the plan's whole `hold/` directory, including other tasks' held files. `run` always passes a task ID, so the risk is low. (M09-T04, D162)
+- `tests/orcastrat/skill-files.bats:29` — `bad` collects `$(dirname "$f")`, which is the full path, not the skill's directory name that M09-T06 Step 2 specifies. The same happens at line 39. This affects only the diagnostic echo, not what the tests assert. (M09-T06)

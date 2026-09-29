@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# hold save <plan-dir> <key> <dir> <path>...
+# hold restore <plan-dir> <key> <dir> <held-path> <dest-path> [<held-path> <dest-path>]...
+#
+# The hold is <git-common-dir>/orcastrat/<plan-slug>/hold/<key>/, inside
+# .git, where `git reset --hard` and `git clean -fd` don't reach, with
+# <plan-slug> the last path component of <plan-dir> and the common dir found
+# from <dir>. Paths are relative to <dir>.
+#
+# `save` empties the key, creates its directory, and copies each <dir>/<path>
+# that is a file to <hold>/<key>/<path>.
+#
+# `restore` copies each <hold>/<key>/<held-path> that is a file to
+# <dir>/<dest-path>, creating directories, skips a pair whose held file
+# doesn't exist, then deletes the key.
+#
+# Both print nothing (D162, D173). Errors as D55, plus `nothing held for:`
+# and `cannot copy:`. Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+[ "$#" -ge 1 ] || fail 'usage: hold save <plan-dir> <key> <dir> <path>... | restore <plan-dir> <key> <dir> <held-path> <dest-path> [<held-path> <dest-path>]...'
+cmd=$1
+shift
+
+case "$cmd" in
+  save)
+    [ "$#" -ge 4 ] || fail 'usage: hold save <plan-dir> <key> <dir> <path>...'
+    ;;
+  restore)
+    { [ "$#" -ge 5 ] && [ $(( ($# - 3) % 2 )) -eq 0 ]; } ||
+      fail 'usage: hold restore <plan-dir> <key> <dir> <held-path> <dest-path> [<held-path> <dest-path>]...'
+    ;;
+  *)
+    fail "unknown subcommand: $cmd"
+    ;;
+esac
+
+plan_dir=$1
+key=$2
+dir=$3
+shift 3
+
+[ -d "$plan_dir" ] || fail "not a directory: $(print_path "$plan_dir")"
+[ -d "$dir" ] || fail "not a directory: $(print_path "$dir")"
+[ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$dir")"
+
+# The slug is the last component of <plan-dir>. Either separator may be used,
+# and trailing separators are ignored.
+slug=$(printf '%s\n' "$plan_dir" | sed -e 's#\\#/#g' -e 's#/*$##' -e 's#.*/##')
+
+common=$(git -C "$dir" rev-parse --git-common-dir)
+common_abs=$(cd "$dir" && cd "$common" && pwd) ||
+  fail "cannot resolve the git common dir of: $(print_path "$dir")"
+key_dir="$common_abs/orcastrat/$slug/hold/$key"
+
+case "$cmd" in
+  save)
+    rm -rf "$key_dir"
+    mkdir -p "$key_dir" || fail "cannot create: $(print_path "$key_dir")"
+    for p in "$@"; do
+      [ -f "$dir/$p" ] || continue
+      mkdir -p "$(dirname "$key_dir/$p")" && cp -f "$dir/$p" "$key_dir/$p" ||
+        fail "cannot copy: $(print_path "$dir/$p")"
+    done
+    ;;
+  restore)
+    [ -d "$key_dir" ] || fail "nothing held for: $key"
+    while [ "$#" -ge 2 ]; do
+      held="$key_dir/$1"
+      dest="$dir/$2"
+      shift 2
+      [ -f "$held" ] || continue
+      mkdir -p "$(dirname "$dest")" && cp -f "$held" "$dest" ||
+        fail "cannot copy: $(print_path "$held")"
+    done
+    rm -rf "$key_dir"
+    ;;
+esac
+
+exit 0

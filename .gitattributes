@@ -3,3 +3,12 @@ plugins/planandtier/** text eol=lf
 probes/planandtier/** text eol=lf
 # A copied tasks file must stay byte-exact so its sha256 still matches the plan's table.
 probes/evidence/*.tasks.json -text
+# Bash files keep LF line endings on every platform, whatever core.autocrlf
+# says: bash can't run a script checked out with CRLF (D61).
+*.sh eol=lf
+*.bats eol=lf
+*.bash eol=lf
+plugins/orcastrat/scripts/** eol=lf
+plugins/orcastrat/hooks/** eol=lf
+tests/orcastrat/** eol=lf
+scripts/run-bats.sh eol=lf

@@ -1,0 +1,127 @@
+setup() {
+  load test_helper
+  SKILLS="$REPO_ROOT/plugins/orcastrat/skills"
+  REFERENCE="$REPO_ROOT/plugins/orcastrat/reference"
+}
+
+# field <file> <key>: prints the value of the frontmatter line "<key>: <value>"
+# of <file>, ignoring carriage returns. Prints nothing when the file or the
+# line is missing. Lines after the frontmatter's closing --- are never read.
+field() {
+  [ -f "$1" ] || return 0
+  tr -d '\r' < "$1" | awk -v key="$2: " '
+    NR == 1 && $0 == "---" { inside = 1; next }
+    inside && $0 == "---" { exit }
+    inside && index($0, key) == 1 { print substr($0, length(key) + 1); exit }
+  '
+}
+
+# has_stripped_line <file> <text>: succeeds when <file> has a line equal to
+# <text> once carriage returns and leading spaces are removed.
+has_stripped_line() {
+  [ -f "$1" ] || return 1
+  tr -d '\r' < "$1" | sed 's/^ *//' | grep -qxF -- "$2"
+}
+
+@test "field reads a frontmatter key and ignores the body" {
+  printf -- '---\r\nname: sample\r\nmodel: opus\r\n---\r\n\r\nmodel: haiku\r\n' > "$BATS_TEST_TMPDIR/SKILL.md"
+  [ "$(field "$BATS_TEST_TMPDIR/SKILL.md" model)" = 'opus' ]
+  [ -z "$(field "$BATS_TEST_TMPDIR/SKILL.md" effort)" ]
+}
+
+@test "no skill pins a model" {
+  local bad='' count=0 f
+  for f in "$SKILLS"/*/SKILL.md; do
+    count=$((count + 1))
+    [ -z "$(field "$f" model)" ] || bad="$bad $(dirname "$f")"
+  done
+  echo "model pinned in:$bad"
+  [ "$count" -ge 3 ]
+  [ -z "$bad" ]
+}
+
+@test "every skill is invoked by name only" {
+  local bad='' f
+  for f in "$SKILLS"/*/SKILL.md; do
+    [ "$(field "$f" disable-model-invocation)" = 'true' ] || bad="$bad $(dirname "$f")"
+  done
+  echo "not name-only:$bad"
+  [ -z "$bad" ]
+}
+
+@test "no skill or reference file has a command substitution" {
+  local bad='' f
+  for f in "$SKILLS"/*/SKILL.md "$REFERENCE"/*.md; do
+    if grep -qF '$(' "$f"; then
+      bad="$bad ${f#$REPO_ROOT/}"
+    fi
+  done
+  echo "command substitution in:$bad"
+  [ -z "$bad" ]
+}
+
+@test "plan's validator dispatch carries the finding without its score" {
+  local f="$SKILLS/plan/SKILL.md"
+  has_stripped_line "$f" 'Finding: <the candidate line, without its list marker and without its leading [<score>] >'
+  has_stripped_line "$f" 'Plan: <plan dir>'
+  has_stripped_line "$f" 'Milestone: <ID>'
+  run grep -qiE '^ *(reviewer )?score:' "$f"
+  [ "$status" -ne 0 ]
+}
+
+@test "run's validator dispatch carries the finding without its score" {
+  local f="$SKILLS/run/SKILL.md"
+  has_stripped_line "$f" 'Finding: <the candidate line, without its list marker and without its leading [<score>] >'
+  has_stripped_line "$f" '<each line you sent the reviewer, in the same order, except its Output: line>'
+  run grep -qiE '^ *(reviewer )?score:' "$f"
+  [ "$status" -ne 0 ]
+}
+
+@test "run takes a decider reply without a recommendation as no recommendation" {
+  local f="$SKILLS/run/SKILL.md"
+  has_stripped_line "$f" 'Question ID: <question-id>'
+  has_stripped_line "$f" 'From: <From>'
+  has_stripped_line "$f" 'Output: <plan dir>/notes/decisions/<question-id>.md'
+  grep -qF 'or its reply has no `RECOMMENDATION:` line (for example, it hit its turn limit), its recommendation is `no recommendation`, and nothing is applied.' "$f"
+}
+
+@test "run records no auto-decision past the limit" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF 'and the **auto-decision count** is below Max auto-decisions.' "$f"
+  grep -qF 'and a `local` recommendation that comes up once the count has reached Max auto-decisions: each of them stops the run as a GAP' "$f"
+}
+
+@test "run never sends a VACUOUS block to the decider" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF 'Never retry or escalate it, and never send it to the decider:' "$f"
+  run grep -qF 'gets the same handling, with block reason `VACUOUS` instead of `GAP`' "$f"
+  [ "$status" -ne 0 ]
+}
+
+@test "run stops with the planner questions the decider left open" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF 'If none of this GAP'"'"'s questions is left in Open questions, every one was auto-decided' "$f"
+  grep -qF 'Otherwise, set the milestone and plan to `blocked` and go to **Stop**, telling the user how many questions are waiting and where.' "$f"
+}
+
+@test "run decides a stopped wave's GAPs once, right after recording its passing tasks" {
+  local f="$SKILLS/run/SKILL.md"
+  local want="   - Decide the wave's GAPs, as item 11's first paragraph says."
+  tr -d '\r' < "$f" | awk -v want="$want" '
+    index(prev, "   - **Record** each integrated task whose Verify command passed") == 1 && index($0, want) == 1 { found = 1 }
+    { prev = $0 }
+    END { exit !found }
+  '
+  run grep -qE '^ {4,}- Decide the wave' "$f"
+  [ "$status" -ne 0 ]
+}
+
+@test "run records each auto-decided question before judging the next" {
+  local f="$SKILLS/run/SKILL.md"
+  grep -qF '4. Take the questions in the order given, one at a time. A question is **auto-decided**' "$f"
+  grep -qF 'Read the count afresh for each question, and finish handling an auto-decided question, up to and including its **record an auto-decided question** commit, before you judge the next one' "$f"
+  grep -qF 'and **record an auto-decided question** (see Definitions) for each one that is auto-decided before you judge the next.' "$f"
+  grep -qF 'and for each task whose question is auto-decided, before you judge the next question:' "$f"
+  run grep -qF 'Then, in the same order, **record an auto-decided question**' "$f"
+  [ "$status" -ne 0 ]
+}

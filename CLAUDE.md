@@ -4,17 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Claude Code plugin marketplace (`timschreiber`). It publishes three plugins,
+A Claude Code plugin marketplace (`timschreiber`). It publishes two plugins,
 cataloged in `.claude-plugin/marketplace.json`:
 
 - `denoizinator-net`: a `PreToolUse` hook that rewrites `dotnet`/`msbuild`
   commands in-flight to add quiet flags, so verbose build/test output never
   enters Claude's context.
-- `orchestratinator`: skills (`plan`, `run`, `status`) and tiered agents that
-  split a spec into small tasks and run each on the cheapest model/effort
-  that can do it. Pure Markdown, with no hooks, scripts, or shared code. Its
-  own README documents the design, and `reference/plan-format.md` is the plan
-  format every skill and agent parses.
 - `planandtier`: hooks and five tier agents (`<model>-<effort>`) that turn an
   approved plan-mode plan into serial subagent execution, each task at the
   model and effort chosen during planning and committed by its worker, with
@@ -31,6 +26,14 @@ cataloged in `.claude-plugin/marketplace.json`:
   `node --test tests/planandtier/*.test.js` (the tests need `git`).
   The design and the measurements behind it are in `docs/planandtier/`, with
   evidence under `probes/evidence/planandtier-*`.
+
+`orcastrat` (formerly `orchestratinator`) lives in `plugins/orcastrat/` but is parked: it is
+listed under `_parked` in `marketplace.json`, not `plugins`, so it is not published. Only
+`denoizinator-net` and `planandtier` are. Do not move it into `plugins` unless the user asks.
+It splits a spec into small tasks and runs each on the cheapest model and effort that can
+do it, with Bash scripts and hooks (POSIX only, no `pwsh`; `scripts/Validate-All.ps1` checks
+that) tested with bats via `scripts/run-bats.sh`. Its README and
+`docs/orcastrat-execution-spec.md` document the design.
 
 Java tooling (`denoizinator-java`) was removed from scope.
 `shared/denoizinator-core/` remains the source of truth for cross-plugin code

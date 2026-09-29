@@ -1,0 +1,158 @@
+# Orcastrat
+
+Big asks. Small tasks. Right-sized models.
+
+Formerly Orchestratinator. Name history: phase-runner → Deligatinator → Optimizinator → Orchestratinator → Orcastrat.
+
+Orcastrat turns a spec, a phased prompt set, or a long free-form prompt into a plan of small, mechanical tasks, each tagged with the cheapest model and effort that can do it. Then it runs them through a ladder of worker subagents, from Haiku up to Opus, running independent tasks in parallel git worktrees, verifying every task itself, and committing each one on its own. The Opus orchestrator never writes a line of code, and never takes a worker's word for anything.
+
+## Install
+
+```bash
+claude plugin marketplace add timschreiber/claude-plugins
+claude plugin install orcastrat@timschreiber
+```
+
+Nothing to configure. The three skills appear as `/orcastrat:plan`, `/orcastrat:run`, and `/orcastrat:status`, and run only when you invoke them.
+
+## Upgrading from Orchestratinator
+
+Orcastrat was called Orchestratinator. To move an existing install to the new name:
+
+1. Finish or pause any active runs.
+2. `claude plugin uninstall orchestratinator@timschreiber`
+3. `claude plugin marketplace update timschreiber`
+4. `claude plugin install orcastrat@timschreiber`
+5. Restart Claude Code. Repeat on every machine where the plugin is installed.
+
+Claude Code applies the marketplace's `renames` entry to existing installs, so after `claude plugin marketplace update timschreiber` an installed `orchestratinator@timschreiber` becomes `orcastrat@timschreiber` on its own. The steps above are the fallback if it doesn't.
+
+## How to use
+
+```text
+/orcastrat:plan docs/spec.md phases 3-5
+/orcastrat:run plans/<slug>
+/orcastrat:status plans/<slug>
+```
+
+1. **Plan.** Point `plan` at any mix of sources: spec files, sections, a prompt file, or a long prompt you've written in the conversation. It saves inline input verbatim under `plans/<slug>/sources/` and maps the source's own structure (phases, steps) onto milestones without reshuffling it. Before writing anything, it audits the sources for missing information, ambiguity, contradictions, and assumptions, and asks you about every one it can't settle from the sources or the code.
+
+   **Size check.** If the whole job comes out at five tasks or fewer (`--direct-max N` changes the threshold), `plan` doesn't write a plan at all. It still asks its questions, then shows you the tasks it would do and asks for approval. Once you approve, it does the work itself, verifies each task, and commits each one if your tree was clean. Reply "plan it", or pass `--always-plan`, to get a plan regardless.
+2. **Review and commit the plan.** Edit tiers, steps, or gates as you like. `run` requires a clean working tree.
+3. **Run.** Before executing anything, `run` shows what this run will do (next milestone, task counts by tier, waves, parallel or serial, and where it will stop) and asks for approval. Nothing in the repository changes until you say yes. Rerun the same command to continue after any pause or fix. Progress lives in the plan files, so a run survives context compaction, interruptions, and days between sessions.
+4. **Check in** anytime with `status`. It's cheap (Haiku) and read-only.
+
+For unattended or non-interactive runs, `--yes` gives approval in advance.
+
+### Options
+
+| Skill | Option | Effect |
+|---|---|---|
+| `plan` | `--into plans/<slug>` | Where to write the plan directory. |
+| `plan` | `--direct-max N` | Largest job, in tasks, done directly instead of planned. Default 5. |
+| `plan` | `--always-plan` | Always write a plan, however small the job. |
+| `run` | `--milestone M03` | Run one milestone, then pause. |
+| `run` | `--max-tasks 20` | Pause cleanly after 20 committed tasks. |
+| `run` | `--serial` | Turn parallelism off for this run. |
+| `run` | `--max-parallel 4` | Override the plan's Max parallel for this run. |
+| both | `--yes` | Approval given in advance. |
+
+### Resuming after a stop
+
+`status` tells you what's blocked and what to do next. In general:
+
+1. Resolve it: answer the question under `plan.md` Decisions, fix the environment, or split the task.
+2. Commit or discard any leftover working-tree changes, and remove any worktrees the run left for inspection (`git worktree remove <path>`, then delete its `orcastrat/...` branch). `status` lists them.
+3. Set the blocked task or milestone back to `todo` / `ready` (or `outline` for a GAP the planner hit while detailing a milestone), set the plan's Status back to `in-progress`, and commit.
+4. Rerun `/orcastrat:run plans/<slug>`.
+
+## What it does
+
+### The cast
+
+| Who | Model / effort | Job |
+|---|---|---|
+| `plan` (skill) | Opus / session effort | Builds the plan directory, or does a small job itself. |
+| `run` (skill) | Opus / session effort | Orchestrates: dispatch, verify, integrate, commit, record. Never writes code. |
+| `status` (skill) | Haiku | Read-only progress summary. |
+| `planner` | Opus / high | Details an outlined milestone when the run reaches it, working from a scout's survey. Writes fix tasks when a milestone review finds blocking problems. |
+| Explore (built in) | Haiku | Used eagerly by `plan` for every discovery question about the codebase. |
+| `scout` | Sonnet / medium | Read-only: exact signatures, behavior, and test layout with `path:line`; milestone surveys; library docs. |
+| `scout-heavy` | Sonnet / high | Read-only: traces logic across many files (control flow, state, concurrency). |
+| `reviewer` | Sonnet / high | Read-only check for tasks no command can verify. |
+| `plan-reviewer` | Sonnet / high | Read-only except its report: checks each newly detailed milestone against the plan format before it runs, for `plan` and `run`. |
+| `milestone-reviewer` | Opus / high | Read-only except its report: reviews each finished milestone's whole diff before the milestone is marked done. |
+| `worker-light` | Haiku | No-logic edits. |
+| `worker` | Sonnet / medium | The default: fully specified work. |
+| `worker-heavy` | Sonnet / high | Fully specified but intricate work. |
+| `specialist` | Opus / high | Bounded judgment calls. Rare by design. |
+
+### Opus reasons, cheaper models read
+
+Planning needs to know the codebase, but reading code on Opus is the most expensive way to learn it. So `plan` reads the sources you gave it (the spec or prompt) itself, in full, and delegates everything else: Explore answers discovery questions, several at a time, and scouts extract exact signatures, behavior, and test commands with `path:line` references. Before the planner details an outlined milestone, `run` has a scout survey that milestone's code into `notes/`, and the planner works from the survey. If it needs more, it asks for one more scout round rather than combing the codebase itself. Scouts report facts, never designs: every decision stays with Opus.
+
+### What a plan contains
+
+- **Questions answered first.** `plan` groups its questions as insufficient information, ambiguity, contradiction, or assumption, quotes the passages involved, lists the options, and recommends one when it can. An assumption is any choice or conclusion the plan depends on that no source, Decision, or CLAUDE.md / AGENTS.md states and that isn't a fact cited from the code or docs, such as a default branch, a name, or splitting one source phase into several milestones. For one, `plan` says what it would assume, why the plan needs it, and what it recommends, plus the evidence for a factual conclusion. It never resolves a contradiction or ambiguity, or fills in an assumption, on its own, and it writes nothing until you answer. Before handing off, it checks the finished plan for assumptions and asks about any it finds, so the handoff says `Assumptions: none`. The planner stops with a question for an assumption it can't source, and the plan-reviewer reports any it finds in a task. Your answers become recorded Decisions.
+- **Tasks that are prompts.** Each task is the complete prompt for one worker: an Objective, a short Read first list (exact spec sections and pattern files, not whole documents), at most about seven one-action Steps with every name and value written out, and Done-when criteria. The planning model does the reasoning so the worker doesn't have to.
+- **Interfaces.** Every `change` task lists what it consumes and what it produces: exact signatures, class names, constants with their values, file shapes, CLI flags, config keys. Each Consumes names its source, a task ID or an existing `path:line`, and must match that task's Produces character for character, so workers that never see each other, even running in parallel, agree on every name and type that crosses a task boundary. A worker implements its Produces exactly and stops with a question if the code disagrees with a Consumes, and the reviewer checks the code against Produces.
+- **Coverage.** `plan.md` maps every section of every source to the milestones that implement it, or to `out of scope` with the Decision that says so, and every detailed milestone maps each requirement it implements (any must, shall, should, numbered acceptance criterion, or explicit behavior) to its task IDs. `plan` adds a task or milestone for anything unmapped and asks you about anything that looks deliberately out of scope, and the planner stops with a question for a requirement it can't map, so no requirement falls between tasks unnoticed.
+- **Review Focus.** Specs say what software must do, not every input it will meet, and silence on an input is not permission for it to break the program. Every detailed milestone lists up to five inputs or failure modes the sources imply but no task's tests exercise, most likely first, each with its expected behavior, the spec section or Decision that behavior comes from, and the test and task that pin it, or says `None found:` and what was checked. An expected behavior that no source or Decision supports is a design decision, so `plan` asks you about it and the planner stops with a question, rather than either one choosing a behavior.
+- **Fails first.** Every task that adds or changes tests is marked `Fails first: yes`: its Steps write the tests first, then run Verify and confirm it fails, then implement, and the worker reports the first failing line as proof. A test that passes before any implementation exists proves nothing: either it can't fail or the behavior already exists, and both mean the plan is wrong, so the run stops with `VACUOUS` and asks you instead of retrying. A worker that reports done without confirming the failure gets a retry. Tasks with no test that can fail beforehand (docs, config, pure renames, refactors covered by passing tests) are `Fails first: no`, with a one-line reason.
+- **Batching.** Several identical small edits across files cost one worker, not several. A task marked `Batch: yes` groups edits of the same kind with no logic, such as the same constant change, field addition, import fix, or rename across files: it may touch about ten files instead of about three, has one Step per file with the literal edit, is one commit, and usually runs on `worker-light`. `plan` and the planner prefer one batch task over several tiny same-shape tasks. Waves still apply: a batch touching many files interferes with more tasks, so it is sequenced like any other. The reviewer and the milestone-reviewer check a batch file by file, and a listed file with no change is a failure.
+- **Sequence and parallelism.** Every task has dependencies and a Wave. Tasks in the same wave have no dependencies on each other and don't interfere: no shared files, no shared registration points (DI registries, manifests, migration sequences), no shared external state, and neither one's verification exercises the other's changes. Each milestone records its wave shape, such as `Waves: 5 (widths 1, 4, 3, 3, 1)`. Runs use the waves to decide what executes at the same time.
+
+### Plans that scale
+
+A plan is a directory: an index (`plan.md`) plus one file per milestone, so the orchestrator only ever loads the milestone it's working on.
+
+- **Upfront detailing** specifies every task before the run starts. `plan` chooses it for jobs of roughly 40 tasks or fewer where nothing depends on what execution discovers.
+- **Rolling detailing** specifies only the first milestone and outlines the rest. When the run reaches an outlined milestone, the `planner` agent details it against the code and findings that exist by then. For long, complex jobs, this avoids planning milestone 9 from guesses made before milestone 1 was written.
+- **Investigate tasks** establish facts (how an existing system behaves, what a library supports) and write findings to `notes/`. Later tasks and milestones plan from the notes instead of assumptions.
+- **Decisions** are recorded once in `plan.md` and apply to every later task, including your answers to questions raised mid-run.
+- **Gates** choose where the run pauses for you: after the planner details a milestone (`detail`, the default for rolling plans), after each milestone completes (`milestone`), both, or `none`.
+
+The full plan format, including the tier rubric and sizing rules, is in [`reference/plan-format.md`](reference/plan-format.md).
+
+### How a run behaves
+
+- **Parallel by default, wave by wave.** When a wave has two or more tasks, each runs in its own git worktree created from the same commit, up to Max parallel at once (default 3). A wave with one task, a plan with `Parallel: off`, or `--serial` runs in the main checkout, one task at a time.
+- **Worktrees you can trust.** Worktrees live under `.git/orcastrat/`, branch from the plan branch's current commit (not your default branch), and get the plan's Worktree setup command (dependency installs, untracked config) before their worker starts. If a worker writes outside its worktree, the run stops.
+- **Integrated in order, then checked together.** Verified tasks are cherry-picked onto the plan branch in task order, then every integrated task's Verify runs again on the combined result, because two tasks can each pass alone and still break each other. A merge conflict or a combined failure stops the run and reports the wave as a planning error.
+- **Recoverable.** Every task commit carries an `Orcastrat-Task:` trailer, so an interrupted run recovers its progress from git history on the next start. Commits from before the rename carry `Orchestratinator-Task:`, which recovery also matches.
+- **Verify, don't trust.** The orchestrator runs each task's Verify command itself, or sends the diff to the read-only reviewer when no command can check it. A worker saying "tests pass" is not evidence.
+- **Scope check.** A changed file not listed in the task's Files blocks the task instead of being committed.
+- **Commit per task.** The code and the plan's status update land in one commit.
+- **Every milestone is reviewed as a whole.** Per-task checks can't see problems between tasks, so once a milestone's tasks are done and its Milestone verify passes, the Opus `milestone-reviewer` reviews the milestone's whole diff: every Coverage requirement implemented, the code matching every task's Interfaces, every Review Focus test present and asserting its behavior, nothing contradicting the Decisions, the milestone's Context, or CLAUDE.md / AGENTS.md, and code quality (error handling, duplication, dead code, and tests that assert something meaningful and run without warnings). It writes its findings to `notes/<ID>-review.md`, each citing a `path:line`, as blocking or advisory. Advisory findings don't hold the milestone up. Blocking findings get one fix round: the planner writes fix tasks, which run without pausing at the `detail` gate, then Milestone verify runs again and a re-review checks the fixes. If anything is still blocking, the run stops with `REVIEW`, and a fix that needs a design decision stops it with a question. Format 1 milestones are reviewed too, without the checks for sections they don't have.
+- **One retry, one tier up.** A failed verify, failed review, or stuck worker gets a clean start and one retry at the next tier. A second failure stops the run and leaves that task's changes (in the tree or its worktree) for you to inspect. In a parallel wave, the other tasks still finish and integrate first.
+- **GAPs stop, they don't escalate.** When a worker or the planner hits a decision the plan left open, the run stops and quotes the question. A bigger model would just make the decision, which is exactly what the plan exists to prevent.
+- **Project instructions don't govern git.** Whatever CLAUDE.md or AGENTS.md say about committing or pushing, workers never commit, the orchestrator never pushes, and a worker's stray commit is caught and redone properly. Workers read project instructions as files (`omitClaudeMd: true`) instead of receiving them as system instructions.
+
+## What it does not do
+
+- **It never runs on its own.** All three skills are invoke-only: Claude won't start a plan or a run because a conversation looks like it needs one, and `plan` and `run` ask for approval before changing anything unless you pass `--yes`.
+- **It never pushes, and never rewrites history.** Work lands as commits on the plan's branch. What happens to that branch afterward is up to you.
+- **It doesn't make design decisions for you.** Contradictions and ambiguities become questions, never guesses. Mid-run, a decision the plan left open stops the run rather than being escalated to a bigger model.
+- **The orchestrator never fixes code itself.** A failing task is retried once at the next tier, then stopped. It doesn't patch the result by hand.
+- **It doesn't edit the plan mid-run.** Plan changes happen between runs, and the plan must be committed before `run` starts.
+- **It doesn't clean up after a stop.** Worktrees and uncommitted changes from a blocked task are left in place for you to inspect, and a failed combined verify is not rolled back.
+- **It isn't worth it for small jobs.** Planning, fresh worker contexts, and independent verification are fixed costs that only pay off at scale. For a single edit, a quick fix, or anything that comes to a handful of tasks, ask Claude directly. If you hand `plan` a job like that anyway, it notices and offers to do it directly (see the size check above).
+
+## Known limitations
+
+- **Requires a git repository, and `run` requires a clean working tree.** Commit or discard changes, including the plan itself, before running.
+- **Worktrees contain only committed files.** If a fresh checkout can't build as-is (dependency installs, generated files, untracked config such as `.env`), the plan's Worktree setup command has to handle it, or parallel tasks fail with SETUP. `plan` asks about this when it can't work it out.
+- **Verification is only as good as each task's Verify.** Tasks checked by a command are checked by that command alone. Tasks that no command can check go to the read-only `reviewer`, which is a model's judgment, not a test.
+- **Parallel tasks compete for your machine.** Each concurrent task runs its own builds and tests. Start at the default Max parallel of 3 and adjust.
+- **On Windows, worktree removal can fail** when a process holds a file lock. The run leaves that worktree, says so, and continues. Remove it yourself later.
+- **Don't set `CLAUDE_CODE_EFFORT_LEVEL`** while using this plugin. It overrides the effort in every agent's frontmatter, flattening all the tiers to one level. Use `/effort` or `--effort` to choose the effort for `plan` and `run` instead.
+- **Model aliases float.** The `opus`, `sonnet`, and `haiku` aliases resolve to the newest models for your provider. Opus 5.5 needs Claude Code v2.1.280 or later.
+
+## Configuration notes
+
+- **`plan` and `run` use your session's effort level**, like OpusPlan: set it with `/effort` or `--effort` before you start. Opus 5.5 defaults to `medium`, so set `/effort high` before planning unless you want a lighter plan. The agents keep their own effort, so the tiers stay distinct whatever the session uses.
+- **Retune the ladder** by editing `model` and `effort` in `agents/*.md`. Haiku doesn't take an effort setting, so `worker-light` has none.
+- **Keep build output quiet.** Every task runs its Verify command, so a long plan runs the build many times. Write quiet flags into Verify commands, and pair this with an output-quieting plugin such as [`denoizinator-net`](https://github.com/timschreiber/claude-plugins/tree/main/plugins/denoizinator-net).
+
+Found something not listed here? Please
+[open an issue](https://github.com/timschreiber/claude-plugins/issues).

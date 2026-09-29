@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# verify <plan-dir> <dir> <command>
+#
+# Runs <command> with `bash -c` in <dir>, stdin from /dev/null, stdout and
+# stderr both to a new log file, <UTC YYYYMMDDTHHMMSSZ>-<pid>.log, under
+# <git-common-dir>/orcastrat/<plan-slug>/logs/, where <plan-slug> is the last
+# path component of <plan-dir>. Logs live inside .git, so they never dirty the
+# tree; this script never deletes them (D54).
+# Prints `exit=<n>`, then `log=<log path>` through print_path, then, when <n>
+# isn't 0, the log's last 40 lines.
+# Exits 0 after printing its result, whatever <command> returned. On a usage
+# error, prints one `error: <message>` line on stderr, nothing on stdout, and
+# exits 2 (D55). Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+if [ "$#" -ne 3 ]; then
+  fail 'usage: verify <plan-dir> <dir> <command>'
+fi
+plan_dir=$1
+dir=$2
+cmd=$3
+
+[ -d "$plan_dir" ] || fail "not a directory: $(print_path "$plan_dir")"
+[ -d "$dir" ] || fail "not a directory: $(print_path "$dir")"
+[ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$dir")"
+
+# The slug is the last component of <plan-dir>. Either separator may be used,
+# and trailing separators are ignored.
+slug=$(printf '%s\n' "$plan_dir" | sed -e 's#\\#/#g' -e 's#/*$##' -e 's#.*/##')
+
+common=$(git -C "$dir" rev-parse --git-common-dir)
+common_abs=$(cd "$dir" && cd "$common" && pwd) ||
+  fail "cannot resolve the git common dir of: $(print_path "$dir")"
+log_dir="$common_abs/orcastrat/$slug/logs"
+mkdir -p "$log_dir" || fail "cannot create the log directory: $(print_path "$log_dir")"
+log="$log_dir/$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
+
+(cd "$dir" && bash -c "$cmd") </dev/null >"$log" 2>&1
+n=$?
+
+printf 'exit=%s\n' "$n"
+printf 'log=%s\n' "$(print_path "$log")"
+if [ "$n" -ne 0 ]; then
+  tail -n 40 "$log"
+fi
+exit 0

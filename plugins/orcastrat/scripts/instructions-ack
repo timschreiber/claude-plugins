@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# instructions-ack <continue|stop> <file>...
+# instructions-ack --check <file>...
+#
+# The ack is <git-common-dir>/orcastrat/instructions/ack, holding the line
+# `choice <choice>`, then one `<hash> <path>` line per distinct file, sorted
+# by path in byte order, where <hash> is `git hash-object --no-filters` and
+# <path> is the path as given, relative to the current directory (D161).
+# Writing replaces the ack and prints nothing.
+# `--check` adds every path the ack records to the given files and prints
+# `OK` when every file exists, the paths and hashes equal the ack's and its
+# choice is `continue`, otherwise `REVIEW`, and never writes.
+# Errors as D55, plus `not a file:` and `unknown choice:`.
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+usage='usage: instructions-ack <continue|stop> <file>... | --check <file>...'
+[ "$#" -ge 2 ] || fail "$usage"
+mode=$1
+shift
+case "$mode" in
+  continue | stop | --check) ;;
+  *) fail "unknown choice: $mode" ;;
+esac
+
+[ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$PWD")"
+common=$(git rev-parse --git-common-dir)
+common_abs=$(cd "$common" && pwd) ||
+  fail "cannot resolve the git common dir of: $(print_path "$PWD")"
+ack="$common_abs/orcastrat/instructions/ack"
+
+# ack_lines <choice>: reads paths, one per line, on stdin, drops empty lines,
+# sorts them, and prints `choice <choice>`, then one `<hash> <path>` line per
+# path. Returns 1 as soon as a path isn't a regular file or can't be hashed.
+ack_lines() {
+  local choice="$1" path hash
+  printf 'choice %s\n' "$choice"
+  LC_ALL=C sort -u | while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    [ -f "$path" ] || return 1
+    hash=$(git hash-object --no-filters -- "$path") || return 1
+    printf '%s %s\n' "$hash" "$path"
+  done
+}
+
+if [ "$mode" = continue ] || [ "$mode" = stop ]; then
+  for f in "$@"; do
+    [ -f "$f" ] || fail "not a file: $(print_path "$f")"
+  done
+  mkdir -p "$common_abs/orcastrat/instructions" ||
+    fail "cannot write: $(print_path "$ack")"
+  printf '%s\n' "$@" | ack_lines "$mode" > "$ack.tmp" ||
+    fail "cannot write: $(print_path "$ack")"
+  mv -f "$ack.tmp" "$ack"
+  exit 0
+fi
+
+# --check
+if [ ! -f "$ack" ]; then
+  printf 'REVIEW\n'
+  exit 0
+fi
+recorded=$(sed -n '2,$p' "$ack" | tr -d '\r' | sed 's/^[^ ]* //')
+if ! expected=$({ printf '%s\n' "$@"; printf '%s\n' "$recorded"; } | ack_lines continue); then
+  printf 'REVIEW\n'
+  exit 0
+fi
+if [ "$expected" = "$(tr -d '\r' < "$ack")" ]; then
+  printf 'OK\n'
+else
+  printf 'REVIEW\n'
+fi
+exit 0

@@ -43,6 +43,25 @@ $planandtierTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/planandtier'
 node --test @planandtierTests
 if ($LASTEXITCODE -ne 0) { $failed = $true }
 
+Write-Host '== orcastrat portability'
+$orcastrat  = Join-Path $repoRoot 'plugins/orcastrat'
+$violations = @()
+$violations += @(Get-ChildItem -LiteralPath $orcastrat -Recurse -File |
+    Where-Object { $_.Extension -ceq '.ps1' } |
+    ForEach-Object { $_.FullName })
+foreach ($sub in 'scripts', 'hooks') {
+    $dir = Join-Path $orcastrat $sub
+    if (Test-Path -LiteralPath $dir -PathType Container) {
+        $violations += @(Get-ChildItem -LiteralPath $dir -Recurse -File |
+            Select-String -Pattern 'pwsh|powershell' |
+            ForEach-Object { "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" })
+    }
+}
+if ($violations.Count -gt 0) {
+    $violations | ForEach-Object { Write-Host $_ }
+    $failed = $true
+}
+
 if ($failed) { exit 1 }
 
 Write-Host 'all checks passed'

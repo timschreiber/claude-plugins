@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Orcastrat's Stop hook (spec §9, Change 8), run as
+# bash "${CLAUDE_PLUGIN_ROOT}/hooks/stop-guard" whenever Claude tries to end
+# its turn.
+#
+# It finds this checkout's active-run marker from $CLAUDE_PROJECT_DIR with
+# file tests only, and exits 0 at once when there is none, before reading
+# stdin (D06). It reads only session_id from stdin and blocks only the
+# session named in the marker's session= line (D144). It blocks by printing
+# {"decision":"block","reason":"<reason>"} and exiting 0, and allows by
+# exiting 0 with nothing on stdout (D138). It never runs git, and any error
+# allows the stop (D140). Bash 3.2 compatible.
+#
+# The loop guard counts consecutive blocks in blocks= and block_heartbeat=,
+# restarting at 0 when the heartbeat differs from the one recorded at the
+# last block; at a count of 3 it allows the stop, deletes the marker and
+# writes active-run.released with one line saying why (D06, D139). A
+# heartbeat or count that isn't a whole number, or a failed write, allows
+# the stop and leaves the marker unchanged (D140).
+#
+# $CLAUDE_PROJECT_DIR may be written with backslashes (C:\...), which become
+# /; when .git is a file (a linked worktree), its gitdir: line names the git
+# dir, as /..., <drive>:/... or a path relative to $CLAUDE_PROJECT_DIR, read
+# with sed before stdin; only $CLAUDE_PROJECT_DIR/.git is looked at, never a
+# parent directory's (D144, D145, D146).
+
+dir=${CLAUDE_PROJECT_DIR:-}
+[ -n "$dir" ] || exit 0
+dir=${dir//\\//}
+if [ -d "$dir/.git" ]; then
+  git_dir="$dir/.git"
+elif [ -f "$dir/.git" ]; then
+  gd=$(sed -n 's/^gitdir:[[:space:]]*//p' "$dir/.git" 2>/dev/null)
+  gd=${gd%%$'\n'*}
+  gd=${gd%$'\r'}
+  gd=${gd//\\//}
+  [ -n "$gd" ] || exit 0
+  case "$gd" in
+    /*|[A-Za-z]:/*) git_dir=$gd ;;
+    *) git_dir="$dir/$gd" ;;
+  esac
+else
+  exit 0
+fi
+marker="$git_dir/orcastrat/active-run"
+[ -f "$marker" ] || exit 0
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/common" 2>/dev/null || exit 0
+
+input=$(cat)
+input=${input#"${input%%[![:space:]]*}"}
+case "$input" in
+  '{'*) ;;
+  *) exit 0 ;;
+esac
+
+session_id=$(printf '%s\n' "$input" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+session_id=${session_id%%$'\n'*}
+[ -n "$session_id" ] || exit 0
+
+[ -r "$marker" ] || exit 0
+plan=
+heartbeat=
+blocks=
+block_heartbeat=
+session=
+has_session=0
+while IFS= read -r line || [ -n "$line" ]; do
+  line=${line%$'\r'}
+  case "$line" in
+    plan=*) plan=${line#plan=} ;;
+    heartbeat=*) heartbeat=${line#heartbeat=} ;;
+    blocks=*) blocks=${line#blocks=} ;;
+    block_heartbeat=*) block_heartbeat=${line#block_heartbeat=} ;;
+    session=*) session=${line#session=}; has_session=1 ;;
+  esac
+done 2>/dev/null < "$marker" || exit 0
+
+[ "$has_session" = 1 ] || exit 0
+[ "$session" = "$session_id" ] || exit 0
+[ -n "$plan" ] || exit 0
+
+case "$heartbeat" in
+  '' | *[!0-9]*) exit 0 ;;
+esac
+case "$blocks" in
+  '' | *[!0-9]*) exit 0 ;;
+esac
+
+if [ "$block_heartbeat" = "$heartbeat" ]; then
+  count=$((10#$blocks))
+else
+  count=0
+fi
+
+if [ "$count" -ge 3 ]; then
+  printf 'released %s after 3 blocked stops with no heartbeat change; plan %s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$plan" > "$marker.released" 2>/dev/null || exit 0
+  rm -f "$marker" 2>/dev/null
+  exit 0
+fi
+
+tmp="$marker.tmp"
+(
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%$'\r'}
+    case "$line" in
+      blocks=*) printf 'blocks=%s\n' "$((count + 1))" ;;
+      block_heartbeat=*) printf 'block_heartbeat=%s\n' "$heartbeat" ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$marker" > "$tmp"
+) 2>/dev/null
+if [ $? -ne 0 ]; then
+  rm -f "$tmp" 2>/dev/null
+  exit 0
+fi
+mv -f "$tmp" "$marker" 2>/dev/null
+if [ $? -ne 0 ]; then
+  rm -f "$tmp" 2>/dev/null
+  exit 0
+fi
+
+shown=$(print_path "$plan") || exit 0
+[ -n "$shown" ] || exit 0
+
+reason="An Orcastrat run is in progress for $shown. Run the next script for $shown and continue the run from the step it names. If you meant to pause or stop, follow run's Pause or Stop section, which removes the marker."
+escaped=$(printf '%s' "$reason" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g') || exit 0
+printf '{"decision":"block","reason":"%s"}\n' "$escaped"
+exit 0

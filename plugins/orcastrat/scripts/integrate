@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# integrate <task-branch> <base>
+#
+# Cherry-picks <base>..<task-branch> onto the current branch of the repository
+# in the current directory. Prints OK when every commit applied, or when the
+# range is empty (then nothing changes, D58). On a conflict, leaves the
+# cherry-pick in progress and prints CONFLICT, then each conflicted file, one
+# per line, through print_path (D51, D53).
+# Exits 0 after printing its result. Any other cherry-pick failure (a commit
+# that is or becomes empty, local changes in the way) aborts the cherry-pick
+# when one is in progress, and is an error (D58). On an error, prints one
+# `error: <message>` line on stderr, nothing on stdout, and exits 2 (D55).
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+if [ "$#" -ne 2 ]; then
+  fail 'usage: integrate <task-branch> <base>'
+fi
+branch=$1
+base=$2
+
+[ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$PWD")"
+git rev-parse --verify --quiet "$branch^{commit}" >/dev/null ||
+  fail "not a commit: $branch"
+git rev-parse --verify --quiet "$base^{commit}" >/dev/null ||
+  fail "not a commit: $base"
+
+if [ "$(git rev-list --count "$base..$branch")" = 0 ]; then
+  printf 'OK\n'
+  exit 0
+fi
+
+if git cherry-pick "$base..$branch" >/dev/null 2>&1; then
+  printf 'OK\n'
+  exit 0
+fi
+
+conflict=0
+while IFS= read -r -d '' path; do
+  if [ "$conflict" = 0 ]; then
+    printf 'CONFLICT\n'
+    conflict=1
+  fi
+  print_path "$path"
+done < <(git diff --name-only --diff-filter=U -z 2>/dev/null)
+if [ "$conflict" = 1 ]; then
+  exit 0
+fi
+
+if git rev-parse --verify --quiet CHERRY_PICK_HEAD >/dev/null ||
+  [ -d "$(git rev-parse --git-path sequencer)" ]; then
+  git cherry-pick --abort >/dev/null 2>&1
+fi
+fail "cherry-pick of $base..$branch failed; nothing was applied"

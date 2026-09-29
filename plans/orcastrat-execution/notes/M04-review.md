@@ -1,0 +1,11 @@
+## Blocking
+
+None.
+
+## Advisory
+
+- `plugins/orcastrat/agents/scout-heavy.md:54` — The body still says "External research (library docs, API references) is allowed when the brief asks for it", but the new allowlist (`Read, Glob, Grep, Bash, Write`) has no WebFetch or WebSearch. `planner.md` QUESTIONS can name `scout-heavy` for any question, so a scout-heavy briefed for docs has no web tool and may reach for `curl` through Bash, which its "short read-only commands" rule forbids. Consider dropping that bullet from scout-heavy, or sending external research only to `scout` (M04-T04; spec §22 item 3, "Web fetch and search only for `scout`")
+- `plugins/orcastrat/agents/worker-heavy.md:3` — The description and the rubric (`plan-format.md:277`) now make `worker-heavy` the tier for "bounded judgment the plan can't pin down", but its body has only "You do not make design decisions" and lacks the judgment rule that `specialist.md:59` has. This was deliberate (M04 Context: "`specialist` alone keeps its extra judgment Rule"). Flagging it so M05's worker-body rewrite settles it (M04-T03; spec §5 table)
+- `tests/orcastrat/agent-files.bats:155` — Review Focus item 5 ("a no-shell agent with no `tools` line → reported as allowing a shell") is checked only against the live agent files. Every current no-shell agent has a `tools` line, so no passing test exercises the `-z` branch, and a regression that removed it would go unnoticed. Other Review Focus items use a `$BATS_TEST_TMPDIR` fixture, and this one could too (M04-T02; Review Focus item 5)
+- `plugins/orcastrat/agents/planner.md:133` — The report template's example `TASKS: <count by tier, e.g. worker 9, worker-light 2, worker-heavy 1>` still shows `worker` as the common tier and omits `worker-mini`. Now that `worker-light` is the default, the example is stale (M04-T10; Coverage row §1.2)
+- `plugins/orcastrat/agents/worker.md:17` — The Bounds block in every shipped agent file uses "`run-bats.sh` clones bats itself" as its example. `run-bats.sh` is this repository's dev script, and the agent files ship to other repositories. The text is exactly what spec §22 item 2 and D73 prescribe, but it conflicts with §22 item 1 ("no dates, paths, plan names, or per-run content") (M04-T02..T06; D73)

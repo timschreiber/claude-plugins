@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason> | drop
+#
+# Manages the active-run marker, <git-dir>/orcastrat/active-run, where
+# <git-dir> is this checkout's `git rev-parse --git-dir` (D06). The marker
+# holds the key=value lines plan=, started=, heartbeat=, blocks=,
+# block_heartbeat= and session=, the ID of the session that owns the run
+# (D144), with times in UTC epoch seconds.
+#
+#   start <plan-dir> <session-id>
+#                        writes a new marker, overwriting any old one, creates
+#                        <plan-dir>/notes/ if needed, and appends
+#                        "start <UTC> <plan-dir>" to <plan-dir>/notes/run-log.md.
+#                        Writes session=<session-id> as given.
+#   beat                 sets heartbeat= to now.
+#   elapsed              prints the whole minutes since started=, rounded down.
+#   end <mode> <reason>  appends "end <UTC> <mode> <reason>" to the run log of
+#                        the marker's plan and deletes the marker. With no
+#                        marker it does nothing (D88, D89).
+#   drop                 deletes this checkout's marker without writing to
+#                        the run log, for a stale marker a crashed session
+#                        left. With no marker it does nothing (D159).
+#
+# <UTC> is `date -u +%Y-%m-%dT%H:%M:%SZ`. <plan-dir> is stored as given, and
+# the run log is found relative to the current directory. On success only
+# `elapsed` prints anything. On a usage or environment error, prints one
+# `error: <message>` line on stderr, nothing on stdout, and exits 2 (D89).
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+usage='usage: run-state start <plan-dir> <session-id> | beat | elapsed | end <PAUSE|STOP|COMPLETE> <reason> | drop'
+
+[ "$#" -ge 1 ] || fail "$usage"
+cmd=$1
+shift
+case "$cmd" in
+  start)
+    [ "$#" -eq 2 ] || fail 'usage: run-state start <plan-dir> <session-id>'
+    [ -d "$1" ] || fail "not a directory: $(print_path "$1")"
+    ;;
+  beat|elapsed)
+    [ "$#" -eq 0 ] || fail "usage: run-state $cmd"
+    ;;
+  end)
+    [ "$#" -eq 2 ] || fail 'usage: run-state end <PAUSE|STOP|COMPLETE> <reason>'
+    case "$1" in
+      PAUSE|STOP|COMPLETE) ;;
+      *) fail "unknown end mode: $1" ;;
+    esac
+    ;;
+  drop)
+    [ "$#" -eq 0 ] || fail 'usage: run-state drop'
+    ;;
+  *)
+    fail "unknown subcommand: $cmd"
+    ;;
+esac
+
+[ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$PWD")"
+git_dir=$(git rev-parse --git-dir)
+marker="$git_dir/orcastrat/active-run"
+
+# utc_now: prints the current UTC time as YYYY-MM-DDTHH:MM:SSZ.
+utc_now() {
+  date -u +%Y-%m-%dT%H:%M:%SZ
+}
+
+# marker_value <key>: prints the value of the marker's <key>= line.
+marker_value() {
+  sed -n "s/^$1=//p" "$marker"
+}
+
+case "$cmd" in
+  start)
+    plan_dir=$1
+    session_id=$2
+    now=$(date -u +%s)
+    mkdir -p "$git_dir/orcastrat"
+    printf 'plan=%s\nstarted=%s\nheartbeat=%s\nblocks=0\nblock_heartbeat=\nsession=%s\n' \
+      "$plan_dir" "$now" "$now" "$session_id" > "$marker"
+    mkdir -p "$plan_dir/notes"
+    printf 'start %s %s\n' "$(utc_now)" "$plan_dir" >> "$plan_dir/notes/run-log.md"
+    ;;
+  beat)
+    [ -f "$marker" ] || fail 'no active run'
+    now=$(date -u +%s)
+    tmp="$marker.tmp"
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        heartbeat=*) printf 'heartbeat=%s\n' "$now" ;;
+        *) printf '%s\n' "$line" ;;
+      esac
+    done < "$marker" > "$tmp"
+    mv -f "$tmp" "$marker"
+    ;;
+  elapsed)
+    [ -f "$marker" ] || fail 'no active run'
+    started=$(marker_value started)
+    now=$(date -u +%s)
+    printf '%s\n' "$(( (now - started) / 60 ))"
+    ;;
+  end)
+    [ -f "$marker" ] || exit 0
+    plan_dir=$(marker_value plan)
+    mkdir -p "$plan_dir/notes"
+    printf 'end %s %s %s\n' "$(utc_now)" "$1" "$2" >> "$plan_dir/notes/run-log.md"
+    rm -f "$marker"
+    ;;
+  drop)
+    rm -f "$marker"
+    ;;
+esac
+exit 0

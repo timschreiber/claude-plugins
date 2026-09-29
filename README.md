@@ -19,7 +19,6 @@ Add the marketplace once, then install whichever plugins you want:
 ```bash
 claude plugin marketplace add timschreiber/claude-plugins
 claude plugin install denoizinator-net@timschreiber
-claude plugin install orchestratinator@timschreiber
 claude plugin install planandtier@timschreiber
 ```
 

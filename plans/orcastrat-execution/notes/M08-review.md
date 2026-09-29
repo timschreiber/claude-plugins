@@ -1,0 +1,11 @@
+## Blocking
+
+None.
+
+## Advisory
+
+- `plugins/orcastrat/hooks/stop-guard:98-99` — The `2>/dev/null` comes after `> "$marker.released"`, not first as T05 Step 4 says. Bash applies redirections left to right, so if the released file can't be opened, bash writes its error to the hook's stderr before `2>/dev/null` takes effect. The exit status is still 0 and stdout is still empty, and no test covers a failed write of the released file. (M08-T05, D140)
+- `plugins/orcastrat/hooks/stop-guard:104-126` — The new block count is written with `mv` before `print_path` and the JSON escaping run. If either of those fails, the hook allows the stop after it has already raised the count. Spec §9 Fails open says an error "leaves the loop guard's block count unchanged". T05 Step 5 prescribes this order, and those failures are very unlikely. (M08-T05, Coverage §9 Fails open)
+- `plugins/orcastrat/skills/run/SKILL.md:32` — Unconfirmed interaction. Dispatches return an agent ID and a later completion notice (SKILL.md:31, :211, :245), so the orchestrator may end its turn while it waits for background agents. If Claude Code runs the Stop hook at that point, the hook blocks with no heartbeat change and tells the orchestrator to continue from the step **next** names, and **next** still lists the in-flight task as `todo`. After 3 such waits the loop guard deletes the marker. The next `run-state beat` then exits 2 with `no active run`, and SKILL.md:42 turns that into a SETUP Stop. Neither the milestone nor its survey says how waiting on background agents works with the hook. (M08-T03, M08-T04, D139, D143)
+- `plugins/orcastrat/skills/run/SKILL.md:32` — The Keep the heartbeat rule doesn't say what a failed `beat` means once the loop guard has released the marker, or once another session's preflight has removed it as stale. SKILL.md:42 treats it as a SETUP Stop quoting `error: no active run`, and that message doesn't tell the user the run's marker was released. (M08-T04, D139, D141)
+- `plugins/orcastrat/skills/run/SKILL.md:94` — If the same session reruns `/orcastrat:run` within an hour of an interruption, it sees its own marker as `marker: active` and is refused, even though the marker now records the owning session (`session=`). Spec §9 Limit requires this refusal, so this is a question for the spec, not a code defect. (M08-T02, D144)

@@ -7,14 +7,14 @@
   },
   "_parked" : [
     {
-      "name": "orchestratinator",
-      "displayName": "Orchestratinator",
-      "source": "./plugins/orchestratinator",
+      "name": "orcastrat",
+      "displayName": "Orcastrat",
+      "source": "./plugins/orcastrat",
       "description": "Big asks. Small tasks. Right-sized models. Turns a spec or long prompt into small tasks tagged with the cheapest model and effort that can do each one, then runs them through tiered subagents, in parallel where safe, verifying and committing every task.",
       "author": {
         "name": "Tim Schreiber"
       },
-      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator",
+      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/orcastrat",
       "repository": "https://github.com/timschreiber/claude-plugins",
       "license": "Apache-2.0",
       "category": "dev",

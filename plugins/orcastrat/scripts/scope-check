@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# scope-check <dir> <base> <files...>
+#
+# Prints every path changed in <dir> since <base> that is not one of <files...>,
+# once each, one per line, through print_path; or OK when there is none.
+# The changed paths are those of `git diff --name-only <base>..HEAD` plus every
+# path `git status --porcelain` shows, both paths of a rename or copy included.
+# Both are read in their -z forms, so names with spaces or non-ASCII characters
+# are compared exactly, and untracked files are listed one by one (D52).
+# Exits 0 after printing its result. On a usage error, prints one
+# `error: <message>` line on stderr, nothing on stdout, and exits 2 (D55).
+# Bash 3.2 compatible.
+
+# shellcheck source=/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib/common"
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  exit 2
+}
+
+if [ "$#" -lt 3 ]; then
+  fail 'usage: scope-check <dir> <base> <files...>'
+fi
+dir=$1
+base=$2
+shift 2
+
+[ -d "$dir" ] || fail "not a directory: $(print_path "$dir")"
+[ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ] ||
+  fail "not inside a git work tree: $(print_path "$dir")"
+git -C "$dir" rev-parse --verify --quiet "$base^{commit}" >/dev/null ||
+  fail "not a commit: $base"
+
+changed=()
+
+# add_changed <path>: appends <path> to changed unless it is already there.
+add_changed() {
+  local p
+  for p in "${changed[@]}"; do
+    if [ "$p" = "$1" ]; then
+      return 0
+    fi
+  done
+  changed[${#changed[@]}]=$1
+}
+
+while IFS= read -r -d '' path; do
+  add_changed "$path"
+done < <(git -C "$dir" diff --no-color --name-only --no-renames -z "$base..HEAD" 2>/dev/null)
+
+# Each status entry is "XY <path>". A rename or copy (R or C in X or Y) is
+# followed by one more entry holding the original path.
+orig_next=0
+while IFS= read -r -d '' entry; do
+  if [ "$orig_next" = 1 ]; then
+    add_changed "$entry"
+    orig_next=0
+    continue
+  fi
+  add_changed "${entry:3}"
+  case ${entry:0:2} in
+    R* | C* | ?R | ?C) orig_next=1 ;;
+  esac
+done < <(git -C "$dir" status --porcelain -z --untracked-files=all 2>/dev/null)
+
+found=0
+for path in "${changed[@]}"; do
+  in_scope=0
+  for file in "$@"; do
+    if [ "$path" = "$file" ]; then
+      in_scope=1
+      break
+    fi
+  done
+  if [ "$in_scope" = 0 ]; then
+    print_path "$path"
+    found=1
+  fi
+done
+
+if [ "$found" = 0 ]; then
+  printf 'OK\n'
+fi
+exit 0
