@@ -1,7 +1,6 @@
 // Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the arming flag beside
 // it, <session_id>.armed, which the run state's own removals leave alone, and the rules marker,
-// <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint), and the hand-back marker,
-// <session_id>.handback (a worker's report arrived before its attempt was judged). Every function
+// <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint). Every function
 // swallows filesystem errors and returns a "nothing happened" value, because a hook must
 // never fail loudly.
 'use strict'
@@ -126,41 +125,6 @@ function clearRulesShown(sessionId) {
   } catch {}
 }
 
-// The hand-back marker: present from the time a worker's report arrives as an <agent-message> prompt (H1)
-// until H4 dispatches the next task or H1 or H5 delivers the notice. It holds the task id. A hand-back's
-// "finished" notification is transcript-only and starts no turn, so H5 uses the marker to wait for the
-// attempt to be judged and to deliver the next step itself.
-const handbackFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.handback') ?? null
-
-function markHandback(sessionId, taskId) {
-  try {
-    const file = handbackFor(sessionId)
-    if (!file) return false
-    fs.mkdirSync(sessionsDir(), { recursive: true })
-    fs.writeFileSync(file, String(taskId ?? ''))
-    return true
-  } catch {
-    return false
-  }
-}
-
-// The task id stored by markHandback, or null when there is no marker.
-function handback(sessionId) {
-  try {
-    const file = handbackFor(sessionId)
-    return file && fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null
-  } catch {
-    return null
-  }
-}
-
-function clearHandback(sessionId) {
-  try {
-    const file = handbackFor(sessionId)
-    if (file) fs.rmSync(file, { force: true })
-  } catch {}
-}
-
 // The plans /planandtier:execute-plan last listed in this session, in order, so a number from that list
 // can pick one. Removed at SessionEnd.
 const listingFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.listing.json') ?? null
@@ -209,7 +173,7 @@ function arm(sessionId) {
   }
 }
 
-// Removes the flag, the telemetry cursor, the rules marker and the hand-back marker.
+// Removes the flag, the telemetry cursor and the rules marker.
 function disarm(sessionId) {
   try {
     const flag = flagFor(sessionId)
@@ -218,20 +182,18 @@ function disarm(sessionId) {
     if (cursorFile) fs.rmSync(cursorFile, { force: true })
     const rulesFile = rulesFor(sessionId)
     if (rulesFile) fs.rmSync(rulesFile, { force: true })
-    const handbackFile = handbackFor(sessionId)
-    if (handbackFile) fs.rmSync(handbackFile, { force: true })
     if (flag) debug(`state ${path.basename(flag, '.armed')}: disarmed`)
   } catch {}
 }
 
-// Deletes session files (state, arming flags, cursors, rules and hand-back markers, fallback tasks and telemetry files, and leftover
+// Deletes session files (state, arming flags, cursors, rules markers, fallback tasks and telemetry files, and leftover
 // temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.armed', '.cursor', '.rules', '.handback'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.armed', '.cursor', '.rules'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
@@ -254,8 +216,5 @@ module.exports = {
   rulesShown,
   markRulesShown,
   clearRulesShown,
-  markHandback,
-  handback,
-  clearHandback,
   prune,
 }

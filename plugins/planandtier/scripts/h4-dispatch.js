@@ -5,11 +5,11 @@
 // worker stops, and what Claude must hear next is kept in the state as `notice` until it can be told:
 // at PostToolUse for a foreground run, or by H1 when the worker's report arrives as a prompt.
 //   pre      PreToolUse Agent: only the dispatch the run expects may start, from a clean tree on the
-//            run's branch. On a pass it records HEAD, which a retry resets to, and clears the
-//            hand-back marker (<session_id>.handback) that H1 wrote when a report arrived early.
+//            run's branch. On a pass it records HEAD, which a retry resets to.
 //   stop     SubagentStop: the worker finished. Judges the attempt against Git and moves the run on
 //            (the next task, a retry one tier up after a reset, completion, or a halt), saving the
 //            notice. Records the attempt's tokens and cost, and queues the line H5 shows the user.
+//            An agent whose hand-back H1 already judged (`handedBack`) is ignored: the run has moved on.
 //   post     PostToolUse Agent: gives Claude the notice if there is one (a foreground run); otherwise
 //            the task is running in the background, and Claude is told to end its turn and wait.
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
@@ -52,16 +52,15 @@ function pre(input, s) {
     return
   }
   // A notice not yet shown is stale once Claude has made the next dispatch.
-  const started = state.write(input.session_id, {
+  state.write(input.session_id, {
     ...s,
     notice: null,
     current: { ...s.current, head: git.head(cwd), inFlight: true, report: null },
   })
-  // The dispatch answers any hand-back that was waiting for its next step (H5).
-  if (started) state.clearHandback(input.session_id)
 }
 
 function stop(input, s) {
+  if (s?.handedBack?.includes(input.agent_id)) return
   if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
   const report = r.parseReport(input.last_assistant_message) ?? reportFromTranscript(input.agent_transcript_path)
   const reported = { ...s, current: { ...s.current, report } }

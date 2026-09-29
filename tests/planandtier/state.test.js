@@ -153,35 +153,6 @@ test('the rules marker is set, read and cleared apart from the flag, and disarmi
   }
 })
 
-test('the hand-back marker holds the task id, is cleared apart from the flag, and disarming removes it', () => {
-  assert.equal(state.handback('s1'), null)
-  assert.equal(state.markHandback('s1', 'T02'), true)
-  assert.equal(state.handback('s1'), 'T02')
-  assert.ok(fs.existsSync(path.join(dir, 'sessions', 's1.handback')))
-  state.clearHandback('s1')
-  assert.equal(state.handback('s1'), null)
-  state.clearHandback('s1')
-  state.arm('s1')
-  state.markHandback('s1', 'T02')
-  state.disarm('s1')
-  assert.equal(state.handback('s1'), null)
-  assert.equal(fs.existsSync(path.join(dir, 'sessions', 's1.handback')), false)
-  for (const id of [undefined, null, '', '///']) {
-    assert.equal(state.markHandback(id, 'T01'), false)
-    assert.equal(state.handback(id), null)
-  }
-})
-
-test('prune removes old hand-back markers too', () => {
-  state.markHandback('old', 'T01')
-  state.markHandback('new', 'T01')
-  const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
-  fs.utimesSync(path.join(dir, 'sessions', 'old.handback'), past, past)
-  state.prune(7)
-  assert.equal(state.handback('old'), null)
-  assert.equal(state.handback('new'), 'T01')
-})
-
 test('prune removes old rules markers too', () => {
   state.markRulesShown('old')
   state.markRulesShown('new')

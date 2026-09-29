@@ -6,10 +6,12 @@
 //             again. Outside plan mode:
 //             - if H4 left a notice (a background worker finished, and its report is arriving as a
 //               prompt), print it: that is how the run moves on to its next step with nothing typed;
-//               this also clears the hand-back marker;
-//             - a report that arrives as an <agent-message> before its worker was judged writes the
-//               hand-back marker (<session_id>.handback), which makes H5 wait for the judgment and
-//               deliver the next step when Claude's turn ends;
+//             - a report that arrives as an <agent-message> while its attempt is still in flight is
+//               judged here, in the turn it arrives (handBack): the worker's report is read from the
+//               prompt, or from its transcript, the attempt is settled and its spend recorded, and the
+//               notice (the next dispatch, a retry, a halt or completion) is printed at once. The
+//               "finished" notification that follows a hand-back is transcript-only and starts no
+//               turn, so no later event is needed, and none is waited for;
 //             - otherwise, for a prompt the user typed while a run is in progress, print where it
 //               stands and the next exact dispatch, so "continue" resumes it after an interruption;
 //             - a paused run (its tree was dirty at approval) starts here once the tree is clean.
@@ -25,39 +27,47 @@ const fs = require('fs')
 const path = require('path')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
-const { dispatchText, doneLabel } = require('./lib/run.js')
+const { dispatchText, doneLabel, parseReport } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
 const spend = require('./lib/spend.js')
+const { settle, reportFromTranscript } = require('./lib/settle.js')
+const { subagentsDir } = require('./lib/usage.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
 // Subagent reports and task notifications also arrive as prompts; they are not the user speaking.
 const fromHarness = prompt => /^\s*<(agent-message|task-notification)\b/.test(String(prompt ?? ''))
+
+// A worker's report arrived as an <agent-message> while its attempt was in flight (SubagentStop had not
+// judged it): judge it now, and give Claude the notice in this same turn. The agent id is remembered in
+// `handedBack`, so the SubagentStop that follows does not touch the run (H4 stop).
+function handBack(input, s) {
+  const id = /^\s*<agent-message\s+from="([A-Za-z0-9_-]+)"/.exec(input.prompt)?.[1] ?? null
+  const dir = subagentsDir(input.transcript_path)
+  const transcript = id && dir ? path.join(dir, `agent-${id}.jsonl`) : null
+  const report = parseReport(input.prompt) ?? (transcript ? reportFromTranscript(transcript) : null)
+  const reported = { ...s, current: { ...s.current, report } }
+  const settledState = settle(reported, s.cwd ?? input.cwd)
+  const { next } = spend.recordAttempt({ ...input, agent_id: id }, s, settledState, { transcript })
+  const saved = {
+    ...next,
+    notice: null,
+    noticeByNotification: false,
+    handedBack: [...(s.handedBack ?? []), ...(id ? [id] : [])].slice(-20),
+  }
+  if (!state.write(input.session_id, saved)) return
+  emitText(next.notice)
+}
 
 function runNote(input) {
   const s = state.read(input.session_id)
   if (!s) return
   if (s.notice) {
     if (!state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })) return
-    state.clearHandback(input.session_id)
     emitText(s.notice)
     return
   }
   if (fromHarness(input.prompt)) {
-    // The worker's hand-back often arrives before its SubagentStop, so the attempt is not judged yet.
-    // Without a word here, Claude has told the user the run is stuck and to re-run a command. The next
-    // step is given by H5 when Claude's turn ends, so ending the turn is all it should do. The hand-back
-    // marker tells H5 to wait for the attempt to be judged: the "finished" notification that follows a
-    // hand-back is transcript-only and starts no turn, so nothing else would deliver the notice.
-    if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) {
-      const id = s.tasks[s.current.index].id
-      state.markHandback(input.session_id, id)
-      emitText(
-        `planandtier: ${id}'s report arrived before planandtier checked it. ` +
-          'Relay it to the user in one line and end your turn: ' +
-          'planandtier gives the next step when your turn ends. ' +
-          'Do not dispatch anything or ask the user to act.'
-      )
-    }
+    if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) handBack(input, s)
     return
   }
   const where = () => `${s.done.length} of ${s.tasks.length} tasks are done`

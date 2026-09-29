@@ -65,7 +65,7 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h5-guard.js\" stop", "timeout": 45 }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h5-guard.js\" stop", "timeout": 15 }
         ]
       }
     ],
