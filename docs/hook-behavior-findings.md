@@ -331,6 +331,41 @@ command issued through the PowerShell tool, so it misses every build Claude
 runs there. denoizinator-net must match `Bash|PowerShell`, and its rewrite
 reaches the PowerShell tool through the same `updatedInput` mechanism.
 
+## 15. End to end: the PowerShell tool build is quieted
+
+Measured 2026-09-28, Windows, Claude Code 2.1.284, .NET SDK 10.0.301. Evidence:
+`probes/evidence/powershell-tool-e2e.json`. Probe:
+`probes/powershell-tool/Run-PowerShellToolE2E.ps1`.
+
+Method: a throwaway directory under `$env:TEMP` got `dotnet new console -o app`
+and one pre-build, so restore noise was equal across runs. Two fresh headless
+sessions were started there with the same prompt (``Use the PowerShell tool (not
+Bash) to run exactly this command: `dotnet build app` Then reply with the
+complete tool output verbatim, nothing else.``), `--allowedTools PowerShell` and
+`--output-format json`, stdout and stderr captured separately: (A) a baseline
+with no plugin, and (B) with `--plugin-dir plugins/denoizinator-net` and
+`DNZ_DEBUG=1`. Each run's output was read from the session transcript JSONL
+(the `PowerShell` `tool_use` input and its `tool_result`), not from Claude's
+relayed reply. Validity check: both `tool_use` commands had to be exactly
+`dotnet build app` (run B's rewrite is invisible there, per finding 10) and
+the build had to run with no MSBuild command-line error; an invalid run would
+be re-run up to 3 times. Both runs were valid on the first attempt.
+
+| Run | `tool_use` command | Tool output lines |
+|---|---|---|
+| (A) baseline | `dotnet build app` | 9 |
+| (B) plugin | `dotnet build app` | 5 |
+
+The baseline output had the restore lines (`Determining projects to
+restore...`, `All projects are up-to-date for restore.`) and the
+`app -> ...\bin\Debug\net10.0\app.dll` line before the `Build succeeded.`
+summary; with the plugin only the summary (`Build succeeded.`, the warning and
+error counts, `Time Elapsed`) remained, with no `app ->` line. The plugin
+wrote 0 `dnz-debug.log` lines during run B (it logs only on error).
+
+**Consequence:** denoizinator-net quiets a `dotnet build` issued through the
+PowerShell tool, end to end, with no change to the command Claude sees.
+
 ## Still not measured
 
 - **Non-Windows.** All findings are Windows + pwsh 7.6.5.

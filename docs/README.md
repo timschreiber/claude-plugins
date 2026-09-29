@@ -5,7 +5,7 @@ Findings. Every number traces to an evidence file under `probes/evidence/`.
 | Document | Source |
 |---|---|
 | `denoizinator-net-spec.md` | The build specification. Start here. |
-| `hook-behavior-findings.md` | Measured Claude Code hook behaviour. §14 (the PowerShell tool) is derived from `probes/evidence/powershell-tool-rewrite.json`. |
+| `hook-behavior-findings.md` | Measured Claude Code hook behaviour. §14 (the PowerShell tool) is derived from `probes/evidence/powershell-tool-rewrite.json`; §15 (the PowerShell tool end to end) from `probes/evidence/powershell-tool-e2e.json`. |
 | `dotnet-test-runner-findings.md` | Derived from `probes/evidence/probe-results.json` (207 runs). |
 | `framework-build-findings.md` | Derived from `probes/evidence/framework-build-results.json` (100 records). |
 | `planandtier/planandtier-reference.md` | Every planandtier feature and how it works. Start here for planandtier. |

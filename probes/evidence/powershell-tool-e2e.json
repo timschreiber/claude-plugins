@@ -1,0 +1,42 @@
+{
+  "measured": "2026-09-28T20:46:31.2523067-04:00",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "dotnetVersion": "10.0.301",
+  "workDir": "C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-pstool-e2e-bae7efbf",
+  "pluginDir": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\denoizinator-net",
+  "prompt": "Use the PowerShell tool (not Bash) to run exactly this command: `dotnet build app` Then reply with the complete tool output verbatim, nothing else.",
+  "baseline": {
+    "command": "dotnet build app",
+    "output": "  Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  app -> C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-pstool-e2e-bae7efbf\\app\\bin\\Debug\\net10.0\\app.dll\r\n\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:00.72",
+    "lineCount": 9,
+    "sessionId": "49524645-315c-4e7c-9f1b-2f9a6162b34c",
+    "attempts": [
+      {
+        "attempt": 1,
+        "sessionId": "49524645-315c-4e7c-9f1b-2f9a6162b34c",
+        "command": "dotnet build app",
+        "invalidReason": null
+      }
+    ],
+    "stderr": ""
+  },
+  "plugin": {
+    "command": "dotnet build app",
+    "output": "Build succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:00.67",
+    "lineCount": 5,
+    "sessionId": "f5b86a00-1bb1-43aa-8722-1a9bce2da9e5",
+    "attempts": [
+      {
+        "attempt": 1,
+        "sessionId": "f5b86a00-1bb1-43aa-8722-1a9bce2da9e5",
+        "command": "dotnet build app",
+        "invalidReason": null
+      }
+    ],
+    "stderr": ""
+  },
+  "debugLogLineCount": 0,
+  "debugLog": [],
+  "difference": "The baseline tool output was 9 lines including the 'app -> C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-pstool-e2e-bae7efbf\\app\\bin\\Debug\\net10.0\\app.dll' line; with the plugin it was 5 lines and had no 'app ->' line.",
+  "quieted": true
+}
