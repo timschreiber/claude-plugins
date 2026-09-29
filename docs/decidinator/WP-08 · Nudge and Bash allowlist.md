@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-08 · Nudge hook and oracle Bash allowlist
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md, item 3, to know which branch of this package applies.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md, item 3, to know which branch of this package applies.
 
 Goal: plain-text questions get pushed into AskUserQuestion, and oracles can use only read-only GitHub commands through Bash.
 

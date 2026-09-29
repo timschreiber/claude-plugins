@@ -26,10 +26,11 @@ memory.
   file formats, commands, config keys, safety rules.
 - `Decidinator — Work Packages.md` indexes WP-01 to WP-10, and each
   `WP-NN · <title>.md` holds one package's scope and acceptance criteria.
-- The work packages cite the spec as `docs/decidinator-spec.md`. Until that
-  export exists, read the spec from `docs/decidinator/`.
-- From WP-02 on, read `docs/verification.md` (WP-01's findings) before
-  planning. A failed verification item changes the affected packages.
+- WP-01's probe is in `probes/decidinator/`, its raw evidence in
+  `probes/evidence/decidinator-*`, and its findings in
+  `docs/decidinator/decidinator-verification.md`.
+- From WP-02 on, read `docs/decidinator/decidinator-verification.md`
+  (WP-01's findings) before planning. A failed verification item changes the affected packages.
 
 ## Commands
 
@@ -81,19 +82,19 @@ creates them, as planandtier's are.
 ## Working on this plugin
 
 - Build one work package at a time, in dependency order, each as its own
-  plan-mode session through planandtier. Do not start a package before its
-  dependencies are done.
+  plan-mode session. Do not start a package before its dependencies are
+  done.
 - Each package's plan must make every design decision itself, and split the
   work into tasks small and mechanical enough for Sonnet. Ask open questions
   with `AskUserQuestion` before finishing the plan; do not guess.
 - **Commit and push after each successful work package**, meaning its code
   works and its acceptance criteria pass. One package per commit; do not start
   the next with the last one uncommitted.
-- Use recorded hook payloads from `docs/verification.md` as test fixtures
-  instead of hand-written ones, so tests match what Claude Code sends.
+- Use recorded hook payloads from `probes/evidence/decidinator-probe-*` as
+  test fixtures instead of hand-written ones, so tests match what Claude Code sends.
 - A bug found in a later package is fixed in the package that owns it, then
   the later package is re-run.
 - Every claim in a findings doc needs an evidence file behind it; see
   `docs/README.md`.
-- `spikes/` (WP-01) is throwaway: keep it out of the plugin package and remove
-  it in WP-10.
+- `probes/decidinator/` holds development-time probes. It is outside the
+  plugin, so it never ships; nothing under `probes/` is loaded at runtime.

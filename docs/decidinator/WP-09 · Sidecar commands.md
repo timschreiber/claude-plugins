@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-09 · Review, confirm, export, and import commands
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session.
 
 Goal: people can answer open questions in a session, confirm or override oracle decisions, and run the stakeholder round trip.
 

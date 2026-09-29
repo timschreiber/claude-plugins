@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-04 · Oracle agents and research prompt
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md.
 
 Goal: three plugin oracle agents that research by the spec's procedure and always end with a valid verdict block.
 
@@ -21,7 +21,7 @@ Out of scope: dispatching oracles and parsing their output.
 
 Acceptance criteria:
 - The identical-body check passes.
-- A manual run of oracle-1 on three sample questions (one researchable with a clear answer, one human-only, one the spec leaves silent) returns a valid verdict block each time, validated with the WP-03 library. Record the runs in docs/verification.md.
+- A manual run of oracle-1 on three sample questions (one researchable with a clear answer, one human-only, one the spec leaves silent) returns a valid verdict block each time, validated with the WP-03 library. Record the runs in docs/decidinator/decidinator-verification.md.
 - Each sample verdict cites at least one source, and the human-only one returns at least two options with tradeoffs.
 
 Your plan:

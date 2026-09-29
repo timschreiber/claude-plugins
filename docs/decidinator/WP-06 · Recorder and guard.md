@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-06 · Recorder, ladder rules, and guard
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md for the exact SubagentStop input.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md for the exact SubagentStop input.
 
 Goal: each oracle verdict is recorded and the ladder advances deterministically, with the model held to the next dispatch until the question's ladder ends.
 

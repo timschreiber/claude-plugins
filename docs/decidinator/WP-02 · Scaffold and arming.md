@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-02 · Plugin scaffold, arming, and configuration
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md from WP-01.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md from WP-01.
 
 Goal: an installable Decidinator plugin that arms, disarms, reports status, loads configuration, and does nothing when unarmed.
 

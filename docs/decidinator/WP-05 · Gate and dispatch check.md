@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-05 · Gate and dispatch check hooks
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md for the exact hook input fields.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md for the exact hook input fields.
 
 Goal: every AskUserQuestion call in an armed session is held until its questions have oracle verdicts, and the model is told exactly which oracle to dispatch.
 

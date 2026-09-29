@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-10 · End-to-end tests and documentation
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md.
 
 Goal: Decidinator is proven end to end in every mode and documented well enough for a stranger to install and use it.
 
@@ -22,7 +22,7 @@ Scope:
   7. Round trip: export, fill answers, import, and check the report.
 - README.md in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, and known limitations.
 - A reference document covering every hook, file format, configuration key, and environment variable.
-- Remove spikes/ or move it outside the plugin package.
+- Leave probes/decidinator/ in place: it is outside the plugin package and never ships.
 
 Out of scope: new behavior. Any bug found is fixed within the package that owns it, then this package is re-run.
 

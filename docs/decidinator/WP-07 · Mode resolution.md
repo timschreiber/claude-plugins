@@ -2,9 +2,9 @@
 
 ```text
 Work package WP-07 · Mode resolution
-Spec: docs/decidinator-spec.md
+Spec: docs/decidinator/Decidinator — Specification.md
 
-Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator-spec.md in full, even if you have read them earlier in this session. Also read docs/verification.md for headless detection.
+Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/decidinator/Decidinator — Specification.md in full, even if you have read them earlier in this session. Also read docs/decidinator/decidinator-verification.md for headless detection.
 
 Goal: every question whose ladder has ended is written to the decision log, and in sidecar mode to the sidecar, with the correct provenance.
 

@@ -13,6 +13,7 @@ probes/hook-behavior/hook-coverage.json
 probes/updated-input/rewrite-results.json
 probes/hook-alternation/alternation-coverage.json
 probes/.tools/
+probes/decidinator/out/
 
 # bats-core, cloned by scripts/run-bats.sh (D02)
 .tools/

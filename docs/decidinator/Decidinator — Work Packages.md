@@ -4,7 +4,7 @@ Sep 29, 2026 · @Tim
 
 ## How to use these packages
 
-Ten packages build Decidinator in dependency order; run each as one plan-mode session through planandtier, starting with WP-01. Before the first run, export the spec to `docs/decidinator-spec.md` in the plugin repo. Every package cites that file by section name, and each carries its full instructions so it can be pasted as a prompt on its own.
+Ten packages build Decidinator in dependency order; run each as one plan-mode session, starting with WP-01. Every package cites the spec, `docs/decidinator/Decidinator — Specification.md`, by section name, and each carries its full instructions so it can be pasted as a prompt on its own.
 
 | Package | Title | Depends on |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Scope:**
 
-- A throwaway probe plugin under `spikes/probe/` with: one read-only probe agent (tools as in Oracle research), and hooks on `PreToolUse`, `SubagentStop`, and `Stop` that append their raw JSON input to `spikes/out/<event>.jsonl`.
+- A throwaway probe plugin under `probes/decidinator/probe-plugin/` with: one read-only probe agent (tools as in Oracle research), and hooks on `PreToolUse`, `SubagentStop`, and `Stop` that append their raw JSON input to per-event `.jsonl` files, collected into `probes/evidence/decidinator-probe-<cell>-hooks.jsonl`.
 - Probe runs: interactive normal mode, interactive plan mode, headless normal mode, headless plan mode. In each, the probe agent attempts WebFetch, web search, and `gh search repos` through Bash.
 - A deny experiment: a `PreToolUse` hook that denies `AskUserQuestion` and `Read` with a known reason string, checked in plan mode and outside it.
 - A model experiment: a probe agent with `model: claude-opus-5-5` and `effort: high` that reports its model, run on each available setup (Pro, Bedrock).
@@ -40,14 +40,14 @@ Paste-ready prompts, one per package: Prompts
 
 **Acceptance criteria:**
 
-- `docs/verification.md` has one row per item 1–6: result (pass, fail, partial), the evidence (log excerpt or transcript reference), and the fallback to apply if not a pass.
+- `docs/decidinator/decidinator-verification.md` has one row per item 1–6: result (pass, fail, partial), the evidence (log excerpt or transcript reference), and the fallback to apply if not a pass.
 - For items 2 and 3, the exact hook input field names are recorded, with a sample payload.
 - For item 4, the detection method is recorded, or "none found".
-- The `spikes/` directory is excluded from the plugin package.
+- The probe lives under `probes/`, outside the plugin package, so it never ships.
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -77,7 +77,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md` from WP-01.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md` from WP-01.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -107,7 +107,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -129,12 +129,12 @@ Paste-ready prompts, one per package: Prompts
 **Acceptance criteria:**
 
 - The identical-body check passes.
-- A manual run of `oracle-1` on three sample questions (one researchable with a clear answer, one human-only, one the spec leaves silent) returns a valid verdict block each time, validated with the WP-03 library. Record the runs in `docs/verification.md`.
+- A manual run of `oracle-1` on three sample questions (one researchable with a clear answer, one human-only, one the spec leaves silent) returns a valid verdict block each time, validated with the WP-03 library. Record the runs in `docs/decidinator/decidinator-verification.md`.
 - Each sample verdict cites at least one source, and the human-only one returns at least two options with tradeoffs.
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md`.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md`.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task. Write the prompt body in the plan itself, word for word, so no task has to compose it.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -161,7 +161,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md` for the exact hook input fields.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md` for the exact hook input fields.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task, including the exact text of every deny reason.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -189,7 +189,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md` for the exact `SubagentStop` input.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md` for the exact `SubagentStop` input.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task, including the ladder function's full case table.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -218,7 +218,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md` for headless detection.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md` for headless detection.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -244,7 +244,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md`, item 3, to know which branch of this package applies.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md`, item 3, to know which branch of this package applies.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task, including the exact allowlist patterns and the nudge heuristic.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -273,7 +273,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task, including each command file's exact prompt text.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -295,7 +295,7 @@ Paste-ready prompts, one per package: Prompts
   7. Round trip: export, fill answers, import, and check the report.
 - `README.md` in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, and known limitations.
 - A reference document covering every hook, file format, configuration key, and environment variable.
-- Remove `spikes/` or move it outside the plugin package.
+- Leave `probes/decidinator/` in place: it is outside the plugin package and never ships.
 
 **Out of scope:** new behavior. Any bug found is fixed within the package that owns it, then this package re-run.
 
@@ -307,6 +307,6 @@ Paste-ready prompts, one per package: Prompts
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator-spec.md` in full before planning, even if you have read them earlier in this session. Also read `docs/verification.md`.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md`.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task, including each scenario's exact prompt and expected file contents.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
