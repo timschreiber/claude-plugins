@@ -8,8 +8,9 @@
 
     The integration Describe block at the bottom is gated on
     probes/Probe-DotnetTest.ps1 -KeepArtifacts having already been run (its
-    default scratch root is $env:TEMP\dnz-probe) -- it skips gracefully, not
-    an error, when that root doesn't exist. This mirrors this repo's existing
+    default scratch root is $env:TEMP\dnz-probe) -- each test skips gracefully,
+    not an error, when that root or its own fixture project (.csproj) is
+    missing. This mirrors this repo's existing
     pattern: CI does not run Pester at all (see CLAUDE.md), so an
     integration suite requiring a real .NET SDK and pre-built fixtures is
     consistent with what's already expected to run locally only.
@@ -431,10 +432,19 @@ Describe 'Full acceptance: real dotnet test against probe scratch projects' -Tag
     # sufficient for it; ProbeRoot is also read inside It bodies (Run-time),
     # so it's re-set in BeforeAll below too.
     $script:ProbeRoot    = Join-Path $env:TEMP 'dnz-probe'
-    $script:HaveFixtures = Test-Path -LiteralPath $script:ProbeRoot
+    # A root holding only bin/obj leftovers is not a fixture set.
+    $script:HaveFixtures = (Test-Path -LiteralPath $script:ProbeRoot) -and (@(
+        Get-ChildItem -LiteralPath $script:ProbeRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Filter *.csproj -File -ErrorAction SilentlyContinue }
+    ).Count -gt 0)
 
     BeforeAll {
         $script:ProbeRoot = Join-Path $env:TEMP 'dnz-probe'
+
+        function Test-ProjectFixture {
+            param([string] $Dir)
+            (Test-Path -LiteralPath $Dir) -and @(Get-ChildItem -LiteralPath $Dir -Filter *.csproj -File -ErrorAction SilentlyContinue).Count -gt 0
+        }
 
         function Invoke-WrapperAgainst {
             param([string] $ProjectDir, [string[]] $ExtraArgs = @())
@@ -459,51 +469,65 @@ Describe 'Full acceptance: real dotnet test against probe scratch projects' -Tag
     }
 
     It 'VSTest: reports TEST FAIL with counts and TRX-derived detail' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'vstest_n100')
+        $dir = Join-Path $script:ProbeRoot 'vstest_n100'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 1
         $r.Stdout | Should -Match 'TEST FAIL \| 6 passed \| 2 failed \|'
     }
 
     It 'VSTest: reports TEST PASS' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'vstestpass_n100')
+        $dir = Join-Path $script:ProbeRoot 'vstestpass_n100'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 0
         $r.Stdout | Should -Match 'TEST PASS \| 8 passed \| 0 skipped \|'
     }
 
     It 'VSTest: reports TEST NONE on a filter matching nothing' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'vstest_n100') `
+        $dir = Join-Path $script:ProbeRoot 'vstest_n100'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir `
             -ExtraArgs @('--filter', 'FullyQualifiedName~ZZZNoSuchTest')
         $r.ExitCode | Should -Be 2
         $r.Stdout | Should -Match 'TEST NONE \|'
     }
 
     It 'MTP MSTest net10.0: reports TEST FAIL with inline detail' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'mtp_n100')
+        $dir = Join-Path $script:ProbeRoot 'mtp_n100'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 1
         $r.Stdout | Should -Match 'TEST FAIL \| 6 passed \| 2 failed \|'
     }
 
     It 'MTP MSTest net8.0: reports TEST PASS' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'mtppass_n80')
+        $dir = Join-Path $script:ProbeRoot 'mtppass_n80'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 0
         $r.Stdout | Should -Match 'TEST PASS \| 8 passed \|'
     }
 
     It 'MTP MSTest net6.0 (bridge special-case): reports TEST FAIL via the VSTest branch' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'mtp_n60')
+        $dir = Join-Path $script:ProbeRoot 'mtp_n60'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 1
         $r.Stdout | Should -Match 'TEST FAIL \| 6 passed \| 2 failed \|'
     }
 
     It 'NUnit-MTP net10.0: reports TEST FAIL with inline detail' -Skip:(-not $script:HaveFixtures) {
-        $r = Invoke-WrapperAgainst -ProjectDir (Join-Path $script:ProbeRoot 'x_mtp_nunit')
+        $dir = Join-Path $script:ProbeRoot 'x_mtp_nunit'
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
+        $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 1
         $r.Stdout | Should -Match 'TEST FAIL \|'
     }
 
     It 'NUnit-MTP net8.0: reports TEST FAIL with inline detail' -Skip:(-not $script:HaveFixtures) {
         $dir = Join-Path $script:ProbeRoot 'x_mtp_nunit_n80'
-        if (-not (Test-Path -LiteralPath $dir)) { Set-ItResult -Skipped -Because 'x_mtp_nunit_n80 fixture not present'; return }
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -ProjectDir $dir
         $r.ExitCode | Should -Be 1
         $r.Stdout | Should -Match 'TEST FAIL \|'
@@ -511,7 +535,7 @@ Describe 'Full acceptance: real dotnet test against probe scratch projects' -Tag
 
     It 'xunit.v3-MTP: reports TEST FAIL from its own TRX (dotnet-test-runner-findings.md §14)' -Skip:(-not $script:HaveFixtures) {
         $dir = Join-Path $script:ProbeRoot 'x_mtp_xunit3'
-        if (-not (Test-Path -LiteralPath $dir)) { Set-ItResult -Skipped -Because 'x_mtp_xunit3 fixture not present'; return }
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -ProjectDir $dir
         # Its own exit-1-for-fail baseline (not the generic MTP exit-2) is a
         # stable property of the direct-exe invocation path the wrapper
@@ -522,7 +546,7 @@ Describe 'Full acceptance: real dotnet test against probe scratch projects' -Tag
 
     It 'xunit.v3-MTP: passes through when the user supplies test args, its own CLI cannot accept dotnet-test syntax' -Skip:(-not $script:HaveFixtures) {
         $dir = Join-Path $script:ProbeRoot 'x_mtp_xunit3'
-        if (-not (Test-Path -LiteralPath $dir)) { Set-ItResult -Skipped -Because 'x_mtp_xunit3 fixture not present'; return }
+        if (-not (Test-ProjectFixture $dir)) { Set-ItResult -Skipped -Because "$(Split-Path $dir -Leaf) has no .csproj; run probes/Probe-DotnetTest.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -ProjectDir $dir -ExtraArgs @('--filter', 'FullyQualifiedName~Pass')
         $r.Stdout | Should -Match 'TEST RAW \|'
     }

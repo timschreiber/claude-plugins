@@ -11,7 +11,8 @@
     probes/Probe-FrameworkBuild.ps1 -KeepArtifacts having already been run
     (its default scratch root is $env:TEMP\dnz-probe-fx) AND vstest.console.exe
     being resolvable via vswhere.exe -- it skips gracefully, not an error,
-    when either is missing. Evidence strings used in the unit tests below are
+    when either is missing, and each test also skips when its fixture DLL is
+    missing. Evidence strings used in the unit tests below are
     taken verbatim from probes/evidence/framework-build-results.json, not
     invented (docs/denoizinator-net-spec.md §8: don't add a fact without
     evidence).
@@ -302,7 +303,13 @@ Describe 'Full acceptance: real vstest.console.exe against probe scratch project
             Select-Object -First 1
         if ($found -and (Test-Path -LiteralPath $found)) { $script:VstestConsolePath = $found }
     }
-    $script:HaveFixtures = (Test-Path -LiteralPath $script:ProbeRoot) -and $script:VstestConsolePath
+    $script:FixtureDlls = @(
+        'proj5_vstest_allpass\bin\Debug\proj5_vstest_allpass.dll',
+        'proj2_pkgref\bin\Debug\proj2_pkgref.dll',
+        'proj1_pkgconfig\bin\Debug\proj1_pkgconfig.dll'
+    )
+    $script:HaveFixtures = (Test-Path -LiteralPath $script:ProbeRoot) -and $script:VstestConsolePath -and
+        (@($script:FixtureDlls | Where-Object { Test-Path -LiteralPath (Join-Path $script:ProbeRoot $_) }).Count -gt 0)
 
     BeforeAll {
         # Re-resolved here (Run-time) -- see the identical note in the
@@ -350,6 +357,7 @@ Describe 'Full acceptance: real vstest.console.exe against probe scratch project
 
     It 'reports TEST PASS against the all-pass fixture' -Skip:(-not $script:HaveFixtures) {
         $dll = Join-Path $script:ProbeRoot 'proj5_vstest_allpass\bin\Debug\proj5_vstest_allpass.dll'
+        if (-not (Test-Path -LiteralPath $dll)) { Set-ItResult -Skipped -Because "$(Split-Path $dll -Leaf) not built; run probes/Probe-FrameworkBuild.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -Dll $dll
         $r.ExitCode | Should -Be 0
         $r.Stdout | Should -Match 'TEST PASS \| 8 passed \| 0 skipped \|'
@@ -357,6 +365,7 @@ Describe 'Full acceptance: real vstest.console.exe against probe scratch project
 
     It 'reports TEST FAIL against the failing fixture' -Skip:(-not $script:HaveFixtures) {
         $dll = Join-Path $script:ProbeRoot 'proj2_pkgref\bin\Debug\proj2_pkgref.dll'
+        if (-not (Test-Path -LiteralPath $dll)) { Set-ItResult -Skipped -Because "$(Split-Path $dll -Leaf) not built; run probes/Probe-FrameworkBuild.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -Dll $dll
         $r.ExitCode | Should -Be 1
         $r.Stdout | Should -Match 'TEST FAIL \| 6 passed \| 2 failed \|'
@@ -364,6 +373,7 @@ Describe 'Full acceptance: real vstest.console.exe against probe scratch project
 
     It 'reports TEST NONE on a filter matching nothing' -Skip:(-not $script:HaveFixtures) {
         $dll = Join-Path $script:ProbeRoot 'proj2_pkgref\bin\Debug\proj2_pkgref.dll'
+        if (-not (Test-Path -LiteralPath $dll)) { Set-ItResult -Skipped -Because "$(Split-Path $dll -Leaf) not built; run probes/Probe-FrameworkBuild.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -Dll $dll -ExtraArgs @('/TestCaseFilter:FullyQualifiedName~ZZZNoSuchTest')
         $r.ExitCode | Should -Be 2
         $r.Stdout | Should -Match 'TEST NONE \| 0 tests ran \| filter matched nothing'
@@ -371,6 +381,7 @@ Describe 'Full acceptance: real vstest.console.exe against probe scratch project
 
     It 'reports TEST NONE with the adapter-not-registered reason on the packages.config fixture' -Skip:(-not $script:HaveFixtures) {
         $dll = Join-Path $script:ProbeRoot 'proj1_pkgconfig\bin\Debug\proj1_pkgconfig.dll'
+        if (-not (Test-Path -LiteralPath $dll)) { Set-ItResult -Skipped -Because "$(Split-Path $dll -Leaf) not built; run probes/Probe-FrameworkBuild.ps1 -KeepArtifacts"; return }
         $r = Invoke-WrapperAgainst -Dll $dll
         $r.ExitCode | Should -Be 2
         $r.Stdout | Should -Match 'TEST NONE \| 0 tests ran \| test adapter not registered'
