@@ -11,6 +11,20 @@
     each. -Shell Bash (the default) segments with Bash syntax; -Shell PowerShell
     segments with PowerShell syntax.
 
+    Bash mode rules: the escape char is the backslash (unquoted and inside
+    double quotes; a backslash before LF or CR LF is a line continuation and
+    skips all of it); inside single quotes nothing escapes; ( and ) are tracked
+    for depth; a newline at depth 0 outside quotes separates segments like ';';
+    a '#' at word start (index 0, or after whitespace or one of ; & | ( ))
+    starts a comment running to the next newline, while '$#', '${#x}' and 'a#b'
+    are not comments; a heredoc ('<<' or '<<-' then a delimiter word, optionally
+    quoted, but not '<<<') makes the lines after the opener line, through the
+    line equal to the delimiter (leading tabs stripped for '<<-'), part of the
+    opener's segment and opaque, or the rest of the command if the delimiter
+    never appears; the insertion point stops before a word-initial '#' comment,
+    before a redirect, and before a bare '--'. Shell keywords as segment heads
+    (then, do, else) still do not match, so 'then dotnet build' is not rewritten.
+
     PowerShell mode rules: the escape char is the backtick (unquoted and inside
     double quotes; a backtick before CR LF skips all three chars), and a
     backslash is an ordinary char; inside single quotes nothing escapes; a
@@ -45,7 +59,7 @@ function Get-EscapeStep {
     <#
     .SYNOPSIS
         How many chars an escape at Index consumes: 2 (the escape char and the
-        next), or 3 in PowerShell mode when the next chars are CR LF.
+        next), or 3 when the next chars are CR LF (a line continuation).
     #>
     param(
         [string] $Command,
@@ -54,7 +68,7 @@ function Get-EscapeStep {
         [string] $Shell
     )
 
-    if ($Shell -eq 'PowerShell' -and ($Index + 2) -lt $Limit -and
+    if (($Index + 2) -lt $Limit -and
         $Command[$Index + 1] -eq "`r" -and $Command[$Index + 2] -eq "`n") { return 3 }
     return 2
 }
@@ -93,6 +107,92 @@ function Get-HereStringEnd {
     return $Limit
 }
 
+function Test-BashCommentStart {
+    <#
+    .SYNOPSIS
+        Bash mode: is the char at Index a '#' that starts a comment? It must be
+        at word start: Index is Origin, or the previous char is whitespace or
+        one of ; & | ( ). So '$#', '${#x}' and 'a#b' are not comments.
+    #>
+    param(
+        [string] $Command,
+        [int]    $Index,
+        [int]    $Origin
+    )
+
+    if ($Command[$Index] -ne '#') { return $false }
+    if ($Index -le $Origin) { return $true }
+    $prev = $Command[$Index - 1]
+    return ([char]::IsWhiteSpace($prev) -or ';&|()'.IndexOf($prev) -ge 0)
+}
+
+function Get-HeredocOpener {
+    <#
+    .SYNOPSIS
+        Bash mode: if a heredoc opens at Index ('<<' not part of '<<<', then an
+        optional '-', optional spaces/tabs, then a delimiter word of letters,
+        digits and underscores, optionally wrapped in one pair of single or
+        double quotes), return an object with End (the index just past the
+        delimiter token), Delimiter and Strip (true for '<<-'). Return $null if
+        no heredoc opens at Index.
+    #>
+    param(
+        [string] $Command,
+        [int]    $Index,
+        [int]    $Limit
+    )
+
+    if (($Index + 1) -ge $Limit -or $Command[$Index] -ne '<' -or $Command[$Index + 1] -ne '<') { return $null }
+    if ($Index -gt 0 -and $Command[$Index - 1] -eq '<') { return $null }
+    if (($Index + 2) -lt $Limit -and $Command[$Index + 2] -eq '<') { return $null }
+
+    $j = $Index + 2
+    $strip = $false
+    if ($j -lt $Limit -and $Command[$j] -eq '-') { $strip = $true; $j++ }
+    while ($j -lt $Limit -and ($Command[$j] -eq ' ' -or $Command[$j] -eq "`t")) { $j++ }
+
+    $q = $null
+    if ($j -lt $Limit -and ($Command[$j] -eq '"' -or $Command[$j] -eq "'")) { $q = $Command[$j]; $j++ }
+    $wordStart = $j
+    while ($j -lt $Limit -and ([char]::IsLetterOrDigit($Command[$j]) -or $Command[$j] -eq '_')) { $j++ }
+    if ($j -eq $wordStart) { return $null }
+    $delim = $Command.Substring($wordStart, $j - $wordStart)
+    if ($null -ne $q) {
+        if ($j -ge $Limit -or $Command[$j] -ne $q) { return $null }
+        $j++
+    }
+    return [pscustomobject]@{ End = $j; Delimiter = $delim; Strip = $strip }
+}
+
+function Get-HeredocEnd {
+    <#
+    .SYNOPSIS
+        Bash mode: given the index where a heredoc body starts (just past the
+        LF that ends the opener line), return the index of the end of the line
+        whose content equals Delimiter (for '<<-', after stripping leading
+        tabs; a trailing CR is ignored), or Limit if it is never found. The
+        returned index is at that line's LF, or Limit.
+    #>
+    param(
+        [string] $Command,
+        [int]    $Start,
+        [int]    $Limit,
+        [string] $Delimiter,
+        [bool]   $Strip
+    )
+
+    $ls = $Start
+    while ($ls -lt $Limit) {
+        $le = $ls
+        while ($le -lt $Limit -and $Command[$le] -ne "`n") { $le++ }
+        $line = $Command.Substring($ls, $le - $ls).TrimEnd("`r")
+        if ($Strip) { $line = $line.TrimStart("`t") }
+        if ($line -ceq $Delimiter) { return $le }
+        $ls = $le + 1
+    }
+    return $Limit
+}
+
 function Split-CommandSegment {
     <#
     .SYNOPSIS
@@ -112,6 +212,7 @@ function Split-CommandSegment {
     $n        = $Command.Length
     $quote    = $null
     $depth    = 0
+    $pending  = [System.Collections.Generic.List[object]]::new()
 
     while ($i -lt $n) {
         $ch = $Command[$i]
@@ -136,11 +237,30 @@ function Split-CommandSegment {
             while ($i -lt $n -and $Command[$i] -ne "`n") { $i++ }
             continue
         }
+        if (-not $ps -and (Test-BashCommentStart -Command $Command -Index $i -Origin 0)) {
+            while ($i -lt $n -and $Command[$i] -ne "`n") { $i++ }
+            continue
+        }
+        if (-not $ps -and $ch -eq '<') {
+            $op = Get-HeredocOpener -Command $Command -Index $i -Limit $n
+            if ($null -ne $op) { $pending.Add($op); $i = $op.End; continue }
+        }
+        if (-not $ps -and $ch -eq "`n" -and $pending.Count -gt 0) {
+            # the LF ending a heredoc opener line: the bodies that follow are opaque
+            $end = $i
+            foreach ($op in $pending) {
+                $end = Get-HeredocEnd -Command $Command -Start ([Math]::Min($end + 1, $n)) -Limit $n -Delimiter $op.Delimiter -Strip $op.Strip
+            }
+            $pending.Clear()
+            # $end is at the LF after the last terminator line (or the end): scanned normally
+            $i = $end
+            continue
+        }
         if ($ch -eq '(' -or ($ps -and $ch -eq '{')) { $depth++;                    $i++; continue }
         if ($ch -eq ')' -or ($ps -and $ch -eq '}')) { $depth = [Math]::Max(0, $depth - 1); $i++; continue }
 
         if ($depth -eq 0) {
-            if ($ps -and $ch -eq "`n") {
+            if ($ch -eq "`n") {
                 $spans.Add([pscustomobject]@{ Start = $segStart; End = $i })
                 $i++
                 $segStart = $i
@@ -181,8 +301,9 @@ function Get-InsertionPoint {
     .SYNOPSIS
         Index within a segment where flags belong: before any redirect, and
         before a bare '--' (which hands everything after it to the inner host).
-        In PowerShell mode it also stops before a '#' comment, and a redirect
-        may carry a stream prefix ('*>', '2>$null', '3>&1').
+        It also stops before a word-initial '#' comment (in Bash mode the span
+        start counts as a word start), and in PowerShell mode a redirect may
+        carry a stream prefix ('*>', '2>$null', '3>&1').
     #>
     [CmdletBinding()]
     param(
@@ -227,6 +348,7 @@ function Get-InsertionPoint {
             }
         }
         else {
+            if (Test-BashCommentStart -Command $Command -Index $i -Origin $s) { $stop = $i; break }
             $hit = $null
             foreach ($r in $script:Redirects) {
                 if ($i + $r.Length -le $e -and $Command.Substring($i, $r.Length) -eq $r) { $hit = $r; break }

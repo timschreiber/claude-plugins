@@ -3,13 +3,15 @@
     Vectors for CommandSegmentation.psm1.
 
 .DESCRIPTION
-    57 vectors. The original 31 were verified against a reference implementation
+    78 vectors. The original 31 were verified against a reference implementation
     before the PowerShell port was written and are the contract -- none may be
     removed. 2 more were added when Add-CommandFlag moved from a single
     -Prefixes/-Flags pair to a -FlagMap, proving build and test each get their
     own flags in one compound command and inside a subshell. 24 more cover the
     PowerShell shell mode (-Shell PowerShell): 21 segmentation and rewrite
     vectors, 2 dispatch vectors, and 1 asserting that -Shell defaults to Bash.
+    21 more cover Bash mode newlines, comments and heredocs: 20 segmentation
+    and rewrite vectors and 1 dispatch vector.
 
     The env-assignment and subshell vectors were added after the hook-behaviour
     probe (2026-08-19) measured that Claude Code's 'if' filter reaches both cases.
@@ -300,6 +302,57 @@ Describe 'Add-CommandDispatch PowerShell mode' {
     It 'dispatches a matched line of a newline-separated command, leaving the redirect in the tail' {
         Add-CommandDispatch -Command "cd src`ndotnet test > out.txt" -DispatchMap $script:PsDispatchMap -Shell PowerShell |
             Should -BeExactly "cd src`npwsh -File w.ps1 '--' dotnet test > out.txt"
+    }
+}
+
+Describe 'Bash mode newlines, comments and heredocs' {
+    <#
+    Commands from Claude Code's Bash tool may span lines. In Bash mode a newline
+    outside quotes and subshells separates segments like ';' (a backslash before
+    it is a continuation and does not), a word-initial '#' starts a comment to
+    end of line, and a heredoc body is opaque -- text in it is never rewritten.
+    #>
+
+    $bsCont = 'dotnet build \' + "`n" + '  -c Release'
+    $dqNl   = 'echo "a' + "`n" + 'dotnet build"'
+
+    $cases = @(
+        # --- newlines separate segments
+        @{ Cmd="cd src`ndotnet build";                    Segs=2; Want="cd src`ndotnet build -nologo -tl:off" }
+        @{ Cmd="dotnet build`ndotnet test";               Segs=2; Want="dotnet build -nologo -tl:off`ndotnet test -nologo -tl:off" }
+        @{ Cmd="cd src`r`ndotnet build`r`n";              Segs=2; Want="cd src`r`ndotnet build -nologo -tl:off`r`n" }
+        @{ Cmd=$bsCont;                                   Segs=1; Want=($bsCont + ' -nologo -tl:off') }
+        @{ Cmd=$dqNl;                                     Segs=1; Want=$dqNl }
+        @{ Cmd="echo 'a`ndotnet build'";                  Segs=1; Want="echo 'a`ndotnet build'" }
+        @{ Cmd="(cd src`ndotnet build)";                  Segs=1; Want="(cd src`ndotnet build -nologo -tl:off)" }
+
+        # --- comments: word-initial '#' only
+        @{ Cmd='dotnet build # quiet it';                 Segs=1; Want='dotnet build -nologo -tl:off # quiet it' }
+        @{ Cmd="# note`ndotnet build";                    Segs=2; Want="# note`ndotnet build -nologo -tl:off" }
+        @{ Cmd='echo a # x && dotnet build';              Segs=1; Want='echo a # x && dotnet build' }
+        @{ Cmd='echo a;# c && dotnet build';              Segs=2; Want='echo a;# c && dotnet build' }
+        @{ Cmd='echo $# && dotnet build';                 Segs=2; Want='echo $# && dotnet build -nologo -tl:off' }
+        @{ Cmd='echo ${#x} && dotnet build';              Segs=2; Want='echo ${#x} && dotnet build -nologo -tl:off' }
+        @{ Cmd='echo a#b && dotnet build';                Segs=2; Want='echo a#b && dotnet build -nologo -tl:off' }
+
+        # --- heredocs: the body and terminator belong to the opener's segment
+        @{ Cmd="cat <<EOF`ndotnet build`nEOF`ndotnet build";           Segs=2; Want="cat <<EOF`ndotnet build`nEOF`ndotnet build -nologo -tl:off" }
+        @{ Cmd="cat <<'EOF'`ndotnet build`nEOF`ndotnet test";          Segs=2; Want="cat <<'EOF'`ndotnet build`nEOF`ndotnet test -nologo -tl:off" }
+        @{ Cmd="cat <<-EOF`n`tdotnet build`n`tEOF`ndotnet build";      Segs=2; Want="cat <<-EOF`n`tdotnet build`n`tEOF`ndotnet build -nologo -tl:off" }
+        @{ Cmd="cat <<EOF`ndotnet build";                              Segs=1; Want="cat <<EOF`ndotnet build" }
+        @{ Cmd="dotnet build <<< 'x'`ndotnet test";                    Segs=2; Want="dotnet build -nologo -tl:off <<< 'x'`ndotnet test -nologo -tl:off" }
+        @{ Cmd="dotnet build <<EOF`nx`nEOF";                           Segs=1; Want="dotnet build -nologo -tl:off <<EOF`nx`nEOF" }
+    )
+
+    It 'segments and rewrites <Cmd> in Bash mode' -TestCases $cases {
+        param($Cmd, $Segs, $Want)
+        (Split-CommandSegment -Command $Cmd).Count | Should -Be $Segs
+        Add-CommandFlag -Command $Cmd -FlagMap $script:FlagMap | Should -BeExactly $Want
+    }
+
+    It 'dispatches a matched line of a newline-separated command' {
+        Add-CommandDispatch -Command "cd src`ndotnet test" -DispatchMap @{ 'dotnet test' = 'pwsh -File w.ps1 --' } |
+            Should -BeExactly "cd src`npwsh -File w.ps1 -- dotnet test"
     }
 }
 
