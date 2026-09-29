@@ -291,6 +291,46 @@ used: put the settings file in place, then start a **new** session (headless
 is already running and expect either "not yet active" or "correctly filtered"
 to hold.
 
+## 14. The PowerShell tool fires PreToolUse and honors updatedInput
+
+Measured 2026-09-28, Windows, Claude Code 2.1.284, pwsh 7.6.6. Evidence:
+`probes/evidence/powershell-tool-rewrite.json` — 1 handler record from 1
+PowerShell tool call. Probe: `probes/powershell-tool/`.
+
+Method: a throwaway git repo got two `PreToolUse` groups, `matcher:
+"PowerShell"` (label `pstool`) and `matcher: "Bash"` (label `bash`, a control),
+both running `Invoke-PowerShellToolProbe.ps1`. A fresh headless session was
+started there with `claude -p "Use the PowerShell tool (not Bash) to run
+exactly: dotnet --version . ..." --allowedTools PowerShell`. The handler
+returned `updatedInput` with **no** `permissionDecision`, rewriting the command
+to PowerShell syntax that writes a marker first:
+`Set-Content -LiteralPath '.dnz-pstool/EXEC_<token>.txt' -Value executed; <original>`.
+No environment variable or setting was needed to get the PowerShell tool.
+
+| Group | Fired | Rewrite executed |
+|---|---|---|
+| `PowerShell` | yes | yes (marker `EXEC_pstool_dc2bef49.txt` present) |
+| `Bash` (control) | no | — |
+
+Payload fields observed by the handler:
+
+```json
+{
+  "tool_name": "PowerShell",
+  "tool_input": { "command": "dotnet --version", "description": "..." }
+}
+```
+
+`tool_input` carried exactly the keys `command` and `description`;
+`tool_input.command` was the raw string `dotnet --version`. Claude reported
+`10.0.301`, the original command's output, with no trace of the marker write
+(as in finding 10).
+
+**Consequence:** a `PreToolUse` hook matched on `Bash` alone never sees a
+command issued through the PowerShell tool, so it misses every build Claude
+runs there. denoizinator-net must match `Bash|PowerShell`, and its rewrite
+reaches the PowerShell tool through the same `updatedInput` mechanism.
+
 ## Still not measured
 
 - **Non-Windows.** All findings are Windows + pwsh 7.6.5.

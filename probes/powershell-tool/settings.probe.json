@@ -1,0 +1,35 @@
+{
+  "_comment": [
+    "Template only. Run-PowerShellToolProbe.ps1 writes these hooks into the",
+    ".claude/settings.json of a THROWAWAY git repo under $env:TEMP, replacing",
+    "<HANDLER> with the absolute path to Invoke-PowerShellToolProbe.ps1.",
+    "",
+    "  matcher 'PowerShell' -> the handler, -Label pstool (the measurement)",
+    "  matcher 'Bash'       -> the same handler, -Label bash (control: shows",
+    "                          whether the session used Bash instead)"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"<HANDLER>\" -Label pstool",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"<HANDLER>\" -Label bash",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

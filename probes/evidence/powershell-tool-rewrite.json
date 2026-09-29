@@ -1,0 +1,30 @@
+{
+  "measured": "2026-09-28T20:28:58.2614337-04:00",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "pwshVersion": "7.6.6",
+  "workDir": "C:\\Users\\timsc\\AppData\\Local\\Temp\\dnz-pstool-probe-eb97dd12",
+  "extraEnv": {},
+  "prompt": "Use the PowerShell tool (not Bash) to run exactly: dotnet --version . Then tell me its output verbatim.",
+  "claudeExitCode": 0,
+  "records": [
+    {
+      "ts": "2026-09-28T20:28:54.7243829-04:00",
+      "tool_name": "PowerShell",
+      "tool_input_keys": [
+        "command",
+        "description"
+      ],
+      "received": "dotnet --version",
+      "emitted": "Set-Content -LiteralPath '.dnz-pstool/EXEC_pstool_dc2bef49.txt' -Value executed; dotnet --version",
+      "token": "pstool_dc2bef49",
+      "markerPath": ".dnz-pstool/EXEC_pstool_dc2bef49.txt"
+    }
+  ],
+  "markersFound": [
+    "EXEC_pstool_dc2bef49.txt"
+  ],
+  "handlerErrors": [],
+  "claudeOutput": "Output: `10.0.301`\n",
+  "claudeStderr": "",
+  "updatedInputHonored": true
+}
