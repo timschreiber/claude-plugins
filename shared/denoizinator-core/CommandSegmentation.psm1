@@ -4,10 +4,24 @@
     correct sub-command without corrupting the rest.
 
 .DESCRIPTION
-    Claude Code hands the Bash tool a single command string that may contain
-    compound operators, pipes, redirects, quoted arguments, and a `--` separator.
-    A naive append breaks several of those. This module finds top-level segments
-    and the correct insertion point within each.
+    Claude Code hands the Bash tool and the PowerShell tool a single command
+    string that may contain compound operators, pipes, redirects, quoted
+    arguments, and a `--` separator. A naive append breaks several of those.
+    This module finds top-level segments and the correct insertion point within
+    each. -Shell Bash (the default) segments with Bash syntax; -Shell PowerShell
+    segments with PowerShell syntax.
+
+    PowerShell mode rules: the escape char is the backtick (unquoted and inside
+    double quotes; a backtick before CR LF skips all three chars), and a
+    backslash is an ordinary char; inside single quotes nothing escapes; a
+    here-string (@" or @' followed only by spaces/tabs and a newline, up to the
+    line that starts with the matching closer) is skipped whole; { and } are
+    tracked like ( and ) for depth and are never recursed into; a newline at
+    depth 0 outside quotes separates segments like ';'; a '#' at the start of a
+    token (index 0 or after whitespace) starts a comment running to the next
+    newline; the insertion point stops before a comment, and before a redirect
+    ('>' or '<', optionally preceded at token start by one of 1-6 or '*', as in
+    '*>', '2>$null', '3>&1'), and before a bare '--'.
 
     The algorithm was developed and verified against 24 test vectors before being
     ported here. tests/CommandSegmentation.Tests.ps1 carries the same vectors --
@@ -27,14 +41,71 @@ Set-StrictMode -Version Latest
 $script:Separators = @('&&', '||', ';', '|', '&')
 $script:Redirects  = @('2>&1', '>>', '2>', '>', '<')
 
+function Get-EscapeStep {
+    <#
+    .SYNOPSIS
+        How many chars an escape at Index consumes: 2 (the escape char and the
+        next), or 3 in PowerShell mode when the next chars are CR LF.
+    #>
+    param(
+        [string] $Command,
+        [int]    $Index,
+        [int]    $Limit,
+        [string] $Shell
+    )
+
+    if ($Shell -eq 'PowerShell' -and ($Index + 2) -lt $Limit -and
+        $Command[$Index + 1] -eq "`r" -and $Command[$Index + 2] -eq "`n") { return 3 }
+    return 2
+}
+
+function Get-HereStringEnd {
+    <#
+    .SYNOPSIS
+        PowerShell mode: if a here-string opens at Index (an '@' then '"' or
+        "'", then only spaces/tabs, then a newline), return the index just past
+        its closer ("@ or '@ at the start of a line), or Limit if unterminated.
+        Return -1 if no here-string opens at Index.
+    #>
+    param(
+        [string] $Command,
+        [int]    $Index,
+        [int]    $Limit
+    )
+
+    if (($Index + 1) -ge $Limit) { return -1 }
+    $q = $Command[$Index + 1]
+    if ($q -ne '"' -and $q -ne "'") { return -1 }
+
+    $j = $Index + 2
+    while ($j -lt $Limit -and ($Command[$j] -eq ' ' -or $Command[$j] -eq "`t")) { $j++ }
+    if ($j -lt $Limit -and $Command[$j] -eq "`r") { $j++ }
+    if ($j -ge $Limit -or $Command[$j] -ne "`n") { return -1 }
+
+    $k = $j
+    while ($k -lt $Limit) {
+        if ($Command[$k] -eq "`n" -and ($k + 2) -lt $Limit -and
+            $Command[$k + 1] -eq $q -and $Command[$k + 2] -eq '@') {
+            return $k + 3
+        }
+        $k++
+    }
+    return $Limit
+}
+
 function Split-CommandSegment {
     <#
     .SYNOPSIS
         Return top-level segment spans as objects with Start and End (exclusive).
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][AllowEmptyString()][string] $Command)
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string] $Command,
+        [ValidateSet('Bash','PowerShell')][string] $Shell = 'Bash'
+    )
 
+    $ps       = ($Shell -eq 'PowerShell')
+    $esc      = if ($ps) { [char]96 } else { [char]'\' }
     $spans    = [System.Collections.Generic.List[object]]::new()
     $segStart = 0
     $i        = 0
@@ -46,17 +117,35 @@ function Split-CommandSegment {
         $ch = $Command[$i]
 
         if ($null -ne $quote) {
-            if ($quote -eq '"' -and $ch -eq '\' -and ($i + 1) -lt $n) { $i += 2; continue }
+            if ($quote -eq '"' -and $ch -eq $esc -and ($i + 1) -lt $n) {
+                $i += Get-EscapeStep -Command $Command -Index $i -Limit $n -Shell $Shell; continue
+            }
             if ($ch -eq $quote) { $quote = $null }
             $i++; continue
         }
 
+        if ($ps -and $ch -eq '@') {
+            $he = Get-HereStringEnd -Command $Command -Index $i -Limit $n
+            if ($he -ge 0) { $i = $he; continue }
+        }
         if ($ch -eq '"' -or $ch -eq "'") { $quote = $ch; $i++; continue }
-        if ($ch -eq '\' -and ($i + 1) -lt $n) { $i += 2; continue }
-        if ($ch -eq '(') { $depth++;                    $i++; continue }
-        if ($ch -eq ')') { $depth = [Math]::Max(0, $depth - 1); $i++; continue }
+        if ($ch -eq $esc -and ($i + 1) -lt $n) {
+            $i += Get-EscapeStep -Command $Command -Index $i -Limit $n -Shell $Shell; continue
+        }
+        if ($ps -and $ch -eq '#' -and ($i -eq 0 -or [char]::IsWhiteSpace($Command[$i - 1]))) {
+            while ($i -lt $n -and $Command[$i] -ne "`n") { $i++ }
+            continue
+        }
+        if ($ch -eq '(' -or ($ps -and $ch -eq '{')) { $depth++;                    $i++; continue }
+        if ($ch -eq ')' -or ($ps -and $ch -eq '}')) { $depth = [Math]::Max(0, $depth - 1); $i++; continue }
 
         if ($depth -eq 0) {
+            if ($ps -and $ch -eq "`n") {
+                $spans.Add([pscustomobject]@{ Start = $segStart; End = $i })
+                $i++
+                $segStart = $i
+                continue
+            }
             $matched = $null
             foreach ($sep in $script:Separators) {
                 if ($i + $sep.Length -le $n -and $Command.Substring($i, $sep.Length) -eq $sep) {
@@ -92,13 +181,18 @@ function Get-InsertionPoint {
     .SYNOPSIS
         Index within a segment where flags belong: before any redirect, and
         before a bare '--' (which hands everything after it to the inner host).
+        In PowerShell mode it also stops before a '#' comment, and a redirect
+        may carry a stream prefix ('*>', '2>$null', '3>&1').
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string] $Command,
-        [Parameter(Mandatory)][object] $Span
+        [Parameter(Mandatory)][object] $Span,
+        [ValidateSet('Bash','PowerShell')][string] $Shell = 'Bash'
     )
 
+    $ps    = ($Shell -eq 'PowerShell')
+    $esc   = if ($ps) { [char]96 } else { [char]'\' }
     $s = $Span.Start; $e = $Span.End
     $i = $s
     $quote = $null
@@ -108,17 +202,37 @@ function Get-InsertionPoint {
         $ch = $Command[$i]
 
         if ($null -ne $quote) {
-            if ($quote -eq '"' -and $ch -eq '\' -and ($i + 1) -lt $e) { $i += 2; continue }
+            if ($quote -eq '"' -and $ch -eq $esc -and ($i + 1) -lt $e) {
+                $i += Get-EscapeStep -Command $Command -Index $i -Limit $e -Shell $Shell; continue
+            }
             if ($ch -eq $quote) { $quote = $null }
             $i++; continue
         }
+        if ($ps -and $ch -eq '@') {
+            $he = Get-HereStringEnd -Command $Command -Index $i -Limit $e
+            if ($he -ge 0) { $i = $he; continue }
+        }
         if ($ch -eq '"' -or $ch -eq "'") { $quote = $ch; $i++; continue }
 
-        $hit = $null
-        foreach ($r in $script:Redirects) {
-            if ($i + $r.Length -le $e -and $Command.Substring($i, $r.Length) -eq $r) { $hit = $r; break }
+        if ($ps) {
+            if ($ch -eq $esc -and ($i + 1) -lt $e) {
+                $i += Get-EscapeStep -Command $Command -Index $i -Limit $e -Shell $Shell; continue
+            }
+            $tokenStart = ($i -eq $s -or [char]::IsWhiteSpace($Command[$i - 1]))
+            if ($ch -eq '#' -and $tokenStart) { $stop = $i; break }
+            if ($ch -eq '>' -or $ch -eq '<') { $stop = $i; break }
+            if ($tokenStart -and '*123456'.IndexOf($ch) -ge 0 -and
+                ($i + 1) -lt $e -and ($Command[$i + 1] -eq '>' -or $Command[$i + 1] -eq '<')) {
+                $stop = $i; break
+            }
         }
-        if ($null -ne $hit) { $stop = $i; break }
+        else {
+            $hit = $null
+            foreach ($r in $script:Redirects) {
+                if ($i + $r.Length -le $e -and $Command.Substring($i, $r.Length) -eq $r) { $hit = $r; break }
+            }
+            if ($null -ne $hit) { $stop = $i; break }
+        }
 
         if ($i + 2 -le $e -and $Command.Substring($i, 2) -eq '--' -and
             ($i -eq $s -or [char]::IsWhiteSpace($Command[$i - 1]))) {
@@ -195,7 +309,8 @@ function Get-SegmentEdit {
         [Parameter(Mandatory)][object]   $Span,
         [Parameter(Mandatory)][string[]] $Prefixes,
         [hashtable] $SkipMap = @{},
-        [int] $Depth = 0
+        [int] $Depth = 0,
+        [ValidateSet('Bash','PowerShell')][string] $Shell = 'Bash'
     )
 
     $text = $Command.Substring($Span.Start, $Span.End - $Span.Start)
@@ -205,9 +320,9 @@ function Get-SegmentEdit {
         $innerEnd   = $Span.End - 1
         $inner      = $Command.Substring($innerStart, $innerEnd - $innerStart)
         $out = [System.Collections.Generic.List[object]]::new()
-        foreach ($sub in (Split-CommandSegment -Command $inner)) {
+        foreach ($sub in (Split-CommandSegment -Command $inner -Shell $Shell)) {
             $shifted = [pscustomobject]@{ Start = $innerStart + $sub.Start; End = $innerStart + $sub.End }
-            foreach ($edit in (Get-SegmentEdit -Command $Command -Span $shifted -Prefixes $Prefixes -SkipMap $SkipMap -Depth ($Depth + 1))) {
+            foreach ($edit in (Get-SegmentEdit -Command $Command -Span $shifted -Prefixes $Prefixes -SkipMap $SkipMap -Depth ($Depth + 1) -Shell $Shell)) {
                 $out.Add($edit)
             }
         }
@@ -219,7 +334,7 @@ function Get-SegmentEdit {
         if ($SkipMap.ContainsKey($matched) -and $SkipMap[$matched].IsMatch($text)) {
             return @()
         }
-        $idx = Get-InsertionPoint -Command $Command -Span $Span
+        $idx = Get-InsertionPoint -Command $Command -Span $Span -Shell $Shell
         return @([pscustomobject]@{ Index = $idx; Prefix = $matched })
     }
     return @()
@@ -245,15 +360,16 @@ function Add-CommandFlag {
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string] $Command,
         [Parameter(Mandatory)][hashtable] $FlagMap,
-        [hashtable] $SkipMap = @{}
+        [hashtable] $SkipMap = @{},
+        [ValidateSet('Bash','PowerShell')][string] $Shell = 'Bash'
     )
 
     # Longest-first: 'dotnet msbuild' must be tested before 'dotnet'.
     $prefixes = @($FlagMap.Keys | Sort-Object -Property Length -Descending)
 
     $edits = [System.Collections.Generic.List[object]]::new()
-    foreach ($span in (Split-CommandSegment -Command $Command)) {
-        foreach ($edit in (Get-SegmentEdit -Command $Command -Span $span -Prefixes $prefixes -SkipMap $SkipMap -Depth 0)) {
+    foreach ($span in (Split-CommandSegment -Command $Command -Shell $Shell)) {
+        foreach ($edit in (Get-SegmentEdit -Command $Command -Span $span -Prefixes $prefixes -SkipMap $SkipMap -Depth 0 -Shell $Shell)) {
             $edits.Add($edit)
         }
     }
@@ -281,7 +397,8 @@ function Get-DispatchEdit {
         [Parameter(Mandatory)][string]   $Command,
         [Parameter(Mandatory)][object]   $Span,
         [Parameter(Mandatory)][string[]] $Prefixes,
-        [int] $Depth = 0
+        [int] $Depth = 0,
+        [ValidateSet('Bash','PowerShell')][string] $Shell = 'Bash'
     )
 
     $text = $Command.Substring($Span.Start, $Span.End - $Span.Start)
@@ -291,9 +408,9 @@ function Get-DispatchEdit {
         $innerEnd   = $Span.End - 1
         $inner      = $Command.Substring($innerStart, $innerEnd - $innerStart)
         $out = [System.Collections.Generic.List[object]]::new()
-        foreach ($sub in (Split-CommandSegment -Command $inner)) {
+        foreach ($sub in (Split-CommandSegment -Command $inner -Shell $Shell)) {
             $shifted = [pscustomobject]@{ Start = $innerStart + $sub.Start; End = $innerStart + $sub.End }
-            foreach ($edit in (Get-DispatchEdit -Command $Command -Span $shifted -Prefixes $Prefixes -Depth ($Depth + 1))) {
+            foreach ($edit in (Get-DispatchEdit -Command $Command -Span $shifted -Prefixes $Prefixes -Depth ($Depth + 1) -Shell $Shell)) {
                 $out.Add($edit)
             }
         }
@@ -331,15 +448,16 @@ function Add-CommandDispatch {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string] $Command,
-        [Parameter(Mandatory)][hashtable] $DispatchMap
+        [Parameter(Mandatory)][hashtable] $DispatchMap,
+        [ValidateSet('Bash','PowerShell')][string] $Shell = 'Bash'
     )
 
     # Longest-first: a more specific prefix must be tested before a shorter one.
     $prefixes = @($DispatchMap.Keys | Sort-Object -Property Length -Descending)
 
     $edits = [System.Collections.Generic.List[object]]::new()
-    foreach ($span in (Split-CommandSegment -Command $Command)) {
-        foreach ($edit in (Get-DispatchEdit -Command $Command -Span $span -Prefixes $prefixes -Depth 0)) {
+    foreach ($span in (Split-CommandSegment -Command $Command -Shell $Shell)) {
+        foreach ($edit in (Get-DispatchEdit -Command $Command -Span $span -Prefixes $prefixes -Depth 0 -Shell $Shell)) {
             $edits.Add($edit)
         }
     }

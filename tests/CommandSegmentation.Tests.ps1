@@ -3,11 +3,13 @@
     Vectors for CommandSegmentation.psm1.
 
 .DESCRIPTION
-    33 vectors. The original 31 were verified against a reference implementation
+    57 vectors. The original 31 were verified against a reference implementation
     before the PowerShell port was written and are the contract -- none may be
     removed. 2 more were added when Add-CommandFlag moved from a single
     -Prefixes/-Flags pair to a -FlagMap, proving build and test each get their
-    own flags in one compound command and inside a subshell.
+    own flags in one compound command and inside a subshell. 24 more cover the
+    PowerShell shell mode (-Shell PowerShell): 21 segmentation and rewrite
+    vectors, 2 dispatch vectors, and 1 asserting that -Shell defaults to Bash.
 
     The env-assignment and subshell vectors were added after the hook-behaviour
     probe (2026-08-19) measured that Claude Code's 'if' filter reaches both cases.
@@ -230,6 +232,74 @@ Describe 'Add-CommandFlag with SkipMap (restore-verb exclusion)' {
     It 'is backward compatible: omitting -SkipMap behaves exactly as before' {
         Add-CommandFlag -Command 'msbuild.exe foo.sln -t:Restore' -FlagMap $script:MsbuildFlagMap |
             Should -BeExactly 'msbuild.exe foo.sln -t:Restore -nologo -tl:off -v:q'
+    }
+}
+
+Describe 'PowerShell mode' {
+    <#
+    Commands from Claude Code's PowerShell tool use PowerShell syntax: backtick
+    escapes and line continuations, newline separators, here-strings, { } script
+    blocks (never rewritten), '#' comments, and '*>' / 'N>' redirects.
+    #>
+
+    $bt        = [string][char]96
+    $btCmd     = 'dotnet build ' + $bt + "`n-c Release"
+    $hereLines = @('$x = @"', 'a; dotnet build', '"@', 'dotnet build')
+    $hereCmd   = $hereLines -join "`n"
+    $hereWant  = (@($hereLines[0], $hereLines[1], $hereLines[2], 'dotnet build -nologo -tl:off')) -join "`n"
+
+    $cases = @(
+        @{ Cmd='dotnet build C:\src\App.sln';                    Segs=1; Want='dotnet build C:\src\App.sln -nologo -tl:off' }
+        @{ Cmd='dotnet build "C:\src\" ; dotnet test';           Segs=2; Want='dotnet build "C:\src\" -nologo -tl:off ; dotnet test -nologo -tl:off' }
+        @{ Cmd='cd src; dotnet build';                           Segs=2; Want='cd src; dotnet build -nologo -tl:off' }
+        @{ Cmd="cd src`ndotnet build";                           Segs=2; Want="cd src`ndotnet build -nologo -tl:off" }
+        @{ Cmd="cd src`r`ndotnet build`r`ndotnet test";          Segs=3; Want="cd src`r`ndotnet build -nologo -tl:off`r`ndotnet test -nologo -tl:off" }
+        @{ Cmd=$btCmd;                                           Segs=1; Want=($btCmd + ' -nologo -tl:off') }
+        @{ Cmd='& dotnet build';                                 Segs=1; Want='& dotnet build -nologo -tl:off' }
+        @{ Cmd='dotnet build *> build.log';                      Segs=1; Want='dotnet build -nologo -tl:off *> build.log' }
+        @{ Cmd='dotnet build 2>$null';                           Segs=1; Want='dotnet build -nologo -tl:off 2>$null' }
+        @{ Cmd='dotnet build 3>&1';                              Segs=1; Want='dotnet build -nologo -tl:off 3>&1' }
+        @{ Cmd='dotnet build *>&1 | Out-Null';                   Segs=2; Want='dotnet build -nologo -tl:off *>&1 | Out-Null' }
+        @{ Cmd='dotnet build # quiet it';                        Segs=1; Want='dotnet build -nologo -tl:off # quiet it' }
+        @{ Cmd="# note`ndotnet build";                           Segs=2; Want="# note`ndotnet build -nologo -tl:off" }
+        @{ Cmd='dotnet test --filter "A`"&&B"';                  Segs=1; Want='dotnet test --filter "A`"&&B" -nologo -tl:off' }
+        @{ Cmd="dotnet test --filter 'it''s;x'";                 Segs=1; Want="dotnet test --filter 'it''s;x' -nologo -tl:off" }
+        @{ Cmd='if ($ok) { dotnet build; dotnet test }';         Segs=1; Want='if ($ok) { dotnet build; dotnet test }' }
+        @{ Cmd='foreach ($p in 1,2) { dotnet build }';           Segs=1; Want='foreach ($p in 1,2) { dotnet build }' }
+        @{ Cmd=$hereCmd;                                         Segs=2; Want=$hereWant }
+        @{ Cmd='(cd src; dotnet build)';                         Segs=1; Want='(cd src; dotnet build -nologo -tl:off)' }
+        @{ Cmd='$(dotnet build)';                                Segs=1; Want='$(dotnet build)' }
+        @{ Cmd='echo "a; b"; dotnet build';                      Segs=2; Want='echo "a; b"; dotnet build -nologo -tl:off' }
+    )
+
+    It 'segments and rewrites <Cmd> in PowerShell mode' -TestCases $cases {
+        param($Cmd, $Segs, $Want)
+        (Split-CommandSegment -Command $Cmd -Shell PowerShell).Count | Should -Be $Segs
+        Add-CommandFlag -Command $Cmd -FlagMap $script:FlagMap -Shell PowerShell | Should -BeExactly $Want
+    }
+
+    It 'defaults -Shell to Bash' {
+        $c = 'dotnet build "C:\src\" ; dotnet test'
+        $withDefault = Add-CommandFlag -Command $c -FlagMap $script:FlagMap
+        $withBash    = Add-CommandFlag -Command $c -FlagMap $script:FlagMap -Shell Bash
+        $withDefault | Should -BeExactly $withBash
+    }
+}
+
+Describe 'Add-CommandDispatch PowerShell mode' {
+
+    BeforeAll {
+        $script:PsDispatchMap = @{ 'dotnet test' = "pwsh -File w.ps1 '--'" }
+    }
+
+    It 'dispatches the matched segment of a ;-separated command' {
+        Add-CommandDispatch -Command 'dotnet build; dotnet test' -DispatchMap $script:PsDispatchMap -Shell PowerShell |
+            Should -BeExactly "dotnet build; pwsh -File w.ps1 '--' dotnet test"
+    }
+
+    It 'dispatches a matched line of a newline-separated command, leaving the redirect in the tail' {
+        Add-CommandDispatch -Command "cd src`ndotnet test > out.txt" -DispatchMap $script:PsDispatchMap -Shell PowerShell |
+            Should -BeExactly "cd src`npwsh -File w.ps1 '--' dotnet test > out.txt"
     }
 }
 
