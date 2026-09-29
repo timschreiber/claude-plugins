@@ -108,6 +108,9 @@ and [`docs/framework-build-findings.md`](https://github.com/timschreiber/claude-
 - **Inside the PowerShell tool, builds within script blocks (`{ ... }`, e.g.
   `if`/`foreach` bodies) and subexpressions (`$(...)`) are left unchanged.**
   Top-level builds there, including multi-line commands, are quieted.
+- **A build placed after a shell keyword such as `then` or `do` is not
+  rewritten.** For example `if x; then dotnet build; fi` on one line, or a
+  `then dotnet build` line, runs unchanged.
 - **Requires PowerShell 7+ (`pwsh`) on `PATH`.** The hook shells out to it
   directly; if it's missing, the hook silently does nothing and the original
   command runs verbose.

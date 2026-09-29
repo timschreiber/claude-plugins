@@ -753,8 +753,14 @@ PowerShell tool were silently unquieted.
   PowerShell tests in `tests/Invoke-QuietDotnet.Tests.ps1` pass.
 - `./scripts/Sync-Shared.ps1 -Check` passes.
 
-**Follow-up.** Bash mode still does not split on newlines or recognize `#`
-comments. This is left unchanged to keep the Bash vector set fixed.
+**Follow-up, done.** Bash mode now splits on an unquoted newline as it does on
+`;`, treats a word-initial `#` as a comment to end of line (`$#`, `${#x}` and
+`a#b` are not comments), skips heredoc bodies as opaque, and inserts flags
+before a trailing `#` comment. Remaining limits: shell keywords as segment
+heads (`then`, `do`, `else`) still do not match, and `case` patterns are not
+parsed. This is shell-syntax handling verified by the unit vectors in the
+`Bash mode newlines, comments and heredocs` Describe in
+`tests/CommandSegmentation.Tests.ps1`, not a measurement by Claude Code.
 
 ---
 

@@ -133,7 +133,8 @@ Bash("dotnet build && dotnet test")
        -> fast-reject if the raw payload has no build-ish substring
           (must be cheap -- this path runs on every Bash and PowerShell call)
        -> quote-aware segmentation of the command into top-level pieces
-          (respects &&, |, subshells, redirects; ignores &&/| inside quotes)
+          (respects &&, |, subshells, redirects, newlines, comments, heredocs;
+          ignores &&/| inside quotes)
        -> per-segment, per-prefix flag insertion (dotnet build gets build
           flags, dotnet test gets test flags -- a shared flag string is wrong,
           e.g. -clp on a test command is an error, not a no-op)
