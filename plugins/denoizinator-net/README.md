@@ -27,7 +27,8 @@ normally would.
 
 ## What it does
 
-A single hook watches every command Claude is about to run and rewrites
+A single hook watches every command Claude is about to run, through either
+the Bash tool or the PowerShell tool, and rewrites
 `dotnet`/`msbuild` invocations in place before they execute, so the rewrite
 is invisible to you, to CI, and to Visual Studio (nothing is ever written
 into your repository — no `.rsp` file, no `global.json`, no config).
@@ -83,14 +84,14 @@ and [`docs/framework-build-findings.md`](https://github.com/timschreiber/claude-
 
 - **Builds run through another interpreter are invisible to it, and stay
   verbose — permanently, by design.** The hook only ever sees the literal
-  Bash command string Claude is about to run; it can't see through a
+  command string (Bash tool or PowerShell tool) Claude is about to run; it can't see through a
   wrapping shell or script without executing it first:
   - `pwsh -c "dotnet build"`, `pwsh -NoProfile -Command dotnet build`
   - `npm run build`, or any package-manager script that shells out
   - Makefiles, `nx`, `cake`, and similar wrappers
 - **It doesn't make anything build or run faster.** It only reduces how much
   output volume reaches Claude's context — the `pwsh` launch itself adds
-  roughly 300ms of overhead to every matching Bash call, which this plugin
+  roughly 300ms of overhead to every matching Bash or PowerShell tool call, which this plugin
   accepts as the cost of quieter output, not something it optimizes away.
 - **Windows only, this version.** Everything here is measured on Windows +
   PowerShell 7. Non-Windows behavior is unmeasured and unscheduled.
@@ -104,6 +105,9 @@ and [`docs/framework-build-findings.md`](https://github.com/timschreiber/claude-
   syntax entirely from the generic `dotnet test`/MTP flags every other
   runner here understands, so a command with extra args falls back to
   running unmodified rather than risk misinterpreting them.
+- **Inside the PowerShell tool, builds within script blocks (`{ ... }`, e.g.
+  `if`/`foreach` bodies) and subexpressions (`$(...)`) are left unchanged.**
+  Top-level builds there, including multi-line commands, are quieted.
 - **Requires PowerShell 7+ (`pwsh`) on `PATH`.** The hook shells out to it
   directly; if it's missing, the hook silently does nothing and the original
   command runs verbose.

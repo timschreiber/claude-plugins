@@ -94,6 +94,7 @@ Do not re-derive these. Evidence is in `probes/evidence/`.
 | Rewrites do not chain; the last handler wins silently | hook §9 |
 | Rewritten commands return output normally | hook §10 |
 | Subagent Bash calls inherit hooks | hook §11 |
+| The PowerShell tool fires `PreToolUse` and honours `updatedInput` | hook §14 |
 | Exit 1 means "tests failed" on VSTest, "infrastructure error" on MTP | dotnet §4 |
 | MTP exit 9 fires only when nothing failed; failures return 2 | dotnet §4 |
 | VSTest returns exit 0 with no summary when zero tests ran | dotnet §5 |
@@ -104,13 +105,13 @@ Do not re-derive these. Evidence is in `probes/evidence/`.
 
 ## 5. Architecture
 
-A single `PreToolUse` handler on the `Bash` tool, unfiltered. It reads the tool
+A single `PreToolUse` handler matched on `Bash|PowerShell`, unfiltered. It reads the tool
 payload, rewrites matching sub-commands, and returns `updatedInput`. All command
 matching happens inside the script, because `if`-based filtering cannot be used
 without violating C4.
 
 ```
-Claude issues Bash("dotnet build && dotnet test")
+Claude issues Bash("dotnet build && dotnet test") (or the same via PowerShell)
   → PreToolUse handler (one, unfiltered)
       → fast reject if the raw payload contains no build-ish substring
       → parse into top-level segments, quote-aware
@@ -128,7 +129,7 @@ Claude issues Bash("dotnet build && dotnet test")
 | `CommandSegmentation.psm1` | `shared/denoizinator-core/` | Quote-aware segmentation and flag insertion. Pure functions, no I/O. |
 | `Denoizinator.Core.psm1` | `shared/denoizinator-core/` | Toolchain-agnostic helpers: output directory, summary formatting. |
 | `Invoke-QuietDotnet.ps1` | `plugins/denoizinator-net/scripts/` | The hook entry point. Payload in, rewrite out. |
-| `hooks.json` | `plugins/denoizinator-net/hooks/` | One handler, `matcher: "Bash"`, no `if`. |
+| `hooks.json` | `plugins/denoizinator-net/hooks/` | One handler, `matcher: "Bash|PowerShell"`, no `if`. |
 
 ### 5.2 The insertion contract
 
@@ -726,6 +727,34 @@ via `Start-Process`, per the measurement-discipline rule.
 > xunit.v3-MTP's passthrough carve-out in §5.4. If none is found, document
 > every candidate and its failure mode, and update §5.4's comment to cite
 > this phase instead of leaving it as an open unknown.
+
+### Phase 9 — PowerShell tool coverage
+
+**Status: built.**
+
+**Problem.** The hook matched only `Bash`, so builds Claude ran through the
+PowerShell tool were silently unquieted.
+
+**Evidence.** `hook-behavior-findings.md` §14 and
+`probes/evidence/powershell-tool-rewrite.json`: the PowerShell tool fires
+`PreToolUse` and honours `updatedInput`.
+
+**Built.**
+- `hooks.json` matcher is now `Bash|PowerShell` (still one unfiltered handler).
+- `CommandSegmentation.psm1` gained a `-Shell Bash|PowerShell` mode (default
+  Bash): backtick escapes and line continuations, newline as a separator,
+  here-strings, `{ }` script blocks never rewritten, `#` comments, and
+  `*>`/`N>` redirects.
+- `Invoke-QuietDotnet.ps1` sets the shell from `tool_name` and emits
+  PowerShell-safe single-quoted text for the `-clp` flag and the dispatch head.
+
+**Acceptance.**
+- The PowerShell-mode vectors in `tests/CommandSegmentation.Tests.ps1` and the
+  PowerShell tests in `tests/Invoke-QuietDotnet.Tests.ps1` pass.
+- `./scripts/Sync-Shared.ps1 -Check` passes.
+
+**Follow-up.** Bash mode still does not split on newlines or recognize `#`
+comments. This is left unchanged to keep the Bash vector set fixed.
 
 ---
 

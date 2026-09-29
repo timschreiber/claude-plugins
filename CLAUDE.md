@@ -112,20 +112,21 @@ config). Consequences that shape everything else here:
 
 ### The Denoizinator hook design (denoizinator-net)
 
-One `PreToolUse` handler per plugin, matched on `matcher: "Bash"` with **no**
+One `PreToolUse` handler per plugin, matched on `matcher: "Bash|PowerShell"` with **no**
 `if` filter — filtering happens inside the script instead. This is deliberate,
 not incomplete: Claude Code runs *every* matching handler on a tool call (not
 first-match-wins), and when two handlers both return `updatedInput` for the
 same call, the later one silently discards the earlier one's rewrite. A second
 filtered handler for `dotnet test` alongside one for `dotnet build` would lose
 half the rewrite on `dotnet build && dotnet test`. So: exactly one handler per
-plugin, unfiltered, doing all matching itself.
+plugin, unfiltered, doing all matching itself. The segmenter takes its
+`-Shell` (Bash or PowerShell rules) from the payload's `tool_name`.
 
 Pipeline per tool call:
 
 ```
 Bash("dotnet build && dotnet test")
-  -> PreToolUse: Invoke-QuietDotnet.ps1 (unfiltered, fires on every Bash call)
+  -> PreToolUse: Invoke-QuietDotnet.ps1 (unfiltered, fires on every Bash or PowerShell call)
        -> fast-reject if the raw payload has no build-ish substring
           (must be cheap -- this path runs on every Bash call in the session)
        -> quote-aware segmentation of the command into top-level pieces
