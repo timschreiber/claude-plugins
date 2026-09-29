@@ -143,6 +143,21 @@ The execute-plan run guide, 2026-09-28 16:23 to 17:11 (Claude Code 2.1.284, plan
   then gave the next step. `af16b43` adds the note, and `eb1e5fc` moves the next step to the "finished"
   notification. Neither was installed for this run.
 
+## A hand-back makes the finished notification transcript-only (Claude Code 2.1.285)
+
+Evidence: `probes/evidence/planandtier-handback-stall.json`, made by
+`probes/planandtier/extract-handback-stall.js` from the WP-01 session transcript. The entry indexes below
+are the transcript's own line numbers (0-based).
+
+- When a worker hands its report back with `SubagentHandback`, the report arrives as an `<agent-message>`
+  prompt. Its record has `origin.handback: true` (entries 266-268), and `UserPromptSubmit` fires on it
+  (entry 269).
+- The later `<task-notification>` is recorded with `queueTranscriptOnly: true` (entry 277). Its text says
+  the report is not repeated. It starts no turn and fires no `UserPromptSubmit`. The `Stop` hook had
+  already run for the hand-back turn (entries 273-274), before the notification was recorded.
+- So a notice that H4 left for the notification (`noticeByNotification`) was never delivered. H5 let the
+  turn end, H1 had no prompt to give the notice on, and the run stalled after T01 until the user typed.
+
 ## Not measured
 
 - The fixes in `af16b43` and `eb1e5fc` (the early-report note, and the next step given with the "finished"
