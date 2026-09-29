@@ -3,7 +3,7 @@
     PreToolUse hook entry point for .NET build and test commands.
 
 .DESCRIPTION
-    Reads the Bash tool-call payload from stdin, fast-rejects on the raw text
+    Reads the Bash or PowerShell tool-call payload from stdin, fast-rejects on the raw text
     before importing any module or parsing JSON, and rewrites matching
     dotnet/msbuild commands via the vendored CommandSegmentation module.
     Emits hookSpecificOutput.updatedInput only when the command actually
@@ -43,9 +43,16 @@ try {
         $data    = $payload | ConvertFrom-Json
         $command = $data.tool_input.command
 
-        if ($data.tool_name -eq 'Bash' -and $command -is [string] -and $command.Length -gt 0) {
+        if ($data.tool_name -in @('Bash', 'PowerShell') -and $command -is [string] -and $command.Length -gt 0) {
+            $shell = [string]$data.tool_name
+
             # -clp's value is quoted (not the whole flag string) because it contains
             # literal ';' -- unquoted, Bash would read it as three separate commands.
+            # In PowerShell the whole token is single-quoted instead: a
+            # single-quoted string is a literal, passed to the native command
+            # verbatim (embedded double quotes would be re-parsed differently).
+            # The dispatch head quotes '--' for the same reason: unquoted, PowerShell
+            # treats it as its own end-of-parameters token and swallows it.
             #
             # Bare 'msbuild'/'msbuild.exe' (Framework MSBuild.exe, not the dotnet
             # CLI) are routed since Phase 7 (framework-build-findings.md §2: every
@@ -61,12 +68,17 @@ try {
             # instead (Phase 4, spec §6). 'vstest.console'/'vstest.console.exe'
             # (Framework's direct test runner) is dispatched the same way, since
             # Phase 7 (framework-build-findings.md §5).
+            if ($shell -eq 'PowerShell') {
+                $clp = "'-clp:ErrorsOnly;Summary;ShowProjectFile=false'"
+            } else {
+                $clp = '-clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
+            }
             $flagMap = @{
-                'dotnet build'   = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
-                'dotnet msbuild' = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
-                'dotnet run'     = '-nologo -tl:off -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
-                'msbuild'        = '-nologo -tl:off -v:q -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
-                'msbuild.exe'    = '-nologo -tl:off -v:q -clp:"ErrorsOnly;Summary;ShowProjectFile=false"'
+                'dotnet build'   = "-nologo -tl:off $clp"
+                'dotnet msbuild' = "-nologo -tl:off $clp"
+                'dotnet run'     = "-nologo -tl:off $clp"
+                'msbuild'        = "-nologo -tl:off -v:q $clp"
+                'msbuild.exe'    = "-nologo -tl:off -v:q $clp"
             }
 
             # Restore is a distinct verb from build, the same way 'dotnet build'
@@ -89,14 +101,21 @@ try {
 
             $wrapperPath       = Join-Path $PSScriptRoot 'Invoke-QuietDotnetTest.ps1'
             $vstestWrapperPath = Join-Path $PSScriptRoot 'Invoke-QuietVstestConsole.ps1'
+            if ($shell -eq 'PowerShell') {
+                $testHead    = "pwsh -NoProfile -File '$($wrapperPath.Replace("'", "''"))' '--'"
+                $vstestHead  = "pwsh -NoProfile -File '$($vstestWrapperPath.Replace("'", "''"))' '--'"
+            } else {
+                $testHead    = "pwsh -NoProfile -File `"$wrapperPath`" --"
+                $vstestHead  = "pwsh -NoProfile -File `"$vstestWrapperPath`" --"
+            }
             $dispatchMap = @{
-                'dotnet test'        = "pwsh -NoProfile -File `"$wrapperPath`" --"
-                'vstest.console'     = "pwsh -NoProfile -File `"$vstestWrapperPath`" --"
-                'vstest.console.exe' = "pwsh -NoProfile -File `"$vstestWrapperPath`" --"
+                'dotnet test'        = $testHead
+                'vstest.console'     = $vstestHead
+                'vstest.console.exe' = $vstestHead
             }
 
-            $rewritten = Add-CommandFlag -Command $command -FlagMap $flagMap -SkipMap $skipMap
-            $rewritten = Add-CommandDispatch -Command $rewritten -DispatchMap $dispatchMap
+            $rewritten = Add-CommandFlag -Command $command -FlagMap $flagMap -SkipMap $skipMap -Shell $shell
+            $rewritten = Add-CommandDispatch -Command $rewritten -DispatchMap $dispatchMap -Shell $shell
 
             if (-not [string]::Equals($rewritten, $command, [StringComparison]::Ordinal)) {
                 $out = @{

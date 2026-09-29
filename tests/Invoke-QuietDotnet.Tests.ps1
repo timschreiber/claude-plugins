@@ -101,6 +101,32 @@ Describe 'Invoke-QuietDotnet.ps1' {
                 Stderr = $stderrTask.Result
             }
         }
+
+        function Invoke-PwshRoundTrip {
+            # Runs $Command through a REAL child pwsh, the same way the
+            # PowerShell tool runs a rewritten command, so quoting is proven
+            # against PowerShell's own parser and native-argument passing.
+            param([Parameter(Mandatory)][string] $Command)
+
+            $psi = [System.Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName = (Get-Process -Id $PID).Path
+            $psi.ArgumentList.Add('-NoProfile')
+            $psi.ArgumentList.Add('-Command')
+            $psi.ArgumentList.Add($Command)
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError  = $true
+            $psi.UseShellExecute        = $false
+
+            $proc = [System.Diagnostics.Process]::Start($psi)
+            $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+            $stderrTask = $proc.StandardError.ReadToEndAsync()
+            $proc.WaitForExit()
+
+            [pscustomobject]@{
+                Argv   = @($stdoutTask.Result -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ -ne '' })
+                Stderr = $stderrTask.Result
+            }
+        }
     }
 
     It 'rewrites dotnet build && dotnet test: build gets flags, test is dispatched to the wrapper' {
@@ -178,7 +204,7 @@ Describe 'Invoke-QuietDotnet.ps1' {
         $r.Stdout   | Should -BeExactly ''
     }
 
-    It 'emits nothing when tool_name is not Bash' {
+    It 'emits nothing when tool_name is neither Bash nor PowerShell' {
         # tool_input.command still carries a build-ish string so this exercises the
         # tool_name gate specifically, not the raw-text fast reject.
         $payload = @{ tool_name = 'Edit'; tool_input = @{ command = 'dotnet build' } } | ConvertTo-Json -Compress
@@ -217,5 +243,61 @@ Describe 'Invoke-QuietDotnet.ps1' {
         # intact, not truncated at the first one.
         $result.Argv | Should -Contain '-clp:ErrorsOnly;Summary;ShowProjectFile=false'
         $result.Argv -join '' | Should -Not -Match '"'
+    }
+
+    It 'rewrites a PowerShell payload: build gets PowerShell-quoted flags, test is dispatched with quoted --' {
+        $wrapperPath = (Resolve-Path (Join-Path $PSScriptRoot '../plugins/denoizinator-net/scripts/Invoke-QuietDotnetTest.ps1')).Path
+
+        $payload = @{ tool_name = 'PowerShell'; tool_input = @{ command = 'dotnet build; dotnet test' } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
+
+        $r.ExitCode | Should -Be 0
+        $parsed = $r.Stdout | ConvertFrom-Json
+        $parsed.hookSpecificOutput.updatedInput.command |
+            Should -BeExactly ("dotnet build -nologo -tl:off '-clp:ErrorsOnly;Summary;ShowProjectFile=false'; " +
+                                "pwsh -NoProfile -File '$wrapperPath' '--' dotnet test")
+        $parsed.hookSpecificOutput.PSObject.Properties.Name |
+            Should -Not -Contain 'permissionDecision'
+    }
+
+    It 'the PowerShell build rewrite survives a real pwsh round-trip as one unquoted argv entry' {
+        $echoArgv = (Resolve-Path (Join-Path $PSScriptRoot 'fixtures/echo-argv.js')).Path
+        $payload = @{ tool_name = 'PowerShell'; tool_input = @{ command = 'dotnet build' } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
+        $rewritten = ($r.Stdout | ConvertFrom-Json).hookSpecificOutput.updatedInput.command
+
+        $runnable = $rewritten -replace '^dotnet ', "node '$echoArgv' "
+        $result = Invoke-PwshRoundTrip -Command $runnable
+
+        $result.Argv | Should -Contain '-clp:ErrorsOnly;Summary;ShowProjectFile=false'
+        $result.Argv | Should -Contain 'build'
+        ($result.Argv | Where-Object { $_ -match '["'']' }) | Should -BeNullOrEmpty
+    }
+
+    It 'the PowerShell test dispatch survives a real pwsh round-trip with dotnet test''s argv intact' {
+        $echoArgv = (Resolve-Path (Join-Path $PSScriptRoot 'fixtures/echo-argv.js')).Path
+        $payload = @{ tool_name = 'PowerShell'; tool_input = @{ command = 'dotnet test --logger "trx;LogFileName=x.trx"' } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
+        $rewritten = ($r.Stdout | ConvertFrom-Json).hookSpecificOutput.updatedInput.command
+
+        $rewritten | Should -Match '^pwsh -NoProfile -File ''[^'']+Invoke-QuietDotnetTest\.ps1'' ''--'' dotnet test --logger "trx;LogFileName=x\.trx"$'
+
+        $runnable = $rewritten -replace '^pwsh ', "node '$echoArgv' "
+        $result = Invoke-PwshRoundTrip -Command $runnable
+
+        $result.Argv | Should -Contain '--'
+        $result.Argv | Should -Contain 'dotnet'
+        $result.Argv | Should -Contain 'test'
+        $result.Argv | Should -Contain '--logger'
+        $result.Argv | Should -Contain 'trx;LogFileName=x.trx'
+    }
+
+    It 'rewrites a multi-line PowerShell command with flags on the second line' {
+        $payload = @{ tool_name = 'PowerShell'; tool_input = @{ command = "cd src`ndotnet build" } } | ConvertTo-Json -Compress
+        $r = Invoke-QuietDotnetProcess -StdinText $payload
+
+        $r.ExitCode | Should -Be 0
+        ($r.Stdout | ConvertFrom-Json).hookSpecificOutput.updatedInput.command |
+            Should -BeExactly "cd src`ndotnet build -nologo -tl:off '-clp:ErrorsOnly;Summary;ShowProjectFile=false'"
     }
 }
