@@ -7,6 +7,10 @@
 //         spend lines H4 queued for finished attempts, and the first Stop after the run has ended records
 //         its orchestration and adds the run's spend summary (lib/spend.js). A Stop hook's systemMessage
 //         is displayed; a SubagentStop hook's is not, for a background worker.
+//         When H1 left the hand-back marker (<session_id>.handback: a worker's report arrived before its
+//         attempt was judged), the "finished" notification will be transcript-only and start no turn, so
+//         Stop waits for the attempt to be judged (up to PLANANDTIER_HANDBACK_WAIT_MS, 30 s) and delivers
+//         the notice itself, blocking with it. If the wait runs out it tells the user to type continue.
 // Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
 // forever. Workers are subagents, which every hook ignores.
 'use strict'
@@ -33,10 +37,47 @@ function spendText(input, current) {
   return { s, text: text || null }
 }
 
+const inFlight = s => s?.phase === 'running' && !!s.current?.inFlight
+
+// A synchronous sleep; a hook has nothing else to do while it waits.
+const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+
+// Polls the state until the attempt in flight has been judged (H4's SubagentStop) or the wait runs out.
+// Returns the latest state.
+function waitForJudgment(input, current) {
+  const end = Date.now() + (Number(process.env.PLANANDTIER_HANDBACK_WAIT_MS) || 30000)
+  let s = current
+  while (inFlight(s) && Date.now() < end) {
+    sleep(Math.min(250, Math.max(1, end - Date.now())))
+    s = state.read(input.session_id)
+  }
+  return s
+}
+
 function stop(input, current) {
+  const marked = state.handback(input.session_id)
+  if (marked && inFlight(current)) {
+    current = waitForJudgment(input, current)
+    if (inFlight(current)) {
+      const id = current.tasks?.[current.current.index]?.id ?? marked
+      const spent = spendText(input, current).text
+      const waiting =
+        `planandtier: ${id} handed back its report, but planandtier has not finished checking it. ` +
+        'Type continue to go on.'
+      emit({ systemMessage: [waiting, spent].filter(Boolean).join('\n') })
+      return
+    }
+  }
   let { s, text } = spendText(input, current)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })
   if (!s || s.phase !== 'running' || s.current?.inFlight) {
+    // A run that ended while a hand-back was waiting: its last notice is not lost.
+    if (marked && s?.notice && ENDED.includes(s.phase)) {
+      state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
+      state.clearHandback(input.session_id)
+      shown({ decision: 'block', reason: s.notice })
+      return
+    }
     if (text) shown({})
     return
   }
@@ -52,13 +93,17 @@ function stop(input, current) {
   }
   // A background worker's notice goes out with its "finished" notification (H1), which always follows
   // its SubagentStop. Blocking here would deliver it too, but Claude Code labels a blocked stop an error.
-  if (s.notice && s.noticeByNotification) {
+  // With the hand-back marker there will be no such notification, so the notice is given here.
+  if (s.notice && s.noticeByNotification && !marked) {
     if (text) shown({})
     return
   }
   // A notice H4 left (what the last attempt did, and the next dispatch) says more than the bare
   // dispatch; once given here it is not repeated.
-  if (s.notice) state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
+  if (s.notice) {
+    state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
+    state.clearHandback(input.session_id)
+  }
   shown({ decision: 'block', reason: s.notice ?? REASON(s) })
 }
 

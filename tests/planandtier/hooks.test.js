@@ -2,7 +2,7 @@
 
 const { test, before, after, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
-const { spawnSync } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -688,10 +688,108 @@ test('a report that arrives before its worker stops gets a note to end the turn,
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   const early = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<agent-message from="w">STATUS: DONE</agent-message>' }).stdout
   assert.match(early, /^planandtier: T01's report arrived before planandtier checked it\./)
-  assert.match(early, /end your turn: the next step comes with the task's "finished" notification\. Do not dispatch anything or ask the user to act/)
+  assert.match(early, /end your turn: planandtier gives the next step when your turn ends\. Do not dispatch anything or ask the user to act/)
+  assert.equal(state.handback(S), 'T01', 'the hand-back marker names the task')
   assert.equal(state.read(S).current.inFlight, true, 'nothing changes in the run')
   const notification = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>x</task-notification>' }).stdout
   assert.equal(notification, '', 'only the hand-back gets the note')
+})
+
+// ---- the hand-back marker: a hand-back's "finished" notification is transcript-only -------
+
+const STOP = { session_id: S, stop_hook_active: false }
+// A run whose T01 worker was launched in the background, has stopped and been judged: the notice waits
+// and is tied to the notification.
+function judgedBackgroundRun() {
+  startTestRun()
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  hook('h4-dispatch.js', agentPost(call, { tool_response: { isAsync: true, status: 'async_launched' } }), ['post'])
+  hook('h4-dispatch.js', subStop(report('DONE', workerCommits('T01'))), ['stop'])
+}
+
+test('H1 delivering a waiting notice on a typed prompt clears the hand-back marker', () => {
+  judgedBackgroundRun()
+  state.markHandback(S, 'T01')
+  const out = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'continue' }).stdout
+  assert.match(out, /T01 done/)
+  assert.equal(state.handback(S), null)
+})
+
+test('H4 pre clears the hand-back marker on a valid dispatch', () => {
+  startTestRun()
+  state.markHandback(S, 'T01')
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  assert.equal(state.read(S).current.inFlight, true)
+  assert.equal(state.handback(S), null)
+})
+
+test('H5 stop with the hand-back marker delivers the notice that would wait for a notification, once', () => {
+  judgedBackgroundRun()
+  state.markHandback(S, 'T01')
+  const out = hook('h5-guard.js', STOP, ['stop']).json
+  assert.equal(out.decision, 'block')
+  assert.match(out.reason, /T01 done .*Call the Agent tool now with subagent_type "planandtier:sonnet-medium"/)
+  assert.deepEqual([state.read(S).notice, state.read(S).noticeByNotification], [null, false])
+  assert.equal(state.handback(S), null)
+})
+
+test('H5 stop without the hand-back marker still lets the stop through and keeps the notice for the notification', () => {
+  judgedBackgroundRun()
+  assert.equal(state.read(S).noticeByNotification, true)
+  const out = hook('h5-guard.js', STOP, ['stop']).json
+  assert.equal(out.decision, undefined)
+  assert.ok(state.read(S).notice)
+})
+
+test('H5 stop with the hand-back marker on a completed run blocks with the waiting notice', () => {
+  startTestRun()
+  const s = state.read(S)
+  state.write(S, { ...s, phase: 'complete', notice: 'planandtier: the run is complete. Tell the user.', noticeByNotification: true, spendReported: true })
+  state.markHandback(S, 'T03')
+  const out = hook('h5-guard.js', STOP, ['stop']).json
+  assert.equal(out.decision, 'block')
+  assert.match(out.reason, /the run is complete/)
+  assert.equal(state.read(S).notice, null)
+  assert.equal(state.handback(S), null)
+})
+
+test('H5 stop with the hand-back marker gives up waiting and tells the user to type continue', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  state.markHandback(S, 'T01')
+  const started = Date.now()
+  const r = hook('h5-guard.js', STOP, ['stop'], { PLANANDTIER_HANDBACK_WAIT_MS: '300' })
+  assert.ok(Date.now() - started < 10000)
+  assert.equal(r.json.decision, undefined, 'not blocked')
+  assert.match(r.json.systemMessage, /T01 handed back its report, but planandtier has not finished checking it\. Type continue/)
+})
+
+test('H5 stop with the hand-back marker waits for the attempt to be judged, then delivers the next step', async () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  state.markHandback(S, 'T01')
+  const inFlightState = state.read(S)
+  const child = spawn(process.execPath, [path.join(PLUGIN, 'scripts', 'h5-guard.js'), 'stop'], {
+    env: { ...process.env, PLANANDTIER_HANDBACK_WAIT_MS: '5000' },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  let stdout = ''
+  child.stdout.on('data', d => (stdout += d))
+  const exited = new Promise(resolve => child.on('exit', resolve))
+  child.stdin.end(JSON.stringify(STOP))
+  await new Promise(resolve => setTimeout(resolve, 300))
+  state.write(S, {
+    ...inFlightState,
+    current: { ...inFlightState.current, inFlight: false },
+    notice: 'NEXT-STEP',
+    noticeByNotification: true,
+  })
+  await exited
+  const out = JSON.parse(stdout)
+  assert.equal(out.decision, 'block')
+  assert.equal(out.reason, 'NEXT-STEP')
+  assert.equal(state.handback(S), null)
 })
 
 test('a background task\'s next step comes with its "finished" notification, and the stop in between is not blocked', () => {
