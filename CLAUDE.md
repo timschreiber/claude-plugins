@@ -128,7 +128,7 @@ Pipeline per tool call:
 Bash("dotnet build && dotnet test")
   -> PreToolUse: Invoke-QuietDotnet.ps1 (unfiltered, fires on every Bash or PowerShell call)
        -> fast-reject if the raw payload has no build-ish substring
-          (must be cheap -- this path runs on every Bash call in the session)
+          (must be cheap -- this path runs on every Bash and PowerShell call)
        -> quote-aware segmentation of the command into top-level pieces
           (respects &&, |, subshells, redirects; ignores &&/| inside quotes)
        -> per-segment, per-prefix flag insertion (dotnet build gets build
