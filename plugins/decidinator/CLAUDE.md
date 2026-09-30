@@ -61,8 +61,8 @@ creates them, as planandtier's are.
   (`disallowedTools: Edit, Write, NotebookEdit, AskUserQuestion, Agent`).
 - **Never throw.** A hook error means no output and exit 0, with debug logging
   only behind `DECIDINATOR_DEBUG` to a temp-directory file, never stdout.
-- **Deny only where the spec says so.** The gate, dispatch check, and guard
-  deny by design; everywhere else, on doubt, emit nothing. The guard steps
+- **Deny only where the spec says so.** The gate, dispatch check, guard and
+  oracle shell allowlist deny by design, and the nudge blocks a stop once; everywhere else, on doubt, emit nothing. The guard steps
   aside after `guardMaxBlocks`, so a wedged session can always recover.
 - **Ignore subagent calls.** The gate never acts on `AskUserQuestion` from a
   subagent, which is what prevents recursion.

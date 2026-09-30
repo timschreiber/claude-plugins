@@ -56,11 +56,17 @@ Rung models are honored only outside plan mode. In plan mode every rung runs on 
 
 In `default` permission mode Claude asks before an oracle uses WebFetch, WebSearch or `gh`. For unattended research, allow `WebFetch`, `WebSearch` and `Bash(gh search:*)`. GitHub searches need `gh` installed and authenticated.
 
+In an armed session, oracle Bash and PowerShell calls may run only one `gh search`, `gh repo view` or read-only (GET) `gh api` command each, with no pipes, redirects, chaining or variables (`--jq` filters output), and oracle Monitor calls are refused. Anything else is denied with the reason, and the oracle reads project files with Read, Glob and Grep instead. The main thread and other subagents are not affected.
+
 On subscription plans, oracle research counts against your usage like any other subagent.
 
 ## While an oracle researches
 
 When Claude calls `AskUserQuestion`, Decidinator holds the call and tells Claude which oracle to start. Until Claude starts it, and while the oracle researches in the background, Claude's other tool calls are refused with the same instruction, or with one to wait for the report. A verdict with low confidence, an unresolved researchable question, or a `spec-silent`, `spec-contradiction` or `cross-cutting` flag sends the question to the next rung, which is given the earlier verdicts to critique; a human-only question never escalates. After `guardMaxBlocks` refused calls in a row the guard steps aside, says so once, and lets tools run, so a lost report never wedges the session.
+
+## Plain-text questions
+
+When `nudgeOnPlainTextQuestions` is `true` (the default), a `Stop` hook checks Claude's final message. If its last non-blank line, outside fenced code blocks and with inline code removed, ends with `?`, the hook keeps Claude from ending its turn, once, and tells it to ask through `AskUserQuestion`. It stays quiet while an oracle dispatch is due or running. Questions that still slip through are not intercepted.
 
 ## What gets written
 

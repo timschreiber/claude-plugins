@@ -53,6 +53,7 @@ Oracles run as ordinary subagents dispatched by the model (Option 1). Hooks enfo
 | Recorder | `SubagentStop` hook | Acts only on the configured rung agents, matched by `agent_type` (other subagents also fire `SubagentStop` and are ignored). Reads the report from `last_assistant_message`, or, when that is missing, from the `SubagentHandback` call's `tool_input.message`, or from `agent_transcript_path`. Parses the oracle's verdict block, stores it against the question and rung, and decides the next step: resolved, escalate, or final unresolved. Writes the decision log and sidecar. A companion PostToolUse hook on AskUserQuestion records the user's answers in ask mode. |
 | Guard | `PreToolUse` hook on all other tools | While an oracle dispatch is due, denies other tool calls with the dispatch instruction. While a dispatched oracle is still researching, denies them with an instruction to end the turn and wait for its report (or dispatch again if it never comes). Steps aside after a configurable number of consecutive blocks, and tells the user once when it does. |
 | Nudge | `Stop` hook | If the final message ends with a question not asked through `AskUserQuestion`, blocks the stop once and tells the model to use the tool. |
+| Oracle shell allowlist | `PreToolUse` hook on `Bash`, `PowerShell` and `Monitor` | For calls from a configured rung agent, allows only one `gh search`, `gh repo view` or read-only `gh api` command per shell call, and denies Monitor. Main-thread calls and other subagents' calls are untouched. |
 | Commands | `UserPromptSubmit` hook + command files | Arm, disarm, status, review, confirm, export, import. |
 | Cleanup | `SessionEnd` hook | Deletes the session's state. |
 | Oracle rungs | Plugin agents | Read-only researchers. Defaults: `oracle-1`, `oracle-2`, `oracle-3`. |
@@ -227,7 +228,7 @@ Impact order, used by `/decidinator:confirm`: the number of `Depends on` labels,
 
 Safe behavior is the default, not an option, because standalone users may install Decidinator on codebases they don't own.
 
-- **Read-only oracles.** Oracles cannot edit files, ask questions, or start agents. If Bash is available to them, a plugin hook limits oracle Bash calls to `gh search`, `gh repo view`, and read-only `gh api` calls. Verification item 3 passed: a `PreToolUse` input from a subagent carries `agent_id` and `agent_type`, and one from the main thread carries neither.
+- **Read-only oracles.** Oracles cannot edit files, ask questions, or start agents. In an armed session a plugin hook limits oracle Bash and PowerShell calls to one `gh search`, `gh repo view`, or read-only (GET) `gh api` command each, and denies oracle Monitor calls. Verification item 3 passed: a `PreToolUse` input from a subagent carries `agent_id` and `agent_type`, and one from the main thread carries neither.
 - **No recursion.** The gate ignores `AskUserQuestion` calls from subagents, and oracles cannot call it.
 - **Generic search queries** and **untrusted fetched content** are standing rules in every oracle prompt.
 - **Scripts write, the model never does.** Every write to the log, sidecar, and state comes from a hook or command script.
