@@ -154,6 +154,9 @@ Format:
 - First line: `<!-- decidinator-log v1 -->`.
 - One entry per decision, appended in ID order, headed `### D-0007 · <short title>`.
 - Under each heading, one `- **Field:** value` line per field, in this order: Question, Answer, Rationale, Provenance, Confidence, Rung, Sources, Assumptions, Question ID, Context, Date, Supersedes (optional), Sidecar (optional).
+- A replaced entry gains `- **Superseded by:** D-0012` after its last field.
+- A value with line breaks continues on the following lines, indented by two spaces; empty lines are dropped. List values (Sources, Assumptions) are one line, items separated by `; `, and an empty list is `none`. A Rung or Confidence that does not apply (a person's decision) is `none`.
+- Scripts refuse to write a file whose first line is not the marker, or whose marker has a different major version, and name the file.
 
 | Provenance | Set by | Binding |
 | --- | --- | --- |
@@ -163,7 +166,7 @@ Format:
 | `oracle-unconfirmed` | Recorder, resolved question | No |
 | `oracle-provisional` | Recorder, sidecar mode | No; replaced on import |
 
-Binding decisions may not be contradicted by an oracle. A later decision that replaces an earlier one gets a new ID and a `Supersedes` line; the earlier entry stays, marked superseded.
+Binding decisions may not be contradicted by an oracle. A later decision that replaces an earlier one gets a new ID and a `Supersedes` line; the earlier entry stays, marked with a `Superseded by` line.
 
 ## Questions sidecar
 
@@ -173,6 +176,7 @@ Format:
 
 - First line: `<!-- decidinator-sidecar v1 -->`.
 - One entry per question, headed `### Q-0012 · <topic>`, with these `- **Field:** value` lines: Question, Context, Options (a nested list of label and tradeoffs), Provisional answer, Provisional decision (the `D-` ID), Depends on (context labels), Stakeholder (optional), Status (`open`, `answered`, `imported`), Answer (left blank for the stakeholder).
+- Options is written `- **Options:**` followed by one line per option, `  - **<label>:** <tradeoffs>` (`none` when there are none). Depends on uses the log's list form. Answer is written blank; a stakeholder may continue it on the lines below. Other values and the refusal rule follow the decision log.
 
 Behavior:
 
