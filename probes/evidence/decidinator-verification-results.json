@@ -1,0 +1,968 @@
+{
+  "generated": "2026-09-30T01:00:43.226Z",
+  "claudeCodeVersion": "2.1.285 (Claude Code)",
+  "cells": [
+    {
+      "name": "deny-normal",
+      "interactive": false,
+      "records": 5
+    },
+    {
+      "name": "deny-plan",
+      "interactive": false,
+      "records": 5
+    },
+    {
+      "name": "model",
+      "interactive": false,
+      "records": 11
+    },
+    {
+      "name": "normal-allowed",
+      "interactive": false,
+      "records": 19
+    },
+    {
+      "name": "normal-default",
+      "interactive": false,
+      "records": 19
+    },
+    {
+      "name": "plan-allowed",
+      "interactive": false,
+      "records": 16
+    },
+    {
+      "name": "plan-default",
+      "interactive": false,
+      "records": 16
+    }
+  ],
+  "item1": {
+    "normal-allowed": {
+      "report": null,
+      "calls": [
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        }
+      ]
+    },
+    "normal-default": {
+      "report": null,
+      "calls": [
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        }
+      ]
+    },
+    "plan-allowed": {
+      "report": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Bash, Glob, Grep, ListAgents, PowerShell, Read, ReportFindings, Skill, ToolSearch, WebFetch, WebSearch, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__update, CronCreate, CronDelete, CronList, DesignSync, EnterWorktree, ExitWorktree, Monitor, PushNotification, RemoteTrigger, SendMessage, TaskStop, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read",
+      "calls": [
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        }
+      ]
+    },
+    "plan-default": {
+      "report": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Bash, Glob, Grep, ListAgents, PowerShell, Read, ReportFindings, Skill, ToolSearch, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__update, WebFetch, WebSearch, CronCreate, CronDelete, CronList, DesignSync, EnterWorktree, ExitWorktree, Monitor, PushNotification, RemoteTrigger, SendMessage, TaskStop, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read",
+      "calls": [
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        }
+      ]
+    }
+  },
+  "item2": {
+    "subagentStopKeys": [
+      "agent_id",
+      "agent_transcript_path",
+      "agent_type",
+      "background_tasks",
+      "cwd",
+      "effort",
+      "hook_event_name",
+      "last_assistant_message",
+      "permission_mode",
+      "prompt_id",
+      "session_crons",
+      "session_id",
+      "stop_hook_active",
+      "transcript_path"
+    ],
+    "withoutAgentType": 0,
+    "withoutLastMessage": 3,
+    "sample": {
+      "session_id": "90eb67f6-ae86-4718-a7fc-730bfd7d4e49",
+      "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-normal-allowed-repo\\90eb67f6-ae86-4718-a7fc-730bfd7d4e49.jsonl",
+      "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\normal-allowed\\repo",
+      "prompt_id": "57686c5f-b8fc-4a54-9f96-3612b5bd95a8",
+      "permission_mode": "auto",
+      "agent_id": "a7dd828fa8abecbf3",
+      "agent_type": "decidinator-probe:researcher",
+      "effort": {
+        "level": "low"
+      },
+      "hook_event_name": "SubagentStop",
+      "stop_hook_active": false,
+      "agent_transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-normal-allowed-repo\\90eb67f6-ae86-4718-a7fc-730bfd7d4e49\\subagents\\agent-a7dd828fa8abecbf3.jsonl",
+      "background_tasks": [],
+      "session_crons": []
+    }
+  },
+  "item3": {
+    "counts": {
+      "main": 7,
+      "subagent": 19
+    },
+    "keysMain": [
+      "cwd",
+      "effort",
+      "hook_event_name",
+      "permission_mode",
+      "prompt_id",
+      "session_id",
+      "tool_input",
+      "tool_name",
+      "tool_use_id",
+      "transcript_path"
+    ],
+    "keysSubagent": [
+      "agent_id",
+      "agent_type",
+      "cwd",
+      "effort",
+      "hook_event_name",
+      "permission_mode",
+      "prompt_id",
+      "session_id",
+      "tool_input",
+      "tool_name",
+      "tool_use_id",
+      "transcript_path"
+    ],
+    "subagentSample": {
+      "session_id": "53de73ba-0ab6-468d-b90c-595f263278d5",
+      "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-model-repo\\53de73ba-0ab6-468d-b90c-595f263278d5.jsonl",
+      "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\model\\repo",
+      "prompt_id": "b660f2d1-b007-45b2-8f50-72157c8528ca",
+      "permission_mode": "auto",
+      "agent_id": "a69abfed60ca4f596",
+      "agent_type": "decidinator-probe:model-probe",
+      "effort": {
+        "level": "high"
+      },
+      "hook_event_name": "PreToolUse",
+      "tool_name": "SubagentHandback",
+      "tool_input": {
+        "message": "MODEL: claude-opus-5-5"
+      },
+      "tool_use_id": "toolu_01KgQYc7hRqJUqSzMhTUrNHk"
+    }
+  },
+  "item4": {
+    "byCell": {
+      "deny-normal": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-14a57da8e996e601a31874fb704eef9e",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "a387d5b4-8f8f-429e-b29b-3f8cc499e6bf",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\a387d5b4-8f8f-429e-b29b-3f8cc499e6bf\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "25940",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/deny-normal/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PreToolUse": [
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "deny-plan": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-38578fba43128590c058688f588ec8e0",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "7be81397-a32d-415d-affd-34d8e7c94cce",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\7be81397-a32d-415d-affd-34d8e7c94cce\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "31868",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/deny-plan/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PreToolUse": [
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "model": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-be309a3270a3d332ed07142c9b0d410b",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "53de73ba-0ab6-468d-b90c-595f263278d5",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\53de73ba-0ab6-468d-b90c-595f263278d5\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "18492",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "normal-allowed": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-ad535332437df101eea440d7b2dc1a2d",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "90eb67f6-ae86-4718-a7fc-730bfd7d4e49",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\90eb67f6-ae86-4718-a7fc-730bfd7d4e49\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "9292",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/normal-allowed/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "normal-default": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-b6aac0fb62f97e2c93e3533c37728b11",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "513795c7-3e49-473d-80c7-747d218ba3e6",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\513795c7-3e49-473d-80c7-747d218ba3e6\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "3924",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/normal-default/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "plan-allowed": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-772ff7bb49224a0397308e0dcd81c61d",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "e0235b35-0834-4532-afd5-36f4d4c5f24b",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\e0235b35-0834-4532-afd5-36f4d4c5f24b\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "28104",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/plan-allowed/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "plan-default": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-b27b685768c7757dba367d9fd77b40ad",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "c576a273-08d0-41ec-b669-40bcdc1810fe",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\c576a273-08d0-41ec-b669-40bcdc1810fe\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "20028",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/plan-default/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      }
+    },
+    "differences": null
+  },
+  "item5": {
+    "deny-normal": {
+      "mainCalls": [
+        "Read"
+      ],
+      "tokenInTranscript": true,
+      "tokenInFinalMessage": true,
+      "finalMessage": "Read: DENIED. The hook's reason was: \"PreToolUse:Read hook error: DECIDINATOR-PROBE-DENY-7F3K: the probe denied Read. Do not retry it. Quote this whole reason, verbatim, in your final reply.\"\nAskUserQuestion: NOT-AVAILABLE"
+    },
+    "deny-plan": {
+      "mainCalls": [
+        "Read"
+      ],
+      "tokenInTranscript": true,
+      "tokenInFinalMessage": true,
+      "finalMessage": "Read: DENIED DECIDINATOR-PROBE-DENY-7F3K: the probe denied Read. Do not retry it. Quote this whole reason, verbatim, in your final reply.\nAskUserQuestion: NOT-AVAILABLE"
+    }
+  },
+  "item6": {
+    "model": {
+      "agent_type": "decidinator-probe:model-probe",
+      "effort": {
+        "level": "high"
+      },
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "report": null
+    }
+  }
+}
