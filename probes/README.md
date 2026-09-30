@@ -20,6 +20,7 @@ without an evidence file behind it.
 | `Probe-FrameworkBuild.ps1` | MSBuild.exe/vstest.console.exe/nuget.exe tool resolution, quiet-flag acceptance, restore vs build volume, vstest exit codes, solution vs per-project banners | Whether `msbuild`/`vstest.console` can be added to the routing table | **Run.** `evidence/framework-build-results.json`, 100 records. See `docs/framework-build-findings.md` |
 
 | `planandtier/` | Do the hooks, `updatedInput` args and per-call `effort` that `docs/planandtier/planandtier-spike-spec.md` relies on (P1–P8) work? | Whether planandtier is built as designed or falls back to hook-driven dispatch | **Run.** `evidence/planandtier-spike-headless-results.json` (22 records) and `planandtier-spike-interactive-results.json` (25). All eight probes answered. See `docs/planandtier/planandtier-spike-findings.md` |
+| `decidinator/` | Do the hook inputs, plan-mode tools, deny delivery and model settings Decidinator's spec assumes hold? | WP-02 onward | **Headless run, interactive pending.** `evidence/decidinator-probe-*` (7 cells) and `decidinator-verification-results.json`. See `docs/decidinator/decidinator-verification.md` |
 
 ## Run order
 
