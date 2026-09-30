@@ -2,8 +2,11 @@
 'use strict'
 
 const childProcess = require('child_process')
+const path = require('path')
+const config = require('./config.js')
 const decisionLog = require('./decision-log.js')
 const sidecar = require('./sidecar.js')
+const { debug } = require('./debug.js')
 
 const NO_ANSWER = 'none: no oracle returned a valid verdict'
 const UNCONFIRMED = ['oracle-unconfirmed', 'oracle-provisional']
@@ -12,8 +15,159 @@ const isText = (v) => typeof v === 'string' && v.trim() !== ''
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const RANK = { high: 3, medium: 2, low: 1 }
 
+function setQ(s, id, patch) {
+  if (!s.questions?.[id]) return s
+  return { ...s, questions: { ...s.questions, [id]: { ...s.questions[id], ...patch } } }
+}
+
+function setup(s, id, ctx) {
+  const q = s.questions?.[id]
+  if (!q) return null
+  const projectDir = config.projectDir(ctx.input)
+  const logFile = path.resolve(projectDir, ctx.cfg.decisionLog)
+  const sideFile = path.resolve(projectDir, ctx.cfg.sidecar)
+  const label = contextLabel(process.env, ctx.input?.session_id, gitBranch(projectDir))
+  const base = { title: title(q), question: q.question, questionId: id, context: label }
+  return { q, logFile, sideFile, label, base }
+}
+
 function onFinal(s, id, ctx) {
-  return s
+  try {
+    const w = setup(s, id, ctx)
+    if (!w) return s
+    const { q, logFile, sideFile, label, base } = w
+    if (q.decision !== undefined) return s
+    const outcome = ctx.outcome?.outcome
+
+    if (outcome === 'resolved') {
+      const e = (q.verdicts ?? []).find((x) => x.rung === ctx.outcome.rung)
+      if (!e || !isValid(e)) return setQ(s, id, { recordError: 'no valid verdict at the final rung' })
+      const r = decisionLog.append(logFile, {
+        ...base,
+        answer: e.verdict.answer,
+        rationale: e.verdict.rationale,
+        provenance: 'oracle-unconfirmed',
+        confidence: e.verdict.confidence,
+        rung: e.rung,
+        sources: e.verdict.sources,
+        assumptions: e.verdict.assumptions
+      })
+      return setQ(s, id, { decision: r.ok ? r.id : null, sidecarEntry: null, ...(r.ok ? {} : { recordError: r.error }) })
+    }
+
+    if (outcome !== 'final-unresolved' || ctx.mode !== 'sidecar') return s
+
+    const log = decisionLog.read(logFile)
+    const side = sidecar.read(sideFile)
+    const logModel = log.ok ? log.model : null
+    const sideModel = side.ok ? side.model : null
+    const dup = findDuplicate(q, q.verdicts, logModel, sideModel)
+
+    if (dup) {
+      const a = sidecar.addDependsOn(sideFile, dup.id, label)
+      const prov = (logModel?.entries ?? []).map((e) => e.decision).find((d) => d.id === dup.provisionalDecision) ?? null
+      let r = null
+      if (isText(dup.provisionalDecision) && isText(dup.provisionalAnswer)) {
+        r = decisionLog.append(logFile, {
+          ...base,
+          answer: dup.provisionalAnswer,
+          rationale: `Same question as ${dup.id}; uses its provisional answer.`,
+          provenance: 'oracle-provisional',
+          confidence: prov?.confidence ?? null,
+          rung: prov?.rung ?? null,
+          sources: prov?.sources ?? [],
+          assumptions: prov?.assumptions ?? [],
+          sidecar: dup.id
+        })
+      }
+      const patch = { decision: r?.ok ? r.id : null, sidecarEntry: dup.id, duplicateOf: dup.id }
+      const error = !a.ok ? a.error : r && !r.ok ? r.error : undefined
+      if (error !== undefined) patch.recordError = error
+      return setQ(s, id, patch)
+    }
+
+    const best = bestAnswer(q.verdicts)
+    const errors = []
+    let logId = ''
+    if (best) {
+      const r = decisionLog.append(logFile, {
+        ...base,
+        answer: best.verdict.answer,
+        rationale: best.verdict.rationale,
+        provenance: 'oracle-provisional',
+        confidence: best.verdict.confidence,
+        rung: best.rung,
+        sources: best.verdict.sources,
+        assumptions: best.verdict.assumptions,
+        sidecar: id
+      })
+      if (r.ok) logId = r.id
+      else errors.push(r.error)
+    }
+    const wr = sidecar.append(sideFile, {
+      id,
+      topic: base.title,
+      question: q.question,
+      context: sidecarContext(q, label),
+      options: optionsFor(q.verdicts, best),
+      provisionalAnswer: best ? best.verdict.answer : NO_ANSWER,
+      provisionalDecision: logId,
+      dependsOn: [label],
+      status: 'open'
+    })
+    if (!wr.ok) errors.push(wr.error)
+    const patch = { decision: logId || null, sidecarEntry: wr.ok ? id : null }
+    if (errors.length > 0) patch.recordError = errors[0]
+    return setQ(s, id, patch)
+  } catch (e) {
+    debug(`resolution: ${id}: ${e?.stack ?? e}`)
+    return setQ(s, id, { recordError: String(e?.message ?? e) })
+  }
+}
+
+function onUserAnswer(s, id, answer, ctx) {
+  try {
+    const w = setup(s, id, ctx)
+    if (!w) return s
+    const { q, logFile, base } = w
+    const d = {
+      ...base,
+      answer,
+      rationale: 'The user answered in the session.',
+      provenance: 'user',
+      confidence: null,
+      rung: null,
+      sources: [],
+      assumptions: []
+    }
+    let r
+    if (typeof q.decision === 'string' && /^D-\d{4,}$/.test(q.decision)) {
+      r = decisionLog.append(logFile, { ...d, supersedes: q.decision })
+      if (!r.ok) r = decisionLog.append(logFile, d)
+    } else {
+      r = decisionLog.append(logFile, d)
+    }
+    return setQ(s, id, {
+      status: 'answered',
+      answeredAt: new Date().toISOString(),
+      decision: r.ok ? r.id : (q.decision ?? null),
+      ...(r.ok ? {} : { recordError: r.error })
+    })
+  } catch (e) {
+    debug(`resolution: ${id}: ${e?.stack ?? e}`)
+    return setQ(s, id, { recordError: String(e?.message ?? e) })
+  }
+}
+
+function counts(projectDir, cfg) {
+  const side = sidecar.read(path.resolve(projectDir, cfg.sidecar))
+  const log = decisionLog.read(path.resolve(projectDir, cfg.decisionLog))
+  return {
+    open: side.ok ? side.model.entries.filter((e) => e.question.status === 'open').length : null,
+    unconfirmed: log.ok
+      ? log.model.entries.filter((e) => UNCONFIRMED.includes(e.decision.provenance) && !e.decision.supersededBy).length
+      : null
+  }
 }
 
 function isValid(e) {
@@ -142,6 +296,8 @@ module.exports = {
   NO_ANSWER,
   UNCONFIRMED,
   onFinal,
+  onUserAnswer,
+  counts,
   isValid,
   bestAnswer,
   optionsFor,
