@@ -240,6 +240,34 @@ test('recordDispatch appends without mutating', () => {
   assert.equal(Q.recordDispatch(s, 'Q-9999', 1, 't', NOW), s)
 })
 
+test('recordDispatch stores, keeps and overwrites context', () => {
+  const s = sample()
+  const s1 = Q.recordDispatch(s, 'Q-0007', 1, 't', NOW, 'ctx')
+  assert.equal(s1.questions['Q-0007'].context, 'ctx')
+  const s2 = Q.recordDispatch(s1, 'Q-0007', 1, 't', NOW, '')
+  assert.equal(s2.questions['Q-0007'].context, 'ctx')
+  const s3 = Q.recordDispatch(s2, 'Q-0007', 1, 't', NOW, 'new')
+  assert.equal(s3.questions['Q-0007'].context, 'new')
+})
+
+test('dispatchContext reads the Context text of a dispatch prompt', () => {
+  const prompt = 'Decidinator question Q-0001\nRung: 1\nContext: Building the CLI.\nWe need a limit.\nEarlier verdicts: []'
+  assert.equal(Q.dispatchContext(prompt), 'Building the CLI. We need a limit.')
+})
+
+test('dispatchContext returns empty without a Context line', () => {
+  assert.equal(Q.dispatchContext('Decidinator question Q-0001\nRung: 1'), '')
+})
+
+test('dispatchContext returns empty for the placeholder', () => {
+  assert.equal(Q.dispatchContext(`Context: ${reasons.CONTEXT_PLACEHOLDER}`), '')
+})
+
+test('dispatchContext returns empty for non-string input', () => {
+  assert.equal(Q.dispatchContext(undefined), '')
+  assert.equal(Q.dispatchContext(42), '')
+})
+
 test('pass-through is set for review and confirm only, and expires with the prompt', () => {
   const s = Q.emptyState()
   assert.equal(Q.setPassThrough(s, 'bogus', 'p1'), s)

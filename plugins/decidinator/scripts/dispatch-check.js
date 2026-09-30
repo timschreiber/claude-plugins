@@ -23,5 +23,5 @@ runArmed(async input => {
     deny(reasons.refused(problem, d))
     return
   }
-  state.update(id, cur => cur && Q.recordDispatch(cur, d.id, d.rung, input.tool_use_id, new Date().toISOString()))
+  state.update(id, cur => cur && Q.recordDispatch(cur, d.id, d.rung, input.tool_use_id, new Date().toISOString(), Q.dispatchContext(input.tool_input?.prompt)))
 })

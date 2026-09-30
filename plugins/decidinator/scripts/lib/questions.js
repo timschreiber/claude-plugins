@@ -144,11 +144,28 @@ function checkDispatch(d, toolInput) {
   return null
 }
 
-function recordDispatch(s, id, rung, toolUseId, now) {
+// The Context text of a dispatch prompt ('' when absent or still the placeholder).
+function dispatchContext(prompt) {
+  if (typeof prompt !== 'string') return ''
+  const lines = prompt.split(/\r?\n/)
+  const start = lines.findIndex(l => /^Context:[ \t]*(.*)$/.test(l))
+  if (start < 0) return ''
+  const pieces = [lines[start].match(/^Context:[ \t]*(.*)$/)[1]]
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('Earlier verdicts:')) break
+    pieces.push(lines[i])
+  }
+  const text = oneLine(pieces.join(' '))
+  return text === reasons.CONTEXT_PLACEHOLDER ? '' : text
+}
+
+function recordDispatch(s, id, rung, toolUseId, now, context) {
   const q = s.questions[id]
   if (!q) return s
   const dispatches = [...(q.dispatches ?? []), { rung, at: now, toolUseId: toolUseId ?? null }]
-  return { ...s, questions: { ...s.questions, [id]: { ...q, dispatches } } }
+  const next = { ...q, dispatches }
+  if (typeof context === 'string' && context !== '') next.context = context
+  return { ...s, questions: { ...s.questions, [id]: next } }
 }
 
 function inFlight(q, rung) {
@@ -219,6 +236,7 @@ module.exports = {
   dueDispatch,
   decideGate,
   checkDispatch,
+  dispatchContext,
   recordDispatch,
   inFlight,
   guardKey,
