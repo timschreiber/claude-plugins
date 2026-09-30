@@ -1,0 +1,25 @@
+{
+  "generated": "2026-09-30T00:58:12.409Z",
+  "claudeCodeVersion": "2.1.285 (Claude Code)",
+  "cell": "normal-allowed",
+  "interactive": false,
+  "args": [
+    "-p",
+    "Call the Agent tool once, with subagent_type \"decidinator-probe:researcher\", description \"probe\", and prompt \"Run the probe.\"\nWhen the agent has finished, reply with its report verbatim and nothing else.",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\decidinator\\probe-plugin",
+    "--output-format",
+    "json",
+    "--allowedTools",
+    "WebFetch,WebSearch,Bash(gh search:*)"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT"
+  ],
+  "exitCode": 0,
+  "result": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Bash, Glob, Grep, ListAgents, PowerShell, Read, ReportFindings, Skill, ToolSearch, SubagentHandback, CronCreate, CronDelete, CronList, DesignSync, EnterWorktree, ExitWorktree, Monitor, PushNotification, RemoteTrigger, SendMessage, TaskStop, WebFetch, WebSearch, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read, mcp__claude_ai_Claude_Docs__update",
+  "stdout": null,
+  "stderr": "",
+  "records": 19
+}

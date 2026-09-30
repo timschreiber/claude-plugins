@@ -1,0 +1,13 @@
+[
+  {
+    "agent_id": "a0672e76b17b672db",
+    "agent_type": "decidinator-probe:researcher",
+    "effort": {
+      "level": "low"
+    },
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "last_assistant_message": null
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "agent_id": "ae62106fe263cfaed",
+    "agent_type": "decidinator-probe:researcher",
+    "effort": {
+      "level": "low"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "last_assistant_message": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Bash, Glob, Grep, ListAgents, PowerShell, Read, ReportFindings, Skill, ToolSearch, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__update, WebFetch, WebSearch, CronCreate, CronDelete, CronList, DesignSync, EnterWorktree, ExitWorktree, Monitor, PushNotification, RemoteTrigger, SendMessage, TaskStop, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read"
+  }
+]
