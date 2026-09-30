@@ -1,6 +1,6 @@
 # Decidinator
 
-**In development.** Decidinator makes Claude research its own questions before asking. Every `AskUserQuestion` call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person, with researched options. This version arms, disarms and reports status, and ships the oracle agents; the hooks that dispatch them, the decision log and the sidecar come in later releases.
+**In development.** Decidinator makes Claude research its own questions before asking. Every `AskUserQuestion` call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person, with researched options. This version arms, disarms and reports status, ships the oracle agents, holds each question until an oracle has researched it, and walks the oracle ladder; the decision log and the sidecar come in later releases.
 
 ## Install
 
@@ -57,6 +57,10 @@ Rung models are honored only outside plan mode. In plan mode every rung runs on 
 In `default` permission mode Claude asks before an oracle uses WebFetch, WebSearch or `gh`. For unattended research, allow `WebFetch`, `WebSearch` and `Bash(gh search:*)`. GitHub searches need `gh` installed and authenticated.
 
 On subscription plans, oracle research counts against your usage like any other subagent.
+
+## While an oracle researches
+
+When Claude calls `AskUserQuestion`, Decidinator holds the call and tells Claude which oracle to start. Until Claude starts it, and while the oracle researches in the background, Claude's other tool calls are refused with the same instruction, or with one to wait for the report. A verdict with low confidence, an unresolved researchable question, or a `spec-silent`, `spec-contradiction` or `cross-cutting` flag sends the question to the next rung, which is given the earlier verdicts to critique; a human-only question never escalates. After `guardMaxBlocks` refused calls in a row the guard steps aside, says so once, and lets tools run, so a lost report never wedges the session.
 
 ## Design
 
