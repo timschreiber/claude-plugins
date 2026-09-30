@@ -1,0 +1,9 @@
+{
+  "name": "decidinator-probe",
+  "description": "Development-time probe for Decidinator WP-01: logs every hook input and can deny Read and AskUserQuestion. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
