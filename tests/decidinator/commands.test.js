@@ -320,3 +320,79 @@ test('export with nothing open says so', () => {
 test('the export default path helper matches the command', () => {
   assert.equal(exporter.defaultPath('docs/open-questions.md', '2026-09-30'), 'docs/open-questions-2026-09-30.md')
 })
+
+const importer = require('../../plugins/decidinator/scripts/lib/importer.js')
+
+// Exports the open entries, then writes answers (by question ID) into the copy.
+function filledCopy(answers) {
+  assert.ok(spawn('/decidinator:export in.md').stdout.startsWith('decidinator: exported'))
+  const file = path.join(project, 'in.md')
+  let text = fs.readFileSync(file, 'utf8')
+  for (const [id, a] of Object.entries(answers)) {
+    const at = text.indexOf(`### ${id} `)
+    const line = text.indexOf('- **Answer:**', at)
+    text = text.slice(0, line) + `- **Answer:** ${a}` + text.slice(line + '- **Answer:**'.length)
+  }
+  fs.writeFileSync(file, text)
+}
+
+test('import refuses a file without the sidecar marker, with another version, or with no answers', () => {
+  state.arm('s1', 'ask', 'command')
+  seedSide({ question: 'One?' })
+  const before = fs.readFileSync(sideFile(), 'utf8')
+  fs.writeFileSync(path.join(project, 'plain.md'), '# notes\n')
+  assert.equal(spawn('/decidinator:import plain.md').stdout, msg.importNoMarker('plain.md') + '\n')
+  fs.writeFileSync(path.join(project, 'v2.md'), '<!-- decidinator-sidecar v2 -->\n')
+  assert.equal(spawn('/decidinator:import v2.md').stdout, msg.importVersion('v2.md', 2) + '\n')
+  fs.writeFileSync(path.join(project, 'log.md'), '<!-- decidinator-log v1 -->\n')
+  assert.equal(spawn('/decidinator:import log.md').stdout, msg.importNoMarker('log.md') + '\n')
+  assert.equal(spawn('/decidinator:import missing.md').stdout, msg.importMissing('missing.md') + '\n')
+  assert.equal(spawn('/decidinator:import').stdout, msg.IMPORT_USAGE + '\n')
+  filledCopy({})
+  assert.equal(spawn('/decidinator:import in.md').stdout, msg.importNoAnswers('in.md') + '\n')
+  assert.equal(fs.readFileSync(sideFile(), 'utf8'), before)
+  assert.equal(fs.existsSync(logFile()), false)
+})
+
+test('import of an answer identical to the provisional one is confirmed without an oracle call', () => {
+  state.arm('s1', 'ask', 'command')
+  seedLog({ question: 'One?', answer: 'Use Postgres.', provenance: 'oracle-provisional', questionId: 'Q-0001', sidecar: 'Q-0001' })
+  seedSide({ question: 'One?', provisionalAnswer: 'Use Postgres.', provisionalDecision: 'D-0001' })
+  filledCopy({ 'Q-0001': 'use postgres' })
+  const out = spawn('/decidinator:import in.md', { prompt_id: 'p1' }).stdout
+  assert.ok(out.includes('Confirmed (1):\n- Q-0001 → D-0002 (supersedes D-0001): same as the provisional answer.'))
+  assert.equal(out.includes('Agent'), false)
+  assert.equal(out.includes('Waiting'), false)
+  assert.equal(state.read('s1')?.importJob ?? null, null)
+  const d = decisionLog.read(logFile()).model.entries.map((e) => e.decision)
+  assert.equal(d[1].provenance, 'stakeholder')
+  assert.equal(d[1].answer, 'use postgres')
+  assert.equal(d[0].supersededBy, 'D-0002')
+  assert.equal(sidecar.read(sideFile()).model.entries[0].question.status, 'imported')
+})
+
+test('import of a different answer waits for an oracle judgment and stores the job', () => {
+  state.arm('s1', 'ask', 'command')
+  seedLog({ question: 'One?', answer: 'Use Postgres.', provenance: 'oracle-provisional', questionId: 'Q-0001', sidecar: 'Q-0001' })
+  seedSide({ question: 'One?', provisionalAnswer: 'Use Postgres.', provisionalDecision: 'D-0001' })
+  filledCopy({ 'Q-0001': 'Use MySQL' })
+  const out = spawn('/decidinator:import in.md', { prompt_id: 'p1' }).stdout
+  assert.ok(out.includes('Waiting for oracle judgment (1):\n- Q-0001 → D-0002 (supersedes D-0001)'))
+  assert.equal((out.match(/subagent_type: decidinator:oracle-1/g) ?? []).length, 1)
+  assert.ok(out.includes('Decidinator question Q-0001\nRung: 1'))
+  const job = state.read('s1').importJob
+  assert.equal(job.items[0].cls, 'waiting')
+  assert.equal(job.items[0].dispatched, false)
+  assert.equal(importer.stopStep(job), 'remind')
+})
+
+test('import reports an entry that is already imported as skipped', () => {
+  state.arm('s1', 'ask', 'command')
+  seedSide({ question: 'One?' })
+  seedSide({ question: 'Two?' })
+  filledCopy({ 'Q-0001': 'X', 'Q-0002': 'Y' })
+  sidecar.setStatus(sideFile(), 'Q-0002', 'imported')
+  const out = spawn('/decidinator:import in.md', { prompt_id: 'p1' }).stdout
+  assert.ok(out.includes('Skipped (1):\n- Q-0002: already imported in docs/open-questions.md.'))
+  assert.ok(out.includes('Changed (1):\n- Q-0001 → D-0001: no provisional answer to compare. Depends on: WP-03.'))
+})

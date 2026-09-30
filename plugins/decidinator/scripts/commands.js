@@ -20,6 +20,9 @@ const io = require('./lib/fileio.js')
 const Q = require('./lib/questions.js')
 const walks = require('./lib/walks.js')
 const exporter = require('./lib/export.js')
+const importer = require('./lib/importer.js')
+const record = require('./lib/record.js')
+const { questionHash } = require('./lib/normalize.js')
 
 const COMMAND = /^\s*\/decidinator:(arm|disarm|status|review|confirm|export|import)(?![\w-])([\s\S]*)$/
 
@@ -123,9 +126,79 @@ function exportCmd(input, arg) {
   return msg.exported(open.length, cfg.sidecar, shown)
 }
 
-function importCmd(input) {
+function importCmd(input, arg) {
   if (!state.readArming(input.session_id)) return msg.needsArming('import')
-  return ''
+  const rel = pathArg(arg)
+  if (rel === '') return msg.IMPORT_USAGE
+  const { cfg, project, logFile, sideFile } = paths(input)
+  const abs = path.resolve(project, rel)
+  const shown = exporter.displayPath(project, abs)
+  let text
+  try {
+    text = io.readText(abs)
+  } catch (e) {
+    return msg.fileProblem(`${shown}: ${e.message}`)
+  }
+  if (text.trim() === '') return msg.importMissing(shown)
+  const marker = md.readMarker(md.splitLines(text))
+  if (!marker || marker.kind !== 'sidecar') return msg.importNoMarker(shown)
+  if (marker.major !== 1) return msg.importVersion(shown, marker.major)
+  const answered = sidecar.answers(sidecar.parse(text)).sort((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
+  if (answered.length === 0) return msg.importNoAnswers(shown)
+
+  const side = readChecked(sidecar.read, sideFile, 'sidecar')
+  if (side.error) return msg.fileProblem(side.error)
+  const log = readChecked(decisionLog.read, logFile, 'log')
+  if (log.error) return msg.fileProblem(log.error)
+  const repo = new Map(side.model.entries.map(e => [e.id, e.question]))
+
+  const items = answered.map(a => {
+    const repoQ = repo.get(a.id)
+    const item = {
+      id: a.id,
+      decision: null,
+      supersedes: null,
+      dependsOn: repoQ?.dependsOn ?? [],
+      question: repoQ?.question ?? '',
+      provisionalAnswer: repoQ?.provisionalAnswer ?? '',
+      answer: a.answer,
+      cls: 'skipped',
+      note: '',
+      dispatched: false
+    }
+    if (!repoQ) return { ...item, note: `not in ${cfg.sidecar}.` }
+    if (repoQ.status !== 'open') return { ...item, note: `already ${repoQ.status} in ${cfg.sidecar}.` }
+    if (questionHash(repoQ.question) !== questionHash(a.question.question)) {
+      return { ...item, note: `its question differs from the one in ${cfg.sidecar}.` }
+    }
+    const r = record.recordEntryAnswer({
+      logFile,
+      sideFile,
+      entryId: a.id,
+      provenance: 'stakeholder',
+      answer: a.answer,
+      rationale: `${repoQ.stakeholder || 'A stakeholder'} answered in ${shown}.`,
+      status: 'imported'
+    })
+    if (!r.ok) return { ...item, cls: 'failed', note: `${r.error}.` }
+    return { ...item, ...importer.classify(repoQ, a.answer), decision: r.id, supersedes: r.supersedes }
+  })
+
+  const job = { promptId: input.prompt_id ?? null, file: shown, createdAt: new Date().toISOString(), delivered: false, reminded: false, items }
+  if (items.some(i => i.cls === 'waiting')) {
+    const saved = state.update(input.session_id, cur => ({ ...(cur ?? Q.emptyState()), importJob: job }))
+    if (!saved) {
+      job.items = items.map(i =>
+        i.cls === 'waiting'
+          ? { ...i, cls: 'changed', note: 'not judged: the session state could not be written, so it counts as changed.' }
+          : i
+      )
+    }
+  } else {
+    state.update(input.session_id, cur => (cur ? { ...cur, importJob: null } : null))
+  }
+  const waiting = job.items.filter(i => i.cls === 'waiting')
+  return waiting.length > 0 ? `${importer.report(job)}\n\n${importer.judgmentInstructions(waiting, cfg)}` : importer.report(job)
 }
 
 run(async () => {
