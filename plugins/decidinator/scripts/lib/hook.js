@@ -29,6 +29,8 @@ async function readInput() {
 }
 
 const emit = payload => process.stdout.write(JSON.stringify(payload))
+const deny = reason =>
+  emit({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } })
 const emitText = text => process.stdout.write(text.endsWith('\n') ? text : `${text}\n`)
 
 // Runs a hook body. Any error is logged (if debugging) and swallowed; the exit code stays 0.
@@ -55,4 +57,4 @@ function runArmed(body) {
   })
 }
 
-module.exports = { debug, readInput, emit, emitText, run, runArmed }
+module.exports = { debug, readInput, emit, deny, emitText, run, runArmed }

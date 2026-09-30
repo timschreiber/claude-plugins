@@ -149,3 +149,34 @@ test('default location is under the temp dir', () => {
   delete process.env.CLAUDE_PLUGIN_DATA
   assert.ok(state.fileFor('x').startsWith(path.join(os.tmpdir(), 'decidinator')))
 })
+
+test('update saves what mutate returns and passes the current state', () => {
+  let seen = 'unset'
+  assert.equal(state.update('u1', cur => { seen = cur; return { n: 1 } }), true)
+  assert.equal(seen, null)
+  assert.equal(state.update('u1', cur => { seen = cur; return { n: cur.n + 1 } }), true)
+  assert.deepEqual(seen, { n: 1 })
+  assert.deepEqual(state.read('u1'), { n: 2 })
+})
+
+test('update returns false and writes nothing when mutate returns null', () => {
+  assert.equal(state.update('u2', () => null), false)
+  assert.equal(state.read('u2'), null)
+  assert.ok(!fs.existsSync(path.join(sessions(), 'u2.json')))
+})
+
+test('update leaves no lock file behind', () => {
+  state.update('u3', () => ({ a: 1 }))
+  state.update('u3', () => null)
+  assert.deepEqual(fs.readdirSync(sessions()).filter(f => f.endsWith('.lock')), [])
+})
+
+test('update returns false when mutate throws, and releases the lock', () => {
+  assert.equal(state.update('u4', () => { throw new Error('boom') }), false)
+  assert.deepEqual(fs.readdirSync(sessions()).filter(f => f.endsWith('.lock')), [])
+})
+
+test('dataDir honors CLAUDE_PLUGIN_DATA', () => {
+  assert.equal(state.dataDir(), dir)
+  assert.equal(state.sessionsDir(), path.join(dir, 'sessions'))
+})

@@ -1,6 +1,7 @@
 // Per-session state for Decidinator: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json (the session's
 // working state) and the arming flag beside it, <session_id>.armed, a JSON object {mode, armedAt, by}
-// which the state file's own removal leaves alone. Every function swallows filesystem errors and
+// which the state file's own removal leaves alone. update() runs a read-modify-write under a lock file,
+// because hooks of one session can run close together. Every function swallows filesystem errors and
 // returns a "nothing happened" value, because a hook must never fail loudly.
 'use strict'
 
@@ -8,14 +9,19 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const { debug } = require('./debug.js')
+const { withLock } = require('./fileio.js')
 
 const MODES = ['ask', 'sidecar']
 const PRUNE_DAYS = 7
 const BY = ['command', 'env']
 const DAY_MS = 24 * 60 * 60 * 1000
 
+function dataDir() {
+  return process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'decidinator')
+}
+
 function sessionsDir() {
-  return path.join(process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'decidinator'), 'sessions')
+  return path.join(dataDir(), 'sessions')
 }
 
 // Session ids come from hook input; keep only filename-safe characters.
@@ -53,6 +59,22 @@ function write(sessionId, state) {
     fs.renameSync(tmp, file)
     debug(`state ${safeId(sessionId)}: written`)
     return true
+  } catch {
+    return false
+  }
+}
+
+// Locked read-modify-write. mutate(current|null) returns the new state, or null to leave it alone.
+// Returns true when the new state was saved.
+function update(sessionId, mutate) {
+  try {
+    const file = fileFor(sessionId)
+    if (!file) return false
+    const r = withLock(file, () => {
+      const next = mutate(read(sessionId))
+      return next ? write(sessionId, next) : false
+    })
+    return r === true
   } catch {
     return false
   }
@@ -147,12 +169,14 @@ function prune(days) {
 module.exports = {
   MODES,
   PRUNE_DAYS,
+  dataDir,
   sessionsDir,
   safeId,
   fileFor,
   flagFor,
   read,
   write,
+  update,
   remove,
   readArming,
   arm,
