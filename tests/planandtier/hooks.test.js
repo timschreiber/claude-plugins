@@ -1073,6 +1073,106 @@ test('H5 stop blocks once with the next dispatch, then allows and abandons on th
   assert.equal(state.read(S).phase, 'abandoned')
 })
 
+// An unattended session that is drafting: its final message is the plan.
+const draftPlanFile = () => path.join(dir, 'plans', 'unattended.md')
+const draftingState = (over = {}) => ({ phase: 'drafting', planFile: draftPlanFile(), denials: 0, guardDenials: 0, ...over })
+const draftStop = (text, extra = {}, cwd = REPO) =>
+  hook(
+    'h5-guard.js',
+    { session_id: S, cwd, ...(text === null ? {} : { last_assistant_message: text }), ...extra },
+    ['stop'],
+    { CLAUDE_CONFIG_DIR: dir }
+  )
+
+test('H5 pre denies file edits while drafting, counts them, and abandons after the third', () => {
+  state.write(S, draftingState())
+  for (let i = 1; i <= 3; i++) {
+    const out = hook('h5-guard.js', toolPre('Write', { cwd: REPO }), ['pre'], { CLAUDE_CONFIG_DIR: dir }).json.hookSpecificOutput
+    assert.equal(out.permissionDecision, 'deny')
+    assert.equal(
+      out.permissionDecisionReason,
+      'planandtier: unattended planning: files cannot be edited until the plan runs. Finish investigating, then end your turn with the complete plan as your final message.'
+    )
+    assert.equal(state.read(S).guardDenials, i)
+  }
+  assert.equal(hook('h5-guard.js', toolPre('Write', { cwd: REPO }), ['pre'], { CLAUDE_CONFIG_DIR: dir }).stdout, '')
+  assert.equal(state.read(S).phase, 'abandoned')
+})
+
+test('H5 stop with a valid plan while drafting saves it and starts the run, even when stop_hook_active', () => {
+  for (const extra of [{}, { stop_hook_active: true }]) {
+    fs.rmSync(path.join(dir, 'plans'), { recursive: true, force: true })
+    state.write(S, draftingState())
+    const r = draftStop(VALID, extra)
+    assert.equal(fs.readFileSync(draftPlanFile(), 'utf8'), VALID)
+    const s = state.read(S)
+    assert.equal(s.phase, 'running')
+    assert.deepEqual(s.tasks.map(t => t.id), ['T01', 'T02', 'T03'])
+    assert.equal(r.json.decision, 'block')
+    assert.match(r.json.reason, /Dispatch/)
+    assert.match(r.json.reason, /planandtier:sonnet-medium/)
+  }
+})
+
+test('H5 stop takes the plan from the transcript when there is no last_assistant_message', () => {
+  const transcript = path.join(dir, 'transcript.jsonl')
+  const entry = (type, text) => JSON.stringify({ type, message: { content: [{ type: 'text', text }] } })
+  fs.writeFileSync(transcript, [entry('user', 'plan it'), entry('assistant', VALID)].join('\n') + '\n')
+  state.write(S, draftingState())
+  const r = draftStop(null, { transcript_path: transcript })
+  assert.equal(state.read(S).phase, 'running')
+  assert.equal(r.json.decision, 'block')
+  assert.equal(fs.readFileSync(draftPlanFile(), 'utf8'), VALID)
+})
+
+test('H5 stop with an invalid plan while drafting blocks with the errors and the rules, then abandons on the fourth', () => {
+  state.write(S, draftingState())
+  const errors = sidecar.resolvePlan(INVALID).errors
+  assert.ok(errors.length > 0)
+  for (let i = 1; i <= 3; i++) {
+    const r = draftStop(INVALID)
+    assert.equal(r.json.decision, 'block')
+    for (const e of errors) assert.ok(r.json.reason.includes(`- ${e}`), e)
+    assert.ok(r.json.reason.includes(RULES))
+    assert.equal(state.read(S).denials, i)
+    assert.equal(state.read(S).phase, 'drafting')
+  }
+  const last = draftStop(INVALID)
+  assert.equal(last.json.decision, undefined)
+  assert.match(last.json.systemMessage, /nothing ran/)
+  assert.equal(state.read(S).phase, 'abandoned')
+  assert.ok(!fs.existsSync(draftPlanFile()))
+})
+
+test('H5 stop with no task block while drafting blocks with the rules', () => {
+  state.write(S, draftingState())
+  const r = draftStop(NO_BLOCK)
+  assert.equal(r.json.decision, 'block')
+  assert.ok(r.json.reason.includes(RULES))
+  assert.equal(state.read(S).denials, 1)
+  const empty = draftStop('')
+  assert.equal(empty.json.decision, 'block')
+  assert.equal(state.read(S).denials, 2)
+})
+
+test('H5 stop with an opt-out plan while drafting removes the state and tells Claude to implement it', () => {
+  state.write(S, draftingState())
+  const r = draftStop(`# Plan\n\n${OPT_OUT}\n`)
+  assert.equal(r.json.decision, 'block')
+  assert.match(r.json.reason, /Implement it yourself/)
+  assert.equal(state.read(S), null)
+})
+
+test('H5 stop with a valid plan in a dirty repository removes the state and blocks with the refusal', () => {
+  const dirty = makeRepo(path.join(dir, 'dirty'))
+  fs.writeFileSync(path.join(dirty, 'wip.txt'), 'x')
+  state.write(S, draftingState())
+  const r = draftStop(VALID, {}, dirty)
+  assert.equal(r.json.decision, 'block')
+  assert.match(r.json.reason, /cannot run here/)
+  assert.equal(state.read(S), null)
+})
+
 test('H1 reminds Claude of a run in progress outside plan mode, but not for reports and notifications', () => {
   startTestRun()
   const out = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: 'continue' }).stdout

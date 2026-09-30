@@ -9,15 +9,29 @@
 //         is displayed; a SubagentStop hook's is not, for a background worker.
 // Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
 // forever. Workers are subagents, which every hook ignores.
+// An unattended session (PLANANDTIER_UNATTENDED, lib/unattended.js) is "drafting" until its plan is
+// approved by nobody: pre refuses its file edits, and stop takes its final message as the plan. A valid
+// plan is saved to the session's plan file and run; an invalid one is blocked with the errors and the
+// rules, a few times; an opt-out ends the state and lets Claude implement the plan itself.
 'use strict'
 
+const fs = require('fs')
+const path = require('path')
 const state = require('./lib/state.js')
 const spend = require('./lib/spend.js')
+const { recordPlanning } = spend
+const unattended = require('./lib/unattended.js')
 const { dispatchText } = require('./lib/run.js')
+const { executePlan } = require('./lib/execute.js')
+const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const ENDED = ['complete', 'halted', 'abandoned']
 const MAX_TOOL_DENIALS = 3
+const MAX_DENIALS = 3
+const DRAFTING_DENIAL =
+  'planandtier: unattended planning: files cannot be edited until the plan runs. ' +
+  'Finish investigating, then end your turn with the complete plan as your final message.'
 const REASON = s =>
   'planandtier: a run is in progress, and its subagents do the work, not you. ' + dispatchText(s)
 
@@ -33,7 +47,53 @@ function spendText(input, current) {
   return { s, text: text || null }
 }
 
+const block = reason => emit({ decision: 'block', reason })
+
+// Stop in an unattended session that is still drafting: the final message is the plan.
+function draftingStop(input, s) {
+  const id = input.session_id
+  const text = unattended.finalText(input)
+  const result = resolvePlan(text)
+  if (result.optOut) {
+    state.remove(id)
+    return block(
+      'planandtier: the plan opts out of tiered execution, so planandtier will not run it. Implement it yourself now, as the plan says.'
+    )
+  }
+  if (result.ok) {
+    try {
+      fs.mkdirSync(path.dirname(s.planFile), { recursive: true })
+      fs.writeFileSync(s.planFile, text)
+    } catch {
+      state.write(id, { ...s, phase: 'abandoned' })
+      return emit({
+        systemMessage: `planandtier: the unattended plan could not be saved to ${s.planFile}, so nothing ran.`,
+      })
+    }
+    recordPlanning(input, planIdOf(result, text), s.planFile)
+    const note = executePlan(input, JSON.stringify(s.planFile))
+    // If executePlan refused (a dirty tree, for example), Claude reports it and the next stop passes.
+    if (state.read(id)?.phase !== 'running') state.remove(id)
+    return block(note)
+  }
+  const denials = (s.denials ?? 0) + 1
+  if (denials > MAX_DENIALS) {
+    state.write(id, { ...s, phase: 'abandoned', denials })
+    return emit({ systemMessage: 'planandtier: the unattended plan was still not valid after 3 tries, so nothing ran.' })
+  }
+  state.write(id, { ...s, denials })
+  const errors = (result.errors ?? []).map(e => `- ${e}`).join('\n')
+  const rules = fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8')
+  block(
+    'planandtier: the plan in your final message cannot run: its task block is not valid:\n' +
+      errors +
+      '\n\nEnd your turn again with the complete, corrected plan as your final message.\n\n' +
+      rules
+  )
+}
+
 function stop(input, current) {
+  if (current?.phase === 'drafting') return draftingStop(input, current)
   let { s, text } = spendText(input, current)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })
   if (!s || s.phase !== 'running' || s.current?.inFlight) {
@@ -67,7 +127,8 @@ run(async () => {
   if (!input || input.agent_id || !state.isArmed(input.session_id)) return
   const current = state.read(input.session_id)
   if (process.argv[2] === 'stop') return stop(input, current)
-  if (!current || current.phase !== 'running' || current.current?.inFlight) return
+  const drafting = current?.phase === 'drafting'
+  if (!drafting && (!current || current.phase !== 'running' || current.current?.inFlight)) return
 
   const denied = (current.guardDenials ?? 0) + 1
   if (denied > MAX_TOOL_DENIALS) {
@@ -79,7 +140,7 @@ run(async () => {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
-      permissionDecisionReason: REASON(current),
+      permissionDecisionReason: drafting ? DRAFTING_DENIAL : REASON(current),
     },
   })
 })
