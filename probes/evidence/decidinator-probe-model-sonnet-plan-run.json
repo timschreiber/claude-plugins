@@ -1,20 +1,22 @@
 {
-  "generated": "2026-09-30T01:51:05.905Z",
+  "generated": "2026-09-30T02:11:22.796Z",
   "claudeCodeVersion": "2.1.285 (Claude Code)",
-  "cell": "model",
+  "cell": "model-sonnet-plan",
   "interactive": false,
   "args": [
     "-p",
-    "Call the Agent tool once, with subagent_type \"decidinator-probe:model-probe\", description \"probe\", and prompt \"Run the probe.\"\nWhen the agent has finished, reply with its report verbatim and nothing else.",
+    "Call the Agent tool once, with subagent_type \"decidinator-probe:model-probe-sonnet\", description \"probe\", and prompt \"Run the probe.\"\nWhen the agent has finished, reply with its report verbatim and nothing else.",
     "--plugin-dir",
     "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\decidinator\\probe-plugin",
     "--output-format",
-    "json"
+    "json",
+    "--permission-mode",
+    "plan"
   ],
   "stripped": [],
   "exitCode": 0,
   "result": "MODEL: claude-opus-5-5",
   "stdout": null,
   "stderr": "",
-  "records": 11
+  "records": 8
 }

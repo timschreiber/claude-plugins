@@ -1,6 +1,6 @@
 [
   {
-    "agent_id": "a1cbaa6483ac80985",
+    "agent_id": "adc9b716f92af39f1",
     "agent_type": "decidinator-probe:model-probe",
     "effort": {
       "level": "high"
@@ -8,6 +8,6 @@
     "models": [
       "claude-opus-5-5"
     ],
-    "last_assistant_message": null
+    "last_assistant_message": "MODEL: claude-opus-5-5"
   }
 ]

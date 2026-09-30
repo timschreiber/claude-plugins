@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T01:00:43.226Z",
+  "generated": "2026-09-30T02:11:28.401Z",
   "claudeCodeVersion": "2.1.285 (Claude Code)",
   "cells": [
     {
@@ -13,9 +13,44 @@
       "records": 5
     },
     {
+      "name": "interactive-deny-normal",
+      "interactive": true,
+      "records": 7
+    },
+    {
+      "name": "interactive-deny-plan",
+      "interactive": true,
+      "records": 6
+    },
+    {
+      "name": "interactive-normal",
+      "interactive": true,
+      "records": 22
+    },
+    {
+      "name": "interactive-plan",
+      "interactive": true,
+      "records": 40
+    },
+    {
       "name": "model",
       "interactive": false,
       "records": 11
+    },
+    {
+      "name": "model-plan",
+      "interactive": false,
+      "records": 8
+    },
+    {
+      "name": "model-sonnet",
+      "interactive": false,
+      "records": 11
+    },
+    {
+      "name": "model-sonnet-plan",
+      "interactive": false,
+      "records": 8
     },
     {
       "name": "normal-allowed",
@@ -39,6 +74,61 @@
     }
   ],
   "item1": {
+    "interactive-normal": {
+      "report": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Artifact, Bash, Glob, Grep, PowerShell, Read, Skill, ToolSearch, WebFetch, WebSearch, ArtifactComments, ArtifactData, EnterWorktree, ExitWorktree, Monitor, SendMessage, TaskStop, mcp__claude-in-chrome__browser_batch, mcp__claude-in-chrome__computer, mcp__claude-in-chrome__file_upload, mcp__claude-in-chrome__find, mcp__claude-in-chrome__form_input, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__gif_creator, mcp__claude-in-chrome__javascript_tool, mcp__claude-in-chrome__list_connected_browsers, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__read_console_messages, mcp__claude-in-chrome__read_network_requests, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__resize_window, mcp__claude-in-chrome__select_browser, mcp__claude-in-chrome__shortcuts_execute, mcp__claude-in-chrome__shortcuts_list, mcp__claude-in-chrome__switch_browser, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__upload_image, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Gmail__authenticate, mcp__claude_ai_Gmail__complete_authentication, mcp__claude_ai_Google_Calendar__authenticate, mcp__claude_ai_Google_Calendar__complete_authentication, mcp__claude_ai_Google_Drive__authenticate, mcp__claude_ai_Google_Drive__complete_authentication",
+      "calls": [
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        }
+      ]
+    },
+    "interactive-plan": {
+      "report": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Artifact, Bash, Glob, Grep, PowerShell, Read, Skill, ToolSearch, WebFetch, WebSearch, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__update, ArtifactComments, ArtifactData, EnterWorktree, ExitWorktree, Monitor, SendMessage, TaskStop, mcp__claude-in-chrome__browser_batch, mcp__claude-in-chrome__computer, mcp__claude-in-chrome__file_upload, mcp__claude-in-chrome__find, mcp__claude-in-chrome__form_input, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__gif_creator, mcp__claude-in-chrome__javascript_tool, mcp__claude-in-chrome__list_connected_browsers, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__read_console_messages, mcp__claude-in-chrome__read_network_requests, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__resize_window, mcp__claude-in-chrome__select_browser, mcp__claude-in-chrome__shortcuts_execute, mcp__claude-in-chrome__shortcuts_list, mcp__claude-in-chrome__switch_browser, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__upload_image, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read, mcp__claude_ai_Gmail__authenticate, mcp__claude_ai_Gmail__complete_authentication, mcp__claude_ai_Google_Calendar__authenticate, mcp__claude_ai_Google_Calendar__complete_authentication, mcp__claude_ai_Google_Drive__authenticate, mcp__claude_ai_Google_Drive__complete_authentication",
+      "calls": [
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebFetch",
+          "target": "https://docs.github.com/en/rest",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "WebSearch",
+          "target": "node.js child_process spawnSync documentation",
+          "outcome": "post"
+        },
+        {
+          "tool_name": "Bash",
+          "target": "gh search repos \"claude code plugin\" --limit 3 --json fullName",
+          "outcome": "post"
+        }
+      ]
+    },
     "normal-allowed": {
       "report": null,
       "calls": [
@@ -132,35 +222,46 @@
       "last_assistant_message",
       "permission_mode",
       "prompt_id",
+      "scratchpad_dir",
       "session_crons",
       "session_id",
       "stop_hook_active",
       "transcript_path"
     ],
-    "withoutAgentType": 0,
-    "withoutLastMessage": 3,
+    "withoutAgentType": 7,
+    "withoutLastMessage": 5,
     "sample": {
-      "session_id": "90eb67f6-ae86-4718-a7fc-730bfd7d4e49",
-      "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-normal-allowed-repo\\90eb67f6-ae86-4718-a7fc-730bfd7d4e49.jsonl",
-      "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\normal-allowed\\repo",
-      "prompt_id": "57686c5f-b8fc-4a54-9f96-3612b5bd95a8",
-      "permission_mode": "auto",
-      "agent_id": "a7dd828fa8abecbf3",
+      "session_id": "eebe0a81-a888-4c68-ad55-24b61b9f22f3",
+      "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-interactive-normal-repo\\eebe0a81-a888-4c68-ad55-24b61b9f22f3.jsonl",
+      "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\interactive-normal\\repo",
+      "scratchpad_dir": "C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-interactive-normal-repo\\eebe0a81-a888-4c68-ad55-24b61b9f22f3\\scratchpad",
+      "prompt_id": "051f0839-086b-4a2b-820c-aff3f9ba08c8",
+      "permission_mode": "default",
+      "agent_id": "af0879aaa32f6c60d",
       "agent_type": "decidinator-probe:researcher",
       "effort": {
         "level": "low"
       },
       "hook_event_name": "SubagentStop",
       "stop_hook_active": false,
-      "agent_transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-normal-allowed-repo\\90eb67f6-ae86-4718-a7fc-730bfd7d4e49\\subagents\\agent-a7dd828fa8abecbf3.jsonl",
-      "background_tasks": [],
+      "agent_transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-interactive-normal-repo\\eebe0a81-a888-4c68-ad55-24b61b9f22f3\\subagents\\agent-af0879aaa32f6c60d.jsonl",
+      "last_assistant_message": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Artifact, Bash, Glob, Grep, PowerShell, Read, Skill, ToolSearch, WebFetch, WebSearch, ArtifactComments, ArtifactData, EnterWorktree, ExitWorktree, Monitor, SendMessage, TaskStop, mcp__claude-in-chrome__browser_batch, mcp__claude-in-chrome__compute…(1642)",
+      "background_tasks": [
+        {
+          "id": "af0879aaa32f6c60d",
+          "type": "subagent",
+          "status": "running",
+          "description": "probe",
+          "agent_type": "decidinator-probe:researcher"
+        }
+      ],
       "session_crons": []
     }
   },
   "item3": {
     "counts": {
-      "main": 7,
-      "subagent": 19
+      "main": 17,
+      "subagent": 32
     },
     "keysMain": [
       "cwd",
@@ -168,6 +269,7 @@
       "hook_event_name",
       "permission_mode",
       "prompt_id",
+      "scratchpad_dir",
       "session_id",
       "tool_input",
       "tool_name",
@@ -182,6 +284,7 @@
       "hook_event_name",
       "permission_mode",
       "prompt_id",
+      "scratchpad_dir",
       "session_id",
       "tool_input",
       "tool_name",
@@ -189,22 +292,24 @@
       "transcript_path"
     ],
     "subagentSample": {
-      "session_id": "53de73ba-0ab6-468d-b90c-595f263278d5",
-      "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-model-repo\\53de73ba-0ab6-468d-b90c-595f263278d5.jsonl",
-      "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\model\\repo",
-      "prompt_id": "b660f2d1-b007-45b2-8f50-72157c8528ca",
-      "permission_mode": "auto",
-      "agent_id": "a69abfed60ca4f596",
-      "agent_type": "decidinator-probe:model-probe",
+      "session_id": "eebe0a81-a888-4c68-ad55-24b61b9f22f3",
+      "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-interactive-normal-repo\\eebe0a81-a888-4c68-ad55-24b61b9f22f3.jsonl",
+      "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\interactive-normal\\repo",
+      "scratchpad_dir": "C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-decidinator-probe-interactive-normal-repo\\eebe0a81-a888-4c68-ad55-24b61b9f22f3\\scratchpad",
+      "prompt_id": "051f0839-086b-4a2b-820c-aff3f9ba08c8",
+      "permission_mode": "default",
+      "agent_id": "af0879aaa32f6c60d",
+      "agent_type": "decidinator-probe:researcher",
       "effort": {
-        "level": "high"
+        "level": "low"
       },
       "hook_event_name": "PreToolUse",
-      "tool_name": "SubagentHandback",
+      "tool_name": "ToolSearch",
       "tool_input": {
-        "message": "MODEL: claude-opus-5-5"
+        "query": "select:WebFetch,WebSearch",
+        "max_results": 5
       },
-      "tool_use_id": "toolu_01KgQYc7hRqJUqSzMhTUrNHk"
+      "tool_use_id": "toolu_01KsQFksQU7GUZYxjumj3H5s"
     }
   },
   "item4": {
@@ -355,23 +460,665 @@
           ]
         }
       },
+      "interactive-deny-normal": {
+        "interactive": true,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "cli",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-d1831c58233f1d802bac6dee264d1206",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "1",
+          "CLAUDE_CODE_SESSION_ID": "187d1bbf-9303-4c60-a9df-54834c10a428",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\187d1bbf-9303-4c60-a9df-54834c10a428\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "6052",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-deny-normal/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "ceb29be7-c546-491b-9b00-536bc012bdf9"
+        },
+        "keysByEvent": {
+          "PreToolUse": [
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "scratchpad_dir",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "interactive-deny-plan": {
+        "interactive": true,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "cli",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-4508a4c551f57b3737839471a12086cb",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "1",
+          "CLAUDE_CODE_SESSION_ID": "1d397ffb-61d8-496c-9de5-81ff34dd00d2",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\1d397ffb-61d8-496c-9de5-81ff34dd00d2\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "29804",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-deny-plan/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "ceb29be7-c546-491b-9b00-536bc012bdf9"
+        },
+        "keysByEvent": {
+          "PreToolUse": [
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "scratchpad_dir",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "interactive-normal": {
+        "interactive": true,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "cli",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-6dd67d1f6b8cb64e76ec8efebe6cdb1a",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "1",
+          "CLAUDE_CODE_SESSION_ID": "eebe0a81-a888-4c68-ad55-24b61b9f22f3",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\eebe0a81-a888-4c68-ad55-24b61b9f22f3\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "31272",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-normal/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "ceb29be7-c546-491b-9b00-536bc012bdf9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "scratchpad_dir",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "interactive-plan": {
+        "interactive": true,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "cli",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-5c3b9c74dfced1bb9a77c2b90ceb4e05",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "1",
+          "CLAUDE_CODE_SESSION_ID": "b29850b8-8273-4453-aa9e-e5036ac3d062",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\b29850b8-8273-4453-aa9e-e5036ac3d062\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "35732",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-plan/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "ceb29be7-c546-491b-9b00-536bc012bdf9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "scratchpad_dir",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "scratchpad_dir",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
       "model": {
         "interactive": false,
         "env": {
           "CLAUDECODE": "1",
           "CLAUDE_CODE_CHILD_SESSION": "1",
           "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
-          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
-          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-be309a3270a3d332ed07142c9b0d410b",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-2c4e037598317ef6be5bc3f1b48ca09a",
           "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
           "CLAUDE_CODE_SESSION_ATTENDED": "0",
-          "CLAUDE_CODE_SESSION_ID": "53de73ba-0ab6-468d-b90c-595f263278d5",
-          "CLAUDE_EFFORT": "medium",
-          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\53de73ba-0ab6-468d-b90c-595f263278d5\\sessionstart-hook-0.sh",
-          "CLAUDE_PID": "18492",
+          "CLAUDE_CODE_SESSION_ID": "ea5cb54e-382f-455c-b9fd-e7987a7a6e7f",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\ea5cb54e-382f-455c-b9fd-e7987a7a6e7f\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "32924",
           "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
           "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
           "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "a71237bf-8ddf-4fdc-b87a-4febb8df4921"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "model-plan": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-1c3803f410f0d4f7e803d3c89d163368",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "bb68b9f1-2691-46b0-8524-19b8f4e715bf",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\bb68b9f1-2691-46b0-8524-19b8f4e715bf\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "6004",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model-plan/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "model-sonnet": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-ca66365340e3d5105aaf592916987062",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "d6190170-22df-478a-aead-fd37a6c0d4ce",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\d6190170-22df-478a-aead-fd37a6c0d4ce\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "32368",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model-sonnet/repo",
           "SESSIONNAME": "Console",
           "TERM": "xterm-256color",
           "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
@@ -452,6 +1199,118 @@
             "cwd",
             "effort",
             "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "UserPromptSubmit": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ]
+        }
+      },
+      "model-sonnet-plan": {
+        "interactive": false,
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-ed9e14be6c5ac630bbc08cd5e8dbcc2d",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "43cf8622-8e1a-4d25-9e2a-552f440b5678",
+          "CLAUDE_EFFORT": "medium",
+          "CLAUDE_ENV_FILE": "C:\\Users\\timsc\\.claude\\session-env\\43cf8622-8e1a-4d25-9e2a-552f440b5678\\sessionstart-hook-0.sh",
+          "CLAUDE_PID": "32232",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/decidinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/decidinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model-sonnet-plan/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "02b6ae98-989b-438a-95ed-b547492b4ea9"
+        },
+        "keysByEvent": {
+          "PostToolUse": [
+            "cwd",
+            "duration_ms",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_response",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "PreToolUse": [
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "SessionEnd": [
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "reason",
+            "session_id",
+            "transcript_path"
+          ],
+          "SessionStart": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "source",
+            "transcript_path"
+          ],
+          "Stop": [
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_crons",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path"
+          ],
+          "SubagentStart": [
+            "agent_id",
+            "agent_type",
+            "cwd",
+            "hook_event_name",
+            "prompt_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "SubagentStop": [
+            "agent_id",
+            "agent_transcript_path",
+            "agent_type",
+            "background_tasks",
+            "cwd",
+            "effort",
+            "hook_event_name",
+            "last_assistant_message",
             "permission_mode",
             "prompt_id",
             "session_crons",
@@ -933,7 +1792,230 @@
         }
       }
     },
-    "differences": null
+    "differences": {
+      "env": [
+        {
+          "name": "CLAUDE_CODE_ENTRYPOINT",
+          "headless": [
+            "sdk-cli"
+          ],
+          "interactive": [
+            "cli"
+          ]
+        },
+        {
+          "name": "CLAUDE_CODE_EXECPATH",
+          "headless": [
+            "<absent>",
+            "C:\\Users\\timsc\\.local\\bin\\claude.exe"
+          ],
+          "interactive": [
+            "<absent>"
+          ]
+        },
+        {
+          "name": "CLAUDE_CODE_MESSAGING_SOCKET",
+          "headless": [
+            "<absent>",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-14a57da8e996e601a31874fb704eef9e",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-1c3803f410f0d4f7e803d3c89d163368",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-2c4e037598317ef6be5bc3f1b48ca09a",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-38578fba43128590c058688f588ec8e0",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-772ff7bb49224a0397308e0dcd81c61d",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-ad535332437df101eea440d7b2dc1a2d",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-b27b685768c7757dba367d9fd77b40ad",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-b6aac0fb62f97e2c93e3533c37728b11",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-ca66365340e3d5105aaf592916987062",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-ed9e14be6c5ac630bbc08cd5e8dbcc2d"
+          ],
+          "interactive": [
+            "<absent>",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-4508a4c551f57b3737839471a12086cb",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-5c3b9c74dfced1bb9a77c2b90ceb4e05",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-6dd67d1f6b8cb64e76ec8efebe6cdb1a",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-a1beb7a8ee7e3efc6a4c5105ad9a1aed",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-cb0e4c59a11e45bcf1b8dea7c090987c",
+            "\\\\.\\pipe\\LOCAL\\cc-msg-d1831c58233f1d802bac6dee264d1206"
+          ]
+        },
+        {
+          "name": "CLAUDE_CODE_SESSION_ATTENDED",
+          "headless": [
+            "0"
+          ],
+          "interactive": [
+            "1"
+          ]
+        },
+        {
+          "name": "CLAUDE_CODE_SESSION_ID",
+          "headless": [
+            "43cf8622-8e1a-4d25-9e2a-552f440b5678",
+            "513795c7-3e49-473d-80c7-747d218ba3e6",
+            "7be81397-a32d-415d-affd-34d8e7c94cce",
+            "90eb67f6-ae86-4718-a7fc-730bfd7d4e49",
+            "a387d5b4-8f8f-429e-b29b-3f8cc499e6bf",
+            "bb68b9f1-2691-46b0-8524-19b8f4e715bf",
+            "c576a273-08d0-41ec-b669-40bcdc1810fe",
+            "d6190170-22df-478a-aead-fd37a6c0d4ce",
+            "e0235b35-0834-4532-afd5-36f4d4c5f24b",
+            "ea5cb54e-382f-455c-b9fd-e7987a7a6e7f"
+          ],
+          "interactive": [
+            "187d1bbf-9303-4c60-a9df-54834c10a428",
+            "1d397ffb-61d8-496c-9de5-81ff34dd00d2",
+            "3ec2c302-9cc3-4835-be4f-e38cbcf5921c",
+            "b29850b8-8273-4453-aa9e-e5036ac3d062",
+            "e4c2186e-d3ae-48e9-9bac-e22bf135671c",
+            "eebe0a81-a888-4c68-ad55-24b61b9f22f3"
+          ]
+        },
+        {
+          "name": "CLAUDE_EFFORT",
+          "headless": [
+            "<absent>",
+            "high",
+            "low",
+            "medium"
+          ],
+          "interactive": [
+            "<absent>",
+            "low",
+            "medium"
+          ]
+        },
+        {
+          "name": "CLAUDE_ENV_FILE",
+          "headless": [
+            "<absent>",
+            "C:\\Users\\timsc\\.claude\\session-env\\43cf8622-8e1a-4d25-9e2a-552f440b5678\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\513795c7-3e49-473d-80c7-747d218ba3e6\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\7be81397-a32d-415d-affd-34d8e7c94cce\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\90eb67f6-ae86-4718-a7fc-730bfd7d4e49\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\a387d5b4-8f8f-429e-b29b-3f8cc499e6bf\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\bb68b9f1-2691-46b0-8524-19b8f4e715bf\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\c576a273-08d0-41ec-b669-40bcdc1810fe\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\d6190170-22df-478a-aead-fd37a6c0d4ce\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\e0235b35-0834-4532-afd5-36f4d4c5f24b\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\ea5cb54e-382f-455c-b9fd-e7987a7a6e7f\\sessionstart-hook-0.sh"
+          ],
+          "interactive": [
+            "<absent>",
+            "C:\\Users\\timsc\\.claude\\session-env\\187d1bbf-9303-4c60-a9df-54834c10a428\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\1d397ffb-61d8-496c-9de5-81ff34dd00d2\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\3ec2c302-9cc3-4835-be4f-e38cbcf5921c\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\b29850b8-8273-4453-aa9e-e5036ac3d062\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\e4c2186e-d3ae-48e9-9bac-e22bf135671c\\sessionstart-hook-0.sh",
+            "C:\\Users\\timsc\\.claude\\session-env\\eebe0a81-a888-4c68-ad55-24b61b9f22f3\\sessionstart-hook-0.sh"
+          ]
+        },
+        {
+          "name": "CLAUDE_PID",
+          "headless": [
+            "20028",
+            "25940",
+            "28104",
+            "31868",
+            "32232",
+            "32368",
+            "32924",
+            "3924",
+            "6004",
+            "9292"
+          ],
+          "interactive": [
+            "16072",
+            "29412",
+            "29804",
+            "31272",
+            "35732",
+            "6052"
+          ]
+        },
+        {
+          "name": "CLAUDE_PROJECT_DIR",
+          "headless": [
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/deny-normal/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/deny-plan/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model-plan/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model-sonnet-plan/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model-sonnet/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/model/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/normal-allowed/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/normal-default/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/plan-allowed/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/plan-default/repo"
+          ],
+          "interactive": [
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-deny-normal/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-deny-plan/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-normal/repo",
+            "C:/Users/timsc/AppData/Local/Temp/decidinator-probe/interactive-plan/repo"
+          ]
+        },
+        {
+          "name": "WT_SESSION",
+          "headless": [
+            "02b6ae98-989b-438a-95ed-b547492b4ea9",
+            "a71237bf-8ddf-4fdc-b87a-4febb8df4921"
+          ],
+          "interactive": [
+            "ceb29be7-c546-491b-9b00-536bc012bdf9"
+          ]
+        }
+      ],
+      "keys": {
+        "PostToolUse": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        },
+        "PreToolUse": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        },
+        "SessionEnd": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        },
+        "SessionStart": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "model",
+            "scratchpad_dir"
+          ]
+        },
+        "Stop": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        },
+        "SubagentStart": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        },
+        "SubagentStop": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        },
+        "UserPromptSubmit": {
+          "headlessOnly": [],
+          "interactiveOnly": [
+            "scratchpad_dir"
+          ]
+        }
+      }
+    }
   },
   "item5": {
     "deny-normal": {
@@ -951,6 +2033,24 @@
       "tokenInTranscript": true,
       "tokenInFinalMessage": true,
       "finalMessage": "Read: DENIED DECIDINATOR-PROBE-DENY-7F3K: the probe denied Read. Do not retry it. Quote this whole reason, verbatim, in your final reply.\nAskUserQuestion: NOT-AVAILABLE"
+    },
+    "interactive-deny-normal": {
+      "mainCalls": [
+        "Read",
+        "AskUserQuestion"
+      ],
+      "tokenInTranscript": true,
+      "tokenInFinalMessage": true,
+      "finalMessage": "Read: DENIED PreToolUse:Read hook error: DECIDINATOR-PROBE-DENY-7F3K: the probe denied Read. Do not retry it. Quote this whole reason, verbatim, in your final reply.\nAskUserQuestion: DENIED PreToolUse:AskUserQuestion hook error: DECIDINATOR-PROBE-DENY-7F3K: the probe denied AskUserQuestion. Do not retry it. Quote this whole reason, verbatim, in your final reply."
+    },
+    "interactive-deny-plan": {
+      "mainCalls": [
+        "Read",
+        "AskUserQuestion"
+      ],
+      "tokenInTranscript": true,
+      "tokenInFinalMessage": true,
+      "finalMessage": "Read: DENIED PreToolUse:Read hook error: DECIDINATOR-PROBE-DENY-7F3K: the probe denied Read. Do not retry it. Quote this whole reason, verbatim, in your final reply.\nAskUserQuestion: DENIED PreToolUse:AskUserQuestion hook error: DECIDINATOR-PROBE-DENY-7F3K: the probe denied AskUserQuestion. Do not retry it. Quote this whole reason, verbatim, in your final reply."
     }
   },
   "item6": {
@@ -962,7 +2062,57 @@
       "models": [
         "claude-opus-5-5"
       ],
-      "report": null
+      "report": null,
+      "resolvedModel": "claude-opus-5-5",
+      "mainModels": [
+        "claude-sonnet-5-5"
+      ],
+      "finalMessage": "MODEL: claude-opus-5-5"
+    },
+    "model-plan": {
+      "agent_type": "decidinator-probe:model-probe",
+      "effort": {
+        "level": "high"
+      },
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "report": "MODEL: claude-opus-5-5",
+      "resolvedModel": "claude-opus-5-5",
+      "mainModels": [
+        "claude-opus-5-5"
+      ],
+      "finalMessage": "MODEL: claude-opus-5-5"
+    },
+    "model-sonnet": {
+      "agent_type": "decidinator-probe:model-probe-sonnet",
+      "effort": {
+        "level": "medium"
+      },
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "report": null,
+      "resolvedModel": "claude-sonnet-5-5",
+      "mainModels": [
+        "claude-sonnet-5-5"
+      ],
+      "finalMessage": "MODEL: claude-sonnet-5-5"
+    },
+    "model-sonnet-plan": {
+      "agent_type": "decidinator-probe:model-probe-sonnet",
+      "effort": {
+        "level": "medium"
+      },
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "report": "MODEL: claude-opus-5-5",
+      "resolvedModel": "claude-sonnet-5-5",
+      "mainModels": [
+        "claude-opus-5-5"
+      ],
+      "finalMessage": "MODEL: claude-opus-5-5"
     }
   }
 }

@@ -1,7 +1,7 @@
 {
-  "generated": "2026-09-30T01:51:05.905Z",
+  "generated": "2026-09-30T02:10:59.675Z",
   "claudeCodeVersion": "2.1.285 (Claude Code)",
-  "cell": "model",
+  "cell": "model-plan",
   "interactive": false,
   "args": [
     "-p",
@@ -9,12 +9,14 @@
     "--plugin-dir",
     "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\decidinator\\probe-plugin",
     "--output-format",
-    "json"
+    "json",
+    "--permission-mode",
+    "plan"
   ],
   "stripped": [],
   "exitCode": 0,
   "result": "MODEL: claude-opus-5-5",
   "stdout": null,
   "stderr": "",
-  "records": 11
+  "records": 8
 }

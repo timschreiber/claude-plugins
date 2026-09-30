@@ -3,8 +3,9 @@
 Measured 2026-09-30 on Claude Code 2.1.285 (Windows) with `probes/decidinator/probe-plugin`
 loaded through `--plugin-dir`. This covers the seven headless cells run by
 `probes/decidinator/run-headless.js` (`normal-default`, `plan-default`, `normal-allowed`,
-`plan-allowed`, `deny-normal`, `deny-plan`, `model`). The four interactive cells in
-`probes/decidinator/commands.md` are pending, so items 1, 4 and 5 are not decided yet. Evidence:
+`plan-allowed`, `deny-normal`, `deny-plan`, `model`) and the four interactive cells from
+`probes/decidinator/commands.md` (`interactive-normal`, `interactive-plan`, `interactive-deny-normal`,
+`interactive-deny-plan`). Evidence:
 `probes/evidence/decidinator-verification-results.json` (written by
 `probes/decidinator/analyze.js`) and, per cell, `probes/evidence/decidinator-probe-<cell>-hooks.jsonl`
 (raw hook inputs with an environment snapshot), `-agents.json` (one row per `SubagentStop`, with
@@ -15,11 +16,11 @@ the models from the agent's transcript), `-run.json` (arguments and final result
 
 | # | Item | Headless | Interactive | Result | Fallback if not a pass |
 |---|---|---|---|---|---|
-| 1 | Oracles can use WebFetch, web search and `gh` through Bash, in plan mode and outside it | Default: WebFetch, WebSearch and `gh search repos` all completed, normal and plan. Allowed (`--allowedTools`): the same. | pending | pending | Oracles drop the failing tool; the README lists the tools users must allow. |
-| 2 | `SubagentStop` identifies the agent and gives its final reply | `agent_type` on every record; `last_assistant_message` missing on 3 of 5 (every subagent run outside plan mode) | n/a | partial | No fallback in the spec; the dependent design (recorder / gate and guard) must change. |
+| 1 | Oracles can use WebFetch, web search and `gh` through Bash, in plan mode and outside it | Default: WebFetch, WebSearch and `gh search repos` all completed, normal and plan. Allowed (`--allowedTools`): the same. | WebFetch, WebSearch and `gh search repos` completed in normal and plan mode. | pass; `default` mode asked for permission, `plan` mode did not | Oracles drop the failing tool; the README lists the tools users must allow. |
+| 2 | `SubagentStop` identifies the agent and gives its final reply | `agent_type` on every oracle record; `last_assistant_message` missing on 3 of 5 (every subagent run in `auto` mode) | Present for the researcher in `default` and `plan` mode; the interactive `Agent` call is async, so the parent's `PostToolUse` carries no report | partial | No fallback in the spec; the recorder reads `last_assistant_message`, then the `SubagentHandback` call, then `agent_transcript_path` (see Item 2). |
 | 3 | `PreToolUse` says whether a call comes from a subagent, and which | 19 subagent records carry `agent_id` and `agent_type`; 7 main-thread records carry neither | n/a | pass | Oracles lose Bash and use WebFetch for GitHub. |
-| 4 | A hook can tell the session is non-interactive | Candidates seen (see Item 4); nothing to compare against yet | pending | pending | Headless callers must set DECIDINATOR_MODE=sidecar. |
-| 5 | A `PreToolUse` deny reason reaches the model, in plan mode and outside it | Read: the token reached the transcript and the final message, both modes. AskUserQuestion: not available headless, so never called. | pending | pending | No fallback in the spec; the dependent design (recorder / gate and guard) must change. |
+| 4 | A hook can tell the session is non-interactive | `CLAUDE_CODE_SESSION_ATTENDED=0`, `CLAUDE_CODE_ENTRYPOINT=sdk-cli`, no `scratchpad_dir` | `CLAUDE_CODE_SESSION_ATTENDED=1`, `CLAUDE_CODE_ENTRYPOINT=cli`, `scratchpad_dir` on every record | pass | Headless callers must set DECIDINATOR_MODE=sidecar. |
+| 5 | A `PreToolUse` deny reason reaches the model, in plan mode and outside it | Read: the token reached the transcript and the final message, both modes. AskUserQuestion: not available headless, so never called. | Read and AskUserQuestion were both denied by the hook, and the deny reason reached the model, in `default` and `plan` mode. | pass | No fallback in the spec; the dependent design (recorder / gate and guard) must change. |
 | 6 | Plugin agents with Anthropic-format model IDs and `effort` resolve on Bedrock and Pro | `claude-opus-5-5` at `high` on this login | n/a | partial | Verify with node probes/decidinator/run-headless.js model on each setup before relying on the default rungs there. |
 
 ## Item 1
@@ -43,6 +44,11 @@ GH: OK
   `"permission_mode": "plan"`.
 - WebFetch and WebSearch are deferred tools: in every cell the researcher first called
   `ToolSearch` with `select:WebFetch,WebSearch` (`decidinator-probe-plan-default-hooks.jsonl`).
+- **Interactive:** in `interactive-normal` (`permission_mode: default`) and `interactive-plan` the
+  researcher made the same three calls, each with a matching `PostToolUse`, and reported
+  `WEBFETCH: OK`, `WEBSEARCH: OK`, `GH: OK`. Permission prompts, as reported by the person who ran the
+  cells (not in the hook data): `interactive-normal` (`default` mode) asked for permission, and
+  `interactive-plan` did not. Which tools asked in `default` mode was not written down. The `Agent` call itself was async (see Item 2).
 - The researcher's tool list included built-in `WebSearch` and the claude.ai Docs MCP tools, and
   no other search tool (`TOOLS:` line in each `-run.json`).
 
@@ -61,6 +67,31 @@ that call's `tool_input.message` (`PreToolUse`, carrying `agent_id`) and in the 
 (`decidinator-probe-normal-default-hooks.jsonl`). In plan mode `SubagentHandback` was not in the
 researcher's tool list and the report arrived in `last_assistant_message`
 (`decidinator-probe-plan-default-agents.json`). The agent's transcript is also reachable through
+`agent_transcript_path`.
+
+Interactive cells (`decidinator-probe-interactive-*-hooks.jsonl`):
+
+- **The `Agent` call is async.** The parent's `PostToolUse` for `Agent` has `status: async_launched`
+  and keys `isAsync`, `agentId`, `description`, `resolvedModel`, `prompt`, `outputFile`,
+  `canReadOutputFile`, with no `handbackReport`. So the verdict cannot be read from the parent's
+  `PostToolUse` interactively. The earlier idea of reading `tool_response.handbackReport.text` holds
+  only for foreground (headless) dispatches.
+- **`SubagentStop` had the report** in `interactive-normal` (`default` mode) and `interactive-plan`:
+  `last_assistant_message` is `WEBFETCH: OK...` for the researcher, and `SubagentHandback` was not
+  called. `SubagentHandback` and a missing `last_assistant_message` were seen in `auto` mode (the
+  three headless normal cells) and, in an earlier interactive run that was overwritten and is not in
+  the evidence, in `auto` mode too. So the working hypothesis is that `SubagentHandback` appears
+  when the session is in `auto` mode. Only `default` and `plan` are shown to give
+  `last_assistant_message`.
+- **Other subagents fire `SubagentStop` too.** Each interactive session has extra records with
+  `agent_type: ""` and short progress-like `last_assistant_message` values (`(silence)`,
+  `Loading WebFetch and WebSearch schemas`, `Searching GitHub repos with gh`). The recorder must
+  match on the configured rung's `agent_type` and ignore the rest.
+- `interactive-plan` holds records from three sessions (three `SessionStart` records), because its
+  earlier runs were not cleared; all are `permission_mode: plan` and agree with each other.
+
+Recorder rule this supports: match `agent_type`, take the report from `last_assistant_message`, and if
+it is missing, from the `SubagentHandback` call's `tool_input.message`, and if that is missing, from
 `agent_transcript_path`.
 
 Sample, plan mode (`decidinator-probe-plan-default-hooks.jsonl`, long strings trimmed):
@@ -117,20 +148,23 @@ Sample, a subagent Bash call in plan mode (`decidinator-probe-plan-default-hooks
 
 ## Item 4
 
-The method is decided once the interactive cells exist; `item4.differences` is `null` until then.
-Candidate signals seen so far:
+Decided from `item4.differences` in `decidinator-verification-results.json`, which compares the
+seven headless and four interactive cells:
 
-- **Environment** (every headless cell, `item4.byCell.<cell>.env`):
-  `CLAUDE_CODE_ENTRYPOINT=sdk-cli`, `CLAUDE_CODE_SESSION_ATTENDED=0`,
-  `CLAUDE_CODE_CHILD_SESSION=1`. The driver stripped the inherited `CLAUDECODE` and
-  `CLAUDE_CODE_ENTRYPOINT` before launching (`stripped` in each `-run.json`), so
-  `CLAUDE_CODE_ENTRYPOINT=sdk-cli` was set by the headless session itself. The other two were not
-  stripped and may be inherited from the Claude Code session that ran the driver.
-- **Payload keys:** no headless payload has `scratchpad_dir` (`item4.byCell.<cell>.keysByEvent`).
-  Prior planandtier evidence has it on every interactive record and on no headless one:
-  `probes/evidence/planandtier-agents-probe.log` (interactive, 44 hook inputs, all with
-  `scratchpad_dir`) versus `probes/evidence/planandtier-agent-probe.log` (headless, 8 hook inputs,
-  none).
+- **Environment** (hook process, `item4.byCell.<cell>.env`): every headless cell has
+  `CLAUDE_CODE_SESSION_ATTENDED=0` and `CLAUDE_CODE_ENTRYPOINT=sdk-cli`; every interactive cell has
+  `CLAUDE_CODE_SESSION_ATTENDED=1` and `CLAUDE_CODE_ENTRYPOINT=cli`. This holds for the `model` cell,
+  which was re-run from a plain terminal (`stripped: []` in `decidinator-probe-model-run.json`), so
+  the headless values are not inherited from a non-interactive parent session.
+  `CLAUDE_CODE_CHILD_SESSION=1` is present in both and does not discriminate.
+- **Payload keys:** `scratchpad_dir` is in every interactive hook input (PreToolUse, PostToolUse,
+  SessionStart, SessionEnd, Stop, SubagentStart, SubagentStop, UserPromptSubmit) and in no headless
+  one (`item4.differences.keys`); prior planandtier evidence agrees
+  (`probes/evidence/planandtier-agents-probe.log`: 44 of 44 with it, interactive;
+  `probes/evidence/planandtier-agent-probe.log`: 0 of 8, headless).
+- **Method:** treat a session as headless when `CLAUDE_CODE_SESSION_ATTENDED` is `0`, or when
+  `CLAUDE_CODE_ENTRYPOINT` is `sdk-cli`. Do not use `scratchpad_dir` alone: its absence on a payload
+  might be a version difference, so use it only as a second signal.
 - `permission_mode` does not distinguish them: headless sessions report `auto` or `plan`, as
   interactive ones do.
 
@@ -151,6 +185,14 @@ The model sees a deny as `PreToolUse:<tool> hook error: <reason>`. Both runs the
 the gate's deny path cannot be exercised headless, and no `AskUserQuestion` record exists in either
 cell's hooks file.
 
+Interactive (`decidinator-probe-interactive-deny-normal-run.json` and
+`decidinator-probe-interactive-deny-plan-hooks.jsonl`, `item5.interactive-deny-*`): both `Read` and
+`AskUserQuestion` reached `PreToolUse` on the main thread, were denied by the hook, and the token
+`DECIDINATOR-PROBE-DENY-7F3K` reached the transcript and the final message, in `default` and in `plan`
+mode. The final messages read `Read: DENIED PreToolUse:Read hook error: DECIDINATOR-PROBE-DENY-7F3K:
+...` and `AskUserQuestion: DENIED PreToolUse:AskUserQuestion hook error: DECIDINATOR-PROBE-DENY-7F3K:
+...`. So a deny reason on `AskUserQuestion` reaches the model, in and out of plan mode.
+
 ## Item 6
 
 The `model` cell dispatched `decidinator-probe:model-probe` (`model: claude-opus-5-5`,
@@ -164,13 +206,37 @@ In the plan-mode research cells the researcher (`model: sonnet`) has `resolvedMo
 claude-sonnet-5-5` in the parent's `Agent` `PostToolUse`, but its transcript's messages name
 `claude-opus-5-5` (`decidinator-probe-plan-default-agents.json`,
 `decidinator-probe-plan-allowed-agents.json`); outside plan mode both say `claude-sonnet-5-5`
-(`decidinator-probe-normal-default-agents.json`). So in plan mode an agent's `model` may not be
-what runs.
+(`decidinator-probe-normal-default-agents.json`). The interactive plan cell agrees
+(`decidinator-probe-interactive-plan-agents.json`: transcript `claude-opus-5-5`, `resolvedModel`
+`claude-sonnet-5-5`).
+
+Three more headless cells test predefined agents with full model IDs (`item6` in
+`decidinator-verification-results.json`; the main-session model is `mainModels`, from the main
+transcript):
+
+| Cell | Mode | Agent's `model` | Main session ran | `resolvedModel` | Agent actually ran | Agent said |
+|---|---|---|---|---|---|---|
+| `model` | `auto` | `claude-opus-5-5` | `claude-sonnet-5-5` | `claude-opus-5-5` | `claude-opus-5-5` | `claude-opus-5-5` |
+| `model-plan` | `plan` | `claude-opus-5-5` | `claude-opus-5-5` | `claude-opus-5-5` | `claude-opus-5-5` | `claude-opus-5-5` |
+| `model-sonnet` | `auto` | `claude-sonnet-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` |
+| `model-sonnet-plan` | `plan` | `claude-sonnet-5-5` | `claude-opus-5-5` | `claude-sonnet-5-5` | `claude-opus-5-5` | `claude-opus-5-5` |
+
+Outside plan mode a predefined agent runs on its own `model` (the Opus agent ran on Opus under a
+Sonnet session). In plan mode the session runs on Opus and a subagent runs on the session's model
+whatever its `model` says: `model-sonnet-plan` asked for Sonnet, `resolvedModel` reported Sonnet, and
+the agent ran on Opus and named Opus itself. `resolvedModel` is therefore not proof of what ran; the
+agent's transcript is. Alias versus full ID does not matter (`sonnet` and `claude-sonnet-5-5` both
+lose to plan mode). For the ladder this means rung models are honored only outside plan mode. In
+plan mode every rung runs on Opus, so rung 3 (`claude-fable-5-1`) would not run as Fable, and the
+recorder should read the model from the agent's transcript, not from `resolvedModel`.
 
 ## Pending
 
 From `probes/decidinator/commands.md`:
 
-- The four interactive cells: `interactive-normal`, `interactive-plan`, `interactive-deny-normal`,
-  `interactive-deny-plan`. They decide items 1, 4 and 5.
+- Which tools asked for permission in `default` mode (only that prompts appeared was recorded), and
+  the README wording for it: users must allow those tools for oracles to run unattended.
+- Whether `SubagentHandback` appears only in `auto` mode: run the `research` cell interactively in
+  `auto` mode and check the hooks file for `SubagentHandback` and `last_assistant_message`.
+- A strict `default`-permission headless run (the headless "default" cells ran in `auto`).
 - The `model` cell on a Bedrock setup and on a Pro-plan setup, for item 6.

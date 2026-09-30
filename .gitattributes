@@ -2,6 +2,9 @@
 plugins/planandtier/** text eol=lf
 probes/planandtier/** text eol=lf
 probes/decidinator/** text eol=lf
+# Decidinator probe evidence is generated with LF; keep it byte-stable across platforms.
+probes/evidence/decidinator-*.json text eol=lf
+probes/evidence/decidinator-*.jsonl text eol=lf
 # A copied tasks file must stay byte-exact so its sha256 still matches the plan's table.
 probes/evidence/*.tasks.json -text
 # Bash files keep LF line endings on every platform, whatever core.autocrlf

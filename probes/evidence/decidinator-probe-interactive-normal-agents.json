@@ -1,0 +1,49 @@
+[
+  {
+    "agent_id": "ae9782856f845cb61",
+    "agent_type": "",
+    "effort": {
+      "level": "medium"
+    },
+    "models": [],
+    "last_assistant_message": "(silence)"
+  },
+  {
+    "agent_id": "ad48d3a9c0f89ae97",
+    "agent_type": "",
+    "effort": {
+      "level": "low"
+    },
+    "models": [],
+    "last_assistant_message": "Loading WebFetch and WebSearch schemas"
+  },
+  {
+    "agent_id": "afbb9f73971a40ff9",
+    "agent_type": "",
+    "effort": {
+      "level": "low"
+    },
+    "models": [],
+    "last_assistant_message": "Fetching GitHub REST docs page"
+  },
+  {
+    "agent_id": "af0879aaa32f6c60d",
+    "agent_type": "decidinator-probe:researcher",
+    "effort": {
+      "level": "low"
+    },
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "last_assistant_message": "WEBFETCH: OK\nWEBSEARCH: OK (WebSearch)\nGH: OK\nTOOLS: Artifact, Bash, Glob, Grep, PowerShell, Read, Skill, ToolSearch, WebFetch, WebSearch, ArtifactComments, ArtifactData, EnterWorktree, ExitWorktree, Monitor, SendMessage, TaskStop, mcp__claude-in-chrome__browser_batch, mcp__claude-in-chrome__computer, mcp__claude-in-chrome__file_upload, mcp__claude-in-chrome__find, mcp__claude-in-chrome__form_input, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__gif_creator, mcp__claude-in-chrome__javascript_tool, mcp__claude-in-chrome__list_connected_browsers, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__read_console_messages, mcp__claude-in-chrome__read_network_requests, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__resize_window, mcp__claude-in-chrome__select_browser, mcp__claude-in-chrome__shortcuts_execute, mcp__claude-in-chrome__shortcuts_list, mcp__claude-in-chrome__switch_browser, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__upload_image, mcp__claude_ai_Claude_Docs__batch, mcp__claude_ai_Claude_Docs__create, mcp__claude_ai_Claude_Docs__delete, mcp__claude_ai_Claude_Docs__export, mcp__claude_ai_Claude_Docs__guide, mcp__claude_ai_Claude_Docs__query, mcp__claude_ai_Claude_Docs__read, mcp__claude_ai_Claude_Docs__update, mcp__claude_ai_Gmail__authenticate, mcp__claude_ai_Gmail__complete_authentication, mcp__claude_ai_Google_Calendar__authenticate, mcp__claude_ai_Google_Calendar__complete_authentication, mcp__claude_ai_Google_Drive__authenticate, mcp__claude_ai_Google_Drive__complete_authentication"
+  },
+  {
+    "agent_id": "a55d228adb1fa4427",
+    "agent_type": "",
+    "effort": {
+      "level": "medium"
+    },
+    "models": [],
+    "last_assistant_message": null
+  }
+]

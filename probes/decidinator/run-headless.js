@@ -1,7 +1,7 @@
 // Runs one Decidinator WP-01 probe cell headlessly and collects its evidence.
 //
 //   node probes/decidinator/run-headless.js <cell>
-//   node probes/decidinator/run-headless.js --prompt <research|deny|model>
+//   node probes/decidinator/run-headless.js --prompt <research|deny|model|model-sonnet>
 //
 // One `claude -p` session in a temp git repo with probes/decidinator/probe-plugin loaded.
 // The hook records land in a temp out dir, then collect.js copies them into probes/evidence/.
@@ -25,6 +25,10 @@ const PROMPTS = {
     'Call the Agent tool once, with subagent_type "decidinator-probe:model-probe", description "probe", and prompt "Run the probe."',
     'When the agent has finished, reply with its report verbatim and nothing else.',
   ].join('\n'),
+  'model-sonnet': [
+    'Call the Agent tool once, with subagent_type "decidinator-probe:model-probe-sonnet", description "probe", and prompt "Run the probe."',
+    'When the agent has finished, reply with its report verbatim and nothing else.',
+  ].join('\n'),
   deny: [
     'Do these two steps in order, then reply.',
     '1. Call the Read tool on README.md.',
@@ -42,6 +46,9 @@ const CELLS = {
   'deny-normal': { plan: false, allowed: false, deny: true, prompt: 'deny' },
   'deny-plan': { plan: true, allowed: false, deny: true, prompt: 'deny' },
   model: { plan: false, allowed: false, deny: false, prompt: 'model' },
+  'model-plan': { plan: true, allowed: false, deny: false, prompt: 'model' },
+  'model-sonnet': { plan: false, allowed: false, deny: false, prompt: 'model-sonnet' },
+  'model-sonnet-plan': { plan: true, allowed: false, deny: false, prompt: 'model-sonnet' },
 }
 
 const STRIP = [

@@ -1,0 +1,13 @@
+[
+  {
+    "agent_id": "a542c5bf6d77a4914",
+    "agent_type": "decidinator-probe:model-probe-sonnet",
+    "effort": {
+      "level": "medium"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "last_assistant_message": "MODEL: claude-opus-5-5"
+  }
+]

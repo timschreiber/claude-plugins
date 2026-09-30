@@ -232,13 +232,29 @@ function item5(cells) {
 function item6(cells) {
   const out = {}
   for (const c of cells) {
-    const a = c.agents.find(x => endsWith(x, ':model-probe'))
+    const a = c.agents.find(x => endsWith(x, ':model-probe') || endsWith(x, ':model-probe-sonnet'))
     if (!a) continue
+    const post = c.hooks.find(
+      r => r.event === 'PostToolUse' && r.input && r.input.tool_name === 'Agent' && r.input.tool_response,
+    )
+    const mainModels = []
+    for (const line of c.transcript.split('\n')) {
+      if (!line.trim()) continue
+      try {
+        const m = JSON.parse(line).message
+        if (m && m.model && !mainModels.includes(m.model)) mainModels.push(m.model)
+      } catch {
+        // skip unparseable lines
+      }
+    }
     out[c.name] = {
       agent_type: a.agent_type,
       effort: a.effort ?? null,
       models: a.models || [],
       report: a.last_assistant_message ?? null,
+      resolvedModel: post ? post.input.tool_response.resolvedModel ?? null : null,
+      mainModels,
+      finalMessage: c.run && typeof c.run.result === 'string' ? c.run.result : null,
     }
   }
   return out
