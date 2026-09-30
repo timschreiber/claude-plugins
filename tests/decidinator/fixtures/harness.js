@@ -18,6 +18,7 @@ function setup(prefix) {
   const env = { ...process.env }
   delete env.DECIDINATOR_MODE
   delete env.DECIDINATOR_DEBUG
+  delete env.DECIDINATOR_CONTEXT
   env.CLAUDE_PLUGIN_DATA = dataDir
   env.CLAUDE_PROJECT_DIR = projectDir
   env.HOME = tmp

@@ -48,6 +48,18 @@ for (const name of fixtureNames) {
   })
 }
 
+// No PostToolUse for AskUserQuestion was recorded (the probe denied every call), so one is derived from the recorded PreToolUse call: the same payload, the PostToolUse event name, and a tool_response in the shape Claude Code writes to the transcript as toolUseResult.
+{
+  const pre = records.find((r) => r.file === 'decidinator-probe-interactive-deny-normal-hooks.jsonl' && r.event === 'PreToolUse' && r.input && r.input.tool_name === 'AskUserQuestion')
+  assert.ok(pre, 'no recorded AskUserQuestion PreToolUse call to derive from')
+  const input = JSON.parse(JSON.stringify(pre.input))
+  input.hook_event_name = 'PostToolUse'
+  const answers = {}
+  for (const q of input.tool_input.questions) answers[q.question] = q.options && q.options.length ? q.options[0].label : 'Yes'
+  input.tool_response = { questions: input.tool_input.questions, answers }
+  records.push({ file: 'derived from decidinator-probe-interactive-deny-normal-hooks.jsonl', line: 0, event: 'PostToolUse', input })
+}
+
 function matches(record, event, matcher) {
   if (record.event !== event) return false
   if (matcher === undefined || matcher === '' || matcher === '*') return true

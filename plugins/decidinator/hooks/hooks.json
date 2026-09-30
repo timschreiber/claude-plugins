@@ -34,6 +34,14 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/user-answer.js\"", "timeout": 15 }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "hooks": [
