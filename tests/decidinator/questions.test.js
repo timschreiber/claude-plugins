@@ -244,3 +244,83 @@ test('pass-through is set for review and confirm only, and expires with the prom
   assert.equal(Q.passThroughActive(Q.setPassThrough(s, 'confirm', ''), ''), false)
   assert.equal(Q.passThroughActive(s, 'p1'), false)
 })
+
+test('inFlight is true only for a recorded dispatch at that rung', () => {
+  const s = sample()
+  assert.equal(Q.inFlight(s.questions['Q-0007'], 1), false)
+  const s2 = Q.recordDispatch(s, 'Q-0007', 1, 't', NOW)
+  assert.equal(Q.inFlight(s2.questions['Q-0007'], 1), true)
+  assert.equal(Q.inFlight(s2.questions['Q-0007'], 2), false)
+  assert.equal(Q.inFlight(null, 1), false)
+})
+
+test('guardKey names the id, rung and phase', () => {
+  assert.equal(Q.guardKey('Q-0001', 2, true), 'Q-0001@2:running')
+  assert.ok(Q.guardKey('Q-0001', 2, false).endsWith(':due'))
+})
+
+test('recordVerdict appends, keeps the first per rung, and ignores unknown ids', () => {
+  const s = sample()
+  const e1 = { rung: 1, verdict: { status: 'unresolved' } }
+  const s2 = Q.recordVerdict(s, 'Q-0007', e1)
+  assert.deepEqual(s.questions['Q-0007'].verdicts, [])
+  assert.deepEqual(s2.questions['Q-0007'].verdicts, [e1])
+  assert.equal(Q.recordVerdict(s2, 'Q-0007', { rung: 1, verdict: { status: 'resolved' } }), s2)
+  assert.equal(Q.recordVerdict(s, 'Q-9999', e1), s)
+})
+
+test('applyLadder escalates, settles and clears the guard', () => {
+  const s = { ...sample(), guard: { key: 'x', blocks: 1, steppedAside: false } }
+  const before = JSON.parse(JSON.stringify(s))
+  const esc = Q.applyLadder(s, 'Q-0007', { outcome: 'escalate', rung: 2 }, NOW)
+  assert.equal(esc.questions['Q-0007'].rung, 2)
+  assert.equal(esc.questions['Q-0007'].status, 'pending')
+  assert.equal(esc.guard, null)
+  const res = Q.applyLadder(s, 'Q-0007', { outcome: 'resolved' }, NOW)
+  assert.equal(res.questions['Q-0007'].status, 'resolved')
+  assert.equal(res.questions['Q-0007'].settledAt, NOW)
+  assert.equal(res.guard, null)
+  const fin = Q.applyLadder(s, 'Q-0007', { outcome: 'final-unresolved' }, NOW)
+  assert.equal(fin.questions['Q-0007'].status, 'final-unresolved')
+  assert.equal(fin.questions['Q-0007'].settledAt, NOW)
+  assert.equal(fin.guard, null)
+  assert.equal(Q.applyLadder(s, 'Q-9999', { outcome: 'resolved' }, NOW), s)
+  assert.equal(Q.applyLadder(s, 'Q-0007', { outcome: 'bogus' }, NOW), s)
+  assert.deepEqual(s, before)
+})
+
+test('setHandback and dropHandback round-trip and reject bad input', () => {
+  const s = Q.emptyState()
+  const on = Q.setHandback(s, 'a1', 'msg')
+  assert.deepEqual(on.handbacks, { a1: 'msg' })
+  assert.equal(s.handbacks, undefined)
+  const off = Q.dropHandback(on, 'a1')
+  assert.deepEqual(off.handbacks, {})
+  assert.equal(Object.hasOwn(off.handbacks, 'a1'), false)
+  assert.equal(Q.setHandback(s, '', 'm'), s)
+  assert.equal(Q.setHandback(s, 5, 'm'), s)
+  assert.equal(Q.setHandback(s, 'a1', 5), s)
+  assert.equal(Q.dropHandback(on, 'zzz'), on)
+  assert.equal(Q.dropHandback(s, 'a1'), s)
+})
+
+test('guardStep denies up to max, steps aside once, then passes', () => {
+  let s = Q.emptyState()
+  for (const n of [1, 2, 3]) {
+    const r = Q.guardStep(s, 'k', 3)
+    assert.equal(r.action, 'deny')
+    assert.equal(r.blocks, n)
+    s = r.state
+  }
+  const aside = Q.guardStep(s, 'k', 3)
+  assert.equal(aside.action, 'step-aside')
+  assert.equal(aside.blocks, 3)
+  s = aside.state
+  assert.deepEqual(Q.guardStep(s, 'k', 3), { action: 'pass', state: null })
+  const again = Q.guardStep(s, 'other', 3)
+  assert.equal(again.action, 'deny')
+  assert.equal(again.blocks, 1)
+  const one = Q.guardStep(Q.emptyState(), 'k', 1)
+  assert.equal(one.action, 'deny')
+  assert.equal(Q.guardStep(one.state, 'k', 1).action, 'step-aside')
+})

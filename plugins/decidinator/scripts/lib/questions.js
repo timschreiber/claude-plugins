@@ -1,8 +1,8 @@
 // Question state logic for the gate and the dispatch check. Pure: no file access, and no function
-// mutates its input. The session state shape is {v, order, questions, passThrough}; a question's
+// mutates its input. The session state shape is {v, order, questions, passThrough, handbacks, guard}; a question's
 // status is pending (ladder running), final-unresolved or resolved, and any other status counts as
 // settled. Which question is due is derived from the state, never stored: the first ID in `order`
-// that is pending, at its own rung.
+// that is pending, at its own rung. A question is in flight when a dispatch is recorded at its due rung.
 'use strict'
 
 const { questionHash } = require('./normalize.js')
@@ -147,6 +147,52 @@ function recordDispatch(s, id, rung, toolUseId, now) {
   return { ...s, questions: { ...s.questions, [id]: { ...q, dispatches } } }
 }
 
+function inFlight(q, rung) {
+  return !!q && (q.dispatches ?? []).some(x => x.rung === rung)
+}
+
+function guardKey(id, rung, running) {
+  return `${id}@${rung}:${running ? 'running' : 'due'}`
+}
+
+function recordVerdict(s, id, entry) {
+  const q = s.questions[id]
+  if (!q) return s
+  if ((q.verdicts ?? []).some(v => v.rung === entry.rung)) return s
+  return { ...s, questions: { ...s.questions, [id]: { ...q, verdicts: [...(q.verdicts ?? []), entry] } } }
+}
+
+function applyLadder(s, id, outcome, now) {
+  const q = s.questions[id]
+  if (!q) return s
+  let newQ
+  if (outcome?.outcome === 'escalate') newQ = { ...q, rung: outcome.rung }
+  else if (outcome?.outcome === 'resolved') newQ = { ...q, status: STATUS.RESOLVED, settledAt: now }
+  else if (outcome?.outcome === 'final-unresolved') newQ = { ...q, status: STATUS.FINAL_UNRESOLVED, settledAt: now }
+  else return s
+  return { ...s, questions: { ...s.questions, [id]: newQ }, guard: null }
+}
+
+function setHandback(s, agentId, message) {
+  if (typeof agentId !== 'string' || agentId === '' || typeof message !== 'string') return s
+  return { ...s, handbacks: { ...(s.handbacks ?? {}), [agentId]: message } }
+}
+
+function dropHandback(s, agentId) {
+  if (!s.handbacks || !Object.hasOwn(s.handbacks, agentId)) return s
+  const { [agentId]: _dropped, ...rest } = s.handbacks
+  return { ...s, handbacks: rest }
+}
+
+function guardStep(s, key, max) {
+  const g = s.guard && s.guard.key === key ? s.guard : { key, blocks: 0, steppedAside: false }
+  if (g.steppedAside) return { action: 'pass', state: null }
+  if (g.blocks < max) {
+    return { action: 'deny', blocks: g.blocks + 1, state: { ...s, guard: { key, blocks: g.blocks + 1, steppedAside: false } } }
+  }
+  return { action: 'step-aside', blocks: g.blocks, state: { ...s, guard: { key, blocks: g.blocks, steppedAside: true } } }
+}
+
 function setPassThrough(s, by, promptId) {
   if (!PASS_THROUGH_BY.includes(by)) return s
   return { ...s, passThrough: { by, promptId } }
@@ -170,6 +216,13 @@ module.exports = {
   decideGate,
   checkDispatch,
   recordDispatch,
+  inFlight,
+  guardKey,
+  recordVerdict,
+  applyLadder,
+  setHandback,
+  dropHandback,
+  guardStep,
   setPassThrough,
   passThroughActive
 }
