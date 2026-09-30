@@ -1,0 +1,23 @@
+{
+  "generated": "2026-09-30T00:59:18.131Z",
+  "claudeCodeVersion": "2.1.285 (Claude Code)",
+  "cell": "deny-normal",
+  "interactive": false,
+  "args": [
+    "-p",
+    "Do these two steps in order, then reply.\n1. Call the Read tool on README.md.\n2. Call the AskUserQuestion tool with one question, \"Which color should the probe use?\", header \"Color\", options \"Red\" and \"Blue\".\nIf a hook denies a call, do not retry it and do not work around it.\nThen reply with exactly two lines: \"Read: \" followed by ALLOWED, or DENIED and the full denial reason verbatim; and \"AskUserQuestion: \" followed by the same, or NOT-AVAILABLE if you have no such tool.",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\decidinator\\probe-plugin",
+    "--output-format",
+    "json"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT"
+  ],
+  "exitCode": 0,
+  "result": "Read: DENIED. The hook's reason was: \"PreToolUse:Read hook error: DECIDINATOR-PROBE-DENY-7F3K: the probe denied Read. Do not retry it. Quote this whole reason, verbatim, in your final reply.\"\nAskUserQuestion: NOT-AVAILABLE",
+  "stdout": null,
+  "stderr": "",
+  "records": 5
+}

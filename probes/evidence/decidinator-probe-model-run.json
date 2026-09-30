@@ -1,0 +1,23 @@
+{
+  "generated": "2026-09-30T00:59:44.258Z",
+  "claudeCodeVersion": "2.1.285 (Claude Code)",
+  "cell": "model",
+  "interactive": false,
+  "args": [
+    "-p",
+    "Call the Agent tool once, with subagent_type \"decidinator-probe:model-probe\", description \"probe\", and prompt \"Run the probe.\"\nWhen the agent has finished, reply with its report verbatim and nothing else.",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\decidinator\\probe-plugin",
+    "--output-format",
+    "json"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT"
+  ],
+  "exitCode": 0,
+  "result": "MODEL: claude-opus-5-5",
+  "stdout": null,
+  "stderr": "",
+  "records": 11
+}
