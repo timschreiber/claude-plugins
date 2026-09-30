@@ -28,6 +28,13 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/recorder.js\"", "timeout": 15 }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
