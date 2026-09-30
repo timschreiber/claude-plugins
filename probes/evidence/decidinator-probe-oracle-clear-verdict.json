@@ -1,0 +1,41 @@
+{
+  "generated": "2026-09-30T05:08:59.792Z",
+  "sample": "clear",
+  "questionId": "Q-0002",
+  "dispatch": "Decidinator question Q-0002\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: Which test framework should tally's tests use?\nOptions:\n- Jest: the most widely used JavaScript test framework\n- Mocha: a long-established test runner\n- node:test: the test runner built into Node\nContext: I am adding the first unit tests, for src/list.js, and setting up `npm test`.",
+  "exitCode": 0,
+  "reportSource": "last_assistant_message",
+  "agentType": "decidinator:oracle-1",
+  "effort": {
+    "level": "high"
+  },
+  "agentModels": [
+    "claude-opus-5-5"
+  ],
+  "report": "The spec settles this directly: tally's tests should use `node:test`, the runner built into Node.\n\n- **Decisions:** `docs/decisions.md` has one entry, D-0001 (storage format, provenance `user`). It doesn't address testing and doesn't conflict with this answer. `docs/open-questions.md` has no open entries, so this isn't a duplicate.\n- **Project documents:** Under \"Constraints\", `docs/spec.md` says: \"The package has no dependencies, runtime or development. Everything, including the tests, uses only Node's built-in modules.\" `CLAUDE.md` says the same. Jest and Mocha are npm packages that would have to be added as dev dependencies, so the spec rules both out. `package.json` has no dependencies and no `scripts` yet.\n- **Node documentation:** `node:test` has been marked stable since v20.0.0, which is tally's minimum Node version. Run with no arguments, `node --test` searches any directory named `test` for all `.js`, `.cjs` and `.mjs` files. That matches the spec's \"Tests live in `test/`\". So `\"scripts\": { \"test\": \"node --test\" }` is all `npm test` needs. Assertions come from `node:assert`, which is also built in.\n\nI didn't search GitHub for how other projects do this, because the spec's constraint already decides it.\n\n```decidinator-verdict\n{\n  \"question_id\": \"Q-0002\",\n  \"rung\": 1,\n  \"kind\": \"researchable\",\n  \"status\": \"resolved\",\n  \"answer\": \"Use node:test, the runner built into Node, with node:assert for assertions. Set package.json scripts.test to \\\"node --test\\\" and put the test files under test/ (for example test/list.test.js). Do not add Jest or Mocha.\",\n  \"rationale\": \"The spec's Constraints section says the package has no dependencies, runtime or development, and that everything, including the tests, uses only Node's built-in modules. Jest and Mocha are npm packages that would have to be dev dependencies, so the spec rules them out. node:test has been stable since Node v20.0.0, and with no arguments `node --test` runs every .js/.cjs/.mjs file in a test/ directory, which matches the spec's test/ and npm test requirements.\",\n  \"options\": [],\n  \"sources\": [\n    \"docs/spec.md\",\n    \"CLAUDE.md\",\n    \"package.json\",\n    \"https://nodejs.org/docs/latest-v20.x/api/test.html\"\n  ],\n  \"assumptions\": [],\n  \"confidence\": \"high\",\n  \"flags\": [],\n  \"duplicate_of\": null\n}\n```",
+  "parseReason": null,
+  "verdict": {
+    "question_id": "Q-0002",
+    "rung": 1,
+    "kind": "researchable",
+    "status": "resolved",
+    "answer": "Use node:test, the runner built into Node, with node:assert for assertions. Set package.json scripts.test to \"node --test\" and put the test files under test/ (for example test/list.test.js). Do not add Jest or Mocha.",
+    "rationale": "The spec's Constraints section says the package has no dependencies, runtime or development, and that everything, including the tests, uses only Node's built-in modules. Jest and Mocha are npm packages that would have to be dev dependencies, so the spec rules them out. node:test has been stable since Node v20.0.0, and with no arguments `node --test` runs every .js/.cjs/.mjs file in a test/ directory, which matches the spec's test/ and npm test requirements.",
+    "options": [],
+    "sources": [
+      "docs/spec.md",
+      "CLAUDE.md",
+      "package.json",
+      "https://nodejs.org/docs/latest-v20.x/api/test.html"
+    ],
+    "assumptions": [],
+    "confidence": "high",
+    "flags": [],
+    "duplicate_of": null
+  },
+  "checks": {
+    "validBlock": true,
+    "citesSource": true
+  },
+  "pass": true
+}

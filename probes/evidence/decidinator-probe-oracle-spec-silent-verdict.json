@@ -1,0 +1,55 @@
+{
+  "generated": "2026-09-30T05:10:43.795Z",
+  "sample": "spec-silent",
+  "questionId": "Q-0004",
+  "dispatch": "Decidinator question Q-0004\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: When two open todos have the same due date, in what order should `tally list` print them?\nOptions:\n- Added: in the order they were added\n- Alphabetical: by their text\nContext: I am writing the ordering tests for src/list.js.",
+  "exitCode": 0,
+  "reportSource": "last_assistant_message",
+  "agentType": "decidinator:oracle-1",
+  "effort": {
+    "level": "high"
+  },
+  "agentModels": [
+    "claude-opus-5-5"
+  ],
+  "report": "I found no binding decision on this question. The spec doesn't settle it either, but the rest of the project points clearly to \"Added\".\n\n- **Decisions:** `docs/decisions.md` has only D-0001, the storage format decision, which doesn't bear on this. `docs/open-questions.md` has no entries, so this isn't a duplicate.\n- **Spec:** `docs/spec.md` says `tally list` prints todos with a due date first, earliest first, then todos without one. It says nothing about todos that share a due date.\n- **The code already does \"Added\":** `src/list.js:7` sorts the dated todos on `due` only. JavaScript's `Array.prototype.sort` has been required to keep equal items in their original order since ES2019, and Node 20 follows that. So todos with the same due date already print in the order they were added. The undated todos also keep that order, because line 8 only filters them. Choosing \"Added\" means the tests pin down what the code does now, with no code change. Alphabetical would need a second comparison on the text.\n- **`tally done <n>` numbering:** it marks \"the n-th todo\", presumably by the order `tally list` prints. With \"Added\", a new todo that ties on date goes after the existing ones, so their numbers don't move. With alphabetical order, adding a todo can renumber the ones already shown, so `done 2` could hit a different todo than the user saw a moment ago.\n- **General practice:** a stable sort that keeps insertion order is the usual default tie-break for list views. Plain-file todo tools also generally keep the order items were added.\n\nI skipped a GitHub search because the project evidence and the language guarantee were enough.\n\nI'm flagging this `spec-silent`, and I'd suggest adding one line to `docs/spec.md` so the rule is written down. A product owner could still prefer alphabetical order, so my confidence is medium.\n\nFiles:\n- C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\oracle-spec-silent\\repo\\docs\\spec.md\n- C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\oracle-spec-silent\\repo\\docs\\decisions.md\n- C:\\Users\\timsc\\AppData\\Local\\Temp\\decidinator-probe\\oracle-spec-silent\\repo\\src\\list.js\n\nThe Gmail, Google Calendar and Google Drive connectors need to be authorized in the claude.ai connector settings before they can be used. None of them were needed for this question.\n\n```decidinator-verdict\n{\n  \"question_id\": \"Q-0004\",\n  \"rung\": 1,\n  \"kind\": \"researchable\",\n  \"status\": \"resolved\",\n  \"answer\": \"Added: open todos with the same due date print in the order they were added (a stable sort on due date only, with no secondary key), the same order the undated todos already use.\",\n  \"rationale\": \"The spec sets the primary order but not the tie-break. The existing openTodos sorts on due date only, and Array.prototype.sort has been required to be stable since ES2019, so it already prints ties in the order added, matching the undated group. Insertion order also keeps the positions `tally done <n>` uses from shifting when a todo with the same due date is added, while alphabetical order can renumber todos the user has already seen.\",\n  \"options\": [\n    {\"label\": \"Added\", \"tradeoffs\": \"Matches the current code and the undated group with no code change, and existing todos keep their numbers when new ones are added. Todos with the same date are not easy to scan by name.\"},\n    {\"label\": \"Alphabetical\", \"tradeoffs\": \"Easy to scan by text, but it needs a secondary comparison and a case/locale rule, and adding a todo can renumber existing todos with the same date, which affects `tally done <n>`.\"}\n  ],\n  \"sources\": [\n    \"docs/spec.md\",\n    \"src/list.js:7\",\n    \"src/list.js:8\",\n    \"https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort\"\n  ],\n  \"assumptions\": [\n    \"`tally done <n>` numbers todos by the order `tally list` displays them.\",\n    \"The todos array in ~/.tally.json keeps the order in which todos were added.\"\n  ],\n  \"confidence\": \"medium\",\n  \"flags\": [\"spec-silent\"],\n  \"duplicate_of\": null\n}\n```",
+  "parseReason": null,
+  "verdict": {
+    "question_id": "Q-0004",
+    "rung": 1,
+    "kind": "researchable",
+    "status": "resolved",
+    "answer": "Added: open todos with the same due date print in the order they were added (a stable sort on due date only, with no secondary key), the same order the undated todos already use.",
+    "rationale": "The spec sets the primary order but not the tie-break. The existing openTodos sorts on due date only, and Array.prototype.sort has been required to be stable since ES2019, so it already prints ties in the order added, matching the undated group. Insertion order also keeps the positions `tally done <n>` uses from shifting when a todo with the same due date is added, while alphabetical order can renumber todos the user has already seen.",
+    "options": [
+      {
+        "label": "Added",
+        "tradeoffs": "Matches the current code and the undated group with no code change, and existing todos keep their numbers when new ones are added. Todos with the same date are not easy to scan by name."
+      },
+      {
+        "label": "Alphabetical",
+        "tradeoffs": "Easy to scan by text, but it needs a secondary comparison and a case/locale rule, and adding a todo can renumber existing todos with the same date, which affects `tally done <n>`."
+      }
+    ],
+    "sources": [
+      "docs/spec.md",
+      "src/list.js:7",
+      "src/list.js:8",
+      "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    ],
+    "assumptions": [
+      "`tally done <n>` numbers todos by the order `tally list` displays them.",
+      "The todos array in ~/.tally.json keeps the order in which todos were added."
+    ],
+    "confidence": "medium",
+    "flags": [
+      "spec-silent"
+    ],
+    "duplicate_of": null
+  },
+  "checks": {
+    "validBlock": true,
+    "citesSource": true
+  },
+  "pass": true
+}

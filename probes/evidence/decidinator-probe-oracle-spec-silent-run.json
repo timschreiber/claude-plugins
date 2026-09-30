@@ -1,0 +1,29 @@
+{
+  "generated": "2026-09-30T05:10:43.791Z",
+  "claudeCodeVersion": "2.1.285 (Claude Code)",
+  "cell": "oracle-spec-silent",
+  "interactive": false,
+  "args": [
+    "-p",
+    "Call the Agent tool once, with subagent_type \"decidinator:oracle-1\", description \"oracle\", and as its prompt exactly the text between the BEGIN and END lines below, without those two lines.\nDo not research the question yourself. When the agent has finished, reply with the single word DONE and nothing else.\nBEGIN\nDecidinator question Q-0004\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: When two open todos have the same due date, in what order should `tally list` print them?\nOptions:\n- Added: in the order they were added\n- Alphabetical: by their text\nContext: I am writing the ordering tests for src/list.js.\nEND",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\decidinator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\decidinator\\probe-plugin",
+    "--output-format",
+    "json",
+    "--permission-mode",
+    "plan",
+    "--model",
+    "claude-opus-5-5"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT"
+  ],
+  "exitCode": 0,
+  "result": "DONE",
+  "stdout": null,
+  "stderr": "",
+  "records": 14
+}
