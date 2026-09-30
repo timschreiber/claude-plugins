@@ -76,7 +76,7 @@ Every question takes the same path until its ladder ends; the mode decides only 
 3. **Record.** The recorder parses the verdict and applies the ladder rules (see Oracle ladder): resolved, escalate to the next rung, or final unresolved.
 4. **Escalate.** On escalate, the guard blocks other tools until the model dispatches the next rung. That dispatch includes the previous rungs' verdicts, so the next rung critiques them rather than starting cold.
 5. **Resolve.** A resolved question is written to the decision log as `oracle-unconfirmed`. The model reads the answer from the oracle's reply and continues.
-6. **Unresolved, ask mode.** The model calls `AskUserQuestion` again with the same question text, using the oracle's researched options. The gate matches it to the pending question and lets it through. The user's answer is recorded as `user`.
+6. **Unresolved, ask mode.** The model calls `AskUserQuestion` again with the same question text, using the oracle's researched options. The gate matches it to the pending question and lets it through. A `PostToolUse` hook on `AskUserQuestion` records the chosen option as a `user` decision, with any notes the user typed on a `Notes:` line.
 7. **Unresolved, sidecar mode.** The recorder picks the best answer (highest confidence; ties go to the higher rung), logs it as `oracle-provisional`, and adds the question to the sidecar. The model continues on the provisional answer.
 
 Rules:
@@ -180,7 +180,9 @@ Format:
 
 Behavior:
 
-- **Deduplication.** Before adding, the recorder checks the sidecar and log by normalized question text and by the oracle's `duplicate_of`. A match gains a `Depends on` label instead of a new entry.
+- **Deduplication.** Before adding, the recorder looks for an open sidecar entry that matches, in order: the oracle's `duplicate_of` (a `Q-` ID, or a `D-` ID whose decision names a Sidecar entry), the normalized question text in the sidecar, then the normalized question text in the log (a decision with a Sidecar entry). A match gains a `Depends on` label instead of a new entry, and the new question's `oracle-provisional` decision reuses the entry's provisional answer. An entry that is not `open`, or a log decision with no Sidecar entry, is not a duplicate.
+- **Entry context.** An entry's Context is the Context line the model wrote in the oracle dispatch, or the context label when it wrote none.
+- **No valid verdict.** If no rung returned a valid verdict, the entry's Provisional answer is `none: no oracle returned a valid verdict`, its Provisional decision is blank, and no decision is logged.
 - **Context labels.** `Depends on` records where the question arose: the `DECIDINATOR_CONTEXT` environment variable if set (the runner sets it to the work package ID), otherwise the session ID and branch.
 - **Export.** `/decidinator:export` writes a stakeholder copy containing only `open` entries, grouped by Stakeholder when present, otherwise by topic.
 - **Import.** `/decidinator:import <file>` reads entries with a filled Answer. Each becomes a `stakeholder` decision that supersedes the provisional one, and the entry becomes `imported`. An answer that matches its provisional answer is reported as confirmed. One that differs is reported as changed, with its `Depends on` labels, so the caller knows which work to revisit.
