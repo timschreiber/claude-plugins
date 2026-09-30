@@ -35,3 +35,6 @@ jobs:
 
       - name: Test planandtier
         run: node --test tests/planandtier/*.test.js
+
+      - name: Test decidinator
+        run: node --test tests/decidinator/*.test.js

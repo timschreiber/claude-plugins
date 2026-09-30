@@ -43,6 +43,12 @@ $planandtierTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/planandtier'
 node --test @planandtierTests
 if ($LASTEXITCODE -ne 0) { $failed = $true }
 
+Write-Host '== decidinator tests'
+$decidinatorTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/decidinator') -Filter '*.test.js' |
+    ForEach-Object { $_.FullName }
+node --test @decidinatorTests
+if ($LASTEXITCODE -ne 0) { $failed = $true }
+
 Write-Host '== orcastrat portability'
 $orcastrat  = Join-Path $repoRoot 'plugins/orcastrat'
 $violations = @()

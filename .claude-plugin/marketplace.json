@@ -52,6 +52,21 @@
       "category": "dev",
       "tags": ["planning", "subagents", "git", "token-efficiency"],
       "keywords": ["planning", "plan-mode", "subagents", "hooks", "git"]
+    },
+    {
+      "name": "decidinator",
+      "displayName": "Decidinator",
+      "source": "./plugins/decidinator",
+      "description": "In development. Makes Claude research its own questions before asking you: every AskUserQuestion call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person, with researched options. Every decision is logged in the repo. Off until you type /decidinator:arm in a session.",
+      "author": {
+        "name": "Tim Schreiber"
+      },
+      "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/decidinator",
+      "repository": "https://github.com/timschreiber/claude-plugins",
+      "license": "Apache-2.0",
+      "category": "dev",
+      "tags": ["questions", "decisions", "subagents", "hooks"],
+      "keywords": ["questions", "decisions", "oracle", "subagents", "hooks"]
     }
   ],
   "renames": {}

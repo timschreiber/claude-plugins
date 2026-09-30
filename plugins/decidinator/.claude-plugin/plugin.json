@@ -1,0 +1,13 @@
+{
+  "name": "decidinator",
+  "displayName": "Decidinator",
+  "description": "Makes Claude research its own questions before asking you. Every AskUserQuestion call goes to a read-only oracle subagent first; only questions it cannot settle reach a person, with researched options, and every decision is logged in the repo. Off until you type /decidinator:arm in a session.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/decidinator",
+  "repository": "https://github.com/timschreiber/claude-plugins",
+  "license": "Apache-2.0",
+  "keywords": ["questions", "decisions", "subagents", "research"]
+}

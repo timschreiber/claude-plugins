@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Claude Code plugin marketplace (`timschreiber`). It publishes two plugins,
+A Claude Code plugin marketplace (`timschreiber`). It publishes three plugins,
 cataloged in `.claude-plugin/marketplace.json`:
 
 - `denoizinator-net`: a `PreToolUse` hook that rewrites `dotnet`/`msbuild`
@@ -30,10 +30,18 @@ cataloged in `.claude-plugin/marketplace.json`:
   `node --test tests/planandtier/*.test.js` (the tests need `git`).
   The design and the measurements behind it are in `docs/planandtier/`, with
   evidence under `probes/evidence/planandtier-*`.
+- `decidinator`: hooks that send every `AskUserQuestion` call to a read-only
+  oracle subagent first, so only questions research cannot settle reach a
+  person, and log every decision in the repo. In development, built package by
+  package from `docs/decidinator/Decidinator — Work Packages.md` against
+  `docs/decidinator/Decidinator — Specification.md`. Silent until
+  `/decidinator:arm` or `DECIDINATOR_MODE`. Node hook scripts under
+  `plugins/decidinator/scripts/`, tested with
+  `node --test tests/decidinator/*.test.js`.
 
 `orcastrat` (formerly `orchestratinator`) lives in `plugins/orcastrat/` but is parked: it is
 listed under `_parked` in `marketplace.json`, not `plugins`, so it is not published. Only
-`denoizinator-net` and `planandtier` are. Do not move it into `plugins` unless the user asks.
+`denoizinator-net`, `planandtier` and `decidinator` are. Do not move it into `plugins` unless the user asks.
 It splits a spec into small tasks and runs each on the cheapest model and effort that can
 do it, with Bash scripts and hooks (POSIX only, no `pwsh`; `scripts/Validate-All.ps1` checks
 that) tested with bats via `scripts/run-bats.sh`. Its README and
@@ -70,6 +78,9 @@ Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 # and fails. Node expands the glob itself, so this works in pwsh too.
 node --test tests/planandtier/*.test.js
 
+# Run decidinator's hook and library tests (same glob rule).
+node --test tests/decidinator/*.test.js
+
 # Scaffold a new plugin
 ./scripts/New-Plugin.ps1 -Name denoizinator-python `
                          -DisplayName 'Denoizinator for Python' `
@@ -83,7 +94,7 @@ claude --plugin-dir ./plugins/denoizinator-net
 
 CI (`.github/workflows/validate.yml`) runs `claude plugin validate .`, validates
 each `plugins/*/` directory, runs `Sync-Shared.ps1 -Check`, and runs the
-planandtier tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
+planandtier and decidinator tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
 yourself before pushing changes to the segmenter.
 
 There is no build step; plugins are PowerShell scripts + JSON/Markdown consumed
