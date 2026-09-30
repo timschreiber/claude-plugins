@@ -167,7 +167,7 @@ Format:
 | `oracle-unconfirmed` | Recorder, resolved question | No |
 | `oracle-provisional` | Recorder, sidecar mode | No; replaced on import |
 
-Binding decisions may not be contradicted by an oracle. A later decision that replaces an earlier one gets a new ID and a `Supersedes` line; the earlier entry stays, marked with a `Superseded by` line.
+Binding decisions may not be contradicted by an oracle. A later decision that replaces an earlier one gets a new ID and a `Supersedes` line; the earlier entry stays, marked with a `Superseded by` line. `/decidinator:confirm` records an approval the same way: a new `oracle-confirmed` entry that copies the answer and supersedes the unconfirmed one. A decision that answers a sidecar entry (review, confirm, import) also supersedes every other unsuperseded `oracle-provisional` decision for that entry, and the entry becomes `answered` (review, confirm) or `imported` (import).
 
 ## Questions sidecar
 
@@ -185,21 +185,21 @@ Behavior:
 - **Entry context.** An entry's Context is the Context line the model wrote in the oracle dispatch, or the context label when it wrote none.
 - **No valid verdict.** If no rung returned a valid verdict, the entry's Provisional answer is `none: no oracle returned a valid verdict`, its Provisional decision is blank, and no decision is logged.
 - **Context labels.** `Depends on` records where the question arose: the `DECIDINATOR_CONTEXT` environment variable if set (the runner sets it to the work package ID), otherwise the session ID and branch.
-- **Export.** `/decidinator:export` writes a stakeholder copy containing only `open` entries, grouped by Stakeholder when present, otherwise by topic.
-- **Import.** `/decidinator:import <file>` reads entries with a filled Answer. Each becomes a `stakeholder` decision that supersedes the provisional one, and the entry becomes `imported`. An answer that matches its provisional answer is reported as confirmed. One that differs is reported as changed, with its `Depends on` labels, so the caller knows which work to revisit.
-- **Matching answers.** The import asks an oracle whether each answer matches the provisional one only when the text is not identical, and records its judgment in the report.
+- **Export.** `/decidinator:export [path]` writes a stakeholder copy containing only `open` entries, grouped by Stakeholder when present, otherwise by topic, with the version marker and a note on how to answer. Without a path it writes next to the sidecar with the date added (`docs/open-questions-2026-09-30.md`). It refuses to overwrite a file that is not a sidecar copy.
+- **Import.** `/decidinator:import <file>` reads entries with a filled Answer. Each becomes a `stakeholder` decision that supersedes the provisional one, and the entry becomes `imported`. An answer that matches its provisional answer is reported as confirmed. One that differs is reported as changed, with its `Depends on` labels, so the caller knows which work to revisit. Only entries still `open` in the sidecar, with the same question, are imported; others are reported as skipped. A file whose first line is not the sidecar marker is refused.
+- **Matching answers.** An answer identical to the provisional one after normalization (case, whitespace, punctuation) is confirmed without an oracle. For any other, the import has the model dispatch rung 1 to judge match or change, and records its judgment in the report; an oracle that cannot judge counts as changed, as does an entry with no provisional answer.
 
 ## Commands and configuration
 
-A session is armed by a command or by an environment variable; unarmed, every hook exits without output except command handling and cleanup.
+A session is armed by a command or by an environment variable; unarmed, every hook exits without output except command handling and cleanup. Review, confirm and import need an armed session; export does not.
 
 | Command | Effect |
 | --- | --- |
 | `/decidinator:arm [ask\|sidecar]` | Arms the session in the given mode (default from config). |
 | `/decidinator:disarm` | Disarms. Pending questions are dropped from state; nothing already written is changed. |
 | `/decidinator:status` | Mode, pending questions and their rungs, and counts of open sidecar entries and unconfirmed decisions. |
-| `/decidinator:review` | Walks open sidecar entries with the user through `AskUserQuestion` (let through by the gate) and records answers as `user`. |
-| `/decidinator:confirm` | Walks `oracle-unconfirmed` and `oracle-provisional` decisions, highest impact first, and records each as `oracle-confirmed` or a `user` override. |
+| `/decidinator:review` | Walks open sidecar entries with the user through `AskUserQuestion` (let through by the gate) and records answers as `user`, superseding the provisional decision. |
+| `/decidinator:confirm` | Walks `oracle-unconfirmed` and `oracle-provisional` decisions, highest impact first, and records each as a new `oracle-confirmed` decision or a `user` override, superseding it. |
 | `/decidinator:export [path]` | Writes the stakeholder copy of the sidecar. |
 | `/decidinator:import <path>` | Imports stakeholder answers and prints the confirmed and changed report. |
 

@@ -20,6 +20,10 @@ Node 20 or later on the PATH.
 | `/decidinator:arm [ask\|sidecar]` | Arms the session in the given mode (default from configuration, else `ask`). |
 | `/decidinator:disarm` | Disarms, dropping pending questions. |
 | `/decidinator:status` | Shows whether the session is armed and in which mode, and the counts of open sidecar entries and unconfirmed decisions. |
+| `/decidinator:review` | Asks you the open sidecar questions, with their researched options, and records your answers. Needs an armed session. |
+| `/decidinator:confirm` | Walks unconfirmed and provisional decisions, highest impact first; confirm or override each. Needs an armed session. |
+| `/decidinator:export [path]` | Writes a stakeholder copy of the open questions (default: next to the sidecar, dated). |
+| `/decidinator:import <path>` | Imports the stakeholders' answers and reports which decisions they confirmed or changed. Needs an armed session. |
 
 Setting `DECIDINATOR_MODE=ask` or `sidecar` before launch arms every session at start. Unarmed, the plugin does nothing.
 
