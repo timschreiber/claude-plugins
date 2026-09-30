@@ -186,6 +186,15 @@ test('decideGate: any pending question is held, in both modes', () => {
   }
 })
 
+test('decideGate: a pending question with a recorded dispatch gets the wait reason', () => {
+  const rows = [['Q-0001', 'A?', 'pending']]
+  const s = stateOf(rows)
+  const calls = Q.fromCall({ questions: [{ question: 'A?' }] })
+  assert.equal(Q.decideGate(s, Q.classify(s, calls), 'ask', cfg).deny, reasons.held(Q.dueDispatch(s, cfg), ['Q-0001']))
+  const s2 = Q.recordDispatch(s, 'Q-0001', 1, 'toolu_x', NOW)
+  assert.equal(Q.decideGate(s2, Q.classify(s2, calls), 'ask', cfg).deny, reasons.heldWaiting(Q.dueDispatch(s2, cfg), ['Q-0001']))
+})
+
 test('decideGate: only final-unresolved is allowed in ask mode and denied in sidecar mode', () => {
   const rows = [['Q-0001', 'A?', 'final-unresolved'], ['Q-0002', 'B?', 'final-unresolved']]
   assert.deepEqual(gate(rows, ['A?', 'B?'], 'ask'), { allow: true })

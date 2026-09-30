@@ -123,7 +123,11 @@ function decideGate(s, classified, mode, cfg) {
   const idOf = c => c.q.id
   const allIds = classified.map(idOf)
   const pending = classified.filter(c => c.kind === 'pending')
-  if (pending.length > 0) return { deny: reasons.held(dueDispatch(s, cfg), pending.map(idOf)) }
+  if (pending.length > 0) {
+    const d = dueDispatch(s, cfg)
+    const cur = due(s, cfg.rungs)
+    return { deny: inFlight(cur.q, cur.rung) ? reasons.heldWaiting(d, pending.map(idOf)) : reasons.held(d, pending.map(idOf)) }
+  }
   const open = classified.filter(c => c.kind === 'open')
   const settledIds = classified.filter(c => c.kind === 'settled').map(idOf)
   if (open.length === 0) return { deny: reasons.settled(allIds) }

@@ -1,6 +1,6 @@
 'use strict'
 
-// Pins every text the gate and the dispatch check show the model. UPDATE_SNAPSHOTS=1 rewrites the
+// Pins every text the gate, the dispatch check and the guard show the model. UPDATE_SNAPSHOTS=1 rewrites the
 // snapshot file instead of comparing. The snapshot is JSON, not t.assert.snapshot, which needs Node 22+.
 
 const { test } = require('node:test')
@@ -51,6 +51,11 @@ const rendered = {
   'refused-wrong-agent': reasons.refused(reasons.wrongAgent('decidinator:oracle-2', d), d),
   'refused-no-agent': reasons.refused(reasons.wrongAgent(undefined, d), d),
   'refused-missing-id': reasons.refused(reasons.missingId(d), d),
+  'held-waiting-one': reasons.heldWaiting(d, ['Q-0007']),
+  'held-waiting-three': reasons.heldWaiting(d, ['Q-0007', 'Q-0008', 'Q-0009']),
+  'guard-due': reasons.guardDue(d),
+  'guard-waiting': reasons.guardWaiting(d),
+  'guard-stepped-aside': reasons.guardSteppedAside('Q-0007', 1, 3),
   'prompt-rung-1': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 1, cfg),
   'prompt-rung-2': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 2, cfg)
 }

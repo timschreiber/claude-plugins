@@ -129,6 +129,13 @@ test('a re-asked pending question is held and mints no new ID', () => {
   assert.deepEqual(state.read(sid).order, ['Q-0001'])
 })
 
+test('a re-asked question whose oracle is running gets the wait reason', () => {
+  gate(base)
+  assert.equal(state.update(sid, s => Q.recordDispatch(s, 'Q-0001', 1, 'toolu_x', new Date().toISOString())), true)
+  const reason = gate(base)
+  assert.equal(reason, reasons.heldWaiting(dispatchOf(), ['Q-0001']))
+})
+
 test('pass-through with the payload prompt_id lets the call through and mints nothing', () => {
   assert.equal(state.update(sid, () => Q.setPassThrough(Q.emptyState(), 'review', base.prompt_id)), true)
   assert.equal(gate(base), null)
