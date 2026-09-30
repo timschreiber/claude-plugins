@@ -55,6 +55,13 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/nudge.js\"", "timeout": 15 }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
