@@ -28,6 +28,12 @@
         ]
       },
       {
+        "matcher": "Bash|PowerShell|Monitor",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/oracle-shell.js\"", "timeout": 15 }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/guard.js\"", "timeout": 15 }
