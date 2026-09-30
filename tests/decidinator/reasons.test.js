@@ -57,7 +57,10 @@ const rendered = {
   'guard-waiting': reasons.guardWaiting(d),
   'guard-stepped-aside': reasons.guardSteppedAside('Q-0007', 1, 3),
   'prompt-rung-1': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 1, cfg),
-  'prompt-rung-2': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 2, cfg)
+  'prompt-rung-2': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 2, cfg),
+  'oracle-shell': reasons.oracleShell('it is not one of gh search, gh repo view or gh api'),
+  'oracle-monitor': reasons.ORACLE_MONITOR,
+  nudge: reasons.NUDGE
 }
 
 test('deny reasons and dispatch prompts match the snapshot', () => {

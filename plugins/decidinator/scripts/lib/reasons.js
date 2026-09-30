@@ -1,4 +1,4 @@
-// Deny reasons for the gate, the dispatch check and the guard. Every text the model sees from those hooks is
+// Deny reasons for the gate, the dispatch check, the guard and the oracle shell allowlist, and the nudge's block reason. Every text the model sees from those hooks is
 // here, and tests/decidinator/fixtures/snapshots/deny-reasons.json pins each one: change a text and
 // its snapshot together. `d` is a due dispatch {id, rung, agent, prompt}.
 'use strict'
@@ -91,4 +91,15 @@ function refused(problem, d) {
   ].join('\n\n')
 }
 
-module.exports = { CONTEXT_PLACEHOLDER, oneLine, agentCall, AFTER_DISPATCH, REDISPATCH, held, heldWaiting, guardDue, guardWaiting, guardSteppedAside, narrow, settled, sidecar, wrongAgent, missingId, refused }
+const ORACLE_SHELL_RULE =
+  'Oracles may run one gh search, gh repo view or read-only gh api (GET) command per call, with no pipes, redirects, chaining or variables; filter output with --jq. Read project files with Read, Glob and Grep, and use WebFetch or WebSearch for the web.'
+
+const oracleShell = problem => `decidinator: command not run: ${problem}. ${ORACLE_SHELL_RULE}`
+
+const ORACLE_MONITOR =
+  'decidinator: Monitor not run: oracles may not start background commands. Run one gh search, gh repo view or read-only gh api (GET) command through Bash instead.'
+
+const NUDGE =
+  'decidinator: your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.'
+
+module.exports = { CONTEXT_PLACEHOLDER, oneLine, agentCall, AFTER_DISPATCH, REDISPATCH, held, heldWaiting, guardDue, guardWaiting, guardSteppedAside, narrow, settled, sidecar, wrongAgent, missingId, refused, ORACLE_SHELL_RULE, oracleShell, ORACLE_MONITOR, NUDGE }
