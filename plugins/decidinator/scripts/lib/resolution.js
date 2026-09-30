@@ -279,7 +279,7 @@ function findDuplicate(q, verdicts, logModel, sideModel) {
   return null
 }
 
-function userAnswer(input, questionText) {
+function userChoice(input, questionText) {
   const pick = (name) => {
     const a = input?.tool_response?.[name]
     if (isPlain(a)) return a
@@ -292,7 +292,14 @@ function userAnswer(input, questionText) {
   if (Array.isArray(raw) && raw.every((x) => typeof x === 'string')) raw = raw.join(', ')
   if (!isText(raw)) return null
   const notes = annotations[questionText]?.notes
-  return isText(notes) ? `${raw.trim()}\nNotes: ${notes.trim()}` : raw.trim()
+  return { raw: raw.trim(), notes: isText(notes) ? notes.trim() : '' }
+}
+
+const withNotes = (text, notes) => (notes ? `${text}\nNotes: ${notes}` : text)
+
+function userAnswer(input, questionText) {
+  const c = userChoice(input, questionText)
+  return c ? withNotes(c.raw, c.notes) : null
 }
 
 module.exports = {
@@ -310,5 +317,7 @@ module.exports = {
   contextLabel,
   sidecarContext,
   findDuplicate,
+  userChoice,
+  withNotes,
   userAnswer
 }
