@@ -6,6 +6,7 @@
 const md = require('./mdfile.js')
 const io = require('./fileio.js')
 const { questionHash } = require('./normalize.js')
+const { FLAGS } = require('./verdict.js')
 const { debug } = require('./debug.js')
 
 const MARKER = '<!-- decidinator-log v1 -->'
@@ -28,6 +29,7 @@ function decisionOf(entry) {
     rung: /^\d+$/.test(rung) ? Number(rung) : null,
     sources: md.decodeList(get('Sources')),
     assumptions: md.decodeList(get('Assumptions')),
+    flags: md.decodeList(get('Flags')),
     questionId: get('Question ID'),
     context: get('Context'),
     date: get('Date'),
@@ -70,6 +72,7 @@ function render(id, d) {
     ...md.encodeField('Rung', d.rung ?? 'none'),
     ...md.encodeField('Sources', md.encodeList(d.sources ?? [])),
     ...md.encodeField('Assumptions', md.encodeList(d.assumptions ?? [])),
+    ...md.encodeField('Flags', md.encodeList(d.flags ?? [])),
     ...md.encodeField('Question ID', d.questionId),
     ...md.encodeField('Context', d.context),
     ...md.encodeField('Date', d.date ?? today()),
@@ -97,6 +100,9 @@ function validate(d) {
   }
   for (const key of ['sources', 'assumptions']) {
     if (present(d[key]) && !isStringArray(d[key])) return `decision: "${key}" must be an array of strings`
+  }
+  if (present(d.flags) && !(isStringArray(d.flags) && d.flags.every((f) => FLAGS.includes(f)))) {
+    return 'decision: "flags" may only contain spec-silent, spec-contradiction, cross-cutting, conflicts-binding'
   }
   for (const key of ['rationale', 'questionId', 'context']) {
     if (present(d[key]) && typeof d[key] !== 'string') return `decision: "${key}" must be a string`

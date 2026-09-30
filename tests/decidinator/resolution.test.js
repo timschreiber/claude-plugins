@@ -227,6 +227,12 @@ test('onFinal resolved writes an oracle-unconfirmed decision', () => {
   assert.equal(fs.existsSync(sidePath()), false)
 })
 
+test('onFinal resolved logs the verdict flags', () => {
+  const s = stateWith('Q-0001', 'Which limit?', [verdictEntry(1, 'high', { flags: ['cross-cutting'] })], { status: 'resolved' })
+  R.onFinal(s, 'Q-0001', resolvedCtx())
+  assert.deepEqual(readLog()[0].flags, ['cross-cutting'])
+})
+
 test('onFinal ask mode final-unresolved changes nothing', () => {
   const s = stateWith('Q-0001', 'Which limit?', [verdictEntry(1, 'low')])
   const out = R.onFinal(s, 'Q-0001', { outcome: { outcome: 'final-unresolved', rung: 1 }, mode: 'ask', cfg: cfg(), input: input() })
@@ -257,6 +263,12 @@ test('onFinal sidecar mode writes a provisional decision and a new entry', () =>
   assert.deepEqual(side[0].options, opts)
   assert.equal(out.questions['Q-0001'].decision, 'D-0001')
   assert.equal(out.questions['Q-0001'].sidecarEntry, 'Q-0001')
+})
+
+test('onFinal sidecar mode logs the best verdict flags', () => {
+  const s = stateWith('Q-0001', 'Which limit?', [verdictEntry(1, 'high', { flags: ['cross-cutting'] })])
+  R.onFinal(s, 'Q-0001', { ...finalSidecar, cfg: cfg(), input: input() })
+  assert.deepEqual(readLog()[0].flags, ['cross-cutting'])
 })
 
 test('onFinal sidecar mode: a duplicate found by hash extends the entry', () => {

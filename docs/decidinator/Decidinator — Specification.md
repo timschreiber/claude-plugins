@@ -154,9 +154,9 @@ Format:
 
 - First line: `<!-- decidinator-log v1 -->`.
 - One entry per decision, appended in ID order, headed `### D-0007 · <short title>`.
-- Under each heading, one `- **Field:** value` line per field, in this order: Question, Answer, Rationale, Provenance, Confidence, Rung, Sources, Assumptions, Question ID, Context, Date, Supersedes (optional), Sidecar (optional).
+- Under each heading, one `- **Field:** value` line per field, in this order: Question, Answer, Rationale, Provenance, Confidence, Rung, Sources, Assumptions, Flags, Question ID, Context, Date, Supersedes (optional), Sidecar (optional).
 - A replaced entry gains `- **Superseded by:** D-0012` after its last field.
-- A value with line breaks continues on the following lines, indented by two spaces; empty lines are dropped. List values (Sources, Assumptions) are one line, items separated by `; `, and an empty list is `none`. A Rung or Confidence that does not apply (a person's decision) is `none`.
+- A value with line breaks continues on the following lines, indented by two spaces; empty lines are dropped. List values (Sources, Assumptions, Flags) are one line, items separated by `; `, and an empty list is `none`. Flags holds the final verdict's flags; an entry without a Flags line has none. A Rung or Confidence that does not apply (a person's decision) is `none`.
 - Scripts refuse to write a file whose first line is not the marker, or whose marker has a different major version, and name the file.
 
 | Provenance | Set by | Binding |

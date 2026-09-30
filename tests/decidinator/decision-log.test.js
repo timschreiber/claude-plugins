@@ -44,6 +44,7 @@ test('typed decisions from the hand-edited fixture', () => {
   assert.equal(a.rung, 1)
   assert.deepEqual(a.sources, ['https://example.com/rate-limits', 'src/cache.js'])
   assert.deepEqual(a.assumptions, [])
+  assert.deepEqual(a.flags, [])
   assert.equal(a.supersededBy, null)
   assert.equal(a.confidence, 'high')
   assert.equal(b.rung, null)
@@ -70,12 +71,24 @@ test('append to a missing file creates the marker and the entry', () => {
       '- **Rung:** none',
       '- **Sources:** none',
       '- **Assumptions:** none',
+      '- **Flags:** none',
       '- **Question ID:**',
       '- **Context:**',
       '- **Date:** 2026-09-29',
       ''
     ].join('\n')
   )
+})
+
+test('flags are written, parsed back and validated', () => {
+  const f = path.join(dir, 'decisions.md')
+  const r = log.append(f, { ...base(), flags: ['cross-cutting'] })
+  assert.equal(r.ok, true)
+  assert.ok(fs.readFileSync(f, 'utf8').includes('- **Flags:** cross-cutting'))
+  assert.deepEqual(log.read(f).model.entries[0].decision.flags, ['cross-cutting'])
+  const bad = log.append(f, { ...base(), flags: ['bogus'] })
+  assert.equal(bad.ok, false)
+  assert.equal(bad.error, 'decision: "flags" may only contain spec-silent, spec-contradiction, cross-cutting, conflicts-binding')
 })
 
 test('append to the fixture keeps every byte and parses back', () => {

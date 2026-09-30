@@ -50,7 +50,8 @@ function onFinal(s, id, ctx) {
         confidence: e.verdict.confidence,
         rung: e.rung,
         sources: e.verdict.sources,
-        assumptions: e.verdict.assumptions
+        assumptions: e.verdict.assumptions,
+        flags: e.verdict.flags ?? []
       })
       return setQ(s, id, { decision: r.ok ? r.id : null, sidecarEntry: null, ...(r.ok ? {} : { recordError: r.error }) })
     }
@@ -77,6 +78,7 @@ function onFinal(s, id, ctx) {
           rung: prov?.rung ?? null,
           sources: prov?.sources ?? [],
           assumptions: prov?.assumptions ?? [],
+          flags: prov?.flags ?? [],
           sidecar: dup.id
         })
       }
@@ -99,6 +101,7 @@ function onFinal(s, id, ctx) {
         rung: best.rung,
         sources: best.verdict.sources,
         assumptions: best.verdict.assumptions,
+        flags: best.verdict.flags ?? [],
         sidecar: id
       })
       if (r.ok) logId = r.id
