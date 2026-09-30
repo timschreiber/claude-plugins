@@ -1,5 +1,6 @@
 # Plugin and probe files are used verbatim from a git clone; keep them LF on every platform.
 plugins/planandtier/** text eol=lf
+plugins/decidinator/** text eol=lf
 probes/planandtier/** text eol=lf
 probes/decidinator/** text eol=lf
 # Decidinator probe evidence is generated with LF; keep it byte-stable across platforms.
