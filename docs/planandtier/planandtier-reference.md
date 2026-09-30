@@ -19,6 +19,7 @@ Tested on Claude Code 2.1.283 (Windows).
 - [The hooks](#the-hooks)
 - [The run](#the-run)
 - [Executing a saved plan](#executing-a-saved-plan)
+- [Unattended runs](#unattended-runs)
 - [Spend telemetry](#spend-telemetry)
 - [Session state](#session-state)
 - [The tier agents](#the-tier-agents)
@@ -421,6 +422,7 @@ Six scripts under [`scripts/`](../../plugins/planandtier/scripts/), registered i
 | H1 Rules | `UserPromptSubmit` | none | `h1-plan-rules.js` | 15 s |
 | H1 Rules | `PostToolUse` | `EnterPlanMode` | `h1-plan-rules.js enter` | 15 s |
 | H1 Rules | `PreCompact` | none | `h1-plan-rules.js compact` | 15 s |
+| H1 Rules | `SessionStart` | `compact` | `h1-plan-rules.js session` | 15 s |
 | H2 Gate | `PreToolUse` | `ExitPlanMode` | `h2-gate-exit-plan.js` | 30 s |
 | H3 Hand-off | `PostToolUse` | `ExitPlanMode` | `h3-post-approval.js` | 30 s |
 | H4 Dispatch | `PreToolUse` | `Agent` | `h4-dispatch.js pre` | 30 s |
@@ -481,6 +483,9 @@ subagent itself.
   reports and task notifications get no such note.
 - For a `paused` run (the tree was dirty at approval), it checks the tree again. If it is clean now, the
   run becomes `running` and the note gives the first dispatch; otherwise the note says why it still waits.
+- With `PLANANDTIER_UNATTENDED` set, the first prompt of an unarmed session arms it and starts the drafting
+  phase, and the `SessionStart` hook re-injects the note and rules after a compaction. See
+  [Unattended runs](#unattended-runs).
 
 ### H2: gate
 
@@ -585,6 +590,9 @@ is in flight.
   Claude can end its turn while a background worker runs.
 - **After the run ends** (`complete`, `halted` or `abandoned`), the first Stop records the run's
   orchestration and shows the spend summary, once (see [Spend telemetry](#spend-telemetry)).
+
+In an unattended session, H5 also guards the drafting phase and turns the final message into a run. See
+[Unattended runs](#unattended-runs).
 
 ### H6: cleanup
 
@@ -736,6 +744,47 @@ plan file itself is never rewritten.
 
 From there the run is the same as one started by approval: H4 checks each dispatch and judges each attempt,
 and H5 guards the main thread.
+
+## Unattended runs
+
+For headless `claude -p` runs, where no one approves a plan.
+
+- **The switch.** `PLANANDTIER_UNATTENDED` is on when set to `1`, `true`, `yes` or `on`, in any case
+  (`lib/unattended.js`, `enabled()`). Anything else, or unset, leaves every behavior described elsewhere in
+  this reference unchanged.
+- **Launch flags.** Recommended:
+  `PLANANDTIER_UNATTENDED=1 claude -p --model opus --effort medium --permission-mode bypassPermissions "<request>"`.
+  The main thread plans and then orchestrates, so `--model` and `--effort` choose the planning model.
+  Hooks cannot set the main thread's model or effort, so planandtier does not try. Workers run at their
+  task's tier regardless.
+- **Not plan mode.** A headless session has no `ExitPlanMode`
+  (see [the interactive spike](planandtier-spike-interactive-run.md)), so the session must not be in plan
+  mode. H1 refuses to arm there, tells Claude why, and arms nothing.
+- **Arming and drafting.** H1 arms the session on its first prompt (not a harness message) if the Git
+  checks pass, and puts it in the `drafting` phase with a plan file name:
+  `planandtier-unattended-<UTC YYYYMMDD-HHmmss>-<first 8 characters of the session id>.md` in the plans
+  directory. It prints the unattended note and the tiering rules. Claude plans read-only and ends its turn
+  with the plan as its final message.
+- **The drafting guard (H5 `pre`).** While the phase is `drafting`, main-thread `Edit`, `Write` and
+  `NotebookEdit` are denied with a reason that files cannot be edited until the plan runs. After three
+  denials the guard steps aside, as it does during a run.
+- **Stop handling (H5 `stop`).** In the `drafting` phase the final message is the plan:
+  - **Valid:** it is written to the plan file, its planning spend is recorded, and `executePlan` starts the
+    run as `/planandtier:execute-plan` would. The stop is blocked with the first dispatch. If the file
+    cannot be written, the phase becomes `abandoned` and the user is told nothing ran.
+  - **`executePlan` refuses** (a dirty tree, for example): the state is removed, the refusal is given to
+    Claude to report, and the next stop passes.
+  - **Invalid:** the stop is blocked with each problem and the rules attached every time. After three
+    invalid plans the phase becomes `abandoned` and nothing runs. It never falls back to untiered work.
+  - **Opt-out** (`Tiered execution: off`): the state is removed and Claude is told planandtier will not
+    run the plan and to implement it itself.
+- **After a compaction.** The `SessionStart` hook with matcher `compact` runs `h1-plan-rules.js session`,
+  which re-injects the note and rules for a session still `drafting`.
+- **Disarming and re-arming.** `/planandtier:disarm` stops an unattended run like any other. In an
+  interactive session with the variable set, the next prompt arms again.
+- **Permissions.** No hook sets `permissionDecision: "allow"`. Workers need permissions to edit, run their
+  `Verify:` commands and `git commit` on their own: `--permission-mode bypassPermissions` in a sandbox or
+  CI, or `acceptEdits` with `--allowedTools` rules.
 
 ## Spend telemetry
 
@@ -1043,6 +1092,7 @@ plugins/planandtier/
     lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
     lib/state.js                 # per-session state file, arming flag and telemetry cursor: read, atomic write, remove, arm, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
+    lib/unattended.js            # PLANANDTIER_UNATTENDED: the switch, the plan file name, the final message, the note
 ```
 
 The plugin is pure Node and Markdown, with no dependencies and nothing vendored from `shared/`. It is
@@ -1072,6 +1122,7 @@ file and fails.
 | `tests/planandtier/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
 | `tests/planandtier/usage.test.js` | De-duplicating repeated message lines, cache writes with and without a 5 m / 1 h split, an `opusplan` session split by mode and priced per model, time windows, unpriced models, unreadable transcripts, and subagents by window and type. |
 | `tests/planandtier/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
+| `tests/planandtier/unattended.test.js` | The `PLANANDTIER_UNATTENDED` switch and its accepted values, the plan file name, the final message from the Stop input or the transcript, and the planning note. |
 | `tests/planandtier/hooks.test.js` | Each hook run as a child process against real stdin: arming (refusing where a plan could not run, and asking for plan mode outside it, but never during a run) and disarming, a background task's next step given with its notification and not by a Stop block, execute-plan by list number, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when unarmed), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
@@ -1142,6 +1193,8 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/planandti
 | The run stopped at a task | Read Claude's report: the task, the tiers tried and the reason. The last attempt's changes are in the working tree. Fix or discard them, then plan the rest again. |
 | The run stopped because of uncommitted changes or a branch change | Something other than a task changed the tree or the branch during the run. Nothing was reset. |
 | Tasks run at the wrong effort or model | Check that `CLAUDE_CODE_EFFORT_LEVEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` are unset. |
+| Unattended run says plan mode | The session was launched in plan mode, where a headless session has no `ExitPlanMode`. Relaunch without `--permission-mode plan`. |
+| Workers fail on permissions in an unattended run | Nobody can answer a prompt. Use `--permission-mode bypassPermissions` in a sandbox, or allow rules for the tools your tasks use. |
 | Workers stop at permission prompts | Expected under manual permissions. Add allow rules for the tools your tasks use, or use auto mode. |
 
 ## Evidence

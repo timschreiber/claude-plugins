@@ -148,6 +148,33 @@ In an armed session, for a normal, untiered plan, ask for one. Claude then puts 
 instead of a task block, and nothing about Git is required. Without a task block or that line, the plan
 cannot be approved.
 
+## Unattended runs
+
+Without the variable nothing changes: interactive sessions plan in plan mode and approve in the dialog.
+
+For a headless run, set `PLANANDTIER_UNATTENDED=1` when launching Claude Code:
+
+```bash
+PLANANDTIER_UNATTENDED=1 claude -p --model opus --effort medium --permission-mode bypassPermissions "<request>"
+```
+
+```powershell
+$env:PLANANDTIER_UNATTENDED = '1'; claude -p --model opus --effort medium --permission-mode bypassPermissions "<request>"
+```
+
+- **The main thread plans and then orchestrates,** so `--model` and `--effort` choose the planning model.
+  Opus at `medium` effort is the recommendation, and other values override it. planandtier cannot set them
+  itself. Workers always run at their task's tier.
+- **The first prompt arms the session.** Claude plans read-only outside plan mode and ends its turn with
+  the plan. planandtier saves it as `planandtier-unattended-<time>-<session>.md` in the plans directory and
+  runs it with no approval.
+- **Requirements:** not plan mode (headless sessions have no `ExitPlanMode`), a clean Git tree with a commit
+  identity, and permissions for workers to edit, run their `Verify:` commands and `git commit` unattended
+  (`bypassPermissions` in a sandbox or CI, or `acceptEdits` with `--allowedTools` rules).
+- **An invalid plan gets three chances and then nothing runs.** It never falls back to untiered work. After
+  a compaction the rules are given again. `/planandtier:disarm` still stops a run; in an interactive
+  session with the variable set, the next prompt arms again.
+
 ## The tiers
 
 | Tier | Meant for |

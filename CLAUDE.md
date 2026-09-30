@@ -16,7 +16,11 @@ cataloged in `.claude-plugin/marketplace.json`:
   failed attempts reset and retried a tier up. It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
   `/planandtier:arm` in the session; `/planandtier:disarm` turns it off, and
-  `/planandtier:execute-plan` runs a saved plan in a later session. Each
+  `/planandtier:execute-plan` runs a saved plan in a later session. Setting
+  `PLANANDTIER_UNATTENDED=1` at launch arms the session on its first prompt
+  and runs the plan Claude ends its planning turn with, with no approval, for
+  headless `claude -p` runs (launch with `--model opus --effort medium` to
+  plan on Opus). Each
   run's estimated token spend (per tier, planning, orchestration) is shown
   in the UI and written to `<plan>.telemetry.jsonl`; the summary also estimates
   the tokens and cost had the planning model run the tasks itself, and the
