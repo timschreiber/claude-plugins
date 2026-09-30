@@ -19,7 +19,7 @@ Ten packages build Decidinator in dependency order; run each as one plan-mode se
 | WP-09 | Review, confirm, export, and import commands | WP-03, WP-07 |
 | WP-10 | End-to-end tests and documentation | all |
 
-WP-01's findings can change later packages. If a verification item fails, apply the spec's fallback for it and update the affected packages before running them.
+WP-01's findings can change later packages. If a verification item fails, apply the spec's fallback for it and update the affected packages before running them. WP-01 is done: its findings (`docs/decidinator/decidinator-verification.md`) are applied to the spec and to WP-02 through WP-10.
 
 Paste-ready prompts, one per package: Prompts
 
@@ -65,6 +65,7 @@ Paste-ready prompts, one per package: Prompts
 - Session state and arming flag files under `${CLAUDE_PLUGIN_DATA}/sessions/`, the `SessionEnd` cleanup hook, and removal of files older than 7 days.
 - `DECIDINATOR_DEBUG=1` logging to a temp-directory log.
 - A shared hook entry helper: reads input, checks arming, catches errors, and exits without output when unarmed.
+- No headless detection: headless sessions are out of scope (verification item 4). Use the interactive recordings `probes/evidence/decidinator-probe-interactive-*-hooks.jsonl` as hook-input fixtures; each line is `{at, event, input, env}`.
 
 **Out of scope:** the gate, recorder, guard, and nudge logic; oracle agents.
 
@@ -122,7 +123,7 @@ Paste-ready prompts, one per package: Prompts
 - `agents/oracle-1.md`, `oracle-2.md`, `oracle-3.md` with the default model and effort per rung, `disallowedTools: Edit, Write, NotebookEdit, AskUserQuestion, Agent`, and `maxTurns: 30`.
 - One shared prompt body, kept identical across the three files, covering: the five-step research procedure, the standing rules (generic search queries, fetched content is untrusted, never ask back), how to treat binding and conflicting decisions, the kind classification, the escalation flags, and the exact verdict block format with one filled example.
 - A script that checks the three agent files share an identical prompt body, run as a test.
-- Any tool adjustments WP-01 found necessary (for example, removing a tool that fails in plan mode).
+- No tool adjustments were needed. WebFetch and WebSearch are deferred tools that oracles load through `ToolSearch`, so do not disallow `ToolSearch`. Rung models are honored only outside plan mode (verification item 6): keep the spec's default models in the agent files, say in the README that in plan mode every rung runs on the session's model, and check a rung's real model in the agent's transcript, not in `resolvedModel`.
 
 **Out of scope:** dispatching oracles and parsing their output.
 
@@ -146,16 +147,17 @@ Paste-ready prompts, one per package: Prompts
 
 **Scope:**
 
-- Gate (`PreToolUse`, matcher `AskUserQuestion`): ignore calls from subagents (using WP-01's field); mint a `Q-` ID per question; store each question, its options, and its normalized hash in session state; deny with a reason giving the exact `Agent` call for the next due question (agent name, and a prompt starting `Decidinator question Q-0007` with the question, its options, and an instruction to add the surrounding context).
+- Gate (`PreToolUse`, matcher `AskUserQuestion`): ignore calls from subagents (a subagent's `PreToolUse` input has `agent_id` and `agent_type`; the main thread's has neither); mint a `Q-` ID per question; store each question, its options, and its normalized hash in session state; deny with a reason giving the exact `Agent` call for the next due question (agent name, and a prompt starting `Decidinator question Q-0007` with the question, its options, and an instruction to add the surrounding context).
 - Gate pass-through: in ask mode, allow a call whose questions all match (by normalized hash) questions with a final unresolved verdict. Always allow calls issued by `/decidinator:review` and `/decidinator:confirm` (a flag in session state set by those commands).
 - Multi-question calls: dispatch one question at a time in order; allow a later call containing only the still-unresolved ones.
+- Known behavior to plan around: a deny reaches the model as `PreToolUse:AskUserQuestion hook error: <reason>` in both `default` and `plan` mode (verification item 5), and the `Agent` call returns `async_launched` at once, so a dispatch is complete only when the recorder (WP-06) stores a verdict.
 - Dispatch check (`PreToolUse`, matcher `Agent`): while a question is due, allow only an `Agent` call to the due rung whose prompt contains the due question ID; deny others with the expected call.
 
 **Out of scope:** recording verdicts and advancing the ladder (WP-06).
 
 **Acceptance criteria:**
 
-- Unit tests with recorded hook payloads from WP-01: a single question is denied with the correct dispatch; a three-question call produces three IDs and dispatches in order; a subagent call is ignored; a matching re-call in ask mode is allowed once its verdict is final unresolved.
+- Unit tests with recorded hook payloads from WP-01 (`probes/evidence/decidinator-probe-interactive-*-hooks.jsonl`): a single question is denied with the correct dispatch; a three-question call produces three IDs and dispatches in order; a subagent call is ignored; a matching re-call in ask mode is allowed once its verdict is final unresolved.
 - The dispatch check allows the expected call and denies a call to the wrong rung or without the ID.
 - Deny reason texts are defined once as constants and covered by snapshot tests.
 
@@ -173,10 +175,11 @@ Paste-ready prompts, one per package: Prompts
 
 **Scope:**
 
-- Recorder (`SubagentStop`): act only on configured rung agents; read the final reply (per WP-01's item 2); parse the verdict with the WP-03 library; store it in session state under its question ID and rung.
+- Recorder (`SubagentStop`): act only on configured rung agents; match the configured rung by `agent_type` (other subagents also fire `SubagentStop`, with an empty `agent_type`); read the report from `last_assistant_message`, or, when it is missing, from the `SubagentHandback` call's `tool_input.message` (seen in `PreToolUse` with the subagent's `agent_id`), or from the file at `agent_transcript_path`; record the model the agent actually ran on from its transcript, not from `resolvedModel`; parse the verdict with the WP-03 library; store it in session state under its question ID and rung.
 - Ladder rules as a pure function: given a question's verdicts and the configured rungs, return `resolved`, `escalate(next rung)`, or `final-unresolved`, exactly per the spec, including human-only questions never escalating.
 - On `escalate`: mark the next rung due and give the dispatch prompt the previous verdicts as JSON.
 - On a final state: clear the due marker and hand the question to mode resolution (a stub in this package; WP-07 fills it).
+- Open for the plan, to settle with the user: the `Agent` call returns `async_launched` at once, so decide what the guard does between a dispatch and its verdict (block the model, or tell it to wait). The spec does not say.
 - Guard (`PreToolUse`, all tools except `Agent` and `AskUserQuestion`): while a dispatch is due, deny with the expected dispatch; after `guardMaxBlocks` consecutive denials, step aside and log it.
 
 **Out of scope:** writing the decision log and sidecar (WP-07).
@@ -184,7 +187,7 @@ Paste-ready prompts, one per package: Prompts
 **Acceptance criteria:**
 
 - Table-driven tests for the ladder function cover every escalation condition, the top rung, human-only questions, and an invalid verdict (escalates).
-- Recorder tests with recorded `SubagentStop` payloads: a verdict is stored under the right ID and rung; a non-oracle subagent is ignored.
+- Recorder tests with recorded `SubagentStop` payloads (`probes/evidence/decidinator-probe-*-hooks.jsonl`), including one with no `last_assistant_message`: a verdict is stored under the right ID and rung; a non-oracle subagent is ignored.
 - Guard tests: denial while due, pass-through when nothing is due, step-aside after the limit.
 
 **Instructions:**
@@ -204,7 +207,6 @@ Paste-ready prompts, one per package: Prompts
 - Replace WP-06's stub. Resolved: append an `oracle-unconfirmed` decision. Final unresolved in ask mode: keep the question pending for the gate's pass-through, then record the user's answer as `user` from the `AskUserQuestion` result (a `PostToolUse` hook on `AskUserQuestion`). Final unresolved in sidecar mode: pick the best answer, append an `oracle-provisional` decision, and add or extend the sidecar entry.
 - Deduplication by normalized hash and by the verdict's `duplicate_of`: extend the existing entry's `Depends on` instead of adding one.
 - Context labels from `DECIDINATOR_CONTEXT`, else session ID and branch.
-- Headless sessions forced to sidecar mode, using WP-01's detection method, or the documented fallback if none exists.
 - `/decidinator:status` extended with counts of open sidecar entries and unconfirmed decisions.
 
 **Out of scope:** the review, confirm, export, and import commands (WP-09).
@@ -213,12 +215,12 @@ Paste-ready prompts, one per package: Prompts
 
 - Tests for each outcome: resolved, ask-mode user answer, sidecar provisional with a new entry, and sidecar with a duplicate.
 - The best-answer function passes table tests, including a confidence tie resolved to the higher rung.
-- A headless test session in ask configuration writes to the sidecar and never lets `AskUserQuestion` through.
+- In sidecar mode (set by `DECIDINATOR_MODE=sidecar`), an unresolved question is written to the sidecar and the gate never lets `AskUserQuestion` through for it.
 - Every log and sidecar entry written in tests parses back with the WP-03 library.
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md` for headless detection.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md`. Headless sessions are out of scope.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -231,8 +233,7 @@ Paste-ready prompts, one per package: Prompts
 **Scope:**
 
 - Nudge (`Stop`): when `nudgeOnPlainTextQuestions` is true and the final assistant message ends with a question addressed to the user, block the stop once per turn with an instruction to ask through `AskUserQuestion`. The detection rule is a fixed heuristic defined in the plan (for example, the last sentence ends with `?` and is not inside a code block).
-- Bash allowlist (`PreToolUse`, matcher `Bash`), only if WP-01 item 3 passed: for calls from a configured rung agent, allow only commands matching `gh search`, `gh repo view`, and `gh api` without a method other than `GET`; deny everything else with the reason. Main-thread Bash calls are untouched.
-- If WP-01 item 3 failed: remove Bash from the oracles (add it to `disallowedTools` in all three agent files) and add a line to the shared prompt pointing oracles to WebFetch for GitHub pages.
+- Bash allowlist (`PreToolUse`, matcher `Bash`; WP-01 item 3 passed, so this applies): for calls from a configured rung agent (the input has `agent_id` and the rung's `agent_type`), allow only commands matching `gh search`, `gh repo view`, and `gh api` without a method other than `GET`; deny everything else with the reason. Main-thread Bash calls are untouched.
 
 **Out of scope:** other hooks.
 
@@ -240,11 +241,10 @@ Paste-ready prompts, one per package: Prompts
 
 - Nudge tests: a trailing question is blocked once and then allowed; a question inside a code block and a statement are not blocked.
 - Allowlist tests with recorded payloads: allowed and denied oracle commands, including `gh api -X POST` denied, and a main-thread command ignored.
-- Or, if the fallback was taken, the identical-body check from WP-04 still passes.
 
 **Instructions:**
 
-1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md`, item 3, to know which branch of this package applies.
+1. Re-read CLAUDE.md, AGENTS.md if present, and `docs/decidinator/Decidinator — Specification.md` in full before planning, even if you have read them earlier in this session. Also read `docs/decidinator/decidinator-verification.md`, item 3, for the subagent fields.
 2. Write a plan with a detailed task list. Every task must need no new reasoning or design decisions and must be small and mechanical enough for Sonnet to execute. Make every design decision in the plan, never inside a task, including the exact allowlist patterns and the nudge heuristic.
 3. Ask open questions through `AskUserQuestion` before finishing the plan; do not guess.
 
@@ -289,11 +289,11 @@ Paste-ready prompts, one per package: Prompts
   1. Interactive ask mode: a researchable question resolves at rung 1 without reaching the user.
   2. Interactive ask mode: a human-only question reaches the user with researched options, and the answer is logged as `user`.
   3. Sidecar mode: an unresolvable question gets a provisional answer and a sidecar entry, and the session continues.
-  4. Headless: the same question in `claude -p` is forced to sidecar mode.
+  4. Sidecar mode set by `DECIDINATOR_MODE=sidecar` in an interactive session: the question is queued and `AskUserQuestion` is never let through.
   5. Plan mode: scenario 1 repeated with the session in plan mode, oracle research tools working.
   6. Escalation: a question engineered to return low confidence reaches rung 2 with rung 1's verdict in its prompt.
   7. Round trip: export, fill answers, import, and check the report.
-- `README.md` in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, and known limitations.
+- `README.md` in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, the tools to allow for unattended research (`WebFetch`, `WebSearch`, `Bash(gh search:*)`), and known limitations (headless `claude -p` sessions are out of scope; rung models are honored only outside plan mode).
 - A reference document covering every hook, file format, configuration key, and environment variable.
 - Leave `probes/decidinator/` in place: it is outside the plugin package and never ships.
 

@@ -9,7 +9,7 @@ Decidinator is a Claude Code plugin that makes Claude research its own questions
 Goals:
 
 - **Fewer interruptions.** Questions that research can settle never reach the user; the rest arrive with researched options and tradeoffs.
-- **Unattended runs never stall on a question.** Headless sessions always proceed on the oracle's best answer.
+- **Unattended runs never stall on a question.** A session in sidecar mode always proceeds on the oracle's best answer and queues the question for a person. (Headless `claude -p` sessions are out of scope: see Scope and non-goals.)
 - **Every decision is recorded** with who made it, why, and on what sources, in a log that lives in the repo.
 - **A stakeholder workflow.** Unresolved questions collect in a sidecar a PM can take to stakeholders; their answers import back.
 - **Standalone and reusable.** Useful on its own, and the decision layer for the intake and runner plugins, which use it only through its public files.
@@ -21,6 +21,7 @@ In scope: enforcing oracle review of every `AskUserQuestion` call, the oracle la
 Non-goals:
 
 - **Catching every plain-text question.** A `Stop` hook nudges the model toward `AskUserQuestion`; questions that still slip through are not intercepted.
+- **Headless `claude -p` sessions.** `AskUserQuestion` does not exist in them (verification item 5), so the gate can never fire there. Decidinator serves interactive sessions, where one main thread plans and executes and a person can answer.
 - **Changing the project.** Oracles are read-only. Decidinator writes only its own log, sidecar, and state files.
 - **Acting on changed decisions.** Import flags decisions that changed and what depended on them. Re-planning or reworking affected work belongs to the caller (for example, the runner).
 - **Work packages.** Producing and running them belongs to the intake and runner plugins.
@@ -49,7 +50,7 @@ Oracles run as ordinary subagents dispatched by the model (Option 1). Hooks enfo
 | --- | --- | --- |
 | Gate | `PreToolUse` hook on `AskUserQuestion` | Mints question IDs, denies the call until a verdict exists, and gives the model the exact oracle dispatch. Lets the call through only in ask mode, for a question with a final unresolved verdict. Ignores calls made by subagents. |
 | Dispatch check | `PreToolUse` hook on `Agent` | While a question is due, allows only the expected oracle dispatch for it. |
-| Recorder | `SubagentStop` hook | Parses the oracle's verdict block, stores it against the question and rung, and decides the next step: resolved, escalate, or final unresolved. Writes the decision log and sidecar. A companion PostToolUse hook on AskUserQuestion records the user's answers in ask mode. |
+| Recorder | `SubagentStop` hook | Acts only on the configured rung agents, matched by `agent_type` (other subagents also fire `SubagentStop` and are ignored). Reads the report from `last_assistant_message`, or, when that is missing, from the `SubagentHandback` call's `tool_input.message`, or from `agent_transcript_path`. Parses the oracle's verdict block, stores it against the question and rung, and decides the next step: resolved, escalate, or final unresolved. Writes the decision log and sidecar. A companion PostToolUse hook on AskUserQuestion records the user's answers in ask mode. |
 | Guard | `PreToolUse` hook on all other tools | While an oracle dispatch is due, denies other tool calls with the dispatch instruction. Steps aside after a configurable number of blocks. |
 | Nudge | `Stop` hook | If the final message ends with a question not asked through `AskUserQuestion`, blocks the stop once and tells the model to use the tool. |
 | Commands | `UserPromptSubmit` hook + command files | Arm, disarm, status, review, confirm, export, import. |
@@ -71,7 +72,7 @@ Files:
 Every question takes the same path until its ladder ends; the mode decides only what happens to a question that is still unresolved.
 
 1. **Intercept.** The model calls `AskUserQuestion`. The gate mints an ID per question, stores them in session state, and denies the call. The deny reason carries the exact dispatch: the agent (`oracle-1`), and a prompt that starts `Decidinator question Q-0007` followed by the question, its options, and the context the model must add.
-2. **Research.** The oracle researches and ends its reply with a verdict block (see Oracle research).
+2. **Research.** The oracle researches and ends its reply with a verdict block (see Oracle research). The `Agent` call returns at once with status `async_launched` and no report; the verdict reaches the recorder through `SubagentStop`, not through the tool result.
 3. **Record.** The recorder parses the verdict and applies the ladder rules (see Oracle ladder): resolved, escalate to the next rung, or final unresolved.
 4. **Escalate.** On escalate, the guard blocks other tools until the model dispatches the next rung. That dispatch includes the previous rungs' verdicts, so the next rung critiques them rather than starting cold.
 5. **Resolve.** A resolved question is written to the decision log as `oracle-unconfirmed`. The model reads the answer from the oracle's reply and continues.
@@ -81,7 +82,7 @@ Every question takes the same path until its ladder ends; the mode decides only 
 Rules:
 
 - **Human-only questions** do not escalate. After one rung they go to step 6 or 7, carrying the options that rung researched.
-- **Headless sessions always use sidecar mode,** whatever the configuration says.
+- **Sidecar mode is the unattended mode.** A runner that wants no question to wait for a person sets `DECIDINATOR_MODE=sidecar`. Headless `claude -p` sessions are out of scope.
 - **Several questions in one call** are each dispatched, one question per oracle call, in order. The gate lets a call through in ask mode only with the questions still unresolved.
 - **Duplicates.** If the oracle reports the question duplicates an open sidecar entry or an existing decision, the recorder reuses that entry and adds the new context to its dependents instead of creating another.
 
@@ -96,6 +97,8 @@ The ladder is an ordered list of rungs in configuration, each naming an agent. E
 | 3 | `decidinator:oracle-3` | `claude-fable-5-1` | high |
 
 Models use Anthropic-format IDs, which resolve on Bedrock through the same mapping as the model picker. Users can remove rungs or point a rung at their own agent definition.
+
+Rung models are honored only outside plan mode. In plan mode the session runs on Opus and every subagent runs on the session's model, whatever its definition says (verification item 6), so every rung runs on the same model and escalation adds a fresh critique but not a different model. The `resolvedModel` field of the `Agent` result does not show this; the agent's transcript does.
 
 A verdict escalates to the next rung when any of these hold and a higher rung exists:
 
@@ -218,7 +221,7 @@ Impact order, used by `/decidinator:confirm`: the number of `Depends on` labels,
 
 Safe behavior is the default, not an option, because standalone users may install Decidinator on codebases they don't own.
 
-- **Read-only oracles.** Oracles cannot edit files, ask questions, or start agents. If Bash is available to them, a plugin hook limits oracle Bash calls to `gh search`, `gh repo view`, and read-only `gh api` calls (subject to verification item 3).
+- **Read-only oracles.** Oracles cannot edit files, ask questions, or start agents. If Bash is available to them, a plugin hook limits oracle Bash calls to `gh search`, `gh repo view`, and read-only `gh api` calls. Verification item 3 passed: a `PreToolUse` input from a subagent carries `agent_id` and `agent_type`, and one from the main thread carries neither.
 - **No recursion.** The gate ignores `AskUserQuestion` calls from subagents, and oracles cannot call it.
 - **Generic search queries** and **untrusted fetched content** are standing rules in every oracle prompt.
 - **Scripts write, the model never does.** Every write to the log, sidecar, and state comes from a hook or command script.
@@ -235,15 +238,26 @@ Integration contract for other plugins (intake, runner, or anyone's):
 
 Requirements: Node 20 or later on the PATH, a Claude Code version that supports plugin agents with `model` and `effort`, and `gh` authenticated if oracles use GitHub through Bash. The decision log and sidecar work in any directory; Git is recommended so decisions are reviewable in diffs.
 
-These behaviors are assumed by the design and must be confirmed before the hooks that depend on them are built (work package WP-01):
+In `default` permission mode Claude asks before oracles use WebFetch, WebSearch and `gh`; `plan` mode did not ask. For unattended research the README tells users to allow `WebFetch`, `WebSearch` and `Bash(gh search:*)`.
+
+These behaviors were assumed by the design and checked in work package WP-01. The evidence is in `docs/decidinator/decidinator-verification.md`:
 
 | # | Item | Design depends on it for |
 | --- | --- | --- |
 | 1 | Oracle subagents can use WebFetch, web search (built-in or MCP), and `gh` through Bash when the session is in plan mode, both interactive and headless. | Oracles researching during planning |
 | 2 | The `SubagentStop` hook input identifies the agent and gives access to its final reply. | Recorder parsing verdicts |
 | 3 | `PreToolUse` input identifies whether a call comes from a subagent, and which one. | Ignoring subagent questions; oracle Bash allowlist |
-| 4 | A hook can tell whether the session is non-interactive. | Forcing sidecar mode when headless |
+| 4 | A hook can tell whether the session is non-interactive. | Forcing sidecar mode when headless (no longer needed: headless is out of scope) |
 | 5 | A `PreToolUse` deny reason on `AskUserQuestion` and on other tools reaches the model, in plan mode and outside it. | Gate and guard instructions |
 | 6 | Plugin agents with Anthropic-format model IDs and `effort` resolve correctly on Bedrock and on a Pro plan. | Default rungs |
 
-Fallbacks if an item fails: for 1, the oracles drop the failing tool and the README documents which tools must be allowed; for 3, oracles lose Bash and use WebFetch for GitHub; for 4, headless callers must set `DECIDINATOR_MODE=sidecar`.
+Results of WP-01:
+
+- **1 passed.** WebFetch, web search and `gh` worked for a subagent in plan and normal mode, interactive and headless.
+- **2 partial.** `SubagentStop` always identifies the agent (`agent_type`), but `last_assistant_message` is missing in some modes. The recorder reads it, then the `SubagentHandback` call, then `agent_transcript_path` (see Architecture, Recorder).
+- **3 passed.**
+- **4 passed, and no longer needed,** because headless is out of scope. If a detection is ever wanted: `CLAUDE_CODE_SESSION_ATTENDED=0` or `CLAUDE_CODE_ENTRYPOINT=sdk-cli`.
+- **5 passed** for interactive sessions in both modes. `AskUserQuestion` is not available headless.
+- **6 partial.** Models and effort resolve on the tested login; Bedrock and Pro are untested. Rung models are honored only outside plan mode (see Oracle ladder).
+
+Fallbacks if an item fails: for 1, the oracles drop the failing tool and the README documents which tools must be allowed; for 3, oracles lose Bash and use WebFetch for GitHub.

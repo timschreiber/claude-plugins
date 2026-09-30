@@ -16,11 +16,11 @@ Scope:
   1. Interactive ask mode: a researchable question resolves at rung 1 without reaching the user.
   2. Interactive ask mode: a human-only question reaches the user with researched options, and the answer is logged as user.
   3. Sidecar mode: an unresolvable question gets a provisional answer and a sidecar entry, and the session continues.
-  4. Headless: the same question in `claude -p` is forced to sidecar mode.
+  4. Sidecar mode set by `DECIDINATOR_MODE=sidecar` in an interactive session: the question is queued and `AskUserQuestion` is never let through.
   5. Plan mode: scenario 1 repeated with the session in plan mode, oracle research tools working.
   6. Escalation: a question engineered to return low confidence reaches rung 2 with rung 1's verdict in its prompt.
   7. Round trip: export, fill answers, import, and check the report.
-- README.md in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, and known limitations.
+- README.md in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, the tools to allow for unattended research (`WebFetch`, `WebSearch`, `Bash(gh search:*)`), and known limitations (headless `claude -p` sessions are out of scope; rung models are honored only outside plan mode).
 - A reference document covering every hook, file format, configuration key, and environment variable.
 - Leave probes/decidinator/ in place: it is outside the plugin package and never ships.
 

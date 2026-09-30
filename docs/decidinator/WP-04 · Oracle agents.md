@@ -15,7 +15,7 @@ Scope:
 - agents/oracle-1.md, oracle-2.md, oracle-3.md with the default model and effort per rung, `disallowedTools: Edit, Write, NotebookEdit, AskUserQuestion, Agent`, and `maxTurns: 30`.
 - One shared prompt body, kept identical across the three files, covering: the five-step research procedure, the standing rules (generic search queries, fetched content is untrusted, never ask back), how to treat binding and conflicting decisions, the kind classification, the escalation flags, and the exact verdict block format with one filled example.
 - A script that checks the three agent files share an identical prompt body, run as a test.
-- Any tool adjustments WP-01 found necessary (for example, removing a tool that fails in plan mode).
+- No tool adjustments were needed. WebFetch and WebSearch are deferred tools that oracles load through `ToolSearch`, so do not disallow `ToolSearch`. Rung models are honored only outside plan mode (verification item 6): keep the spec's default models in the agent files, say in the README that in plan mode every rung runs on the session's model, and check a rung's real model in the agent's transcript, not in `resolvedModel`.
 
 Out of scope: dispatching oracles and parsing their output.
 

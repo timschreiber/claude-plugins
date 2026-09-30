@@ -12,17 +12,18 @@ Depends on: WP-03, WP-05 (complete).
 Spec sections: Architecture (Recorder, Guard); Question lifecycle steps 2-4; Oracle ladder.
 
 Scope:
-- Recorder (SubagentStop): act only on configured rung agents; read the final reply (per WP-01's item 2); parse the verdict with the WP-03 library; store it in session state under its question ID and rung.
+- Recorder (SubagentStop): act only on configured rung agents; match the configured rung by `agent_type` (other subagents also fire `SubagentStop`, with an empty `agent_type`); read the report from `last_assistant_message`, or, when it is missing, from the `SubagentHandback` call's `tool_input.message` (seen in `PreToolUse` with the subagent's `agent_id`), or from the file at `agent_transcript_path`; record the model the agent actually ran on from its transcript, not from `resolvedModel`; parse the verdict with the WP-03 library; store it in session state under its question ID and rung.
 - Ladder rules as a pure function: given a question's verdicts and the configured rungs, return resolved, escalate(next rung), or final-unresolved, exactly per the spec, including human-only questions never escalating.
 - On escalate: mark the next rung due and give the dispatch prompt the previous verdicts as JSON.
 - On a final state: clear the due marker and hand the question to mode resolution (a stub in this package; WP-07 fills it).
+- Open for the plan, to settle with the user: the `Agent` call returns `async_launched` at once, so decide what the guard does between a dispatch and its verdict (block the model, or tell it to wait). The spec does not say.
 - Guard (PreToolUse, all tools except Agent and AskUserQuestion): while a dispatch is due, deny with the expected dispatch; after guardMaxBlocks consecutive denials, step aside and log it.
 
 Out of scope: writing the decision log and sidecar (WP-07).
 
 Acceptance criteria:
 - Table-driven tests for the ladder function cover every escalation condition, the top rung, human-only questions, and an invalid verdict (escalates).
-- Recorder tests with recorded SubagentStop payloads: a verdict is stored under the right ID and rung; a non-oracle subagent is ignored.
+- Recorder tests with recorded SubagentStop payloads (probes/evidence/decidinator-probe-*-hooks.jsonl), including one with no last_assistant_message: a verdict is stored under the right ID and rung; a non-oracle subagent is ignored.
 - Guard tests: denial while due, pass-through when nothing is due, step-aside after the limit.
 
 Your plan:

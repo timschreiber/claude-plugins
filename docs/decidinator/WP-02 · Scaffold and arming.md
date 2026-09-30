@@ -18,6 +18,7 @@ Scope:
 - Session state and arming flag files under ${CLAUDE_PLUGIN_DATA}/sessions/, the SessionEnd cleanup hook, and removal of files older than 7 days.
 - DECIDINATOR_DEBUG=1 logging to a temp-directory log.
 - A shared hook entry helper: reads input, checks arming, catches errors, and exits without output when unarmed.
+- No headless detection: headless sessions are out of scope (verification item 4). Use the interactive recordings `probes/evidence/decidinator-probe-interactive-*-hooks.jsonl` as hook-input fixtures; each line is `{at, event, input, env}`.
 
 Out of scope: the gate, recorder, guard, and nudge logic; oracle agents.
 
