@@ -1,5 +1,5 @@
 // UserPromptSubmit hook: handles /decidinator:arm [ask|sidecar], /decidinator:disarm and
-// /decidinator:status. Commands work whether or not the session is armed, so this uses run()
+// /decidinator:status (which also reports the open sidecar and unconfirmed decision-log counts). Commands work whether or not the session is armed, so this uses run()
 // rather than runArmed(). Configuration problems are reported in the reply, never a reason to refuse.
 'use strict'
 
@@ -7,6 +7,7 @@ const { readInput, emitText, run } = require('./lib/hook.js')
 const state = require('./lib/state.js')
 const config = require('./lib/config.js')
 const msg = require('./lib/messages.js')
+const resolution = require('./lib/resolution.js')
 
 const COMMAND = /^\s*\/decidinator:(arm|disarm|status)(?![\w-])([\s\S]*)$/
 
@@ -35,8 +36,9 @@ function disarm(input) {
 
 function status(input) {
   const a = state.readArming(input.session_id)
-  const { warnings } = config.forInput(input)
-  return (a ? msg.statusArmed(a) : msg.STATUS_UNARMED) + msg.warnSuffix(warnings)
+  const { config: cfg, warnings } = config.forInput(input)
+  const c = resolution.counts(config.projectDir(input), cfg)
+  return (a ? msg.statusArmed(a) : msg.STATUS_UNARMED) + msg.statusCounts(c, cfg) + msg.warnSuffix(warnings)
 }
 
 run(async () => {

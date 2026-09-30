@@ -25,6 +25,11 @@ const statusArmed = a =>
 const envArmed = (mode, w) => `decidinator: armed in ${mode} mode by DECIDINATOR_MODE.` + warnSuffix(w)
 const envBad = raw => `decidinator: not armed: DECIDINATOR_MODE is "${raw}"; use ask or sidecar.`
 
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+const statusCounts = (c, cfg) =>
+  ` Sidecar ${cfg.sidecar}: ${c.open === null ? 'could not be read' : plural(c.open, 'open question')}.` +
+  ` Decision log ${cfg.decisionLog}: ${c.unconfirmed === null ? 'could not be read' : plural(c.unconfirmed, 'unconfirmed decision')}.`
+
 module.exports = {
   MODE_TEXT,
   warnSuffix,
@@ -38,6 +43,7 @@ module.exports = {
   NOT_ARMED,
   STATUS_UNARMED,
   statusArmed,
+  statusCounts,
   envArmed,
   envBad
 }

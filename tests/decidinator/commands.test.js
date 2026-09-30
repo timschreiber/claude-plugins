@@ -9,6 +9,9 @@ const { spawnSync } = require('child_process')
 
 const state = require('../../plugins/decidinator/scripts/lib/state.js')
 const msg = require('../../plugins/decidinator/scripts/lib/messages.js')
+const { DEFAULTS } = require('../../plugins/decidinator/scripts/lib/config.js')
+const decisionLog = require('../../plugins/decidinator/scripts/lib/decision-log.js')
+const sidecar = require('../../plugins/decidinator/scripts/lib/sidecar.js')
 
 const script = path.join(__dirname, '..', '..', 'plugins', 'decidinator', 'scripts', 'commands.js')
 let root, data, home, project, saved
@@ -139,23 +142,43 @@ test('disarm when unarmed says so', () => {
   assert.equal(spawn('/decidinator:disarm').stdout, msg.NOT_ARMED + '\n')
 })
 
+const zero = msg.statusCounts({ open: 0, unconfirmed: 0 }, DEFAULTS)
+
 test('status reports unarmed, armed by command, armed by env, and config problems', () => {
-  assert.equal(spawn('/decidinator:status').stdout, msg.STATUS_UNARMED + '\n')
+  assert.equal(spawn('/decidinator:status').stdout, msg.STATUS_UNARMED + zero + '\n')
 
   state.arm('s1', 'ask', 'command')
   let out = spawn('/decidinator:status').stdout
-  assert.equal(out, msg.statusArmed(state.readArming('s1')) + '\n')
+  assert.equal(out, msg.statusArmed(state.readArming('s1')) + zero + '\n')
   assert.ok(out.includes('/decidinator:arm'))
 
   state.arm('s1', 'sidecar', 'env')
   out = spawn('/decidinator:status').stdout
-  assert.equal(out, msg.statusArmed(state.readArming('s1')) + '\n')
+  assert.equal(out, msg.statusArmed(state.readArming('s1')) + zero + '\n')
   assert.ok(out.includes('DECIDINATOR_MODE'))
 
   writeConfig({ mode: 'loud' })
   out = spawn('/decidinator:status').stdout
   assert.ok(out.includes(' Configuration problems, ignored: '))
   assert.ok(out.endsWith('.\n'))
+})
+
+test('status counts open sidecar entries and unconfirmed decisions', () => {
+  const side = path.join(project, 'docs', 'open-questions.md')
+  const log = path.join(project, 'docs', 'decisions.md')
+  for (const q of ['Q1?', 'Q2?']) {
+    const r = sidecar.append(side, { topic: 'T', question: q, context: 'c', options: [], provisionalAnswer: 'p', dependsOn: [], status: 'open' })
+    assert.ok(r.ok, r.error)
+  }
+  const d = decisionLog.append(log, {
+    title: 'T', question: 'Q?', answer: 'A', rationale: 'r', provenance: 'oracle-unconfirmed', confidence: 'low',
+    rung: 1, context: 'c', sources: [], assumptions: [], date: '2026-01-01'
+  })
+  assert.ok(d.ok, d.error)
+  const out = spawn('/decidinator:status').stdout
+  assert.equal(out, msg.STATUS_UNARMED + msg.statusCounts({ open: 2, unconfirmed: 1 }, DEFAULTS) + '\n')
+  assert.ok(out.includes('2 open questions'))
+  assert.ok(out.includes('1 unconfirmed decision.'))
 })
 
 test('other prompts produce no output', () => {
