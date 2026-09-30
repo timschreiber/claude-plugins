@@ -182,9 +182,141 @@ test('status counts open sidecar entries and unconfirmed decisions', () => {
 })
 
 test('other prompts produce no output', () => {
-  for (const p of ['hello', '/decidinator:armed', '/decidinator:review', '/planandtier:arm']) {
+  for (const p of ['hello', '/decidinator:armed', '/decidinator:reviews', '/planandtier:arm']) {
     assert.equal(spawn(p).stdout, '', p)
   }
   assert.equal(spawn('/decidinator:arm', { agent_id: 'a1' }).stdout, '')
   assert.equal(state.readArming('s1'), null)
+})
+
+// --- review, confirm, export and import ---
+
+const walks = require('../../plugins/decidinator/scripts/lib/walks.js')
+const Q = require('../../plugins/decidinator/scripts/lib/questions.js')
+const exporter = require('../../plugins/decidinator/scripts/lib/export.js')
+
+const sideFile = () => path.join(project, 'docs', 'open-questions.md')
+const logFile = () => path.join(project, 'docs', 'decisions.md')
+const seedSide = (q) => {
+  const r = sidecar.append(sideFile(), { topic: 'Topic', question: 'Q?', context: 'c', options: [], provisionalAnswer: 'P', dependsOn: ['WP-03'], status: 'open', ...q })
+  assert.ok(r.ok, r.error)
+}
+const seedLog = (d) => {
+  const r = decisionLog.append(logFile(), { title: 'T', question: 'Q?', answer: 'A', rationale: 'r', context: 'c', confidence: 'high', rung: 1, sources: [], assumptions: [], date: '2026-09-30', ...d })
+  assert.ok(r.ok, r.error)
+}
+const cfg = () => ({ ...DEFAULTS })
+
+test('review, confirm and import unarmed say so and create no state', () => {
+  for (const c of ['review', 'confirm', 'import']) {
+    assert.equal(spawn(`/decidinator:${c} x.md`, { prompt_id: 'p1' }).stdout, msg.needsArming(c) + '\n')
+  }
+  assert.equal(fs.existsSync(state.fileFor('s1')), false)
+})
+
+test('review needs a prompt ID', () => {
+  state.arm('s1', 'ask', 'command')
+  seedSide({ question: 'One?' })
+  assert.equal(spawn('/decidinator:review').stdout, msg.noPromptId('review') + '\n')
+})
+
+test('review stores the walk and the pass-through and prints the calls', () => {
+  state.arm('s1', 'ask', 'command')
+  seedSide({ question: 'One?', provisionalDecision: 'D-0001' })
+  seedSide({ question: 'Two?', provisionalAnswer: 'none: no oracle returned a valid verdict' })
+  const r = spawn('/decidinator:review', { prompt_id: 'p1' })
+  const side = sidecar.read(sideFile()).model
+  const items = walks.reviewItems(side)
+  assert.equal(items.length, 2)
+  assert.equal(r.stdout, msg.walkReply(msg.reviewHead(2, 0, cfg()), msg.REVIEW_CHOICES, cfg(), walks.calls(items)) + '\n')
+  const s = state.read('s1')
+  assert.deepEqual(s.passThrough, { by: 'review', promptId: 'p1' })
+  assert.equal(s.walk.by, 'review')
+  assert.equal(s.walk.promptId, 'p1')
+  assert.deepEqual(s.walk.items.map((i) => i.key), ['Q-0001', 'Q-0002'])
+  assert.equal(Q.passThroughActive(s, 'p1'), true)
+})
+
+test('review caps a walk at 12 questions and says how many wait', () => {
+  state.arm('s1', 'ask', 'command')
+  for (let n = 1; n <= 14; n++) seedSide({ question: `Question number ${n}?` })
+  const r = spawn('/decidinator:review', { prompt_id: 'p1' })
+  assert.ok(r.stdout.startsWith(msg.reviewHead(12, 2, cfg())))
+  assert.equal(state.read('s1').walk.items.length, 12)
+  assert.equal((r.stdout.match(/Call \d of 3:/g) ?? []).length, 3)
+})
+
+test('review with nothing open says so and stores nothing', () => {
+  state.arm('s1', 'ask', 'command')
+  seedSide({ status: 'imported' })
+  assert.equal(spawn('/decidinator:review', { prompt_id: 'p1' }).stdout, msg.nothingToReview('docs/open-questions.md') + '\n')
+  assert.equal(fs.existsSync(state.fileFor('s1')), false)
+})
+
+test('review refuses a sidecar with another version', () => {
+  state.arm('s1', 'ask', 'command')
+  fs.mkdirSync(path.dirname(sideFile()), { recursive: true })
+  fs.writeFileSync(sideFile(), '<!-- decidinator-sidecar v2 -->\n')
+  const out = spawn('/decidinator:review', { prompt_id: 'p1' }).stdout
+  assert.ok(out.startsWith('decidinator: '))
+  assert.ok(out.includes('v2 is not supported'))
+  assert.ok(out.endsWith('Nothing changed.\n'))
+})
+
+test('confirm lists the unconfirmed decisions, highest impact first', () => {
+  state.arm('s1', 'ask', 'command')
+  seedLog({ question: 'Low impact?', provenance: 'oracle-unconfirmed' })
+  seedLog({ question: 'High impact?', provenance: 'oracle-provisional', sidecar: 'Q-0001' })
+  seedSide({ question: 'High impact?', dependsOn: ['a', 'b'], provisionalDecision: 'D-0002' })
+  seedLog({ question: 'Binding?', provenance: 'user' })
+  const r = spawn('/decidinator:confirm', { prompt_id: 'p2' })
+  const items = walks.confirmItems(decisionLog.read(logFile()).model, sidecar.read(sideFile()).model)
+  assert.deepEqual(items.map((i) => i.key), ['D-0002', 'D-0001'])
+  assert.equal(r.stdout, msg.walkReply(msg.confirmHead(2, 0, cfg()), msg.CONFIRM_CHOICES, cfg(), walks.calls(items)) + '\n')
+  const s = state.read('s1')
+  assert.deepEqual(s.passThrough, { by: 'confirm', promptId: 'p2' })
+  assert.deepEqual(s.walk.items.map((i) => i.key), ['D-0002', 'D-0001'])
+})
+
+test('confirm with nothing unconfirmed says so', () => {
+  state.arm('s1', 'ask', 'command')
+  seedLog({ provenance: 'user' })
+  assert.equal(spawn('/decidinator:confirm', { prompt_id: 'p2' }).stdout, msg.nothingToConfirm('docs/decisions.md') + '\n')
+})
+
+test('export with no path writes the dated copy of the open entries, armed or not', () => {
+  seedSide({ question: 'Open one?' })
+  seedSide({ question: 'Done one?', status: 'imported' })
+  const date = new Date().toISOString().slice(0, 10)
+  const rel = `docs/open-questions-${date}.md`
+  assert.equal(spawn('/decidinator:export').stdout, msg.exported(1, 'docs/open-questions.md', rel) + '\n')
+  const copy = sidecar.read(path.join(project, rel)).model
+  assert.deepEqual(copy.entries.map((e) => e.id), ['Q-0001'])
+  assert.deepEqual(copy.marker, { kind: 'sidecar', major: 1 })
+})
+
+test('export to an explicit quoted path, and again over its own earlier copy', () => {
+  seedSide({ question: 'Open one?' })
+  const again = msg.exported(1, 'docs/open-questions.md', 'out dir/copy.md') + '\n'
+  assert.equal(spawn('/decidinator:export "out dir/copy.md"').stdout, again)
+  assert.ok(fs.existsSync(path.join(project, 'out dir', 'copy.md')))
+  assert.equal(spawn('/decidinator:export "out dir/copy.md"').stdout, again)
+})
+
+test('export refuses the sidecar, the log, and a file that is not a sidecar copy', () => {
+  seedSide({ question: 'Open one?' })
+  seedLog({ provenance: 'user' })
+  assert.equal(spawn('/decidinator:export docs/open-questions.md').stdout, msg.exportIsOwnFile('docs/open-questions.md', 'the sidecar') + '\n')
+  assert.equal(spawn('/decidinator:export docs/decisions.md').stdout, msg.exportIsOwnFile('docs/decisions.md', 'the decision log') + '\n')
+  fs.writeFileSync(path.join(project, 'notes.md'), 'my notes\n')
+  assert.equal(spawn('/decidinator:export notes.md').stdout, msg.exportWontOverwrite('notes.md') + '\n')
+  assert.equal(fs.readFileSync(path.join(project, 'notes.md'), 'utf8'), 'my notes\n')
+})
+
+test('export with nothing open says so', () => {
+  assert.equal(spawn('/decidinator:export').stdout, msg.nothingToExport('docs/open-questions.md') + '\n')
+})
+
+test('the export default path helper matches the command', () => {
+  assert.equal(exporter.defaultPath('docs/open-questions.md', '2026-09-30'), 'docs/open-questions-2026-09-30.md')
 })
