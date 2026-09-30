@@ -1,4 +1,5 @@
 // SubagentStop hook: stores each oracle verdict under its question and rung and advances the ladder.
+// It also stores the match-or-change judgment of a /decidinator:import oracle in the import job.
 // Acts only on the configured rung agent that is due and in flight, so other subagents (empty
 // agent_type) and stale reports are ignored. Prints nothing, ever (a SubagentStop output could keep
 // the subagent running).
@@ -12,6 +13,7 @@ const resolution = require('./lib/resolution.js')
 const state = require('./lib/state.js')
 const config = require('./lib/config.js')
 const Q = require('./lib/questions.js')
+const importer = require('./lib/importer.js')
 
 runArmed(async (input, arming) => {
   const agentType = input.agent_type
@@ -22,13 +24,29 @@ runArmed(async (input, arming) => {
   const s0 = state.read(sid)
   if (!s0) return
   const d = Q.due(s0, cfg.rungs)
-  if (!d || d.agent !== agentType || !Q.inFlight(d.q, d.rung)) {
+  const questionInFlight = !!d && d.agent === agentType && Q.inFlight(d.q, d.rung)
+  if (!questionInFlight && importer.waitingItems(s0).length === 0) {
     debug(`recorder: ${agentType} stop ignored, not the dispatch in flight`)
     return
   }
   const lines = report.readJsonLines(input.agent_transcript_path)
   const found = report.findReport(input, s0.handbacks ?? {}, lines)
   const qid = report.reportQuestionId(found.text)
+  const jid = agentType === cfg.rungs[0] ? importer.judgmentId(s0, qid, questionInFlight) : null
+  if (jid) {
+    const j = importer.judgmentOf(parseVerdict(found.text, { questionId: jid, rung: 1 }))
+    state.update(sid, cur => {
+      if (!cur) return null
+      const next = importer.applyJudgment(cur, jid, j)
+      return next ? Q.dropHandback(next, input.agent_id) : null
+    })
+    debug(`recorder: import judgment ${jid} -> ${j.cls}`)
+    return
+  }
+  if (!questionInFlight) {
+    debug(`recorder: ${agentType} stop ignored, not the dispatch in flight`)
+    return
+  }
   if (qid !== null && qid !== d.id) {
     debug(`recorder: report for ${qid} ignored, ${d.id} is in flight`)
     return
