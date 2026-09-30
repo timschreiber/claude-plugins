@@ -18,9 +18,14 @@
 //   enter     PostToolUse EnterPlanMode: the model entered plan mode itself, so add the rules then.
 //   compact   PreCompact: the rules are about to fall out of context, so clear the marker; the next plan-mode
 //             prompt shows them again. Disarming clears it too.
+//   session   SessionStart after a compaction: in an unattended session that is still drafting, re-inject the
+//             unattended note and the rules, which the compaction dropped and which no later prompt would
+//             bring back in a headless run.
 // All of that happens only in an armed session. The one thing H1 does unarmed is handle the typed
 // commands: /planandtier:arm and /planandtier:disarm, which set and clear the session's flag, and
-// /planandtier:execute-plan, which picks a saved plan up again (lib/execute.js).
+// /planandtier:execute-plan, which picks a saved plan up again (lib/execute.js). It also arms an
+// unattended session: when PLANANDTIER_UNATTENDED is set, the first prompt of an unarmed session arms it,
+// puts it in the drafting phase and prints the unattended note and the rules (lib/unattended.js).
 'use strict'
 
 const fs = require('fs')
@@ -30,6 +35,7 @@ const git = require('./lib/git.js')
 const { dispatchText, doneLabel, parseReport } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
 const spend = require('./lib/spend.js')
+const unattended = require('./lib/unattended.js')
 const { settle, reportFromTranscript } = require('./lib/settle.js')
 const { subagentsDir } = require('./lib/usage.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
@@ -68,6 +74,10 @@ function runNote(input) {
   }
   if (fromHarness(input.prompt)) {
     if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) handBack(input, s)
+    return
+  }
+  if (s.phase === 'drafting') {
+    emitText(unattended.note(s.planFile))
     return
   }
   const where = () => `${s.done.length} of ${s.tasks.length} tasks are done`
@@ -176,10 +186,56 @@ function disarmNote(input) {
   emit({ systemMessage: spent, hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: note } })
 }
 
+// An unattended session's first prompt: arm it, put it in the drafting phase and give Claude the note and
+// the rules. Nothing is armed when the session could not run a plan.
+function unattendedStart(input) {
+  const id = input.session_id
+  if (input.permission_mode === 'plan') {
+    emitText(
+      'planandtier: PLANANDTIER_UNATTENDED is set, but the session is in plan mode, where a headless session has no ExitPlanMode and the workers could not edit anything. Nothing was armed. Report this and stop: relaunch without --permission-mode plan (for example with --permission-mode bypassPermissions or acceptEdits).'
+    )
+    return
+  }
+  const problem = git.problem(input.cwd)
+  if (problem) {
+    emitText(
+      `planandtier: unattended run not started: ${problem}. It needs a Git repository with a commit, a user name and email, and a clean working tree. Report this and stop; do not do the work yourself.`
+    )
+    return
+  }
+  if (!state.arm(id)) {
+    emitText('planandtier: unattended run not started: its flag file could not be written. Report this and stop.')
+    return
+  }
+  const planFile = unattended.planFileFor(id)
+  if (!state.write(id, { phase: 'drafting', planFile, denials: 0, guardDenials: 0 })) {
+    state.disarm(id)
+    emitText('planandtier: unattended run not started: its state could not be saved. Report this and stop.')
+    return
+  }
+  state.prune(PRUNE_DAYS)
+  state.markRulesShown(id)
+  emitText(`${unattended.note(planFile)}\n\n${rules()}`)
+}
+
 run(async () => {
   const input = await readInput()
   if (!input || input.agent_id) return
   if (process.argv[2] === 'compact') return state.clearRulesShown(input.session_id)
+  if (process.argv[2] === 'session') {
+    const id = input.session_id
+    const s = state.isArmed(id) ? state.read(id) : null
+    if (s?.phase === 'drafting') {
+      emit({
+        hookSpecificOutput: {
+          hookEventName: 'SessionStart',
+          additionalContext: `${unattended.note(s.planFile)}\n\n${rules()}`,
+        },
+      })
+      state.markRulesShown(id)
+    }
+    return
+  }
   const enter = process.argv[2] === 'enter'
 
   const typed = enter ? null : COMMAND.exec(String(input.prompt ?? ''))
@@ -187,6 +243,9 @@ run(async () => {
   if (command === 'arm') return armNote(input)
   if (command === 'disarm') return disarmNote(input)
   if (command === 'execute-plan') return emitText(executePlan(input, String(input.prompt).slice(typed[0].length)))
+  if (!enter && unattended.enabled() && !state.isArmed(input.session_id) && !fromHarness(input.prompt)) {
+    return unattendedStart(input)
+  }
   if (!state.isArmed(input.session_id)) return
 
   if (enter) {

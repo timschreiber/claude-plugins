@@ -174,6 +174,99 @@ test('H1 stays silent for subagents', () => {
   assert.equal(hook('h1-plan-rules.js', { permission_mode: 'plan', agent_id: 'a1' }).stdout, '')
 })
 
+// ---- H1: unattended sessions ---------------------------------------------------------
+
+const unattendedRun = (over = {}, envOver = {}) => {
+  const payload = { session_id: S, cwd: REPO, permission_mode: 'default', prompt: 'Add a clock', ...over }
+  return hook('h1-plan-rules.js', payload, [], { PLANANDTIER_UNATTENDED: '1', CLAUDE_CONFIG_DIR: dir, ...envOver })
+}
+
+test('H1 arms an unattended session on its first prompt and saves the drafting state', () => {
+  state.disarm(S)
+  const r = unattendedRun()
+  assert.equal(state.isArmed(S), true)
+  const s = state.read(S)
+  assert.equal(s.phase, 'drafting')
+  assert.ok(s.planFile.startsWith(path.join(dir, 'plans')))
+  assert.match(s.planFile, /planandtier-unattended-\d{8}-\d{6}-sess-1\.md$/)
+  assert.equal(state.rulesShown(S), true)
+  assert.ok(r.stdout.includes('unattended run'))
+  assert.ok(r.stdout.includes(s.planFile))
+  assert.ok(r.stdout.includes(RULES))
+})
+
+test('H1 arms nothing for an unattended session in plan mode', () => {
+  state.disarm(S)
+  const r = unattendedRun({ permission_mode: 'plan' })
+  assert.equal(state.isArmed(S), false)
+  assert.equal(state.read(S), null)
+  assert.ok(r.stdout.includes('plan mode'))
+})
+
+test('H1 arms nothing for an unattended session in a dirty repository', () => {
+  state.disarm(S)
+  const repo2 = makeRepo(path.join(dir, 'dirty'))
+  fs.writeFileSync(path.join(repo2, 'extra.txt'), 'x\n')
+  const r = unattendedRun({ cwd: repo2 })
+  assert.equal(state.isArmed(S), false)
+  assert.equal(state.read(S), null)
+  assert.ok(r.stdout.includes('not started'))
+})
+
+test('H1 leaves an unarmed session unarmed without the unattended variable', () => {
+  state.disarm(S)
+  const r = unattendedRun({}, { PLANANDTIER_UNATTENDED: '' })
+  assert.equal(r.stdout, '')
+  assert.equal(state.isArmed(S), false)
+})
+
+test('H1 does not arm an unattended session for a task notification', () => {
+  state.disarm(S)
+  const r = unattendedRun({ prompt: '<task-notification>done</task-notification>' })
+  assert.equal(r.stdout, '')
+  assert.equal(state.isArmed(S), false)
+})
+
+test('H1 repeats the unattended note, without the rules, on a prompt while drafting', () => {
+  state.disarm(S)
+  unattendedRun()
+  const planFile = state.read(S).planFile
+  const r = unattendedRun({ prompt: 'and more' })
+  assert.ok(r.stdout.includes('unattended run'))
+  assert.ok(r.stdout.includes(planFile))
+  assert.ok(!r.stdout.includes(RULES))
+})
+
+test('H1 still treats /planandtier:arm as the arm command when unattended', () => {
+  state.disarm(S)
+  const r = unattendedRun({ prompt: '/planandtier:arm' })
+  assert.equal(state.isArmed(S), true)
+  assert.ok(r.stdout.includes('armed'))
+  assert.notEqual(state.read(S)?.phase, 'drafting')
+})
+
+const sessionStart = () => hook('h1-plan-rules.js', { session_id: S, source: 'compact' }, ['session'])
+
+test('H1 session mode re-injects the note and rules into a drafting session after compaction', () => {
+  state.write(S, { phase: 'drafting', planFile: path.join(dir, 'plans', 'p.md'), denials: 0, guardDenials: 0 })
+  state.clearRulesShown(S)
+  const r = sessionStart()
+  assert.equal(r.json.hookSpecificOutput.hookEventName, 'SessionStart')
+  assert.ok(r.json.hookSpecificOutput.additionalContext.includes(path.join(dir, 'plans', 'p.md')))
+  assert.ok(r.json.hookSpecificOutput.additionalContext.includes(RULES))
+  assert.equal(state.rulesShown(S), true)
+})
+
+test('H1 session mode prints nothing for a running run, no state or an unarmed session', () => {
+  state.write(S, approvedState({ phase: 'running' }))
+  assert.equal(sessionStart().stdout, '')
+  state.remove(S)
+  assert.equal(sessionStart().stdout, '')
+  state.write(S, { phase: 'drafting', planFile: 'p.md', denials: 0, guardDenials: 0 })
+  state.disarm(S)
+  assert.equal(sessionStart().stdout, '')
+})
+
 // ---- H2 ----------------------------------------------------------------------------
 
 test('H2 is silent for a valid plan and writes no state', () => {
@@ -1686,7 +1779,7 @@ test('every hook exits 0 when the data directory is unwritable', () => {
 test('hooks.json is valid, every command names a script that exists, and Agent events go to H4', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 12)
+  assert.equal(commands.length, 13)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)
