@@ -230,6 +230,22 @@ lose to plan mode). For the ladder this means rung models are honored only outsi
 plan mode every rung runs on Opus, so rung 3 (`claude-fable-5-1`) would not run as Fable, and the
 recorder should read the model from the agent's transcript, not from `resolvedModel`.
 
+## WP-04: oracle-1 sample runs
+
+Measured 2026-09-30 on Claude Code 2.1.285 with `node probes/decidinator/run-oracle.js <sample>`: one `claude -p` session per sample, in `plan` mode on `claude-opus-5-5`, with `plugins/decidinator` and the WP-01 probe plugin loaded, in a temp git repo holding a small fixture project (`tally`, a zero-dependency Node todo CLI with a spec, one source file, a decision log with one binding decision, and an empty sidecar). The main session dispatched `decidinator:oracle-1` with a dispatch prompt in the WP-04 contract (`dispatch` in each verdict file). The report was taken by the recorder rule and validated with `parseVerdict` from `plugins/decidinator/scripts/lib/verdict.js`, expecting the sample's question ID and rung 1. Evidence: `probes/evidence/decidinator-probe-oracle-<sample>-verdict.json` (report, verdict, checks), beside the `-hooks.jsonl`, `-agents.json`, `-transcript.jsonl` and `-run.json` files that `collect.js` writes.
+
+| Sample | Question | Report from | Valid | Kind | Status | Confidence | Flags | Options | Sources | Agent model (transcript) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `clear` | Q-0002 | `last_assistant_message` | yes | researchable | resolved | high | none | 0 | 4 | `claude-opus-5-5` |
+| `human-only` | Q-0003 | `last_assistant_message` | yes | human-only | unresolved | low | `spec-silent`, `cross-cutting` | 2 | 8 | `claude-opus-5-5` |
+| `spec-silent` | Q-0004 | `last_assistant_message` | yes | researchable | resolved | medium | `spec-silent` | 2 | 4 | `claude-opus-5-5` |
+
+- **clear** (Q-0002): answer "Use node:test, the runner built into Node, with node:assert for assertions. Set package.json scripts.test to \"node --test\" and put the test files under test/ (for example test/list.test.js). Do not add Jest or Mocha.". Sources: `docs/spec.md`; `CLAUDE.md`; `package.json`; `https://nodejs.org/docs/latest-v20.x/api/test.html`.
+- **human-only** (Q-0003): answer "Provisionally 5 lists, held in one named constant so the product team can change it; the product team must confirm the number.". Sources: `docs/spec.md`; `docs/decisions.md#D-0001`; `docs/open-questions.md`; `src/list.js`; `https://todoist.com/help/articles/todoists-limits-for-tasks,-projects,-files-and-more-e5rcSY`; `https://zapier.com/blog/free-todoist-account-five-project-limit/`; `https://quire.io/compare/best-to-do-list-apps`; `https://tasksboard.com/blog/shared-to-do-list-app`.
+- **spec-silent** (Q-0004): answer "Added: open todos with the same due date print in the order they were added (a stable sort on due date only, with no secondary key), the same order the undated todos already use.". Sources: `docs/spec.md`; `src/list.js:7`; `src/list.js:8`; `https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort`.
+
+Acceptance: every sample returned a valid verdict block citing at least one source, and the human-only sample (Q-0003) was classified `human-only` with 2 options, each with tradeoffs ("checks" in each verdict file). The spec-silent sample was flagged `spec-silent`.
+
 ## Pending
 
 From `probes/decidinator/commands.md`:
