@@ -1,0 +1,52 @@
+{
+  "generated": "2026-10-01T08:08:11.373Z",
+  "scenario": "install",
+  "name": "fresh-install",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "log-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-new-decision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-oracle-unconfirmed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-rung-1",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-question",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-answer-node-test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sidecar-empty",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [],
+    "dispatches": [],
+    "askCalls": [],
+    "permissionModes": [],
+    "oracleTools": {},
+    "finalMessage": ""
+  }
+}
