@@ -83,7 +83,7 @@ test('the README names every config key, variable, command and key phrase', () =
     ...Object.keys(DEFAULTS).map((k) => '`' + k + '`'),
     'DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_DEBUG',
     ...['arm', 'disarm', 'status', 'review', 'confirm', 'export', 'import'].map((c) => `/decidinator:${c}`),
-    'WebFetch', 'WebSearch', 'Bash(gh search:*)', 'Bash(gh repo view:*)', 'Bash(gh api:*)', 'claude -p', 'plan mode', 'decidinator-reference.md', 'In development',
+    'WebFetch', 'WebSearch', 'Bash(gh search:*)', 'Bash(gh repo view:*)', 'Bash(gh api:*)', 'claude -p', 'plan mode', 'decidinator-reference.md',
   ]
   const missing = required.filter((s) => !readme.includes(s))
   assert.deepEqual(missing, [], `the README does not contain: ${missing.join(', ')}`)

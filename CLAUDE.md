@@ -32,7 +32,7 @@ cataloged in `.claude-plugin/marketplace.json`:
   evidence under `probes/evidence/planandtier-*`.
 - `decidinator`: hooks that send every `AskUserQuestion` call to a read-only
   oracle subagent first, so only questions research cannot settle reach a
-  person, and log every decision in the repo. In development, built package by
+  person, and log every decision in the repo. Built package by
   package from `docs/decidinator/Decidinator — Work Packages.md` against
   `docs/decidinator/Decidinator — Specification.md`. Silent until
   `/decidinator:arm` or `DECIDINATOR_MODE`. Node hook scripts under

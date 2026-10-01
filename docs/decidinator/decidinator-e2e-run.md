@@ -262,7 +262,7 @@ Run the block once more, because oracle research is not deterministic. If it fai
 
 ## After all seven pass
 
-Commit `tests/decidinator/e2e/fixtures/` (`git add tests/decidinator/e2e/fixtures`, then a commit such as `Decidinator: end-to-end fixtures`), then push. Then remove the "In development" wording from `plugins/decidinator/README.md`, the decidinator entry's description in `.claude-plugin/marketplace.json`, the decidinator bullet in the root `CLAUDE.md`, and `plugins/decidinator/CLAUDE.md`, and commit that.
+Commit `tests/decidinator/e2e/fixtures/` (`git add tests/decidinator/e2e/fixtures`, then a commit such as `Decidinator: end-to-end fixtures`), then push. The "In development" wording has since been removed from `plugins/decidinator/README.md`, the root `README.md`, the decidinator entry's description in `.claude-plugin/marketplace.json`, the decidinator bullet in the root `CLAUDE.md`, and `plugins/decidinator/CLAUDE.md`.
 
 ## Fresh install check
 

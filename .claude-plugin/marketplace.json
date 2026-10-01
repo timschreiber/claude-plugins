@@ -57,7 +57,7 @@
       "name": "decidinator",
       "displayName": "Decidinator",
       "source": "./plugins/decidinator",
-      "description": "In development. Makes Claude research its own questions before asking you: every AskUserQuestion call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person, with researched options. Every decision is logged in the repo. Off until you type /decidinator:arm in a session.",
+      "description": "Makes Claude research its own questions before asking you: every AskUserQuestion call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person, with researched options. Every decision is logged in the repo. Off until you type /decidinator:arm in a session.",
       "author": {
         "name": "Tim Schreiber"
       },

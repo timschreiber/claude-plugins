@@ -1,6 +1,6 @@
 # Decidinator
 
-**In development.** Decidinator makes Claude research its own questions before asking. Every `AskUserQuestion` call goes to a read-only oracle subagent first. Only questions it cannot settle reach a person, with researched options, and every decision is logged in the repo.
+Decidinator makes Claude research its own questions before asking. Every `AskUserQuestion` call goes to a read-only oracle subagent first. Only questions it cannot settle reach a person, with researched options, and every decision is logged in the repo.
 
 You work as usual after typing `/decidinator:arm` once in the session. The plugin holds each question Claude asks, has an oracle research it, and either answers it or passes it on to you.
 

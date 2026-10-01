@@ -14,9 +14,8 @@ user; the rest arrive researched, with options. Each decision is recorded in a
 repo-local decision log, and unresolved ones can queue in a sidecar file for
 stakeholders (`sidecar` mode) instead of asking (`ask` mode).
 
-It is listed in `.claude-plugin/marketplace.json`, marked **In development** there
-and in its README until WP-10's end-to-end run passes
-(`docs/decidinator/decidinator-e2e-run.md`).
+It is published: it is listed in `.claude-plugin/marketplace.json`. WP-10's end-to-end
+run passed (`docs/decidinator/decidinator-e2e-run.md`).
 
 ## Read first
 

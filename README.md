@@ -8,7 +8,7 @@ Claude Code plugins by Tim Schreiber.
 |---|---|
 | [denoizinator-net](plugins/denoizinator-net/README.md) | Strip the noise. Keep the signal. Keeps low-value MSBuild and test output out of Claude's context, so more of the context window stays available for actual work. |
 | [planandtier](plugins/planandtier/README.md) | Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, one at a time, on the model and effort chosen for it during planning, and commits its own work; a failed task is rolled back and retried a tier up. Off until you type `/planandtier:arm` in a session. Needs Git. |
-| [decidinator](plugins/decidinator/README.md) | In development. Makes Claude research its own questions before asking you: every `AskUserQuestion` call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person. Off until you type `/decidinator:arm` in a session. |
+| [decidinator](plugins/decidinator/README.md) | Makes Claude research its own questions before asking you: every `AskUserQuestion` call goes to a read-only oracle subagent first, and only questions it cannot settle reach a person. Off until you type `/decidinator:arm` in a session. |
 
 Each plugin's README covers installation, usage, what it does and doesn't
 do, and known limitations.
