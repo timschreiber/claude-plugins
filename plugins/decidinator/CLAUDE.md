@@ -14,8 +14,9 @@ user; the rest arrive researched, with options. Each decision is recorded in a
 repo-local decision log, and unresolved ones can queue in a sidecar file for
 stakeholders (`sidecar` mode) instead of asking (`ask` mode).
 
-It is **unpublished**: it is not in `.claude-plugin/marketplace.json`. Do not add
-it to `plugins` (or `_parked`) unless the user asks.
+It is listed in `.claude-plugin/marketplace.json`, marked **In development** there
+and in its README until WP-10's end-to-end run passes
+(`docs/decidinator/decidinator-e2e-run.md`).
 
 ## Read first
 
@@ -26,6 +27,7 @@ memory.
   file formats, commands, config keys, safety rules.
 - `Decidinator — Work Packages.md` indexes WP-01 to WP-10, and each
   `WP-NN · <title>.md` holds one package's scope and acceptance criteria.
+- `decidinator-reference.md` documents every hook, file format, command, key and variable as built; `decidinator-e2e-run.md` is the end-to-end runbook (it needs a person, so it is not in CI).
 - WP-01's probe is in `probes/decidinator/`, its raw evidence in
   `probes/evidence/decidinator-*`, and its findings in
   `docs/decidinator/decidinator-verification.md`.

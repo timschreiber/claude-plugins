@@ -37,7 +37,10 @@ cataloged in `.claude-plugin/marketplace.json`:
   `docs/decidinator/Decidinator — Specification.md`. Silent until
   `/decidinator:arm` or `DECIDINATOR_MODE`. Node hook scripts under
   `plugins/decidinator/scripts/`, tested with
-  `node --test tests/decidinator/*.test.js`.
+  `node --test tests/decidinator/*.test.js`. Its end-to-end scenarios need an
+  interactive session, so they run by hand from
+  `docs/decidinator/decidinator-e2e-run.md`; `docs/decidinator/decidinator-reference.md`
+  documents every hook, file, key and variable.
 
 `orcastrat` (formerly `orchestratinator`) lives in `plugins/orcastrat/` but is parked: it is
 listed under `_parked` in `marketplace.json`, not `plugins`, so it is not published. Only

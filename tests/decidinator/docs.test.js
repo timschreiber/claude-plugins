@@ -77,6 +77,18 @@ test('the reference names all seven commands', () => {
   assert.deepEqual(missing, [], `the reference does not name these commands: ${missing.join(', ')}`)
 })
 
+test('the README names every config key, variable, command and key phrase', () => {
+  const readme = fs.readFileSync(path.join(root, 'plugins', 'decidinator', 'README.md'), 'utf8')
+  const required = [
+    ...Object.keys(DEFAULTS).map((k) => '`' + k + '`'),
+    'DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_DEBUG',
+    ...['arm', 'disarm', 'status', 'review', 'confirm', 'export', 'import'].map((c) => `/decidinator:${c}`),
+    'WebFetch', 'WebSearch', 'Bash(gh search:*)', 'claude -p', 'plan mode', 'decidinator-reference.md', 'In development',
+  ]
+  const missing = required.filter((s) => !readme.includes(s))
+  assert.deepEqual(missing, [], `the README does not contain: ${missing.join(', ')}`)
+})
+
 test('the reference holds both file markers verbatim', () => {
   const markers = ['<!-- decidinator-log v1 -->', '<!-- decidinator-sidecar v1 -->']
   const missing = markers.filter((m) => !reference.includes(m))
