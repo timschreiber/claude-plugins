@@ -1,0 +1,96 @@
+{
+  "generated": "2026-10-01T06:05:30.581Z",
+  "scenario": "7",
+  "name": "round-trip",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "export-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "export-entries",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "export-groups",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "answers-filled",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "stakeholder-decisions",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "provisionals-superseded",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entries-imported",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "judgment-dispatched",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-1-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report-header",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report-confirmed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report-changed",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [
+      {
+        "at": "2026-10-01T04:14:18.356Z",
+        "agentType": "decidinator:oracle-1",
+        "effort": {
+          "level": "high"
+        }
+      }
+    ],
+    "dispatches": [
+      {
+        "at": "2026-10-01T04:14:07.821Z",
+        "subagentType": "decidinator:oracle-1",
+        "description": "Decidinator import judgment Q-0003",
+        "prompt": "Decidinator question Q-0003\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: Does the stakeholder's answer mean the same as the provisional answer? Provisional answer: \"In the order they were added.\". Stakeholder's answer: \"Alphabetically, by their text.\".\nOptions:\n- match: the answers mean the same, so work built on the provisional answer stands.\n- change: the answers differ in substance, so work built on the provisional answer must be revisited.\nContext: Decidinator import judgment. Sidecar question Q-0003 asked: \"When two open todos have the same due date, in what order should `tally list` print them?\". The stakeholder's answer is already recorded as D-0005. Do not research the original question again; judge only whether the two answers mean the same. End with a verdict whose status is resolved, whose kind is researchable, and whose answer is exactly match or change."
+      }
+    ],
+    "askCalls": [],
+    "permissionModes": [
+      "default"
+    ],
+    "oracleTools": {
+      "Read": 2
+    },
+    "finalMessage": "decidinator: imported 2 answers from docs/stakeholders.md as stakeholder decisions.\n\nConfirmed (1):\n- Q-0002 → D-0004 (supersedes D-0002): same as the provisional answer.\n\nChanged (1):\n- Q-0003 → D-0005 (supersedes D-0003): the oracle judged it changed. The provisional answer keeps insertion order for equal due dates, while the stakeholder's answer sorts them alphabetically by text, and the two orders differ whenever todos were not added in alphabetical order. The sidecar presented these as separate options with different tradeoffs. D-0005, provenance stakeholder, is binding and supersedes D-0003, so the ordering tests and code built on insertion order must be revisited. Depends on: e2e-seed."
+  }
+}
