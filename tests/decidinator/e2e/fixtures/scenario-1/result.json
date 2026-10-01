@@ -1,0 +1,120 @@
+{
+  "generated": "2026-10-01T00:45:35.911Z",
+  "scenario": "1",
+  "name": "ask-researchable",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "log-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-new-decision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-oracle-unconfirmed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-rung-1",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-question",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-answer-node-test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sidecar-empty",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-1-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "no-oracle-2",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ask-intercepted",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ask-never-shown",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [
+      {
+        "at": "2026-10-01T00:43:52.553Z",
+        "agentType": "decidinator:oracle-1",
+        "effort": {
+          "level": "high"
+        }
+      }
+    ],
+    "dispatches": [
+      {
+        "at": "2026-10-01T00:43:25.522Z",
+        "subagentType": "decidinator:oracle-1",
+        "description": "Decidinator Q-0002 rung 1",
+        "prompt": "Decidinator question Q-0002\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: Which test framework should tally's tests use?\nOptions:\n- Jest: the most widely used JavaScript test framework\n- Mocha: a long-established test runner\n- node:test: the test runner built into Node\nContext: tally is a command-line todo list for Node 20+. CLAUDE.md requires no dependencies (runtime or development), only Node built-in modules; source in src/, tests in test/; docs/spec.md should be read before changing anything. I was about to set up tests and need to choose a test framework. This is a plugin test: no files may be edited, created or deleted."
+      }
+    ],
+    "askCalls": [
+      {
+        "at": "2026-10-01T00:43:23.107Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "Which test framework should tally's tests use?",
+            "header": "Test runner",
+            "options": [
+              {
+                "label": "Jest",
+                "description": "the most widely used JavaScript test framework"
+              },
+              {
+                "label": "Mocha",
+                "description": "a long-established test runner"
+              },
+              {
+                "label": "node:test",
+                "description": "the test runner built into Node"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      }
+    ],
+    "permissionModes": [
+      "default"
+    ],
+    "oracleTools": {
+      "Glob": 1,
+      "Read": 5,
+      "ToolSearch": 1,
+      "WebFetch": 1
+    },
+    "finalMessage": "RESULT: node:test"
+  }
+}

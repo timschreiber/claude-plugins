@@ -1,0 +1,130 @@
+{
+  "generated": "2026-10-01T01:11:05.146Z",
+  "scenario": "5",
+  "name": "plan-mode",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "log-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-new-decision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-oracle-unconfirmed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-rung-1",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-question",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-answer-node-test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sidecar-empty",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-1-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "no-oracle-2",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ask-intercepted",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ask-never-shown",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "plan-mode-throughout",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-web-research",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [
+      {
+        "at": "2026-10-01T01:10:02.992Z",
+        "agentType": "decidinator:oracle-1",
+        "effort": {
+          "level": "high"
+        }
+      }
+    ],
+    "dispatches": [
+      {
+        "at": "2026-10-01T01:09:36.037Z",
+        "subagentType": "decidinator:oracle-1",
+        "description": "Decidinator Q-0002 rung 1",
+        "prompt": "Decidinator question Q-0002\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: Which test framework should tally's tests use?\nOptions:\n- Jest: the most widely used JavaScript test framework\n- Mocha: a long-established test runner\n- node:test: the test runner built into Node\nContext: The user asked to choose a test framework for tally's tests (in plan mode, no file edits). tally is a command-line todo list for Node 20 or later. CLAUDE.md says: read docs/spec.md before changing anything; no dependencies, runtime or development — use only Node's built-in modules; source in src/, tests in test/."
+      }
+    ],
+    "askCalls": [
+      {
+        "at": "2026-10-01T01:09:32.041Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "Which test framework should tally's tests use?",
+            "header": "Test runner",
+            "options": [
+              {
+                "label": "Jest",
+                "description": "the most widely used JavaScript test framework"
+              },
+              {
+                "label": "Mocha",
+                "description": "a long-established test runner"
+              },
+              {
+                "label": "node:test",
+                "description": "the test runner built into Node"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      }
+    ],
+    "permissionModes": [
+      "plan"
+    ],
+    "oracleTools": {
+      "Glob": 1,
+      "Read": 5,
+      "ToolSearch": 1,
+      "WebFetch": 1
+    },
+    "finalMessage": "RESULT: node:test"
+  }
+}

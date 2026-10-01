@@ -1,0 +1,137 @@
+{
+  "generated": "2026-10-01T01:07:07.039Z",
+  "scenario": "3",
+  "name": "sidecar-command",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "log-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sidecar-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-new-decision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-provisional",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-question",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-sidecar-entry",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry-fields",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry-depends-on",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-1-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ask-never-shown",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "session-continued",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [
+      {
+        "at": "2026-10-01T01:06:37.670Z",
+        "agentType": "decidinator:oracle-1",
+        "effort": {
+          "level": "high"
+        }
+      }
+    ],
+    "dispatches": [
+      {
+        "at": "2026-10-01T01:06:09.794Z",
+        "subagentType": "decidinator:oracle-1",
+        "description": "Decidinator Q-0002 rung 1",
+        "prompt": "Decidinator question Q-0002\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: How many lists should a free account be allowed to keep: 3 or 5?\nOptions:\n- 3 lists: the lower cap\n- 5 lists: the higher cap\nContext: Testing the Decidinator plugin in the `tally` repo (a Node 20 command-line todo list, no dependencies, source in src/, tests in test/; docs/spec.md describes the product). No files are being edited. The question came up as a scripted test: the free-account list limit needs settling before anything else proceeds."
+      }
+    ],
+    "askCalls": [
+      {
+        "at": "2026-10-01T01:06:07.471Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "How many lists should a free account be allowed to keep: 3 or 5?",
+            "header": "List limit",
+            "options": [
+              {
+                "label": "3 lists",
+                "description": "the lower cap"
+              },
+              {
+                "label": "5 lists",
+                "description": "the higher cap"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      },
+      {
+        "at": "2026-10-01T01:06:40.145Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "How many lists should a free account be allowed to keep: 3 or 5?",
+            "header": "List limit",
+            "options": [
+              {
+                "label": "3 lists",
+                "description": "the lower cap"
+              },
+              {
+                "label": "5 lists",
+                "description": "the higher cap"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      }
+    ],
+    "permissionModes": [
+      "default"
+    ],
+    "oracleTools": {
+      "Glob": 2,
+      "Read": 4,
+      "ToolSearch": 1,
+      "WebSearch": 1
+    },
+    "finalMessage": "RESULT: 5 lists (provisional; Q-0002 is waiting in docs/open-questions.md for the product team)"
+  }
+}

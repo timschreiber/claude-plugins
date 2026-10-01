@@ -1,0 +1,151 @@
+{
+  "generated": "2026-10-01T00:48:53.173Z",
+  "scenario": "2",
+  "name": "ask-human-only",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "log-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-new-decision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-user",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-question",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-answer-matches-pick",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-no-rung",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sidecar-empty",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-1-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "no-oracle-2",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "ask-shown-after-research",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [
+      {
+        "at": "2026-10-01T00:46:19.020Z",
+        "agentType": "decidinator:oracle-1",
+        "effort": {
+          "level": "high"
+        }
+      }
+    ],
+    "dispatches": [
+      {
+        "at": "2026-10-01T00:45:59.565Z",
+        "subagentType": "decidinator:oracle-1",
+        "description": "Decidinator Q-0002 rung 1",
+        "prompt": "Decidinator question Q-0002\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: How many lists should a free account be allowed to keep: 3 or 5?\nOptions:\n- 3 lists: the lower cap\n- 5 lists: the higher cap\nContext: Working in the `tally` repo (a Node 20 command-line todo list, no dependencies, source in src/, tests in test/; docs/spec.md is the spec). This is a test of the Decidinator plugin; no files may be edited, created or deleted. The question of the free-account list limit came up as the first step of the session, and I need the answer to proceed."
+      }
+    ],
+    "askCalls": [
+      {
+        "at": "2026-10-01T00:45:57.084Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "How many lists should a free account be allowed to keep: 3 or 5?",
+            "header": "List limit",
+            "options": [
+              {
+                "label": "3 lists",
+                "description": "the lower cap"
+              },
+              {
+                "label": "5 lists",
+                "description": "the higher cap"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      },
+      {
+        "at": "2026-10-01T00:46:21.426Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "How many lists should a free account be allowed to keep: 3 or 5?",
+            "header": "List limit",
+            "options": [
+              {
+                "label": "3 lists",
+                "description": "the lower cap"
+              },
+              {
+                "label": "5 lists",
+                "description": "the higher cap"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      },
+      {
+        "at": "2026-10-01T00:46:40.596Z",
+        "event": "PostToolUse",
+        "questions": [
+          {
+            "question": "How many lists should a free account be allowed to keep: 3 or 5?",
+            "header": "List limit",
+            "options": [
+              {
+                "label": "3 lists",
+                "description": "the lower cap"
+              },
+              {
+                "label": "5 lists",
+                "description": "the higher cap"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      }
+    ],
+    "permissionModes": [
+      "default"
+    ],
+    "oracleTools": {
+      "Glob": 1,
+      "Read": 5
+    },
+    "finalMessage": "RESULT: 3 lists"
+  }
+}
