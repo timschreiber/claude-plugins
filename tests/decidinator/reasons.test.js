@@ -56,6 +56,7 @@ const rendered = {
   'guard-due': reasons.guardDue(d),
   'guard-waiting': reasons.guardWaiting(d),
   'guard-stepped-aside': reasons.guardSteppedAside('Q-0007', 1, 3),
+  'stop-due': reasons.stopDue(d),
   'prompt-rung-1': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 1, cfg),
   'prompt-rung-2': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 2, cfg),
   'oracle-shell': reasons.oracleShell('it is not one of gh search, gh repo view or gh api'),

@@ -62,6 +62,14 @@ function guardWaiting(d) {
   ].join('\n\n')
 }
 
+function stopDue(d) {
+  return [
+    `decidinator: not finished. ${d.id} is waiting for oracle research at rung ${d.rung}. Do not end your turn yet: dispatch it now.`,
+    agentCall(d),
+    AFTER_DISPATCH
+  ].join('\n\n')
+}
+
 const guardSteppedAside = (id, rung, max) =>
   `decidinator: the guard stepped aside for ${id} (rung ${rung}) after ${max} blocked tool calls in a row, so tools run again. ${id} still waits for oracle research.`
 
@@ -102,4 +110,4 @@ const ORACLE_MONITOR =
 const NUDGE =
   'decidinator: your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.'
 
-module.exports = { CONTEXT_PLACEHOLDER, oneLine, agentCall, AFTER_DISPATCH, REDISPATCH, held, heldWaiting, guardDue, guardWaiting, guardSteppedAside, narrow, settled, sidecar, wrongAgent, missingId, refused, ORACLE_SHELL_RULE, oracleShell, ORACLE_MONITOR, NUDGE }
+module.exports = { CONTEXT_PLACEHOLDER, oneLine, agentCall, AFTER_DISPATCH, REDISPATCH, held, heldWaiting, guardDue, guardWaiting, stopDue, guardSteppedAside, narrow, settled, sidecar, wrongAgent, missingId, refused, ORACLE_SHELL_RULE, oracleShell, ORACLE_MONITOR, NUDGE }
