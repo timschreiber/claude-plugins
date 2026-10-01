@@ -36,6 +36,7 @@ The plugin is off in every session until the user arms it (see [Arming](#arming)
 | Dispatch check | `PreToolUse` hook on `Agent` (`dispatch-check.js`) | While a question is due, allows only the expected oracle dispatch for it. |
 | Oracle shell allowlist | `PreToolUse` hook on `Bash`, `PowerShell` and `Monitor` (`oracle-shell.js`) | Limits an oracle's shell calls to one read-only `gh` command, and refuses `Monitor`. |
 | Guard | `PreToolUse` hook on every tool (`guard.js`) | Denies the main thread's other tools while a dispatch is due or an oracle is researching. Steps aside after `guardMaxBlocks` blocks. |
+| Stop guard | `Stop` hook (`stop-guard.js`) | Blocks the end of the main thread's turn while a dispatch is due and not yet made. Shares the guard's block count. |
 | Recorder | `SubagentStop` hook (`recorder.js`) | Reads each oracle's verdict, applies the ladder, and writes the decision log and the sidecar. |
 | User answer | `PostToolUse` hook on `AskUserQuestion` (`user-answer.js`) | Records the user's answers as `user` decisions, in `ask` mode and in `/decidinator:review` and `/decidinator:confirm` walks. |
 | Nudge | `Stop` hook (`nudge.js`) | Blocks a stop once when the final message ends with a plain-text question. |
@@ -116,7 +117,7 @@ sequenceDiagram
     H->>O: The oracle researches in the background
     O-->>H: SubagentStop: recorder.js parses the verdict
     alt escalate
-        H-->>M: guard.js denies other tools until rung n+1 is dispatched
+        H-->>M: guard.js denies other tools, and stop-guard.js blocks the end of the turn, until rung n+1 is dispatched
     else resolved
         H-->>H: decision logged as oracle-unconfirmed
     else final unresolved
@@ -140,7 +141,7 @@ sequenceDiagram
    `Options: none` is written when the call had none. Above rung 1 the prompt ends with an `Earlier verdicts:` line holding a JSON array of the lower rungs' verdicts. The model is told to replace the `Context:` placeholder with the task, the files and the constraints it knows.
 2. **Research.** The dispatch check allows only that Agent call (the right agent, a prompt containing the question ID) and records it on the question; this is what puts the question "in flight". The `Agent` call returns at once, and the oracle researches in the background. While it does, the guard denies the main thread's other tools with an instruction to end the turn and wait.
 3. **Record.** When the oracle stops, the recorder reads its report (see [`recorder.js`](#recorderjs)), parses the verdict, stores it under the question and rung, and applies the ladder (see [The ladder](#the-ladder)): resolved, escalate, or final unresolved.
-4. **Escalate.** On escalate the question's due rung moves up. The guard denies other tools until the model dispatches the next rung, whose prompt carries the earlier verdicts, so the next rung critiques them rather than starting cold.
+4. **Escalate.** On escalate the question's due rung moves up. The guard denies other tools, and `stop-guard.js` blocks the end of the turn, until the model dispatches the next rung, whose prompt carries the earlier verdicts, so the next rung critiques them rather than starting cold.
 5. **Resolve.** A resolved question is written to the decision log as `oracle-unconfirmed`, whatever the mode. The model reads the answer from the oracle's report and continues. If it asks the same question again the gate denies it with "already has an answer".
 6. **Unresolved, `ask` mode.** Nothing is written yet. The model calls `AskUserQuestion` again with the same question text, using the oracle's researched options, and the gate lets it through (no output, so the normal permission flow applies). `user-answer.js` then records the user's choice as a `user` decision, with any notes typed in the dialog on a `Notes:` line, and marks the question `answered`.
 7. **Unresolved, `sidecar` mode.** The recorder picks the best answer (the highest confidence; a tie goes to the higher rung), logs it as `oracle-provisional`, and adds the question to the sidecar. The gate denies the model's next call for it with an instruction to continue on the oracle's answer. If no rung returned a valid verdict, the sidecar entry says `none: no oracle returned a valid verdict`, its `Provisional decision` is blank, and no decision is logged.
@@ -170,7 +171,7 @@ So an ID is never reused, even if the data directory is wiped, as long as the lo
 
 ## The hooks
 
-Eleven scripts, registered in `hooks/hooks.json`. Each runs as `node "${CLAUDE_PLUGIN_ROOT}/scripts/<script>"` with a 15 second timeout.
+Twelve scripts, registered in `hooks/hooks.json`. Each runs as `node "${CLAUDE_PLUGIN_ROOT}/scripts/<script>"` with a 15 second timeout.
 
 | Script | Event | Matcher |
 | --- | --- | --- |
@@ -183,6 +184,7 @@ Eleven scripts, registered in `hooks/hooks.json`. Each runs as `node "${CLAUDE_P
 | `user-answer.js` | `PostToolUse` | `AskUserQuestion` |
 | `recorder.js` | `SubagentStop` | none |
 | `nudge.js` | `Stop` | none |
+| `stop-guard.js` | `Stop` | none |
 | `import-report.js` | `Stop` | none |
 | `session-end.js` | `SessionEnd` | none |
 
@@ -278,11 +280,19 @@ The texts the model sees come from [`lib/reasons.js`](../../plugins/decidinator/
 - **Unarmed / subagents:** silent unarmed.
 - **Reads:** `last_assistant_message`, `stop_hook_active`, the configuration and session state.
 - **Writes:** nothing.
-- **Output:** `{"decision": "block", "reason": ...}` or nothing. It blocks when the final message ends with a question in plain text, and not when `stop_hook_active` is true (so it blocks once: the stop that follows a block carries that flag), when `nudgeOnPlainTextQuestions` is `false`, or while an oracle dispatch is due or running (the guard is already telling the model to end its turn). The test is fixed: the last non-blank line, outside fenced code blocks, with inline code spans removed and trailing white space, quotes, asterisks, underscores and closing brackets stripped, ends with `?` (or `？`). The reason: `your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.`
+- **Output:** `{"decision": "block", "reason": ...}` or nothing. It blocks when the final message ends with a question in plain text, and not when `stop_hook_active` is true (so it blocks once: the stop that follows a block carries that flag), when `nudgeOnPlainTextQuestions` is `false`, or while an oracle dispatch is due or running (the guard and `stop-guard.js` already cover it). The test is fixed: the last non-blank line, outside fenced code blocks, with inline code spans removed and trailing white space, quotes, asterisks, underscores and closing brackets stripped, ends with `?` (or `？`). The reason: `your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.`
+
+### `stop-guard.js`
+
+- **Event:** `Stop`, no matcher; listed after `nudge.js`, before `import-report.js`.
+- **Unarmed / subagents:** silent unarmed; ignores subagent inputs.
+- **Reads:** the configuration and session state.
+- **Writes:** session state: the guard's block counter.
+- **Output:** `{"decision": "block", "reason": ...}`, a `systemMessage`, or nothing. It acts only when a question is due and its dispatch has not been made: a new question whose first dispatch is missing, or an escalation whose next rung has not been dispatched. It never blocks while the dispatch is in flight, because waiting is right then. It closes a gap in the guard, which only sees tool calls: a model that reads an oracle's report and answers without calling another tool would otherwise end its turn and skip the next rung. The reason is `decidinator: not finished. <id> is waiting for oracle research at rung <n>. Do not end your turn yet: dispatch it now.` plus the exact call. It ignores `stop_hook_active`; the block count bounds it. It shares the guard's counter, key and `guardMaxBlocks`, so tool denials and stop blocks for one due dispatch together reach the limit, after which it steps aside with the same `systemMessage` as the guard and lets the turn end.
 
 ### `import-report.js`
 
-- **Event:** `Stop`, no matcher; listed after `nudge.js`.
+- **Event:** `Stop`, no matcher; listed after `nudge.js` and `stop-guard.js`.
 - **Unarmed / subagents:** silent unarmed; silent when there is no import job or it was already delivered.
 - **Reads:** session state (the import job) and the configuration.
 - **Writes:** session state (`delivered` or `reminded` on the job).
@@ -497,7 +507,7 @@ The state file holds, as one JSON object:
 
 - `v`: the state version, `1`.
 - `order`: the question IDs in the order they were asked, and `questions`: for each ID, the question text, `header`, `options`, `multiSelect`, the `hash` of its normalized text, its `status` (`pending`, `resolved`, `final-unresolved`; `answered` after a user answer), its due `rung`, its recorded `verdicts` (one entry per rung), its `dispatches` (rung, time, `tool_use_id`), `createdAt`, and, once known, `context`, `settledAt`, `answeredAt`, `decision` (the `D-` ID), `sidecarEntry`, `duplicateOf` and `recordError`.
-- `guard`: the guard's block counter, `{key, blocks, steppedAside}`.
+- `guard`: the block counter shared by the guard and the stop guard, `{key, blocks, steppedAside}`.
 - `handbacks`: `SubagentHandback` messages by agent id.
 - `passThrough`: `{by, promptId}` while a review or confirm walk lets its questions through, and `walk`: the walk's items.
 - `importJob`: the import in progress (see [`/decidinator:import`](#decidinatorimport)).
@@ -608,7 +618,7 @@ Settings come from three layers, applied key by key: the built-in defaults, then
 | `rungs` | `["decidinator:oracle-1", "decidinator:oracle-2", "decidinator:oracle-3"]` | A non-empty array of strings, each `name` or `plugin:name` made of letters, digits, `_` and `-`, with no duplicates | The ladder: the agents, lowest rung first. A rung's `agent_type` must match one of these exactly for the recorder and the oracle shell allowlist to act on it. |
 | `decisionLog` | `docs/decisions.md` | A non-empty file path with no NUL character, relative to the project directory | Where the decision log is written. |
 | `sidecar` | `docs/open-questions.md` | The same | Where the questions sidecar is written. |
-| `guardMaxBlocks` | `3` | A whole number of at least 1 | How many consecutive denials the guard makes for one due dispatch before it steps aside. |
+| `guardMaxBlocks` | `3` | A whole number of at least 1 | How many consecutive denials and stop blocks the guard and the stop guard make, together, for one due dispatch before they step aside. |
 | `nudgeOnPlainTextQuestions` | `true` | `true` or `false` | Whether `nudge.js` blocks a stop whose final message ends with a plain-text question. |
 
 `decisionLog` and `sidecar` must name different files (compared after path normalization). If they do not, both fall back to their defaults and a warning says so.
@@ -668,8 +678,8 @@ Other plugins (an intake, a runner, or anyone's) use Decidinator only through it
 - **Headless `claude -p` sessions are out of scope.** `AskUserQuestion` does not exist in them (verification item 5), so the gate can never fire there. Decidinator serves interactive sessions.
 - **Rung models are honored only outside plan mode.** In plan mode every rung runs on the session's model (see [The ladder](#the-ladder)).
 - **Plain-text questions are only nudged.** The `Stop` hook blocks one stop and asks the model to use `AskUserQuestion`; a question the model still asks in plain text is not intercepted, and the heuristic only looks at the last line of the final message.
-- **The guard steps aside after `guardMaxBlocks`.** After that many consecutive blocks for one due dispatch it lets tools run, so a lost report never wedges a session. The question then stays pending until the dispatch is made.
-- **The model makes the dispatches.** A hook cannot start a subagent; the model does, from the instruction in the deny reason. A model that ignores it is held by the guard and the gate, up to the step-aside limit. Oracles run in the background, so the verdict arrives through `SubagentStop`, not the `Agent` result.
+- **The guard and the stop guard step aside after `guardMaxBlocks`.** After that many consecutive blocks for one due dispatch it lets tools run, so a lost report never wedges a session. The question then stays pending until the dispatch is made.
+- **The model makes the dispatches.** A hook cannot start a subagent; the model does, from the instruction in the deny reason. A model that ignores it is held by the guard, the stop guard and the gate, up to the step-aside limit. Oracles run in the background, so the verdict arrives through `SubagentStop`, not the `Agent` result.
 - **Review, confirm and import need an armed session.** Walks are limited to 12 items per run.
 - **A repeated question text is the same question.** Asking again, in the same session, a question whose normalized text matches an earlier one is answered from the earlier question's status, not researched anew.
 - **Bedrock and Pro are untested for rung models** (verification item 6). On each setup, run the `model` cell of `probes/decidinator/run-headless.js` before relying on the default rungs. Which tools prompt in `default` mode, and whether `SubagentHandback` appears only in `auto` mode, are also recorded as pending in the verification document.
@@ -701,7 +711,7 @@ On Node 24, pass the files as above; `node --test tests/decidinator/` treats the
 
 | Files | Covers |
 | --- | --- |
-| `tests/decidinator/gate.test.js`, `dispatch-check.test.js`, `guard.test.js`, `recorder.test.js`, `oracle-shell.test.js`, `nudge.test.js`, `session.test.js`, `commands.test.js`, `modes.test.js` | Each hook run as a child process against real stdin, with recorded hook payloads as fixtures. |
+| `tests/decidinator/gate.test.js`, `dispatch-check.test.js`, `guard.test.js`, `stop-guard.test.js`, `recorder.test.js`, `oracle-shell.test.js`, `nudge.test.js`, `session.test.js`, `commands.test.js`, `modes.test.js` | Each hook run as a child process against real stdin, with recorded hook payloads as fixtures. |
 | `tests/decidinator/unarmed.test.js` | That every hook is silent in an unarmed session, and which ones still act. |
 | `tests/decidinator/questions.test.js`, `ladder.test.js`, `verdict.test.js`, `report.test.js`, `resolution.test.js`, `ids.test.js`, `reasons.test.js`, `shell-allowlist.test.js`, `plain-question.test.js`, `normalize.test.js` | The pure logic: question state, the ladder, verdict parsing, finding the report, mode resolution, ID minting, the deny-reason snapshots, the allowlist, the plain-text-question test and normalization. |
 | `tests/decidinator/decision-log.test.js`, `sidecar.test.js`, `mdfile.test.js`, `fileio.test.js`, `state.test.js`, `record.test.js`, `export.test.js`, `importer.test.js`, `import-roundtrip.test.js`, `walks.test.js`, `walk-answers.test.js` | The file formats and their guarantees (refusal rule, hand edits, CRLF, locking), session state, recording answers, export, import and the walks. |

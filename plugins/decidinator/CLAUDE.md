@@ -64,7 +64,7 @@ creates them, as planandtier's are.
 - **Never throw.** A hook error means no output and exit 0, with debug logging
   only behind `DECIDINATOR_DEBUG` to a temp-directory file, never stdout.
 - **Deny only where the spec says so.** The gate, dispatch check, guard and
-  oracle shell allowlist deny by design, and the nudge blocks a stop once; everywhere else, on doubt, emit nothing. The guard steps
+  oracle shell allowlist deny by design, the nudge blocks a stop once, and the stop guard blocks one while a dispatch is due; everywhere else, on doubt, emit nothing. The guard and the stop guard step
   aside after `guardMaxBlocks`, so a wedged session can always recover.
 - **Ignore subagent calls.** The gate never acts on `AskUserQuestion` from a
   subagent, which is what prevents recursion.

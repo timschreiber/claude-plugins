@@ -170,7 +170,7 @@ On subscription plans, oracle research counts against your usage like any other 
 - **Headless `claude -p` sessions are out of scope,** because `AskUserQuestion` does not exist there. For unattended work, use sidecar mode in an interactive session.
 - **Rung models are honored only outside plan mode.** In plan mode every rung runs on the session's model, whatever its definition says, so escalation adds a fresh critique but not a different model. The `resolvedModel` field of an `Agent` result shows the definition's model, not the one that ran.
 - **Plain-text questions are only nudged, once.** Questions that still slip through are not intercepted.
-- **The model makes the oracle dispatches.** The guard refuses other tools, and steps aside after `guardMaxBlocks` blocks, says so once, and lets tools run, so a lost report never wedges the session.
+- **The model makes the oracle dispatches.** While a dispatch is due, the guard refuses other tools and a Stop hook refuses to let Claude end its turn. They step aside together after `guardMaxBlocks` blocks, say so once, and let Claude go on, so a lost report never wedges the session.
 - **Rung models are untested on Bedrock and on a Pro plan.**
 
 ## More
