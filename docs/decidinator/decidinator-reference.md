@@ -653,8 +653,10 @@ The scripts also call `os.homedir()` for the user configuration file and `os.tmp
 - `WebFetch`
 - `WebSearch`
 - `Bash(gh search:*)`
+- `Bash(gh repo view:*)`
+- `Bash(gh api:*)`
 
-`gh` must be installed and authenticated for the GitHub searches. These are the tools a user allows (for example with `--allowedTools` or in a settings file); Decidinator never grants permission itself.
+`gh` must be installed and authenticated for the GitHub searches. A permission rule applies to the whole session, so `Bash(gh api:*)` also lets Claude's own `gh api` calls, writes included, run without asking; the oracle shell allowlist below limits only oracles to read-only calls. Leave it out if that is not wanted, and each oracle `gh api` call then prompts. These are the tools a user allows (for example with `--allowedTools` or in a settings file); Decidinator never grants permission itself.
 
 **The oracle shell allowlist.** In an armed session, a shell call from a configured rung agent is allowed only if it is one single-line command that is one of these, per [`lib/shell-allowlist.js`](../../plugins/decidinator/scripts/lib/shell-allowlist.js):
 

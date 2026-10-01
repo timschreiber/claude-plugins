@@ -83,10 +83,16 @@ test('the README names every config key, variable, command and key phrase', () =
     ...Object.keys(DEFAULTS).map((k) => '`' + k + '`'),
     'DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_DEBUG',
     ...['arm', 'disarm', 'status', 'review', 'confirm', 'export', 'import'].map((c) => `/decidinator:${c}`),
-    'WebFetch', 'WebSearch', 'Bash(gh search:*)', 'claude -p', 'plan mode', 'decidinator-reference.md', 'In development',
+    'WebFetch', 'WebSearch', 'Bash(gh search:*)', 'Bash(gh repo view:*)', 'Bash(gh api:*)', 'claude -p', 'plan mode', 'decidinator-reference.md', 'In development',
   ]
   const missing = required.filter((s) => !readme.includes(s))
   assert.deepEqual(missing, [], `the README does not contain: ${missing.join(', ')}`)
+})
+
+test('the reference lists every tool to allow for unattended research', () => {
+  const rules = ['WebFetch', 'WebSearch', 'Bash(gh search:*)', 'Bash(gh repo view:*)', 'Bash(gh api:*)']
+  const missing = rules.filter((r) => !appears(r))
+  assert.deepEqual(missing, [], `the reference does not list these tools to allow: ${missing.join(', ')}`)
 })
 
 test('the reference holds both file markers verbatim', () => {

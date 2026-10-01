@@ -246,7 +246,7 @@ Integration contract for other plugins (intake, runner, or anyone's):
 
 Requirements: Node 20 or later on the PATH, a Claude Code version that supports plugin agents with `model` and `effort`, and `gh` authenticated if oracles use GitHub through Bash. The decision log and sidecar work in any directory; Git is recommended so decisions are reviewable in diffs.
 
-In `default` permission mode Claude asks before oracles use WebFetch, WebSearch and `gh`; `plan` mode did not ask. For unattended research the README tells users to allow `WebFetch`, `WebSearch` and `Bash(gh search:*)`.
+In `default` permission mode Claude asks before oracles use WebFetch, WebSearch and `gh`; `plan` mode did not ask. For unattended research the README tells users to allow `WebFetch`, `WebSearch`, `Bash(gh search:*)`, `Bash(gh repo view:*)` and `Bash(gh api:*)`, the commands the oracle shell allowlist permits.
 
 These behaviors were assumed by the design and checked in work package WP-01. The evidence is in `docs/decidinator/decidinator-verification.md`:
 

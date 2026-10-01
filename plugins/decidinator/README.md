@@ -105,10 +105,12 @@ Put your agent in `.claude/agents/`, and start from a copy of `plugins/decidinat
 In default permission mode, Claude asks before an oracle uses WebFetch, WebSearch or `gh`. Plan mode does not ask. To allow them, add to `.claude/settings.json`:
 
 ```json
-{"permissions": {"allow": ["WebFetch", "WebSearch", "Bash(gh search:*)"]}}
+{"permissions": {"allow": ["WebFetch", "WebSearch", "Bash(gh search:*)", "Bash(gh repo view:*)", "Bash(gh api:*)"]}}
 ```
 
-Or pass them at launch: `--allowedTools WebFetch WebSearch "Bash(gh search:*)"`.
+Or pass them at launch: `--allowedTools WebFetch WebSearch "Bash(gh search:*)" "Bash(gh repo view:*)" "Bash(gh api:*)"`.
+
+These rules let oracles search the web, run `gh search` and `gh repo view`, and make `gh api` calls without a prompt. The oracle shell allowlist below still limits oracles to read-only (GET) `gh api` calls, but a permission rule applies to the whole session, so Claude's own `gh api` calls, writes included, also run without asking. If you do not want that, leave `Bash(gh api:*)` out; each oracle `gh api` call then asks for permission.
 
 In an armed session, oracle Bash and PowerShell calls may run only one `gh search`, `gh repo view` or read-only (GET) `gh api` command each, with no pipes, redirects, chaining or variables (`--jq` filters output), and oracle Monitor calls are refused. Anything else is denied with the reason, and the oracle reads project files with Read, Glob and Grep instead. The main thread and other subagents are not affected.
 

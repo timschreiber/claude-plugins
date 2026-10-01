@@ -9,6 +9,7 @@ These runs need a person, because AskUserQuestion does not exist in headless `cl
 - Decidinator must not also be installed from the marketplace. Each block refuses to run if it is; to remove it, run `claude plugin uninstall decidinator@timschreiber`.
 - If the repo is not at `C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins`, change the `$repoRoot` line.
 - Accept the folder-trust dialog if it appears, and approve any permission prompt.
+- The blocks pre-allow `WebFetch`, `WebSearch`, `gh search`, `gh repo view` and `gh api`. If Claude still asks for a permission, answer it promptly: oracle research waits for you, and a scenario can sit idle for minutes.
 - A scenario may be run again at any time; each run uses a new directory.
 - **The "IN CLAUDE" line each block prints is hidden once Claude's screen opens.** Read the "What you do" column below before pasting a block. The prompt is already on your clipboard; paste it with Ctrl+V.
 - Scenarios 1, 2, 5 and 6 set `DECIDINATOR_MODE=ask`, so they are armed at launch and you only paste the prompt. Scenario 3 and the install check are armed by typing the command, and you must wait for Claude's confirmation before pasting the prompt.
@@ -50,7 +51,7 @@ try {
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
     $env:DECIDINATOR_MODE = 'ask'
     Write-Host 'IN CLAUDE: it is already armed. Paste the prompt (Ctrl+V) and send it. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -80,7 +81,7 @@ try {
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
     $env:DECIDINATOR_MODE = 'ask'
     Write-Host 'IN CLAUDE: it is already armed. Paste the prompt (Ctrl+V) and send it. When the question dialog appears, pick either option. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -110,7 +111,7 @@ try {
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
     Remove-Item Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
     Write-Host 'IN CLAUDE: type /decidinator:arm sidecar and send. Then paste the prompt (Ctrl+V) and send it. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -140,7 +141,7 @@ try {
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
     $env:DECIDINATOR_MODE = 'sidecar'
     Write-Host 'IN CLAUDE: do not arm; DECIDINATOR_MODE does. Paste the prompt (Ctrl+V) and send it. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -170,7 +171,7 @@ try {
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
     $env:DECIDINATOR_MODE = 'ask'
     Write-Host 'IN CLAUDE: it starts in plan mode and is already armed. Paste the prompt (Ctrl+V) and send it. If a plan approval dialog appears, choose to keep planning. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode plan --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode plan --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -200,7 +201,7 @@ try {
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
     $env:DECIDINATOR_MODE = 'ask'
     Write-Host 'IN CLAUDE: it is already armed. Paste the prompt (Ctrl+V) and send it. Two oracles run, so this takes longer. If a question dialog appears, pick the first option. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -230,14 +231,14 @@ try {
     $env:PROBE_DENY = '0'
     Remove-Item Env:DECIDINATOR_MODE, Env:DECIDINATOR_CONTEXT -ErrorAction SilentlyContinue
     Write-Host 'SESSION 1 OF 2, IN CLAUDE: type /decidinator:export docs/stakeholders.md and send. When Claude has replied, type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
     node "$repoRoot/tests/decidinator/e2e/setup.js" fill $base
     if ($LASTEXITCODE -ne 0) { throw 'docs/stakeholders.md was not exported with two blank answers. Paste this block again.' }
     $env:PROBE_RUN = 'e2e-7-import'
     $env:PROBE_OUT = "$base/out-import"
     $env:DECIDINATOR_MODE = 'ask'
     Write-Host 'SESSION 2 OF 2, IN CLAUDE: type /decidinator:import docs/stakeholders.md and send. Wait until Claude shows the final import report, with Confirmed and Changed sections, then type /exit' -ForegroundColor Yellow
-    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
     Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
@@ -281,7 +282,7 @@ Push-Location "$base/repo"
 try {
     Remove-Item Env:DECIDINATOR_MODE, Env:DECIDINATOR_CONTEXT -ErrorAction SilentlyContinue
     Write-Host 'IN CLAUDE: type /decidinator:arm and send. Then paste the prompt (Ctrl+V) and send it. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
-    claude --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
+    claude --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)'
 } finally {
     Pop-Location
 }
