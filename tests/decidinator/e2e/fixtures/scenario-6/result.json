@@ -1,0 +1,125 @@
+{
+  "generated": "2026-10-01T01:36:47.893Z",
+  "scenario": "6",
+  "name": "escalation",
+  "claudeCodeVersion": "2.1.286 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "log-marker",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "one-new-decision",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-question",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision-rung-2-or-user",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-1-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "oracle-2-stopped",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "no-oracle-3",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "rung-2-dispatch",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "rung-2-has-rung-1-verdict",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "rung-1-escalated",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "evidence": {
+    "oracleStops": [
+      {
+        "at": "2026-10-01T01:26:40.640Z",
+        "agentType": "decidinator:oracle-1",
+        "effort": {
+          "level": "high"
+        }
+      },
+      {
+        "at": "2026-10-01T01:36:29.269Z",
+        "agentType": "decidinator:oracle-2",
+        "effort": {
+          "level": "xhigh"
+        }
+      }
+    ],
+    "dispatches": [
+      {
+        "at": "2026-10-01T01:26:04.226Z",
+        "subagentType": "decidinator:oracle-1",
+        "description": "Decidinator Q-0002 rung 1",
+        "prompt": "Decidinator question Q-0002\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: When two open todos have the same due date, in what order should `tally list` print them?\nOptions:\n- Added: in the order they were added\n- Alphabetical: by their text\nContext: Testing the Decidinator plugin in the `tally` repo (Node 20 CLI todo list, no dependencies, source in src/, tests in test/, spec in docs/spec.md). No files are to be edited. The question arose while deciding the tie-break ordering for `tally list` output."
+      },
+      {
+        "at": "2026-10-01T01:26:47.158Z",
+        "subagentType": "decidinator:oracle-2",
+        "description": "Decidinator Q-0002 rung 2",
+        "prompt": "Decidinator question Q-0002\nRung: 2\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: When two open todos have the same due date, in what order should `tally list` print them?\nOptions:\n- Added: in the order they were added\n- Alphabetical: by their text\nContext: Testing the Decidinator plugin in the `tally` repo (Node 20 CLI todo list, no dependencies, source in src/, tests in test/, spec in docs/spec.md). No files are to be edited. The question arose while deciding the tie-break ordering for `tally list` output; rung 1 resolved it as \"Added\" with medium confidence.\nEarlier verdicts: [{\"question_id\":\"Q-0002\",\"rung\":1,\"kind\":\"researchable\",\"status\":\"resolved\",\"answer\":\"Added: open todos with the same due date print in the order they were added. This is what src/list.js already does, because JavaScript's array sort keeps equal items in their original order.\",\"rationale\":\"The spec sets only the main order (by due date, undated last) and is silent on ties. The code already gives the order they were added, because Array.prototype.sort keeps equal items in place (required since ES2019, so in Node 20), and undated todos already use that order. Keeping it means one rule for the whole list, and a new todo goes to the end of its group, so the positions `tally done <n>` uses don't shift unexpectedly.\",\"options\":[{\"label\":\"Added\",\"tradeoffs\":\"No code change, since the sort already keeps equal items in place; matches how undated todos are ordered; a new todo doesn't shift the positions of others with the same date. The order depends on the stored array keeping the order todos were added in.\"},{\"label\":\"Alphabetical\",\"tradeoffs\":\"Easier to scan by eye and doesn't depend on storage order (todo.txt-cli sorts by text); needs a second comparison on the text, should arguably apply to undated todos too, and a new todo can shift the positions `tally done <n>` uses.\"}],\"sources\":[\"docs/spec.md:8\",\"src/list.js:6\",\"src/list.js:7\",\"docs/decisions.md#D-0001\",\"https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort\",\"https://github.com/todotxt/todo.txt-cli/blob/master/todo.cfg\"],\"assumptions\":[\"list.todos in ~/.tally.json is stored in the order todos were added (todos are appended).\",\"The n in `tally done <list> <n>` refers to a todo's position in the `tally list` output.\"],\"confidence\":\"medium\",\"flags\":[\"spec-silent\",\"cross-cutting\"],\"duplicate_of\":null}]"
+      }
+    ],
+    "askCalls": [
+      {
+        "at": "2026-10-01T01:26:02.072Z",
+        "event": "PreToolUse",
+        "questions": [
+          {
+            "question": "When two open todos have the same due date, in what order should `tally list` print them?",
+            "header": "Tie order",
+            "options": [
+              {
+                "label": "Added",
+                "description": "in the order they were added"
+              },
+              {
+                "label": "Alphabetical",
+                "description": "by their text"
+              }
+            ],
+            "multiSelect": false
+          }
+        ]
+      }
+    ],
+    "permissionModes": [
+      "default"
+    ],
+    "oracleTools": {
+      "Glob": 2,
+      "Read": 11,
+      "ToolSearch": 2,
+      "WebFetch": 8,
+      "Bash": 3
+    },
+    "finalMessage": "RESULT: Added: open todos with the same due date print in the order they were added."
+  }
+}
