@@ -181,6 +181,7 @@ Paste-ready prompts, one per package: Prompts
 - On a final state: clear the due marker and hand the question to mode resolution (a stub in this package; WP-07 fills it).
 - Open for the plan, to settle with the user: the `Agent` call returns `async_launched` at once, so decide what the guard does between a dispatch and its verdict (block the model, or tell it to wait). The spec does not say.
 - Guard (`PreToolUse`, all tools except `Agent` and `AskUserQuestion`): while a dispatch is due, deny with the expected dispatch; after `guardMaxBlocks` consecutive denials, step aside and log it.
+- Stop guard (`Stop`; added after WP-10 scenario 6 showed a model can skip an escalation by ending its turn without calling a tool): while a dispatch is due and not yet made, block the stop with the due dispatch; do not block while it is in flight; share the guard's block count and `guardMaxBlocks`, and when the limit is reached step aside and tell the user once.
 
 **Out of scope:** writing the decision log and sidecar (WP-07).
 
@@ -189,6 +190,7 @@ Paste-ready prompts, one per package: Prompts
 - Table-driven tests for the ladder function cover every escalation condition, the top rung, human-only questions, and an invalid verdict (escalates).
 - Recorder tests with recorded `SubagentStop` payloads (`probes/evidence/decidinator-probe-*-hooks.jsonl`), including one with no `last_assistant_message`: a verdict is stored under the right ID and rung; a non-oracle subagent is ignored.
 - Guard tests: denial while due, pass-through when nothing is due, step-aside after the limit.
+- Stop guard tests: a block while the dispatch is due, nothing while it is in flight or when nothing is due, a block on escalation to the next rung, step-aside after a limit shared with the guard, nothing for subagent or unarmed calls.
 
 **Instructions:**
 
