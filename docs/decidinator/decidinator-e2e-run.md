@@ -10,25 +10,29 @@ These runs need a person, because AskUserQuestion does not exist in headless `cl
 - If the repo is not at `C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins`, change the `$repoRoot` line.
 - Accept the folder-trust dialog if it appears, and approve any permission prompt.
 - A scenario may be run again at any time; each run uses a new directory.
+- **The "IN CLAUDE" line each block prints is hidden once Claude's screen opens.** Read the "What you do" column below before pasting a block. The prompt is already on your clipboard; paste it with Ctrl+V.
+- Scenarios 1, 2, 5 and 6 set `DECIDINATOR_MODE=ask`, so they are armed at launch and you only paste the prompt. Scenario 3 and the install check are armed by typing the command, and you must wait for Claude's confirmation before pasting the prompt.
 
 ## Scenarios
 
 | # | What it proves | What you do |
 | --- | --- | --- |
-| 1 | A researchable question resolves at rung 1 without reaching you. | Arm ask mode, send the prompt. |
-| 2 | A human-only question reaches you with researched options, and your answer is logged as user. | Arm ask mode, send the prompt, pick option 5 lists. |
-| 3 | Sidecar mode (armed by command): a provisional answer and a sidecar entry, and the session continues. | Arm sidecar mode, send the prompt. |
-| 4 | Sidecar mode set by DECIDINATOR_MODE: the question is queued and AskUserQuestion is never let through. | Send the prompt without arming. |
-| 5 | Scenario 1 in plan mode, with the oracle's web research working. | Arm ask mode, send the prompt, keep planning. |
-| 6 | Escalation: a spec-silent question reaches rung 2 with rung 1's verdict in its prompt. | Arm ask mode, send the prompt, pick the first option if asked. |
-| 7 | The stakeholder round trip: export, answers filled in, import and its report. | Run two sessions: export, then import. |
-| install | A fresh marketplace install, following only the README, arms and resolves a question. | Arm, send the prompt. |
+| 1 | A researchable question resolves at rung 1 without reaching you. | Already armed (ask). Paste the prompt, send, then `/exit` after the RESULT line. |
+| 2 | A human-only question reaches you with researched options, and your answer is logged as user. | Already armed (ask). Paste the prompt, send, pick either option, then `/exit` after the RESULT line. |
+| 3 | Sidecar mode (armed by command): a provisional answer and a sidecar entry, and the session continues. | Type `/decidinator:arm sidecar`, send, and wait for the armed confirmation. Then paste the prompt, send, and `/exit` after the RESULT line. |
+| 4 | Sidecar mode set by DECIDINATOR_MODE: the question is queued and AskUserQuestion is never let through. | Already armed by the variable. Paste the prompt, send, then `/exit` after the RESULT line. |
+| 5 | Scenario 1 in plan mode, with the oracle's web research working. | Already armed (ask), starts in plan mode. Paste the prompt, send; if a plan approval dialog appears, choose to keep planning. `/exit` after the RESULT line. |
+| 6 | Escalation: a spec-silent question reaches rung 2 with rung 1's verdict in its prompt. | Already armed (ask). Paste the prompt, send, pick the first option if asked (two oracles run, so it takes longer), then `/exit` after the RESULT line. |
+| 7 | The stakeholder round trip: export, answers filled in, import and its report. | Session 1: type `/decidinator:export docs/stakeholders.md`, send, `/exit` when it replies. Session 2 (already armed): type `/decidinator:import docs/stakeholders.md`, send, wait for the final import report with Confirmed and Changed sections, then `/exit`. |
+| install | A fresh marketplace install, following only the README, arms and resolves a question. | Type `/decidinator:arm`, send, and wait for the armed confirmation. Then paste the prompt, send, and `/exit` after the RESULT line. |
 
 ## Scenarios 1 to 6
 
 ### Scenario 1: ask-researchable
 
 Arms ask mode and sends a question that research can settle; the oracle should answer it without the question reaching you.
+
+**In Claude:** (1) paste the prompt with Ctrl+V and send it; (2) when Claude replies with a `RESULT:` line, type `/exit`. A red "hook error" line before the oracle runs is normal.
 
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
@@ -44,8 +48,8 @@ try {
     $env:PROBE_OUT = "$base/out"
     $env:PROBE_DENY = '0'
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
-    Remove-Item Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
-    Write-Host 'IN CLAUDE: type /decidinator:arm ask and send. Then paste the prompt (Ctrl+V) and send it. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
+    $env:DECIDINATOR_MODE = 'ask'
+    Write-Host 'IN CLAUDE: it is already armed. Paste the prompt (Ctrl+V) and send it. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
     claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
 } finally {
     Pop-Location
@@ -57,6 +61,8 @@ node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 ### Scenario 2: ask-human-only
 
 Arms ask mode and sends a question only a person can answer; you answer the dialog that appears.
+
+**In Claude:** (1) paste the prompt with Ctrl+V and send it; (2) when the question dialog appears, pick either option, because the check passes whichever you pick; (3) when Claude replies with a `RESULT:` line, type `/exit`. A red "hook error" line before the oracle runs is normal.
 
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
@@ -72,8 +78,8 @@ try {
     $env:PROBE_OUT = "$base/out"
     $env:PROBE_DENY = '0'
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
-    Remove-Item Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
-    Write-Host 'IN CLAUDE: type /decidinator:arm ask and send. Then paste the prompt (Ctrl+V) and send it. When the question dialog appears, pick 5 lists. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
+    $env:DECIDINATOR_MODE = 'ask'
+    Write-Host 'IN CLAUDE: it is already armed. Paste the prompt (Ctrl+V) and send it. When the question dialog appears, pick either option. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
     claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
 } finally {
     Pop-Location
@@ -85,6 +91,8 @@ node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 ### Scenario 3: sidecar-command
 
 Arms sidecar mode by command; the question is answered provisionally and queued, and the session goes on.
+
+**In Claude:** (1) type `/decidinator:arm sidecar` and send it, and wait for Claude to confirm that Decidinator is armed; (2) paste the prompt with Ctrl+V and send it; (3) when Claude replies with a `RESULT:` line, type `/exit`. No question dialog should appear.
 
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
@@ -114,6 +122,8 @@ node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 
 Does not arm by command; DECIDINATOR_MODE=sidecar does, and the question is queued without a dialog.
 
+**In Claude:** (1) paste the prompt with Ctrl+V and send it; do not type an arm command; (2) when Claude replies with a `RESULT:` line, type `/exit`. No question dialog should appear.
+
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
 $n = '4'
@@ -142,6 +152,8 @@ node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 
 Runs scenario 1 in plan mode, so the oracle must do its web research under plan mode.
 
+**In Claude:** (1) paste the prompt with Ctrl+V and send it; (2) if a plan approval dialog appears, choose to keep planning; (3) when Claude replies with a `RESULT:` line, type `/exit`. Claude starts in plan mode and is already armed.
+
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
 $n = '5'
@@ -156,8 +168,8 @@ try {
     $env:PROBE_OUT = "$base/out"
     $env:PROBE_DENY = '0'
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
-    Remove-Item Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
-    Write-Host 'IN CLAUDE: it starts in plan mode. Type /decidinator:arm ask and send. Then paste the prompt (Ctrl+V) and send it. If a plan approval dialog appears, choose to keep planning. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
+    $env:DECIDINATOR_MODE = 'ask'
+    Write-Host 'IN CLAUDE: it starts in plan mode and is already armed. Paste the prompt (Ctrl+V) and send it. If a plan approval dialog appears, choose to keep planning. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
     claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode plan --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
 } finally {
     Pop-Location
@@ -169,6 +181,8 @@ node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 ### Scenario 6: escalation
 
 Arms ask mode and sends a question the spec is silent on, so rung 1 escalates to rung 2.
+
+**In Claude:** (1) paste the prompt with Ctrl+V and send it; two oracles run, so this takes longer; (2) if a question dialog appears, pick either option; (3) when Claude replies with a `RESULT:` line, type `/exit`. Expect the red "hook error" line twice, once per rung.
 
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
@@ -184,8 +198,8 @@ try {
     $env:PROBE_OUT = "$base/out"
     $env:PROBE_DENY = '0'
     $env:DECIDINATOR_CONTEXT = "e2e-$n"
-    Remove-Item Env:DECIDINATOR_MODE -ErrorAction SilentlyContinue
-    Write-Host 'IN CLAUDE: type /decidinator:arm ask and send. Then paste the prompt (Ctrl+V) and send it. Two oracles run, so this takes longer. If a question dialog appears, pick the first option. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
+    $env:DECIDINATOR_MODE = 'ask'
+    Write-Host 'IN CLAUDE: it is already armed. Paste the prompt (Ctrl+V) and send it. Two oracles run, so this takes longer. If a question dialog appears, pick the first option. When Claude replies with a RESULT: line, type /exit' -ForegroundColor Yellow
     claude --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --permission-mode default --allowedTools WebFetch WebSearch 'Bash(gh search:*)'
 } finally {
     Pop-Location
@@ -197,6 +211,10 @@ node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 ### Scenario 7: round-trip
 
 This block runs two sessions: an export, then an import after the block fills in the answers. Q-0002's answer matches the provisional one and is confirmed with no oracle; Q-0003's differs and oracle-1 judges it changed.
+
+**In Claude, session 1:** type `/decidinator:export docs/stakeholders.md`, send it, and `/exit` when Claude has replied. The block then fills in the answers and starts session 2.
+
+**In Claude, session 2 (already armed):** type `/decidinator:import docs/stakeholders.md`, send it, wait until Claude shows the final import report with Confirmed and Changed sections, then type `/exit`.
 
 ```powershell
 $repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'

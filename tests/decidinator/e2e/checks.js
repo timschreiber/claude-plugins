@@ -135,12 +135,19 @@ function scenarioHumanOnly(x) {
     return Date.parse(p.at) > Date.parse(stop.at) &&
       qs.some((q) => q && same(q.question, x.Q.question) && Array.isArray(q.options) && q.options.length >= 2)
   })
+  // The user may pick any option: the logged answer must be the one the dialog returned.
+  const answered = mainCalls(x.records, 'PostToolUse', 'AskUserQuestion').map((p) => toolInput(p).answers)
+    .filter((a) => a !== null && typeof a === 'object')
+  const last = answered.length > 0 ? answered[answered.length - 1] : {}
+  const key = Object.keys(last).find((k) => same(k, x.Q.question))
+  const picked = key !== undefined && typeof last[key] === 'string' ? last[key] : ''
   return [
     logMarker(x),
     oneNewDecision(x),
     onDecision(x, 'decision-user', (d) => d.provenance === 'user', (d) => `provenance ${d.provenance}`),
     decisionQuestion(x),
-    onDecision(x, 'decision-answer-5', (d) => /\b5\b|\bfive\b/i.test(d.answer), (d) => `answer "${d.answer}"`),
+    onDecision(x, 'decision-answer-matches-pick', (d) => picked !== '' && same(d.answer, picked),
+      (d) => (picked === '' ? 'the dialog returned no answer' : `answer "${d.answer}", the dialog returned "${picked}"`)),
     onDecision(x, 'decision-no-rung', (d) => d.rung === null && d.confidence === null,
       (d) => `rung ${d.rung}, confidence ${d.confidence}`),
     sidecarEmpty(x),

@@ -31,7 +31,10 @@ const rec = (s, event, input) => ({ at: at(s), event, input })
 const askPre = (s) => rec(s, 'PreToolUse', { tool_name: 'AskUserQuestion', tool_input: { questions: [] } })
 const askPost = (s, q) => rec(s, 'PostToolUse', {
   tool_name: 'AskUserQuestion',
-  tool_input: { questions: [{ question: q.question, options: q.options.map((o) => ({ label: o.label })) }] }
+  tool_input: {
+    questions: [{ question: q.question, options: q.options.map((o) => ({ label: o.label })) }],
+    answers: { [q.question]: '5 lists' }
+  }
 })
 const stop = (s, agent) => rec(s, 'SubagentStop', { agent_type: agent })
 
@@ -183,7 +186,7 @@ const SIDECAR_CHECKS = [
 const NAMES = {
   1: [...FILES_RESOLVED, ...RECORDS_RESOLVED],
   2: [
-    'log-marker', 'one-new-decision', 'decision-user', 'decision-question', 'decision-answer-5', 'decision-no-rung',
+    'log-marker', 'one-new-decision', 'decision-user', 'decision-question', 'decision-answer-matches-pick', 'decision-no-rung',
     'sidecar-empty', 'oracle-1-stopped', 'no-oracle-2', 'ask-shown-after-research'
   ],
   3: SIDECAR_CHECKS,
@@ -238,6 +241,16 @@ test('scenario 1 fails on an empty log', (t) => {
 test('scenario 2 fails when the question was shown before the oracle stopped', (t) => {
   const inputs = build(t, '2', (i) => { i.records = [askPre(1), askPost(2, QUESTIONS.humanOnly), stop(3, O1)] })
   assertFails(checkScenario('2', inputs), 'ask-shown-after-research')
+})
+
+test('scenario 2 passes whichever option was picked, and fails when the log differs from the pick', (t) => {
+  const three = build(t, '2')
+  three.records[2].input.tool_input.answers[QUESTIONS.humanOnly.question] = '3 lists'
+  three.logText = three.logText.replace('**Answer:** 5 lists', '**Answer:** 3 lists')
+  assert.deepEqual(failing(checkScenario('2', three)), [])
+  const mismatch = build(t, '2')
+  mismatch.records[2].input.tool_input.answers[QUESTIONS.humanOnly.question] = '3 lists'
+  assertFails(checkScenario('2', mismatch), 'decision-answer-matches-pick')
 })
 
 test('scenario 3 fails on the wrong depends-on label', (t) => {
