@@ -76,7 +76,9 @@ async function handBack(input, s) {
   emitText(next.notice)
 }
 
-const NOTICE_WAIT_MS = 4000
+// Long enough for H4's slowest settle (a reset and a clean, each with its lock retries, lib/git.js), and
+// under this hook's 15-second timeout in hooks.json.
+const NOTICE_WAIT_MS = 10000
 const NOTICE_POLL_MS = 50
 
 // H4 claimed the attempt `key` and is judging it. The "finished" notification after a hand-back starts no

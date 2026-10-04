@@ -519,7 +519,8 @@ subagent itself.
   either order, so one hook claims each attempt and the other stands down. The claim is a file created
   exclusively beside the state, `<session_id>.<run>-<task index>-<attempt>.claim` (`state.claimAttempt()`);
   only the first hook to create it judges the attempt. When H4 claimed it first, H1 judges nothing: it
-  waits up to 4 seconds, polling every 50 ms, for H4's saved state to show the attempt settled with a
+  waits up to 10 seconds (H4's slowest settle is a reset and a clean with their lock retries; the hook's
+  timeout is 15), polling every 50 ms, for H4's saved state to show the attempt settled with a
   notice, then gives that notice and clears it. If none comes in time it prints nothing and leaves the state
   as it is; the notice stays flagged `noticeByNotification`, and H5 lets the turn end. A claim that cannot
   be written for any reason but an existing claim is granted, so an attempt is never left unjudged.

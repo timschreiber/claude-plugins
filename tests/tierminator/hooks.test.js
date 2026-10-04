@@ -1102,6 +1102,34 @@ test('a hand-back and its SubagentStop at once: a FAILED attempt is reset and re
   assert.equal(noticesIn(outs.map(o => o.stdout)), 1)
 })
 
+// The two tests above start both hooks at once, which only sometimes overlaps them, and a second reset to
+// the same commit succeeds, so on their own they pass with or without the claim. These hold the claim for one
+// hook and run the other on a FAILED attempt: without the claim the second hook would reset, record an
+// attempt and write the state again (the double settle behind the "reset failed" halts).
+test('H1 holds the claim on a FAILED attempt: H4\'s stop resets nothing, records nothing and writes nothing', () => {
+  const s = backgroundAttempt()
+  const worker = workerCommits('T01')
+  assert.equal(state.claimAttempt(S, state.attemptKey(s)), true, 'H1 claims the attempt')
+  const before = state.read(S)
+  const out = hook('h4-dispatch.js', subStop(report('FAILED', 'NONE', 'tests fail')), ['stop'])
+  assert.equal(out.stdout, '')
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), worker, 'the failed attempt was not reset by the losing hook')
+  assert.deepEqual(state.read(S), before, 'the losing hook wrote no state')
+  assert.equal(attemptRows().length, 0, 'the losing hook recorded no attempt')
+})
+
+test('H4 holds the claim on a FAILED attempt: H1\'s hand-back resets nothing, records nothing and writes no judgment', async () => {
+  const s = backgroundAttempt()
+  const worker = workerCommits('T01')
+  assert.equal(state.claimAttempt(S, state.attemptKey(s)), true, 'H4 claims the attempt')
+  const before = state.read(S)
+  const out = await hookAsync('h1-plan-rules.js', handBackInput(report('FAILED', 'NONE', 'tests fail')))
+  assert.equal(out.stdout, '', 'H4 left no notice, so H1 has nothing to give')
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), worker, 'the failed attempt was not reset by the losing hook')
+  assert.deepEqual(state.read(S), before, 'the losing hook wrote no state')
+  assert.equal(attemptRows().length, 0, 'the losing hook recorded no attempt')
+})
+
 test('when H4 claimed the attempt first, H1 waits for H4\'s saved notice, prints it and clears it', async () => {
   const s = backgroundAttempt()
   assert.equal(state.claimAttempt(S, state.attemptKey(s)), true, 'H4 claims the attempt')
