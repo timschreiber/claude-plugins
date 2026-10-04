@@ -1,0 +1,48 @@
+{
+  "tasks": [
+    {
+      "id": "rename",
+      "title": "Rename getItemTotal to lineTotal",
+      "prompt": "Rename the function getItemTotal to lineTotal everywhere: its definition and export in src/cart.js, its uses in src/report.js and test/cart.test.js, and the mention in README.md. Change nothing else.\n\nVerify: node --test test/cart.test.js test/report.test.js passes, and git grep -n getItemTotal finds nothing.",
+      "verify": {
+        "run": [["node", "--test", "test/cart.test.js", "test/report.test.js"]],
+        "absent": [{ "pattern": "getItemTotal", "paths": [] }]
+      }
+    },
+    {
+      "id": "new-file",
+      "title": "Add slugify with tests",
+      "prompt": "Add src/slugify.js exporting slugify(text): lower-case the text, replace every run of characters other than a-z and 0-9 with one '-', and remove any leading and trailing '-'. So '  Hello, World!  ' is 'hello-world', 'Café au lait' is 'caf-au-lait', and '---' is ''. Add test/slugify.test.js with node:test cases (as in the other test files) for those three examples and at least two more.\n\nVerify: node --test test/slugify.test.js passes.",
+      "verify": {
+        "run": [["node", "--test", "test/slugify.test.js"]]
+      }
+    },
+    {
+      "id": "parser",
+      "title": "Add a CSV line parser",
+      "prompt": "Add src/csv.js exporting parseCsvLine(line), which splits one CSV line into an array of strings. Fields are separated by commas. A field wrapped in double quotes may contain commas, and \"\" inside it is one literal quote. An empty line is one empty field (['']); empty fields are ''; spaces are kept as they are; a quote that is never closed throws an Error. test/csv.test.js already has the cases: don't change it.\n\nVerify: node --test test/csv.test.js passes, and test/csv.test.js is unchanged.",
+      "verify": {
+        "run": [["node", "--test", "test/csv.test.js"]],
+        "unchanged": ["test/csv.test.js"]
+      }
+    },
+    {
+      "id": "cross-file",
+      "title": "Group thousands in every price",
+      "prompt": "Show prices with thousands separators everywhere. Change formatPrice in src/format.js so whole dollars are grouped in threes with commas: 123456789 cents is '$1,234,567.89', and -123456 is '-$1,234.56'; amounts under $1,000 look as they do now. Change src/report.js to format every amount with formatPrice instead of its own toFixed formatting; its rows keep their shape. Add cases to test/format.test.js and test/report.test.js for amounts of $1,000.00 or more, and keep the existing cases passing.\n\nVerify: node --test test/format.test.js test/report.test.js test/cart.test.js passes, and git grep -n toFixed -- src finds nothing.",
+      "verify": {
+        "run": [["node", "--test", "test/format.test.js", "test/report.test.js", "test/cart.test.js"]],
+        "absent": [{ "pattern": "toFixed", "paths": ["src"] }]
+      }
+    },
+    {
+      "id": "debug",
+      "title": "Fix parseDuration",
+      "prompt": "test/duration.test.js fails. Find out why and fix src/duration.js so the whole file passes; the comment at the top of src/duration.js says what parseDuration must do. Don't change the test.\n\nVerify: node --test test/duration.test.js passes, and test/duration.test.js is unchanged.",
+      "verify": {
+        "run": [["node", "--test", "test/duration.test.js"]],
+        "unchanged": ["test/duration.test.js"]
+      }
+    }
+  ]
+}
