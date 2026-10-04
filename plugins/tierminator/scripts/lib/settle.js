@@ -55,10 +55,11 @@ function settle(s, cwd, failure) {
   if (action === 'retry') {
     // Never reset away a commit that may have been pushed; stop instead.
     const pushed = commits.find(c => git.isPushed(cwd, c.sha))
+    const reset = pushed ? null : git.resetTo(cwd, head)
     const fatal = pushed
       ? `the failed attempt's commit ${short(pushed.sha)} is on a remote branch, so it cannot be reset`
-      : !git.resetTo(cwd, head)
-        ? `the reset to ${short(head)} before the retry failed`
+      : !reset.ok
+        ? `the reset to ${short(head)} before the retry failed (${reset.failure})`
         : null
     if (fatal) return settled(s, r.advance(s, { ok: false, fatal }), { ok: false, fatal })
   }

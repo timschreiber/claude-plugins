@@ -750,7 +750,14 @@ that the task is probably too large for one task: split it and run `/tierminator
 | A failed attempt's commit is on a remote branch, the reset fails, or the branch changed | The run is `halted` at once, without a reset. |
 
 The reset removes the failed attempt's commits, changes and untracked files. Ignored files are left alone.
-Earlier tasks' commits are kept, because the recorded HEAD is after them.
+Earlier tasks' commits are kept, because the recorded HEAD is after them. A git command that fails with a
+lock-type error (a Git `.lock` file another git command holds, or a Windows file another process has open)
+is repeated after waits of 100, 200, 400, 800 and 1500 ms; the hand-back prompt (H1) and SubagentStop (H4)
+can settle the same attempt at once, and their two resets then meet each other's `index.lock`
+(`probes/evidence/planandtier-reset-failure.json`). `git clean` runs only after `git reset --hard`
+succeeds, and a failed `git reset --hard` changes nothing. When the reset still fails, the halt reason
+names the git command and the first line of its error output, for example `the reset to 397dcba before
+the retry failed (git reset --hard <sha> failed: fatal: Unable to create '.../index.lock': File exists.)`.
 
 ### Continuing and stopping
 

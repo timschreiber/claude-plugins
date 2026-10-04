@@ -1,0 +1,66 @@
+{
+  "generated": "2026-10-04",
+  "question": "Why did two runs halt with 'the reset to <sha> before the retry failed'?",
+  "cases": [
+    {
+      "plan": "lexical-zooming-snowglobe",
+      "planId": "d0f632962d978850",
+      "session": "e0b756f2-1f0b-4afd-940d-145b72ea4394",
+      "task": "T03",
+      "attempt": 1,
+      "agentId": "a743a8015a851702c",
+      "telemetry": [
+        { "at": "2026-09-30T23:00:42.213Z", "outcome": "halt", "reason": "the reset to 397dcba before the retry failed" },
+        { "at": "2026-09-30T23:00:42.295Z", "outcome": "retry", "reason": "the worker returned no STATUS report" }
+      ],
+      "transcript": [
+        { "at": "2026-09-30T23:00:41.965Z", "event": "the worker's hand-back arrives as an <agent-message> prompt (its report was the word 'pending')" },
+        { "at": "2026-09-30T23:00:42.225Z", "event": "UserPromptSubmit (H1 handBack) prints: the run stopped at T03 ... Reason: the reset to 397dcba before the retry failed" },
+        { "at": "2026-09-30T23:00:46.109Z", "event": "Stop hook system message: T03 on sonnet-medium failed, retrying a tier up (the state SubagentStop wrote last)" },
+        { "at": "2026-09-30T23:02:20.764Z", "event": "git status --short is empty and HEAD is 397dcba: the other hook's reset had succeeded" },
+        { "at": "2026-09-30T23:02:27.351Z", "event": "Stop hook blocks and asks for the sonnet-high retry: the saved state is the retry, not the halt" }
+      ],
+      "seen": "H1 reported a halt while H4's retry state won; the user was told the run stopped although it had not."
+    },
+    {
+      "plan": "jolly-sprouting-magpie",
+      "planId": "3b5505caa828cefc",
+      "session": "cbb863e8-bad8-44da-9b17-4bb43f0d45fb",
+      "task": "T01",
+      "attempts": [
+        {
+          "attempt": 1,
+          "agentId": "a282b4b387af18b38",
+          "telemetry": [
+            { "at": "2026-10-01T01:50:39.977Z", "outcome": "halt", "reason": "the reset to a5c9605 before the retry failed" },
+            { "at": "2026-10-01T01:50:40.033Z", "outcome": "retry" }
+          ],
+          "transcript": "UserPromptSubmit (H1) at 01:50:40.051Z prints 'Reset to a5c9605; retrying one tier up', and the retry is dispatched"
+        },
+        {
+          "attempt": 2,
+          "agentId": "a7112ad910240a4ff",
+          "telemetry": [
+            { "at": "2026-10-01T01:50:58.634Z", "outcome": "halt", "reason": "the reset to a5c9605 before the retry failed" },
+            { "at": "2026-10-01T01:50:58.687Z", "outcome": "retry" }
+          ],
+          "transcript": "UserPromptSubmit (H1) at 01:50:58.702Z prints 'Reset to a5c9605; retrying one tier up', and attempt 3 is dispatched"
+        }
+      ],
+      "seen": "here H1 won and the run went on; the halt line came from the SubagentStop (H4) settle that lost."
+    }
+  ],
+  "cause": "For a background worker, the hand-back prompt (H1 handBack, UserPromptSubmit) and SubagentStop (H4 stop) fire within about 50-100 ms of each other. Each reads the state while the attempt is still in flight, so both settle it, and on a retry both run `git reset --hard` in the same repository at once. The second meets the first's .git/index.lock and fails. Git's stderr was discarded, so the halt reason did not say this; the pairs of telemetry lines 50-80 ms apart, the clean tree at the expected HEAD afterwards, and the reproduction below show it.",
+  "ruledOut": {
+    "windowsFileLockByWorkerProcess": "not seen: the tree was clean at the recorded HEAD right after the halt (lexical case), so nothing blocked the clean",
+    "nestedRepositoryOrSubmodule": "none in this repository",
+    "ignoredOrReadOnlyFiles": "git clean -fd leaves ignored files alone, and the other hook's identical reset and clean succeeded"
+  },
+  "reproduction": {
+    "how": "a temporary repository with 300 tracked files; per trial, all files modified and an untracked file added, then two node processes run the old resetTo (git reset --hard -q <base>, then git clean -fdq) at the same moment",
+    "git": "git version 2.53.0.windows.3",
+    "old": { "trials": 20, "trialsWithAFailure": 20, "sample": { "command": "git reset --hard", "exit": 128, "stderr": "fatal: Unable to create '<repo>/.git/index.lock': File exists." } },
+    "new": { "trials": 20, "trialsWithAFailure": 0, "note": "the same race with the new resetTo, which repeats a command failing with a lock-type error after waits of 100, 200, 400, 800 and 1500 ms" }
+  },
+  "fix": "lib/git.js resetTo repeats a command that fails with a lock-type error (a Git .lock file, or a Windows sharing or permission error) a bounded number of times, and on failure returns the git command and the first line of its stderr, which lib/settle.js puts in the halt reason. The double settle itself (H1 and H4 both judging one attempt) is not changed here."
+}

@@ -2,7 +2,7 @@
 
 const { test, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
-const { spawnSync } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -174,7 +174,7 @@ test('resetTo removes new commits, changes and untracked files, and keeps ignore
   write(r, 'newdir/inner.txt', 'i')
   write(r, 'keep.log', 'ignored')
 
-  assert.equal(g.resetTo(r, base), true)
+  assert.deepEqual(g.resetTo(r, base), { ok: true })
   assert.equal(g.head(r), base)
   assert.equal(g.isClean(r), true)
   assert.equal(fs.readFileSync(path.join(r, 'README.md'), 'utf8'), '# test\n')
@@ -184,10 +184,46 @@ test('resetTo removes new commits, changes and untracked files, and keeps ignore
   assert.equal(fs.existsSync(path.join(r, 'keep.log')), true)
 })
 
-test('resetTo reports failure instead of throwing', () => {
-  assert.equal(g.resetTo(path.join(dir, 'nope'), 'HEAD'), false)
+test('resetTo reports failure instead of throwing, naming the git command and its first error line', () => {
+  const missing = g.resetTo(path.join(dir, 'nope'), 'HEAD')
+  assert.equal(missing.ok, false)
+  assert.match(missing.failure, /^git reset --hard HEAD failed: \S/)
   const r = repo()
-  assert.equal(g.resetTo(r, 'not-a-commit'), false)
+  const bad = g.resetTo(r, 'not-a-commit')
+  assert.equal(bad.ok, false)
+  assert.match(bad.failure, /^git reset --hard not-a-commit failed: .*not-a-commit/)
+  assert.doesNotMatch(bad.failure, /\n/)
+})
+
+// Two hooks settling the same attempt at once both reset; the second meets the first's index.lock.
+test('resetTo waits out a Git lock that another process releases', () => {
+  const r = repo()
+  const base = g.head(r)
+  write(r, 'a.txt', 'a')
+  run(r, 'add', '-A')
+  run(r, 'commit', '-q', '-m', 'attempt')
+  const lock = path.join(r, '.git', 'index.lock')
+  fs.writeFileSync(lock, '')
+  // A separate process removes the lock while resetTo is waiting.
+  spawn(process.execPath, ['-e', `setTimeout(() => require('fs').unlinkSync(${JSON.stringify(lock)}), 200)`], { stdio: 'ignore' })
+  assert.deepEqual(g.resetTo(r, base), { ok: true })
+  assert.equal(g.head(r), base)
+  assert.equal(g.isClean(r), true)
+})
+
+test('resetTo gives up on a lock that stays, leaving the attempt in place, and names the lock', () => {
+  const r = repo()
+  const base = g.head(r)
+  write(r, 'a.txt', 'a')
+  run(r, 'add', '-A')
+  run(r, 'commit', '-q', '-m', 'attempt')
+  const attempt = g.head(r)
+  fs.writeFileSync(path.join(r, '.git', 'index.lock'), '')
+  const result = g.resetTo(r, base, [10, 10])
+  assert.equal(result.ok, false)
+  assert.match(result.failure, new RegExp(`^git reset --hard ${base} failed: .*index\\.lock`))
+  assert.equal(g.head(r), attempt)
+  assert.equal(fs.existsSync(path.join(r, 'a.txt')), true)
 })
 
 test('committedTasks finds only the given plan\'s task commits on the current branch, newest first', () => {

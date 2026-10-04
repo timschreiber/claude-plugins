@@ -12,9 +12,10 @@ function git(cwd, args) {
     for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY']) delete env[key]
     const r = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', timeout: 60000, windowsHide: true, env })
     // Only the end is trimmed: a porcelain status line can start with a space (" M file").
-    return { ok: r.status === 0, stdout: (r.stdout ?? '').trimEnd() }
-  } catch {
-    return { ok: false, stdout: '' }
+    const stderr = (r.stderr ?? '').trim() || (r.error ? String(r.error.message ?? r.error) : '')
+    return { ok: r.status === 0, stdout: (r.stdout ?? '').trimEnd(), stderr }
+  } catch (e) {
+    return { ok: false, stdout: '', stderr: String(e?.message ?? e ?? '') }
   }
 }
 
@@ -92,8 +93,43 @@ const isPushed = (cwd, sha) => {
   return !r.ok || r.stdout !== ''
 }
 
+// An error another process causes and then clears: a Git lock file held by a concurrent git command
+// (two hooks settling the same attempt at once both reset; see
+// probes/evidence/planandtier-reset-failure.json), or a Windows file a still-running process holds open.
+const LOCK_ERROR = /index\.lock|\.lock': File exists|another git process|Permission denied|Device or resource busy|Resource temporarily unavailable|being used by another process|unable to unlink/i
+// The waits, in milliseconds, before each repeat of a command that failed with a lock-type error.
+const LOCK_RETRY_MS = [100, 200, 400, 800, 1500]
+
+const sleep = ms => {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  } catch {}
+}
+
+// Runs one git command, repeating it after each wait in `delays` while it fails with a lock-type error.
+function gitPatiently(cwd, args, delays) {
+  let r = git(cwd, args)
+  for (const ms of delays) {
+    if (r.ok || !LOCK_ERROR.test(r.stderr)) break
+    sleep(ms)
+    r = git(cwd, args)
+  }
+  return r
+}
+
 // Returns the working tree and branch to `sha`: tracked files reset, untracked files removed
-// (ignored files are left alone). True when both commands succeeded.
-const resetTo = (cwd, sha) => git(cwd, ['reset', '--hard', '-q', sha]).ok && git(cwd, ['clean', '-fdq']).ok
+// (ignored files are left alone). A command that fails with a lock-type error is repeated a few times.
+// Returns {ok: true}, or {ok: false, failure} naming the git command that failed and the first line of
+// its error output. A failed `git reset --hard` changes nothing, so `clean` runs only after it succeeds.
+function resetTo(cwd, sha, delays = LOCK_RETRY_MS) {
+  for (const args of [['reset', '--hard', '-q', sha], ['clean', '-fdq']]) {
+    const r = gitPatiently(cwd, args, delays)
+    if (!r.ok) {
+      const line = r.stderr.split('\n').map(l => l.trim()).find(Boolean) ?? 'no error output'
+      return { ok: false, failure: `git ${args.filter(a => a !== '-q').join(' ')} failed: ${line.slice(0, 300)}` }
+    }
+  }
+  return { ok: true }
+}
 
 module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo }
