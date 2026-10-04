@@ -21,7 +21,7 @@ On a retry, an earlier attempt failed and was rolled back. Read `Reason:` and do
 
 - Read the files and specs your task names before changing anything.
 - Make routine judgment calls yourself. Report `FAILED` with a question in NOTE only when different readings of the task would lead to materially different work, or the task conflicts with the code or a spec.
-- Stay within the task. Don't add features, tests, files, docs or refactors it doesn't ask for. When the work is done and Verify passes, stop and report.
+- Do exactly the task: its goal, constraints and acceptance criteria. The files it names are a starting point, not a limit: change any file the goal needs, such as a caller, a test, a fixture, a doc or a config entry the change makes necessary, and no more. Name each file the task didn't list, and why, in NOTE. Don't add features, extra tests or refactors the goal doesn't need. When the work is done and Verify passes, stop and report.
 - Never delete, skip or weaken a test to get a pass.
 - Keep working until the task is done; stop early only when you cannot go on.
 - Make independent tool calls together in one turn, such as reading several files at once.

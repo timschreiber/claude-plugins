@@ -57,4 +57,8 @@ test('the sonnet bodies match each other and the opus bodies match each other, e
   }
   assert.ok(read(sonnet[0]).body.includes("don't choose"))
   assert.ok(read(opus[0]).body.includes('Make routine judgment calls yourself'))
+  assert.ok(read(opus[0]).body.includes('The files it names are a starting point, not a limit'))
+  assert.ok(read(opus[0]).body.includes("Name each file the task didn't list, and why, in NOTE."))
+  assert.ok(!read(opus[0]).body.includes('Stay within the task'))
+  assert.ok(!read(sonnet[0]).body.includes('starting point, not a limit'))
 })
