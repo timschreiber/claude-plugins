@@ -54,7 +54,7 @@ beforeEach(() => {
   process.env.CLAUDE_PLUGIN_DATA = path.join(dir, 'data')
   // Every hook does nothing in an unarmed session, so the tests start armed; the arming tests
   // disarm first.
-  state.arm(S)
+  state.activate(S)
 })
 afterEach(() => {
   delete process.env.CLAUDE_PLUGIN_DATA
@@ -164,9 +164,9 @@ test('H1 enter mode returns the rules as PostToolUse additionalContext, always, 
 
 test('H1 shows the rules again after disarming and arming', () => {
   assert.equal(planPrompt('x'), RULES)
-  state.disarm(S)
+  state.deactivate(S)
   assert.equal(state.rulesShown(S), false)
-  state.arm(S)
+  state.activate(S)
   assert.equal(planPrompt('x'), RULES)
 })
 
@@ -182,9 +182,9 @@ const unattendedRun = (over = {}, envOver = {}) => {
 }
 
 test('H1 arms an unattended session on its first prompt and saves the drafting state', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const r = unattendedRun()
-  assert.equal(state.isArmed(S), true)
+  assert.equal(state.isActive(S), true)
   const s = state.read(S)
   assert.equal(s.phase, 'drafting')
   assert.ok(s.planFile.startsWith(path.join(dir, 'plans')))
@@ -196,39 +196,39 @@ test('H1 arms an unattended session on its first prompt and saves the drafting s
 })
 
 test('H1 arms nothing for an unattended session in plan mode', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const r = unattendedRun({ permission_mode: 'plan' })
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
   assert.equal(state.read(S), null)
   assert.ok(r.stdout.includes('plan mode'))
 })
 
 test('H1 arms nothing for an unattended session in a dirty repository', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const repo2 = makeRepo(path.join(dir, 'dirty'))
   fs.writeFileSync(path.join(repo2, 'extra.txt'), 'x\n')
   const r = unattendedRun({ cwd: repo2 })
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
   assert.equal(state.read(S), null)
   assert.ok(r.stdout.includes('not started'))
 })
 
 test('H1 leaves an unarmed session unarmed without the unattended variable', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const r = unattendedRun({}, { TIERMINATOR_UNATTENDED: '' })
   assert.equal(r.stdout, '')
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
 })
 
 test('H1 does not arm an unattended session for a task notification', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const r = unattendedRun({ prompt: '<task-notification>done</task-notification>' })
   assert.equal(r.stdout, '')
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
 })
 
 test('H1 repeats the unattended note, without the rules, on a prompt while drafting', () => {
-  state.disarm(S)
+  state.deactivate(S)
   unattendedRun()
   const planFile = state.read(S).planFile
   const r = unattendedRun({ prompt: 'and more' })
@@ -238,9 +238,9 @@ test('H1 repeats the unattended note, without the rules, on a prompt while draft
 })
 
 test('H1 still treats /tierminator:arm as the arm command when unattended', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const r = unattendedRun({ prompt: '/tierminator:arm' })
-  assert.equal(state.isArmed(S), true)
+  assert.equal(state.isActive(S), true)
   assert.ok(r.stdout.includes('armed'))
   assert.notEqual(state.read(S)?.phase, 'drafting')
 })
@@ -263,7 +263,7 @@ test('H1 session mode prints nothing for a running run, no state or an unarmed s
   state.remove(S)
   assert.equal(sessionStart().stdout, '')
   state.write(S, { phase: 'drafting', planFile: 'p.md', denials: 0, guardDenials: 0 })
-  state.disarm(S)
+  state.deactivate(S)
   assert.equal(sessionStart().stdout, '')
 })
 
@@ -1225,11 +1225,11 @@ const typed = (prompt, mode = 'default', cwd = REPO, env = {}) =>
   hook('h1-plan-rules.js', { session_id: S, cwd, permission_mode: mode, prompt }, [], env)
 
 test('arming is refused, with the reason, where a plan could not run', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const refused = (out, reason) => {
     assert.match(out, new RegExp(`^tierminator: not armed: ${reason}\\.`))
     assert.match(out, /then to type \/tierminator:arm again\./)
-    assert.equal(state.isArmed(S), false)
+    assert.equal(state.isActive(S), false)
   }
   const plain = path.join(dir, 'plain')
   fs.mkdirSync(plain)
@@ -1249,21 +1249,21 @@ test('arming is refused, with the reason, where a plan could not run', () => {
 })
 
 test('/tierminator:arm arms the session and says so, and arming again changes nothing', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const out = typed('/tierminator:arm').stdout
   assert.match(out, /^tierminator: armed\. Plans made in plan mode now run as tiered tasks/)
   assert.ok(!out.includes(RULES), 'no rules outside plan mode')
-  assert.equal(state.isArmed(S), true)
+  assert.equal(state.isActive(S), true)
   assert.match(typed('  /tierminator:arm please').stdout, /^tierminator: already armed; nothing changed\./)
   assert.equal(typed('/tierminator:armed').stdout, '', 'only the exact command')
   assert.equal(typed('please /tierminator:arm').stdout, '', 'only at the start of the prompt')
 })
 
 test('arming outside plan mode asks Claude to switch to plan mode, then entering it gives the rules', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const ask = /Call the EnterPlanMode tool now \(load it with ToolSearch first if it is deferred\)/
   for (const mode of ['default', 'auto', 'acceptEdits']) {
-    state.disarm(S)
+    state.deactivate(S)
     const out = typed('/tierminator:arm', mode).stdout
     assert.match(out, /^tierminator: armed\./, mode)
     assert.match(out, ask, mode)
@@ -1282,7 +1282,7 @@ test('arming never switches to plan mode during a run, and execute-plan never as
   assert.ok(!during.includes('EnterPlanMode'), 'workers inherit the mode')
 
   state.remove(S)
-  state.disarm(S)
+  state.deactivate(S)
   fs.rmSync(repo, { recursive: true, force: true })
   const file = savedPlan()
   assert.ok(!execute(file).includes('EnterPlanMode'))
@@ -1294,14 +1294,14 @@ test('the arm skill tells Claude to follow the note into plan mode', () => {
 })
 
 test('arming in plan mode also prints the rules', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const out = typed('/tierminator:arm', 'plan').stdout
   assert.match(out, /^tierminator: armed\./)
   assert.ok(out.endsWith(RULES))
 })
 
 test('arming says it failed when the flag cannot be written', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const blocker = path.join(dir, 'blocker')
   fs.writeFileSync(blocker, '')
   const out = typed('/tierminator:arm', 'default', REPO, { CLAUDE_PLUGIN_DATA: path.join(blocker, 'x') })
@@ -1311,13 +1311,13 @@ test('arming says it failed when the flag cannot be written', () => {
 test('/tierminator:disarm disarms, and says so when there was nothing to disarm', () => {
   state.write(S, { phase: 'planning', tasks: [], denials: 1 })
   assert.match(typed('/tierminator:disarm').stdout, /^tierminator: disarmed\. Plans are no longer tiered/)
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
   assert.equal(state.read(S), null, 'planning state is removed')
   assert.match(typed('/tierminator:disarm').stdout, /^tierminator: not armed; nothing changed\./)
 })
 
 test('an unarmed session is left alone by every hook', () => {
-  state.disarm(S)
+  state.deactivate(S)
   const file = writePlanFile(INVALID)
   assert.equal(typed('x', 'plan').stdout, '', 'no rules in plan mode')
   assert.equal(hook('h1-plan-rules.js', { session_id: S, tool_name: 'EnterPlanMode' }, ['enter']).stdout, '')
@@ -1329,7 +1329,7 @@ test('an unarmed session is left alone by every hook', () => {
 
   // A run's state left behind (say, from before a disarm) does not wake the hooks either.
   startTestRun()
-  state.disarm(S)
+  state.deactivate(S)
   const call = expected()
   assert.equal(hook('h4-dispatch.js', agentPre({ subagent_type: 'tierminator:opus-high', prompt: 'x', description: 'x' }), ['pre']).stdout, '')
   assert.equal(hook('h4-dispatch.js', agentPost(call), ['post']).stdout, '')
@@ -1379,7 +1379,7 @@ test('disarming a run between tasks says nothing is running', () => {
 test('SessionEnd removes the arming flag', () => {
   assert.ok(state.cursor(S), 'arming started the telemetry cursor')
   hook('h6-cleanup.js', { session_id: S, hook_event_name: 'SessionEnd' }, ['end'])
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
   assert.equal(state.cursor(S), null)
 })
 
@@ -1405,16 +1405,16 @@ function savedPlan(text = VALID, name = 'plan.md') {
   const file = path.join(dir, name)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, text)
-  state.disarm(S)
+  state.deactivate(S)
   return file
 }
 const idOf = text => sidecar.hashOf(blockBody(text))
 // Has H2 move the plan's block to its tasks file, as it does when Claude submits the plan in an armed
 // session, and leaves the session unarmed again.
 function moveBlock(file) {
-  state.arm(S)
+  state.activate(S)
   hook('h2-gate-exit-plan.js', exitPre(fs.readFileSync(file, 'utf8'), file))
-  state.disarm(S)
+  state.deactivate(S)
   assert.match(fs.readFileSync(file, 'utf8'), /<!-- tierminator:tasks -->/)
 }
 
@@ -1425,7 +1425,7 @@ test('execute-plan runs a saved plan with a raw block: arms, saves the run, and 
   assert.match(out, /^tierminator: running the plan in .*plan\.md \(3 tiered tasks\); the session is armed\./)
   assert.ok(out.includes(`exactly this prompt (3 lines, nothing added):\nTasks file: ${TASKS_FILE()}\nPlan: ${planId}\nTask: T01\n`))
   assert.match(out, /Do not implement the plan yourself/)
-  assert.equal(state.isArmed(S), true)
+  assert.equal(state.isActive(S), true)
   const s = state.read(S)
   assert.deepEqual([s.phase, s.planId, s.cwd, s.branch, s.planFile], ['running', planId, repo, 'main', file])
   assert.equal(fs.readFileSync(TASKS_FILE(), 'utf8'), blockBody(VALID), 'the tasks file is the block')
@@ -1465,7 +1465,7 @@ test('execute-plan refuses when committed tasks have a gap, and --from chooses t
   workerCommits('T02', 'T02.txt', idOf(VALID))
   const gap = execute(file)
   assert.match(gap, /was not started: T02 is already committed on this branch, but T01 is not\..*--from/)
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
   assert.equal(state.read(S), null)
 
   const from = execute(`${file} --from t03`)
@@ -1503,7 +1503,7 @@ test('execute-plan runs a plain or opted-out plan without tierminator, unarmed',
     assert.match(out, /is not a tiered plan/)
     assert.match(out, why)
     assert.match(out, /Read it and implement it in this session as usual/)
-    assert.equal(state.isArmed(S), false)
+    assert.equal(state.isActive(S), false)
     assert.equal(state.read(S), null)
     fs.rmSync(repo, { recursive: true, force: true })
   }
@@ -1520,7 +1520,7 @@ test('execute-plan refuses a plan whose tasks cannot be loaded, and an invalid b
   const bad = path.join(dir, 'bad.md')
   fs.writeFileSync(bad, INVALID)
   assert.match(execute(bad), /the task block in .*bad\.md is not valid, so the plan cannot run: /)
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
 })
 
 test('execute-plan refuses in plan mode, during a run, for an unreadable file, and where Git cannot run it', () => {
@@ -1529,10 +1529,10 @@ test('execute-plan refuses in plan mode, during a run, for an unreadable file, a
   assert.match(execute(path.join(dir, 'nope.md')), /the plan file .*nope\.md cannot be read/)
   fs.writeFileSync(path.join(repo, 'wip.txt'), 'x')
   assert.match(execute(file), /cannot run here: the working tree has uncommitted changes \(wip\.txt\)/)
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
 
   startTestRun()
-  state.arm(S)
+  state.activate(S)
   assert.match(execute(file), /a run is already in progress.*\/tierminator:disarm first/)
   assert.equal(state.read(S).planId, PLAN_ID, 'the run is untouched')
 })
@@ -1556,7 +1556,7 @@ test('execute-plan with no path lists recent tierminator plans, newest first', (
   assert.match(out, /\n1\. .*newer\.md: "Newer plan", 3 tasks, changed .*\n2\. .*older\.md: "Older plan", 1 tasks, changed/)
   assert.ok(!out.includes('plain.md'))
   assert.match(out, /ask which to run: they type \/tierminator:execute-plan with its number \(for example \/tierminator:execute-plan 1\) or its path/)
-  assert.equal(state.isArmed(S), false)
+  assert.equal(state.isActive(S), false)
 
   const empty = execute('', { env: { CLAUDE_CONFIG_DIR: path.join(dir, 'none') } })
   assert.match(empty, /there are no tierminator plans in .*plansDirectory/)
@@ -1772,7 +1772,7 @@ test('a plan rejected and revised in the dialog keeps its first round of plannin
 test('H2 records nothing for a plan it denies, or in an unarmed session', () => {
   const file = writePlanFile(INVALID)
   hook('h2-gate-exit-plan.js', exitPre(INVALID, file))
-  state.disarm(S)
+  state.deactivate(S)
   const valid = writePlanFile(VALID)
   hook('h2-gate-exit-plan.js', exitPre(VALID, valid))
   assert.equal(fs.existsSync(telemetryFile()), false)
@@ -1828,7 +1828,7 @@ test('a halted run gets its summary too, and an unarmed session writes no teleme
   // A run in flight whose session is then disarmed.
   const s = state.read(S)
   state.write(S, { ...s, phase: 'running', planFile: path.join(dir, 'plan2.md'), current: { ...s.current, inFlight: true } })
-  state.disarm(S)
+  state.deactivate(S)
   hook('h4-dispatch.js', subStop(report('DONE'), { agent_transcript_path: workerTranscript('u') }), ['stop'])
   assert.equal(fs.existsSync(path.join(dir, 'plan2.telemetry.jsonl')), false)
 })

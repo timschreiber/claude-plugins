@@ -37,7 +37,7 @@ function readPlan(toolInput) {
 
 run(async () => {
   const input = await readInput()
-  if (!input || input.agent_id || !state.isArmed(input.session_id)) return
+  if (!input || input.agent_id || !state.isActive(input.session_id)) return
   const toolInput = input.tool_input ?? {}
 
   const { text, fromFile } = readPlan(toolInput)

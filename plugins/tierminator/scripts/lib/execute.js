@@ -136,7 +136,7 @@ function executePlan(input, rest) {
     )
   }
   const current = state.read(id)
-  if (state.isArmed(id) && (current?.phase === 'running' || current?.phase === 'paused')) {
+  if (state.isActive(id) && (current?.phase === 'running' || current?.phase === 'paused')) {
     return (
       `${PREFIX} a run is already in progress in this session. ` +
       'Tell the user to type /tierminator:disarm first to stop it.'
@@ -211,7 +211,7 @@ function executePlan(input, rest) {
   const sessionTasks = state.fileFor(id)?.replace(/\.json$/, '.tasks.json')
   const tasksFile = result.section?.file ?? writeTasksFile([sidecarPath(planFile), sessionTasks], block)
   if (!tasksFile) return `${PREFIX} the plan's tasks could not be saved to a tasks file, so it cannot run. Tell the user.`
-  if (!state.isArmed(id) && !state.arm(id)) {
+  if (!state.isActive(id) && !state.activate(id)) {
     return `${PREFIX} the session could not be armed (its flag file could not be written), so the plan cannot run. Tell the user.`
   }
 

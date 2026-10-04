@@ -98,7 +98,7 @@ run(async () => {
   const input = await readInput()
   // Unarmed, even tierminator's own agents are left alone. SubagentStop's session_id is the main
   // session's, so this also covers a worker still running when the session was disarmed.
-  if (!input || !state.isArmed(input.session_id)) return
+  if (!input || !state.isActive(input.session_id)) return
   const mode = process.argv[2]
   if (mode === 'stop') {
     // SubagentStop comes from the subagent itself, so agent_id is expected here.

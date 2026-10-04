@@ -1,5 +1,5 @@
-// Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the arming flag beside
-// it, <session_id>.armed, which the run state's own removals leave alone, and the rules marker,
+// Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the activation flag beside
+// it, <session_id>.active, which the run state's own removals leave alone, and the rules marker,
 // <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint). Every function
 // swallows filesystem errors and returns a "nothing happened" value, because a hook must
 // never fail loudly.
@@ -55,11 +55,11 @@ function remove(sessionId) {
   } catch {}
 }
 
-// The session is armed when its flag file exists: /tierminator:arm writes it, /tierminator:disarm and
+// The session is active when its flag file exists: /tierminator:arm writes it, /tierminator:disarm and
 // SessionEnd remove it. Every hook but the arm command does nothing in an unarmed session.
-const flagFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.armed') ?? null
+const flagFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.active') ?? null
 
-function isArmed(sessionId) {
+function isActive(sessionId) {
   try {
     const flag = flagFor(sessionId)
     return !!flag && fs.existsSync(flag)
@@ -158,7 +158,7 @@ function clearListing(sessionId) {
 }
 
 // Returns true when the flag was written. Also starts the telemetry cursor.
-function arm(sessionId) {
+function activate(sessionId) {
   try {
     const flag = flagFor(sessionId)
     if (!flag) return false
@@ -166,7 +166,7 @@ function arm(sessionId) {
     const now = new Date().toISOString()
     fs.writeFileSync(flag, now)
     setCursor(sessionId, now)
-    debug(`state ${path.basename(flag, '.armed')}: armed`)
+    debug(`state ${path.basename(flag, '.active')}: armed`)
     return true
   } catch {
     return false
@@ -174,7 +174,7 @@ function arm(sessionId) {
 }
 
 // Removes the flag, the telemetry cursor and the rules marker.
-function disarm(sessionId) {
+function deactivate(sessionId) {
   try {
     const flag = flagFor(sessionId)
     if (flag) fs.rmSync(flag, { force: true })
@@ -182,7 +182,7 @@ function disarm(sessionId) {
     if (cursorFile) fs.rmSync(cursorFile, { force: true })
     const rulesFile = rulesFor(sessionId)
     if (rulesFile) fs.rmSync(rulesFile, { force: true })
-    if (flag) debug(`state ${path.basename(flag, '.armed')}: disarmed`)
+    if (flag) debug(`state ${path.basename(flag, '.active')}: disarmed`)
   } catch {}
 }
 
@@ -193,7 +193,7 @@ function prune(days) {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.armed', '.cursor', '.rules'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
@@ -205,9 +205,9 @@ module.exports = {
   read,
   write,
   remove,
-  isArmed,
-  arm,
-  disarm,
+  isActive,
+  activate,
+  deactivate,
   cursor,
   setCursor,
   saveListing,

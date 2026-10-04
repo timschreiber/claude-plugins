@@ -124,7 +124,7 @@ function stop(input, current) {
 
 run(async () => {
   const input = await readInput()
-  if (!input || input.agent_id || !state.isArmed(input.session_id)) return
+  if (!input || input.agent_id || !state.isActive(input.session_id)) return
   const current = state.read(input.session_id)
   if (process.argv[2] === 'stop') return stop(input, current)
   const drafting = current?.phase === 'drafting'

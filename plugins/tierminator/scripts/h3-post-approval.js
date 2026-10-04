@@ -39,7 +39,7 @@ const context = additionalContext =>
 
 run(async () => {
   const input = await readInput()
-  if (!input || input.agent_id || input.tool_response?.isAgent || !state.isArmed(input.session_id)) return
+  if (!input || input.agent_id || input.tool_response?.isAgent || !state.isActive(input.session_id)) return
 
   const text = readPlan(input)
   const result = resolvePlan(text)

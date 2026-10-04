@@ -116,7 +116,7 @@ const COMMAND = /^\s*\/tierminator:(arm|disarm|execute-plan)(?![\w-])/
 // is not armed at all. H2 and H3 still check again: the tree can change after arming.
 function armNote(input) {
   const id = input.session_id
-  const already = state.isArmed(id)
+  const already = state.isActive(id)
   const problem = already ? null : git.problem(input.cwd)
   if (problem) {
     emitText(
@@ -125,7 +125,7 @@ function armNote(input) {
     )
     return
   }
-  if (!already && !state.arm(id)) {
+  if (!already && !state.activate(id)) {
     emitText('tierminator: arming failed: its flag file could not be written.')
     return
   }
@@ -152,8 +152,8 @@ function armNote(input) {
 // Disarming stops a run: nothing more is dispatched, and a worker already running finishes unjudged.
 function disarmNote(input) {
   const id = input.session_id
-  const armed = state.isArmed(id)
-  state.disarm(id)
+  const armed = state.isActive(id)
+  state.deactivate(id)
   const s = state.read(id)
   const inRun = s && (s.phase === 'running' || s.phase === 'paused')
   const abandoned = inRun ? { ...s, phase: 'abandoned', notice: null, spendReported: true, spendLines: [] } : null
@@ -203,13 +203,13 @@ function unattendedStart(input) {
     )
     return
   }
-  if (!state.arm(id)) {
+  if (!state.activate(id)) {
     emitText('tierminator: unattended run not started: its flag file could not be written. Report this and stop.')
     return
   }
   const planFile = unattended.planFileFor(id)
   if (!state.write(id, { phase: 'drafting', planFile, denials: 0, guardDenials: 0 })) {
-    state.disarm(id)
+    state.deactivate(id)
     emitText('tierminator: unattended run not started: its state could not be saved. Report this and stop.')
     return
   }
@@ -224,7 +224,7 @@ run(async () => {
   if (process.argv[2] === 'compact') return state.clearRulesShown(input.session_id)
   if (process.argv[2] === 'session') {
     const id = input.session_id
-    const s = state.isArmed(id) ? state.read(id) : null
+    const s = state.isActive(id) ? state.read(id) : null
     if (s?.phase === 'drafting') {
       emit({
         hookSpecificOutput: {
@@ -243,10 +243,10 @@ run(async () => {
   if (command === 'arm') return armNote(input)
   if (command === 'disarm') return disarmNote(input)
   if (command === 'execute-plan') return emitText(executePlan(input, String(input.prompt).slice(typed[0].length)))
-  if (!enter && unattended.enabled() && !state.isArmed(input.session_id) && !fromHarness(input.prompt)) {
+  if (!enter && unattended.enabled() && !state.isActive(input.session_id) && !fromHarness(input.prompt)) {
     return unattendedStart(input)
   }
-  if (!state.isArmed(input.session_id)) return
+  if (!state.isActive(input.session_id)) return
 
   if (enter) {
     emit({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: rules() } })

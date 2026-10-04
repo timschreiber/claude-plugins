@@ -11,6 +11,6 @@ run(async () => {
   if (!input || input.agent_id) return
   if (process.argv[2] !== 'end') return
   state.remove(input.session_id)
-  state.disarm(input.session_id)
+  state.deactivate(input.session_id)
   state.clearListing(input.session_id)
 })

@@ -243,7 +243,7 @@ commands and H6 cleaning up.
 ## Configuration notes
 
 - The run's state lives in `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside your repo, and
-  the arming flag beside it in `<session_id>.armed`. Both are deleted when the session ends, and any left
+  the arming flag beside it in `<session_id>.active`. Both are deleted when the session ends, and any left
   behind are removed after 7 days. The tasks
   file sits next to the plan file in Claude Code's plans directory and is kept as a record of what ran.
   The only changes to your repository are the tasks' own commits.
