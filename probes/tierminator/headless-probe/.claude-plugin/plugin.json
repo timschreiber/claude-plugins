@@ -1,0 +1,4 @@
+{
+  "name": "tierminator-headless-probe",
+  "description": "Dev probe: headless plugin command, hook env and skill arguments."
+}

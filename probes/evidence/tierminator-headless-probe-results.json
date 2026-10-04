@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-04T02:08:03.915Z",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "entrypoint": "sdk-cli",
+  "rawPrompt": "/tierminator-headless-probe:plan add a --verbose flag",
+  "argsSeen": true,
+  "tokenSeen": true
+}
