@@ -3,7 +3,8 @@
 //   pre   PreToolUse Edit|Write|NotebookEdit: deny main-thread file edits. Shell commands are not
 //         guarded; H4 refuses the next dispatch if they left the tree dirty.
 //   stop  Stop: block stopping while a task is due to be dispatched, unless its next step will come with
-//         a background worker's "finished" notification (H1). Every Stop also shows the user the
+//         a background worker's "finished" notification (H1). It also blocks while the SendMessage that
+//         resumes a worker stopped at its turn limit is still due. Every Stop also shows the user the
 //         spend lines H4 queued for finished attempts, and the first Stop after the run has ended records
 //         its orchestration and adds the run's spend summary (lib/spend.js). A Stop hook's systemMessage
 //         is displayed; a SubagentStop hook's is not, for a background worker.
@@ -21,7 +22,7 @@ const state = require('./lib/state.js')
 const spend = require('./lib/spend.js')
 const { recordPlanning } = spend
 const unattended = require('./lib/unattended.js')
-const { dispatchText } = require('./lib/run.js')
+const { dispatchText, resumeText } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
 const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
 const { run, readInput, emit } = require('./lib/hook.js')
@@ -96,7 +97,9 @@ function stop(input, current) {
   if (current?.phase === 'drafting') return draftingStop(input, current)
   let { s, text } = spendText(input, current)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })
-  if (!s || s.phase !== 'running' || s.current?.inFlight) {
+  // A worker stopped at its turn limit and the resume is not sent yet: Claude's turn must stay open.
+  const resumeDue = s?.phase === 'running' && !!s.current?.inFlight && !!s.current.resumePending
+  if (!s || s.phase !== 'running' || (s.current?.inFlight && !resumeDue)) {
     if (text) shown({})
     return
   }
@@ -110,6 +113,7 @@ function stop(input, current) {
     if (text) shown({})
     return
   }
+  if (resumeDue) return shown({ decision: 'block', reason: resumeText(s) })
   // A background worker's notice goes out with its "finished" notification (H1), which always follows
   // its SubagentStop. Blocking here would deliver it too, but Claude Code labels a blocked stop an error.
   if (s.notice && s.noticeByNotification) {

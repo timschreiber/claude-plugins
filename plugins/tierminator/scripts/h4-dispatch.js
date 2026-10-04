@@ -14,6 +14,9 @@
 //            the task is running in the background, and Claude is told to end its turn and wait.
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
 // Agent calls for other agent types are left alone.
+//   resume-pre / resume-post / resume-failure: the SendMessage that resumes a worker stopped at its turn
+//            limit. pre lets only the expected message to the run's worker through (SendMessage to other
+//            agents is left alone); post tells Claude to end its turn; failure halts the run, no reset.
 'use strict'
 
 const state = require('./lib/state.js')
@@ -123,6 +126,37 @@ function failure(input, s) {
   context('PostToolUseFailure', next.notice)
 }
 
+// A SendMessage aimed at the run's own worker.
+const toWorker = (s, toolInput) => !!s.current.agentId && toolInput?.to === s.current.agentId
+
+function resumePre(input, s) {
+  if (s?.phase !== 'running') return
+  const toolInput = input.tool_input ?? {}
+  if (!toWorker(s, toolInput) && !s.current.resumePending) return
+  const problem = r.checkResume(s, toolInput)
+  if (problem) {
+    deny(
+      `tierminator: resume refused: ${problem}. ` +
+        (s.current.resumePending ? r.resumeText(s) : 'Wait for the worker to report.')
+    )
+    return
+  }
+  state.write(input.session_id, r.resumed(s))
+}
+
+function resumePost(input, s) {
+  if (s?.phase !== 'running' || !s.current.inFlight || !toWorker(s, input.tool_input)) return
+  context('PostToolUse', r.runningText(s))
+}
+
+function resumeFailure(input, s) {
+  if (s?.phase !== 'running' || !s.current.inFlight || !toWorker(s, input.tool_input)) return
+  const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
+  const halted = r.advance(s, { ok: false, fatal: `the resume message to the worker failed: ${error}` }).state
+  state.write(input.session_id, halted)
+  context('PostToolUseFailure', r.haltText(halted))
+}
+
 run(async () => {
   const input = await readInput()
   // In an inactive session, even tierminator's own agents are left alone. SubagentStop's session_id is the
@@ -139,4 +173,7 @@ run(async () => {
   if (mode === 'pre') pre(input, s)
   else if (mode === 'post') post(input, s)
   else if (mode === 'failure') failure(input, s)
+  else if (mode === 'resume-pre') resumePre(input, s)
+  else if (mode === 'resume-post') resumePost(input, s)
+  else if (mode === 'resume-failure') resumeFailure(input, s)
 })

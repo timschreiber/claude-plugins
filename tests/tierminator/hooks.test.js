@@ -1188,6 +1188,103 @@ test('a foreground Agent result that stopped at the turn limit gives the resume 
   assert.deepEqual([s.current.agentId, s.current.resumePending, s.current.inFlight], ['a1b48e4', true, true])
 })
 
+// ---- the resume SendMessage is guarded, and the turn stays open until it is sent --------
+
+const sendMessage = (toolInput, extra = {}) => ({ session_id: S, cwd: repo, tool_name: 'SendMessage', tool_input: toolInput, ...extra })
+const resumeCall = (over = {}) => ({ to: 'ae454b4', summary: 'T01: resume after the turn limit', message: runLib.RESUME_MESSAGE, ...over })
+// A run whose worker stopped at its turn limit: the resume is due.
+function resumeDue() {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  launchInBackground('ae454b4')
+  const sha = workerCommits('T01')
+  h1Prompt(limitNote('ae454b4'))
+  assert.equal(state.read(S).current.resumePending, true)
+  return sha
+}
+
+test('resume-pre passes the expected SendMessage, clears resumePending and counts the resume', () => {
+  resumeDue()
+  const r = hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-pre'])
+  assert.equal(r.stdout, '')
+  const s = state.read(S)
+  assert.deepEqual([s.current.resumePending, s.current.resumes, s.current.inFlight], [false, 1, true])
+})
+
+test('resume-pre denies a wrong message and a wrong recipient, repeating the resume', () => {
+  resumeDue()
+  for (const [over, why] of [
+    [{ message: 'carry on' }, /the message is not the expected one/],
+    [{ to: 'someone-else' }, /the resume goes to ae454b4, not someone-else/],
+  ]) {
+    const out = hook('h4-dispatch.js', sendMessage(resumeCall(over)), ['resume-pre']).json.hookSpecificOutput
+    assert.equal(out.permissionDecision, 'deny')
+    assert.match(out.permissionDecisionReason, /^tierminator: resume refused: /)
+    assert.match(out.permissionDecisionReason, why)
+    assert.match(out.permissionDecisionReason, /Call the SendMessage tool now with to "ae454b4"/)
+    const s = state.read(S)
+    assert.deepEqual([s.current.resumePending, s.current.resumes], [true, 0])
+  }
+})
+
+test('resume-pre denies a resume when none is due, telling Claude to wait', () => {
+  startTestRun()
+  launchInBackground('ae454b4')
+  const out = hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-pre']).json.hookSpecificOutput
+  assert.equal(out.permissionDecision, 'deny')
+  assert.match(out.permissionDecisionReason, /resume refused: no resume is due\. Wait for the worker to report\./)
+  assert.equal(state.read(S).current.resumes, 0)
+})
+
+test('resume-pre leaves SendMessage to another agent alone, and when no run is active', () => {
+  startTestRun()
+  launchInBackground('ae454b4')
+  assert.equal(hook('h4-dispatch.js', sendMessage(resumeCall({ to: 'someone-else' })), ['resume-pre']).stdout, '')
+  state.remove(S)
+  assert.equal(hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-pre']).stdout, '')
+  state.write(S, { ...runLib.startRun({ tasks: RUN_TASKS, tasksFile: 'x', branch: 'main', planId: PLAN_ID }), cwd: repo, phase: 'halted' })
+  assert.equal(hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-pre']).stdout, '')
+})
+
+test('resume-post tells Claude the task is running and to end its turn', () => {
+  resumeDue()
+  hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-pre'])
+  const out = hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-post']).json.hookSpecificOutput
+  assert.equal(out.hookEventName, 'PostToolUse')
+  assert.match(out.additionalContext, /T01 is running in the background on tierminator:sonnet-low\. End your turn now/)
+  assert.equal(hook('h4-dispatch.js', sendMessage(resumeCall({ to: 'someone-else' })), ['resume-post']).stdout, '')
+})
+
+test('resume-failure halts the run with the reason, and leaves the tree and its commits alone', () => {
+  const sha = resumeDue()
+  const input = sendMessage(resumeCall(), { error: 'no such agent\nmore' })
+  const out = hook('h4-dispatch.js', input, ['resume-failure']).json.hookSpecificOutput
+  assert.equal(out.hookEventName, 'PostToolUseFailure')
+  assert.match(out.additionalContext, /stopped at T01 after 1 attempt\(s\) \(sonnet-low\)\. Reason: the resume message to the worker failed: no such agent\./)
+  const s = state.read(S)
+  assert.equal(s.phase, 'halted')
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), sha)
+  assert.equal(fs.existsSync(path.join(repo, 'T01.txt')), true)
+  assert.equal(gitIn(repo, 'status', '--porcelain'), '')
+  assert.equal(hook('h4-dispatch.js', { ...input, tool_input: resumeCall({ to: 'x' }) }, ['resume-failure']).stdout, '')
+})
+
+test('H5 stop blocks while a resume is due, and allows the stop after resume-pre passed', () => {
+  resumeDue()
+  const blocked = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop'])
+  assert.equal(blocked.json.decision, 'block')
+  assert.match(blocked.json.reason, /T01 stopped at its turn limit.*Call the SendMessage tool now with to "ae454b4"/s)
+  assert.equal(state.read(S).phase, 'running')
+  hook('h4-dispatch.js', sendMessage(resumeCall()), ['resume-pre'])
+  assert.equal(hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).stdout, '')
+})
+
+test('H5 stop with a resume due abandons the run on the second consecutive stop', () => {
+  resumeDue()
+  const second = hook('h5-guard.js', { session_id: S, stop_hook_active: true }, ['stop'])
+  assert.equal(second.json.decision, undefined)
+  assert.equal(state.read(S).phase, 'abandoned')
+})
+
 test('H4 post and failure ignore calls that were not dispatched by the run', () => {
   startTestRun()
   assert.equal(hook('h4-dispatch.js', agentPost(expected()), ['post']).stdout, '')
@@ -2055,7 +2152,7 @@ test('every hook exits 0 when the data directory is unwritable', () => {
 test('hooks.json is valid, every command names a script that exists, and Agent events go to H4', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 13)
+  assert.equal(commands.length, 16)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)
@@ -2064,6 +2161,9 @@ test('hooks.json is valid, every command names a script that exists, and Agent e
   assert.match(h4('PreToolUse', 'Agent'), /h4-dispatch\.js" pre$/)
   assert.match(h4('PostToolUse', 'Agent'), /h4-dispatch\.js" post$/)
   assert.match(h4('PostToolUseFailure', 'Agent'), /h4-dispatch\.js" failure$/)
+  assert.match(h4('PreToolUse', 'SendMessage'), /h4-dispatch\.js" resume-pre$/)
+  assert.match(h4('PostToolUse', 'SendMessage'), /h4-dispatch\.js" resume-post$/)
+  assert.match(h4('PostToolUseFailure', 'SendMessage'), /h4-dispatch\.js" resume-failure$/)
   assert.match(config.hooks.SubagentStop[0].hooks[0].command, /h4-dispatch\.js" stop$/)
   assert.ok(!JSON.stringify(config).includes('Workflow'))
 })

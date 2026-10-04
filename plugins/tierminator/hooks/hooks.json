@@ -29,6 +29,12 @@
         ]
       },
       {
+        "matcher": "SendMessage",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" resume-pre", "timeout": 30 }
+        ]
+      },
+      {
         "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h5-guard.js\" pre", "timeout": 15 }
@@ -53,6 +59,12 @@
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" post", "timeout": 60 }
         ]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" resume-post", "timeout": 30 }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -60,6 +72,12 @@
         "matcher": "Agent",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" failure", "timeout": 60 }
+        ]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h4-dispatch.js\" resume-failure", "timeout": 60 }
         ]
       }
     ],
