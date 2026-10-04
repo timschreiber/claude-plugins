@@ -38,13 +38,23 @@ test('each agent runs its tier: name, model, effort, maxTurns and no nested agen
   }
 })
 
-test('all the agents share one body, which asks for the report block and a trailer commit', () => {
-  const bodies = TIERS.map(t => read(t).body)
-  for (const [i, body] of bodies.entries()) assert.equal(body, bodies[0], `${TIERS[i]} differs from ${TIERS[0]}`)
-  const body = bodies[0]
-  assert.match(body, /Tasks file:/)
-  assert.match(body, /git commit -m "<the task's title>" -m "Tierminator-Task: <the task's id>" -m "Tierminator-Plan: <the Plan: line's id>"/)
-  assert.match(body, /`Plan:` line/)
-  assert.match(body, /STATUS: DONE \| FAILED\nCOMMIT: .*\nVERIFY: .*\nNOTE: /)
-  assert.match(body, /Never push/)
+test('the sonnet bodies match each other and the opus bodies match each other, each with the report block and a trailer commit', () => {
+  const sonnet = TIERS.filter(t => t.startsWith('sonnet-'))
+  const opus = TIERS.filter(t => t.startsWith('opus-'))
+  for (const group of [sonnet, opus]) {
+    const first = read(group[0]).body
+    for (const t of group) assert.equal(read(t).body, first, `${t} differs from ${group[0]}`)
+  }
+  for (const tier of TIERS) {
+    const body = read(tier).body
+    assert.match(body, /Tasks file:/, tier)
+    assert.match(body, /git commit -m "<the task's title>" -m "Tierminator-Task: <the task's id>" -m "Tierminator-Plan: <the Plan: line's id>"/, tier)
+    assert.match(body, /`Plan:` line/, tier)
+    assert.match(body, /STATUS: DONE \| FAILED\nCOMMIT: .*\nVERIFY: .*\nNOTE: /, tier)
+    assert.match(body, /Never push/, tier)
+    assert.ok(body.startsWith('You execute one task'), `${tier} opening line`)
+    assert.ok(!body.includes('You make no design decisions'), tier)
+  }
+  assert.ok(read(sonnet[0]).body.includes("don't choose"))
+  assert.ok(read(opus[0]).body.includes('Make routine judgment calls yourself'))
 })
