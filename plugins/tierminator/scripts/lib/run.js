@@ -98,8 +98,9 @@ function dispatchText(state) {
   const call = expectedCall(state)
   return (
     `Call the Agent tool now with subagent_type "${call.subagent_type}", description ` +
-    `${JSON.stringify(call.description)}, and exactly this prompt ` +
-    `(${call.prompt.split('\n').length} lines, nothing added):\n${call.prompt}\n` +
+    `${JSON.stringify(call.description)}, and as its prompt exactly the ` +
+    `${call.prompt.split('\n').length} lines inside this fence, without the fence lines:\n` +
+    '```\n' + call.prompt + '\n```\n' +
     'Do not do the task yourself. If it runs in the background, end your turn.'
   )
 }

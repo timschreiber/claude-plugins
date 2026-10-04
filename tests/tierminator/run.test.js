@@ -76,7 +76,7 @@ test('dispatchText spells out the exact call', () => {
   assert.match(text, /subagent_type "tierminator:sonnet-low"/)
   assert.match(text, /description "T01: Task 1"/)
   assert.ok(!text.includes('run_in_background'))
-  assert.match(text, /exactly this prompt \(2 lines, nothing added\):\nTasks file: C:\/plans\/p\.tasks\.json\nTask: T01\n/)
+  assert.match(text, /as its prompt exactly the 2 lines inside this fence, without the fence lines:\n```\nTasks file: C:\/plans\/p\.tasks\.json\nTask: T01\n```\nDo not do the task yourself/)
   assert.match(text, /Do not do the task yourself/)
   assert.match(text, /If it runs in the background, end your turn/)
 })
