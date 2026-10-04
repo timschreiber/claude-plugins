@@ -168,6 +168,93 @@ had run by then varied from run to run, so the wait was timing-dependent and its
 Orcastrat avoids the problem because its orchestrator judges a report when it reads it, and its Stop
 guard is level-triggered (`plugins/orcastrat/hooks/stop-guard`).
 
+## A worker that reaches its turn limit (Claude Code 2.1.286)
+
+Evidence:
+- `probes/evidence/planandtier-turn-limit-stall.json`, made by `probes/planandtier/extract-turn-limit-stall.js`
+  from the main transcript of the `tingly-whistling-graham` run (2026-10-04, the plugin still named
+  `planandtier`). Entry indexes are the transcript's own line numbers (0-based).
+- `probes/evidence/planandtier-turn-usage.json`, made by `probes/planandtier/turn-usage.js` from every tier
+  worker transcript on the development machine (109 workers, 2026-09-28 to 2026-10-04).
+
+### What happened
+
+T04 ran in the background on `opus-medium`, whose `maxTurns` was 40.
+
+Measured:
+- **The notification says the worker stopped at its limit.** Entry 354 is a `<task-notification>` with
+  `origin: {kind: "task-notification"}`, `turnOrigin: "task_notification"`, `<status>completed</status>` and
+  the summary `Agent "T04: …" stopped at its 40-turn limit (partial result; SendMessage to task-id to
+  continue)`. Its result says the agent "was still calling tools and had produced no report" and that a
+  `SendMessage` lets it continue. Unlike the notification after a hand-back, it is not transcript-only: it
+  started a turn.
+- **No hook spoke in that turn.** The record has `queueSkipAttachments: true`, and no `UserPromptSubmit`
+  or `Stop` hook attachment follows it. The Stop hooks ran (entry 366) with no output and did not block.
+- **The worker's commit survived.** The worker's 40th turn was its commit (`e2a14bb`, at 02:29:19); the
+  notification came four seconds later. Nothing reset it.
+- **No `SubagentStop` judgment happened.** Eleven minutes later the run state still had T04 `inFlight`
+  with `report: null`, `lastFailure: null` and attempt 1 (entry 383), and the plan's telemetry file has no
+  T04 attempt row before the hand-back at 02:45:40 (`telemetryAttempts`). So there was no reset and no
+  retry.
+- **`SendMessage` resumed it with its context.** Only after the user typed "try resuming" (entry 421) did
+  Claude call `SendMessage` to the task-id (entry 428). The result was `{"success": true, "message":
+  "Resuming agent ae454b4", "resumedAgentId": …}`. The worker got the message as a prompt with
+  `origin: {kind: "coordinator"}`, checked its commit in two more turns (42 in all) and ended with
+  `SubagentHandback`.
+- **H1 judged the hand-back as usual.** The `<agent-message>` (entry 443, `origin.handback: true`) fired
+  `UserPromptSubmit` (entry 444), and H1 accepted T04 (`done (commit e2a14bb, opus-medium)`) and gave the
+  next dispatch in the same turn. The later notification was removed from the queue (entry 449).
+
+Inferred, not measured:
+- `SubagentStop` either did not fire at the turn limit or fired without the run's hooks acting on it: H4
+  judges and records an attempt whenever it fires for an in-flight tier worker, and nothing was recorded.
+- Without the user's prompt, the run would have stalled: the notification is the only event, and no hook
+  acts on it.
+
+### Turn usage per tier
+
+A turn is one assistant message (distinct message ids, as `lib/usage.js` counts them). The limit is the
+tier agent's `maxTurns` at the time: 30, 40 or 60 for `low`, `medium` or `high`. Percentiles are
+nearest-rank. A resumed worker counts its turns before and after the resume.
+
+| Tier | Workers | Turns p50 | p90 | Max | Tool calls per turn | At 80% of `maxTurns` or more |
+|---|---|---|---|---|---|---|
+| `sonnet-low` | 29 | 6 | 8 | 14 | 1.15 | 0 |
+| `sonnet-medium` | 58 | 8 | 15 | 27 | 1.27 | 0 |
+| `sonnet-high` | 15 | 13 | 30 | 50 | 1.38 | 1 (50 of 60) |
+| `opus-medium` | 6 | 15 | 42 | 42 | 1.91 | 1 (T04 above, 42 of 40) |
+| `opus-high` | 1 | 3 | 3 | 3 | 0.67 | 0 |
+
+### The same task on different tiers
+
+Tasks dispatched with the same tasks file and `Task:` line on more than one tier (a retry one tier up, or
+the plan run again), in the order they ran, as turns:
+
+| Task | Runs (tier: turns) |
+|---|---|
+| `plan-three-tasks-t01-zesty-curry` T02 | sonnet-low: 6, sonnet-medium: 8 |
+| `plan-three-tasks-t01-zesty-curry` T03 | sonnet-low: 6, sonnet-medium: 7 |
+| `floofy-squishing-simon` T01 | opus-medium: 15, opus-medium: 15, sonnet-medium: 10, sonnet-high: 18 |
+| `floofy-squishing-simon` T02 | sonnet-high: 14, sonnet-low: 5, sonnet-medium: 8 |
+| `floofy-squishing-simon` T05 | opus-medium: 9, opus-high: 3 |
+| `parallel-shimmying-robin` T01 | sonnet-medium: 4, sonnet-high: 30, sonnet-medium: 7 |
+| `parallel-shimmying-robin` T02 | sonnet-medium: 27, sonnet-high: 50 |
+| `lexical-zooming-snowglobe` T03 | sonnet-medium: 6, sonnet-high: 7 |
+| `jolly-sprouting-magpie` T01 | sonnet-medium: 11, sonnet-low: 8, sonnet-low: 6, sonnet-medium: 3, sonnet-high: 4, sonnet-low: 6 |
+| `jolly-sprouting-magpie` T02 | sonnet-high: 12, sonnet-medium: 10 |
+| `jolly-sprouting-magpie` T03 | sonnet-medium: 7, sonnet-low: 8 |
+
+Measured: in 8 of the 9 cases where a `sonnet` task ran one effort up right after (low to medium, or
+medium to high), the higher effort used more turns; the exception is `jolly-sprouting-magpie` T01 (8 on
+`sonnet-low`, then 3 on `sonnet-medium`). The largest jump was `parallel-shimmying-robin` T02: 27 turns on
+`sonnet-medium`, then 50 on `sonnet-high`. The one `opus` case went the other way (`floofy-squishing-simon`
+T05: 9 on `opus-medium`, then 3 on `opus-high`). Tool calls per turn rise from `sonnet-low` through
+`sonnet-high` to `opus-medium` (table above).
+
+Inferred, not measured: a retry one tier up does not make a task fit in fewer turns, so a turn limit is not
+a reason to retry higher. The sample is small (one `opus-high` worker, six `opus-medium`), and different
+runs of one task can differ in what was already done, so these are signs, not limits to set from.
+
 ## Not measured
 
 - The fixes in `af16b43` and `eb1e5fc` (the early-report note, and the next step given with the "finished"

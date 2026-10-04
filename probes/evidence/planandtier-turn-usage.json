@@ -1,0 +1,1860 @@
+{
+  "generatedAt": "2026-10-04T20:13:19.815Z",
+  "source": "~/.claude/projects/*/*/subagents/agent-*.jsonl with agentType tierminator:* or planandtier:*",
+  "method": "turns = distinct assistant message ids (lib/usage.js messagesOf); toolCalls = distinct tool_use blocks; maxTurns at the time = 30/40/60 for low/medium/high; nearLimit = turns >= 80% of it. Percentiles are nearest-rank. A resumed worker counts its turns before and after the resume.",
+  "leftOutInProgress": [
+    ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0239a45c-b03a-48e8-aa61-6767d8e1344c/subagents/agent-a42b8d8070b3093e0.jsonl"
+  ],
+  "tiers": {
+    "opus-high": {
+      "n": 1,
+      "maxTurnsAtTheTime": 60,
+      "turns": {
+        "p50": 3,
+        "p90": 3,
+        "max": 3
+      },
+      "toolCallsPerTurn": 0.67,
+      "atLeast80PercentOfMaxTurns": 0
+    },
+    "opus-medium": {
+      "n": 6,
+      "maxTurnsAtTheTime": 40,
+      "turns": {
+        "p50": 15,
+        "p90": 42,
+        "max": 42
+      },
+      "toolCallsPerTurn": 1.91,
+      "atLeast80PercentOfMaxTurns": 1
+    },
+    "sonnet-high": {
+      "n": 15,
+      "maxTurnsAtTheTime": 60,
+      "turns": {
+        "p50": 13,
+        "p90": 30,
+        "max": 50
+      },
+      "toolCallsPerTurn": 1.38,
+      "atLeast80PercentOfMaxTurns": 1
+    },
+    "sonnet-low": {
+      "n": 29,
+      "maxTurnsAtTheTime": 30,
+      "turns": {
+        "p50": 6,
+        "p90": 8,
+        "max": 14
+      },
+      "toolCallsPerTurn": 1.15,
+      "atLeast80PercentOfMaxTurns": 0
+    },
+    "sonnet-medium": {
+      "n": 58,
+      "maxTurnsAtTheTime": 40,
+      "turns": {
+        "p50": 8,
+        "p90": 15,
+        "max": 27
+      },
+      "toolCallsPerTurn": 1.27,
+      "atLeast80PercentOfMaxTurns": 0
+    }
+  },
+  "sameTaskAcrossTiers": [
+    {
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T02",
+      "runs": [
+        {
+          "tier": "sonnet-low",
+          "turns": 6,
+          "toolCalls": 5,
+          "startedAt": "2026-09-28T16:55:32.352Z",
+          "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-ad273971632445f4c.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 8,
+          "toolCalls": 7,
+          "startedAt": "2026-09-28T16:56:08.531Z",
+          "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-acbb15c265f6f9184.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T03",
+      "runs": [
+        {
+          "tier": "sonnet-low",
+          "turns": 6,
+          "toolCalls": 5,
+          "startedAt": "2026-09-28T16:56:48.010Z",
+          "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-ab503cb01ffac4765.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 7,
+          "toolCalls": 6,
+          "startedAt": "2026-09-28T16:57:22.946Z",
+          "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-acea2c3610122d209.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "floofy-squishing-simon.tasks.json T01",
+      "runs": [
+        {
+          "tier": "opus-medium",
+          "turns": 15,
+          "toolCalls": 23,
+          "startedAt": "2026-09-29T00:27:34.434Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-af7e5d290b30d5b10.jsonl"
+        },
+        {
+          "tier": "opus-medium",
+          "turns": 15,
+          "toolCalls": 16,
+          "startedAt": "2026-09-29T00:45:06.304Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a065d77f54c9d173c.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 10,
+          "toolCalls": 12,
+          "startedAt": "2026-09-29T01:20:50.022Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-adbc4bc5046b3600c.jsonl"
+        },
+        {
+          "tier": "sonnet-high",
+          "turns": 18,
+          "toolCalls": 21,
+          "startedAt": "2026-09-29T01:43:29.480Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-ac5bba28b29f2348d.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "floofy-squishing-simon.tasks.json T02",
+      "runs": [
+        {
+          "tier": "sonnet-high",
+          "turns": 14,
+          "toolCalls": 19,
+          "startedAt": "2026-09-29T00:29:47.263Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-aca25b3b0a8877293.jsonl"
+        },
+        {
+          "tier": "sonnet-low",
+          "turns": 5,
+          "toolCalls": 4,
+          "startedAt": "2026-09-29T00:47:19.077Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a4a20d872f54699e1.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 8,
+          "toolCalls": 12,
+          "startedAt": "2026-09-29T01:46:35.612Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a6a59c1c092618b1a.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "floofy-squishing-simon.tasks.json T05",
+      "runs": [
+        {
+          "tier": "opus-medium",
+          "turns": 9,
+          "toolCalls": 9,
+          "startedAt": "2026-09-29T00:37:47.031Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-afc34ee6fad3da5bf.jsonl"
+        },
+        {
+          "tier": "opus-high",
+          "turns": 3,
+          "toolCalls": 2,
+          "startedAt": "2026-09-29T00:39:31.845Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a3a7f8b29e7c331b3.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "parallel-shimmying-robin.tasks.json T01",
+      "runs": [
+        {
+          "tier": "sonnet-medium",
+          "turns": 4,
+          "toolCalls": 8,
+          "startedAt": "2026-09-29T22:08:37.714Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a515255476e528608.jsonl"
+        },
+        {
+          "tier": "sonnet-high",
+          "turns": 30,
+          "toolCalls": 45,
+          "startedAt": "2026-09-29T22:20:55.569Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a16589711d0a573fe.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 7,
+          "toolCalls": 8,
+          "startedAt": "2026-09-29T23:01:45.381Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a44f49fb0498aed4e.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "parallel-shimmying-robin.tasks.json T02",
+      "runs": [
+        {
+          "tier": "sonnet-medium",
+          "turns": 27,
+          "toolCalls": 29,
+          "startedAt": "2026-09-29T22:31:43.127Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-aa617cd4dc3df9d1a.jsonl"
+        },
+        {
+          "tier": "sonnet-high",
+          "turns": 50,
+          "toolCalls": 55,
+          "startedAt": "2026-09-29T23:05:26.952Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-afb7b69761f69f340.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "lexical-zooming-snowglobe.tasks.json T03",
+      "runs": [
+        {
+          "tier": "sonnet-medium",
+          "turns": 6,
+          "toolCalls": 7,
+          "startedAt": "2026-09-30T23:00:10.486Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a743a8015a851702c.jsonl"
+        },
+        {
+          "tier": "sonnet-high",
+          "turns": 7,
+          "toolCalls": 11,
+          "startedAt": "2026-09-30T23:02:36.902Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a08a9c53b194c9585.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "runs": [
+        {
+          "tier": "sonnet-medium",
+          "turns": 11,
+          "toolCalls": 15,
+          "startedAt": "2026-10-01T00:00:52.673Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-ad0cd438d100290bd.jsonl"
+        },
+        {
+          "tier": "sonnet-low",
+          "turns": 8,
+          "toolCalls": 24,
+          "startedAt": "2026-10-01T01:19:41.934Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-abcd2ebe56fa7166d.jsonl"
+        },
+        {
+          "tier": "sonnet-low",
+          "turns": 6,
+          "toolCalls": 18,
+          "startedAt": "2026-10-01T01:49:57.383Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a282b4b387af18b38.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 3,
+          "toolCalls": 3,
+          "startedAt": "2026-10-01T01:50:47.461Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a7112ad910240a4ff.jsonl"
+        },
+        {
+          "tier": "sonnet-high",
+          "turns": 4,
+          "toolCalls": 3,
+          "startedAt": "2026-10-01T01:51:04.253Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a894e072ff0005aed.jsonl"
+        },
+        {
+          "tier": "sonnet-low",
+          "turns": 6,
+          "toolCalls": 5,
+          "startedAt": "2026-10-01T04:05:32.295Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-aa76506ff0085b5d8.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "jolly-sprouting-magpie.tasks.json T02",
+      "runs": [
+        {
+          "tier": "sonnet-high",
+          "turns": 12,
+          "toolCalls": 20,
+          "startedAt": "2026-10-01T00:02:28.123Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a74032130743ba403.jsonl"
+        },
+        {
+          "tier": "sonnet-medium",
+          "turns": 10,
+          "toolCalls": 15,
+          "startedAt": "2026-10-01T01:20:33.121Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a1a600e327d18a03a.jsonl"
+        }
+      ]
+    },
+    {
+      "task": "jolly-sprouting-magpie.tasks.json T03",
+      "runs": [
+        {
+          "tier": "sonnet-medium",
+          "turns": 7,
+          "toolCalls": 9,
+          "startedAt": "2026-10-01T00:04:41.025Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a2b01887fd29ce62a.jsonl"
+        },
+        {
+          "tier": "sonnet-low",
+          "turns": 8,
+          "toolCalls": 8,
+          "startedAt": "2026-10-01T01:21:47.921Z",
+          "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a765d2c766d13ddd1.jsonl"
+        }
+      ]
+    }
+  ],
+  "agents": [
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-ad1df9aa958773a56.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T16:55:03.474Z",
+      "claudeCodeVersions": [
+        "2.1.283"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-ad273971632445f4c.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T02",
+      "turns": 6,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T16:55:32.352Z",
+      "claudeCodeVersions": [
+        "2.1.283"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-acbb15c265f6f9184.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T02",
+      "turns": 8,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T16:56:08.531Z",
+      "claudeCodeVersions": [
+        "2.1.283"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-ab503cb01ffac4765.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T03",
+      "turns": 6,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T16:56:48.010Z",
+      "claudeCodeVersions": [
+        "2.1.283"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/55060baf-6f27-424a-bd92-4cd2e84ab7cd/subagents/agent-acea2c3610122d209.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "plan-three-tasks-t01-zesty-curry.tasks.json T03",
+      "turns": 7,
+      "toolCalls": 6,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T16:57:22.946Z",
+      "claudeCodeVersions": [
+        "2.1.283"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents/c53ee427-d369-4209-aab1-e61cae2c81b5/subagents/agent-a456ac0f0759901f8.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "plan-three-tasks-t01-hidden-moon.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T17:05:17.256Z",
+      "claudeCodeVersions": [
+        "2.1.283"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-155438/355b8100-33a0-434c-bbdd-370d5b263631/subagents/agent-ace171b332efb771b.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "hashed-singing-journal.tasks.json T01",
+      "turns": 5,
+      "toolCalls": 4,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T19:56:45.390Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-155438/355b8100-33a0-434c-bbdd-370d5b263631/subagents/agent-a1800fba22ce29c72.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "hashed-singing-journal.tasks.json T02",
+      "turns": 5,
+      "toolCalls": 4,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T19:57:08.807Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-155438/355b8100-33a0-434c-bbdd-370d5b263631/subagents/agent-a7c32d8f3f0d141a1.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "hashed-singing-journal.tasks.json T03",
+      "turns": 6,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T19:57:27.343Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-161554/67193788-fb89-413d-80b5-ecfdf0330622/subagents/agent-aa044b60558bed3d1.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "quizzical-waddling-hummingbird.tasks.json T01",
+      "turns": 4,
+      "toolCalls": 3,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T20:18:13.379Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-161554/67193788-fb89-413d-80b5-ecfdf0330622/subagents/agent-adc7d60e0ad7c12ca.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "quizzical-waddling-hummingbird.tasks.json T02",
+      "turns": 5,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T20:18:37.587Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-agents-20260928-161554/67193788-fb89-413d-80b5-ecfdf0330622/subagents/agent-a05ca8b667a6d3e14.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "quizzical-waddling-hummingbird.tasks.json T03",
+      "turns": 5,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T20:19:00.814Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-execute-20260928-162334/4d972d86-aa6e-432d-b5aa-5304f14506d5/subagents/agent-a11b860fa11e09276.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "virtual-waddling-river.tasks.json T01",
+      "turns": 5,
+      "toolCalls": 4,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T20:30:19.827Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-execute-20260928-162334/4d972d86-aa6e-432d-b5aa-5304f14506d5/subagents/agent-a8f0067a92102c425.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "virtual-waddling-river.tasks.json T02",
+      "turns": 5,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T20:30:45.696Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-execute-20260928-162334/4d972d86-aa6e-432d-b5aa-5304f14506d5/subagents/agent-a7e129c69a5e1ac4a.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "virtual-waddling-river.tasks.json T03",
+      "turns": 6,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T20:31:07.404Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-execute-20260928-162334/784eaf59-ecc7-4d0e-a829-4955dbae9f70/subagents/agent-ac082159863aeb550.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "virtual-waddling-river.tasks.json T02",
+      "turns": 5,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T21:07:33.724Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-AppData-Local-Temp-tier-execute-20260928-162334/784eaf59-ecc7-4d0e-a829-4955dbae9f70/subagents/agent-ac98cf4f8ef0da38d.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "virtual-waddling-river.tasks.json T03",
+      "turns": 6,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T21:08:06.321Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-a3416379d53875ca7.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "delightful-riding-iverson.tasks.json T01",
+      "turns": 15,
+      "toolCalls": 33,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T22:22:54.862Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-a4dbd3820a70dbb8f.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "delightful-riding-iverson.tasks.json T02",
+      "turns": 7,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T22:32:55.578Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-a465164f5672b5078.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "delightful-riding-iverson.tasks.json T03",
+      "turns": 16,
+      "toolCalls": 17,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T22:35:41.913Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-a2320551710a88d37.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "delightful-riding-iverson.tasks.json T04",
+      "turns": 16,
+      "toolCalls": 16,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T22:44:53.864Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-a479aa2a6b4f93c4f.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "delightful-riding-iverson.tasks.json T05",
+      "turns": 25,
+      "toolCalls": 25,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T22:50:51.713Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-a281ca44e41a1a5ba.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "delightful-riding-iverson.tasks.json T06",
+      "turns": 7,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T23:03:04.120Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/861eca76-4a81-4a45-974e-5f09afb00b13/subagents/agent-ab38b09446bfc8385.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "delightful-riding-iverson.tasks.json T07",
+      "turns": 15,
+      "toolCalls": 16,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T23:05:58.085Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/caebcaa0-7461-4162-b080-462efdefbee8/subagents/agent-a91b2261ee40fab68.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "toasty-mixing-stearns.tasks.json T01",
+      "turns": 13,
+      "toolCalls": 13,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T23:30:52.181Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/caebcaa0-7461-4162-b080-462efdefbee8/subagents/agent-a1b3fbc2f4b858136.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "toasty-mixing-stearns.tasks.json T02",
+      "turns": 12,
+      "toolCalls": 13,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T23:37:49.351Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/caebcaa0-7461-4162-b080-462efdefbee8/subagents/agent-aaefd04167fb0e54b.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "toasty-mixing-stearns.tasks.json T03",
+      "turns": 19,
+      "toolCalls": 22,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T23:43:29.111Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/caebcaa0-7461-4162-b080-462efdefbee8/subagents/agent-a4770b21b12617747.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "toasty-mixing-stearns.tasks.json T04",
+      "turns": 9,
+      "toolCalls": 12,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-28T23:47:52.414Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-af7e5d290b30d5b10.jsonl",
+      "agentType": "planandtier:opus-medium",
+      "tier": "opus-medium",
+      "task": "floofy-squishing-simon.tasks.json T01",
+      "turns": 15,
+      "toolCalls": 23,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:27:34.434Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-aca25b3b0a8877293.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "floofy-squishing-simon.tasks.json T02",
+      "turns": 14,
+      "toolCalls": 19,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:29:47.263Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a1dd198dd73cc3a77.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "floofy-squishing-simon.tasks.json T03",
+      "turns": 10,
+      "toolCalls": 17,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:32:24.716Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a4684010175adbbf3.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "floofy-squishing-simon.tasks.json T04",
+      "turns": 10,
+      "toolCalls": 20,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:35:25.295Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-afc34ee6fad3da5bf.jsonl",
+      "agentType": "planandtier:opus-medium",
+      "tier": "opus-medium",
+      "task": "floofy-squishing-simon.tasks.json T05",
+      "turns": 9,
+      "toolCalls": 9,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:37:47.031Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a3a7f8b29e7c331b3.jsonl",
+      "agentType": "planandtier:opus-high",
+      "tier": "opus-high",
+      "task": "floofy-squishing-simon.tasks.json T05",
+      "turns": 3,
+      "toolCalls": 2,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:39:31.845Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a065d77f54c9d173c.jsonl",
+      "agentType": "planandtier:opus-medium",
+      "tier": "opus-medium",
+      "task": "floofy-squishing-simon.tasks.json T01",
+      "turns": 15,
+      "toolCalls": 16,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:45:06.304Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a4a20d872f54699e1.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "floofy-squishing-simon.tasks.json T02",
+      "turns": 5,
+      "toolCalls": 4,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T00:47:19.077Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-adbc4bc5046b3600c.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "floofy-squishing-simon.tasks.json T01",
+      "turns": 10,
+      "toolCalls": 12,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T01:20:50.022Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-ac5bba28b29f2348d.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "floofy-squishing-simon.tasks.json T01",
+      "turns": 18,
+      "toolCalls": 21,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T01:43:29.480Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/fe439ebe-a55b-49ed-ad33-409b27c9bc84/subagents/agent-a6a59c1c092618b1a.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "floofy-squishing-simon.tasks.json T02",
+      "turns": 8,
+      "toolCalls": 12,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T01:46:35.612Z",
+      "claudeCodeVersions": [
+        "2.1.284"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/eae6e478-661f-40fd-bfa6-689c97b1ed06/subagents/agent-adcd80559c7ad1537.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "abstract-fluttering-pascal.tasks.json T01",
+      "turns": 5,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T21:53:34.596Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a515255476e528608.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "parallel-shimmying-robin.tasks.json T01",
+      "turns": 4,
+      "toolCalls": 8,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T22:08:37.714Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a16589711d0a573fe.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "parallel-shimmying-robin.tasks.json T01",
+      "turns": 30,
+      "toolCalls": 45,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T22:20:55.569Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-aa617cd4dc3df9d1a.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "parallel-shimmying-robin.tasks.json T02",
+      "turns": 27,
+      "toolCalls": 29,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T22:31:43.127Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a44f49fb0498aed4e.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "parallel-shimmying-robin.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 8,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T23:01:45.381Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-afb7b69761f69f340.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "parallel-shimmying-robin.tasks.json T02",
+      "turns": 50,
+      "toolCalls": 55,
+      "maxTurns": 60,
+      "nearLimit": true,
+      "startedAt": "2026-09-29T23:05:26.952Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/2bb133ec-76f2-4732-8745-606e68e1fbba/subagents/agent-a1d3d409e9e5c6345.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "parallel-shimmying-robin.tasks.json T03",
+      "turns": 19,
+      "toolCalls": 19,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-29T23:18:41.908Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/18ac63fc-c547-42a1-a7f0-a1bb7441e317/subagents/agent-a2a8f92bee51328b1.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "planandtier-unattended-runs.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 10,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:17:15.948Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/18ac63fc-c547-42a1-a7f0-a1bb7441e317/subagents/agent-a1dd444018fc1b0e8.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "planandtier-unattended-runs.tasks.json T02",
+      "turns": 12,
+      "toolCalls": 22,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:20:48.873Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/18ac63fc-c547-42a1-a7f0-a1bb7441e317/subagents/agent-ad02ac45edf70c58e.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "planandtier-unattended-runs.tasks.json T03",
+      "turns": 12,
+      "toolCalls": 22,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:29:32.741Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/18ac63fc-c547-42a1-a7f0-a1bb7441e317/subagents/agent-a822addaf59c2bb96.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "planandtier-unattended-runs.tasks.json T04",
+      "turns": 12,
+      "toolCalls": 22,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:33:51.389Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-a26b02bba0d3d5417.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "abstract-fluttering-pascal.tasks.json T02",
+      "turns": 7,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:54:43.093Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-a6f33052f1af504c1.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "abstract-fluttering-pascal.tasks.json T03",
+      "turns": 5,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:55:32.445Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-a868eb08603996923.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "abstract-fluttering-pascal.tasks.json T04",
+      "turns": 7,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:56:13.067Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-a3797a8ba1bdb53ca.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "abstract-fluttering-pascal.tasks.json T05",
+      "turns": 8,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:59:03.730Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-a05b1f9ead99751b9.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "abstract-fluttering-pascal.tasks.json T06",
+      "turns": 7,
+      "toolCalls": 8,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T00:59:59.848Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-a4f3b1e34f15c7912.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "abstract-fluttering-pascal.tasks.json T07",
+      "turns": 4,
+      "toolCalls": 5,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T01:00:53.978Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/0501908c-f291-4541-9535-c8b664596517/subagents/agent-ae87450b978661a91.jsonl",
+      "agentType": "planandtier:opus-medium",
+      "tier": "opus-medium",
+      "task": "abstract-fluttering-pascal.tasks.json T08",
+      "turns": 27,
+      "toolCalls": 40,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T01:01:17.046Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-a82c65219212e2f9d.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T01",
+      "turns": 8,
+      "toolCalls": 12,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:40:55.174Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-a398b075900af27aa.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T02",
+      "turns": 7,
+      "toolCalls": 8,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:41:49.066Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-a359357e35d14c9b5.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T03",
+      "turns": 5,
+      "toolCalls": 8,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:42:36.295Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-a5c7a9f2165a2a1e7.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T04",
+      "turns": 7,
+      "toolCalls": 9,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:43:08.277Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-ae881f567f2fbf7fb.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T05",
+      "turns": 8,
+      "toolCalls": 10,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:43:58.402Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-a2baf77a81ce20a18.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T06",
+      "turns": 12,
+      "toolCalls": 18,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:44:59.892Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/a771e449-c542-43f6-88a6-a4f5669784cf/subagents/agent-af722650a8f3c1adc.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "eager-scribbling-balloon.tasks.json T07",
+      "turns": 8,
+      "toolCalls": 9,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T02:46:34.803Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/8e54c604-4f9e-4911-8a49-b510263549f5/subagents/agent-adb1dd4d4d62d4d24.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "wiggly-floating-dijkstra.tasks.json T01",
+      "turns": 6,
+      "toolCalls": 7,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:05:47.679Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/8e54c604-4f9e-4911-8a49-b510263549f5/subagents/agent-a786203f3191229cb.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "wiggly-floating-dijkstra.tasks.json T02",
+      "turns": 6,
+      "toolCalls": 10,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:06:39.759Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/8e54c604-4f9e-4911-8a49-b510263549f5/subagents/agent-a6a67783d57e7c4eb.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "wiggly-floating-dijkstra.tasks.json T03",
+      "turns": 5,
+      "toolCalls": 7,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:07:17.475Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/8e54c604-4f9e-4911-8a49-b510263549f5/subagents/agent-a82c4d85943655d98.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "wiggly-floating-dijkstra.tasks.json T04",
+      "turns": 7,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:08:02.462Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/8e54c604-4f9e-4911-8a49-b510263549f5/subagents/agent-a04a8009b25bc27f1.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "wiggly-floating-dijkstra.tasks.json T05",
+      "turns": 7,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:10:57.158Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-a0bdde5cafd06fb87.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "snappy-puzzling-phoenix.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 10,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:52:55.962Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-af77572f2a570b571.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "snappy-puzzling-phoenix.tasks.json T02",
+      "turns": 7,
+      "toolCalls": 10,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:53:34.691Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-a2c559754f6ec1a4c.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "snappy-puzzling-phoenix.tasks.json T03",
+      "turns": 6,
+      "toolCalls": 11,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:54:20.996Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-a8a072243e562bee2.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "snappy-puzzling-phoenix.tasks.json T04",
+      "turns": 10,
+      "toolCalls": 25,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:55:03.416Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-a46bf26ea32842ac4.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "snappy-puzzling-phoenix.tasks.json T05",
+      "turns": 10,
+      "toolCalls": 14,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:55:59.262Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-aa153ece333afd9ee.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "snappy-puzzling-phoenix.tasks.json T06",
+      "turns": 11,
+      "toolCalls": 11,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:57:18.962Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/4990aa85-6a9d-489d-a8ed-21ac6c9cd5bd/subagents/agent-ac39f1903e615ae79.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "snappy-puzzling-phoenix.tasks.json T07",
+      "turns": 7,
+      "toolCalls": 7,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T05:58:31.479Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-a6c023f572885a5d2.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "typed-finding-quail.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 11,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:17:27.468Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-a0fb662681444aa44.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "typed-finding-quail.tasks.json T02",
+      "turns": 7,
+      "toolCalls": 9,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:18:14.824Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-a48ad90208146b178.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "typed-finding-quail.tasks.json T03",
+      "turns": 13,
+      "toolCalls": 22,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:19:24.078Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-a65b7c993a48ed60b.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "typed-finding-quail.tasks.json T04",
+      "turns": 7,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:21:44.336Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-a4b606a3a4625f7a4.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "typed-finding-quail.tasks.json T05",
+      "turns": 8,
+      "toolCalls": 10,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:24:27.609Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-aa900ef1a661d91eb.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "typed-finding-quail.tasks.json T06",
+      "turns": 14,
+      "toolCalls": 17,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:25:40.757Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/bb0fe4fd-9db2-4971-a0c3-b45ff08a7183/subagents/agent-a2cb0ac67e6702897.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "typed-finding-quail.tasks.json T07",
+      "turns": 8,
+      "toolCalls": 12,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T06:27:12.469Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a702bb1d02ef2f12a.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "lexical-zooming-snowglobe.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 10,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T22:58:57.358Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a60215707c9f26a55.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "lexical-zooming-snowglobe.tasks.json T02",
+      "turns": 6,
+      "toolCalls": 8,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T22:59:46.660Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a743a8015a851702c.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "lexical-zooming-snowglobe.tasks.json T03",
+      "turns": 6,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T23:00:10.486Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a08a9c53b194c9585.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "lexical-zooming-snowglobe.tasks.json T03",
+      "turns": 7,
+      "toolCalls": 11,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T23:02:36.902Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-aabc38a97c399eec2.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "lexical-zooming-snowglobe.tasks.json T04",
+      "turns": 9,
+      "toolCalls": 13,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T23:03:10.528Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a2fd3b6342f7459ae.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "lexical-zooming-snowglobe.tasks.json T05",
+      "turns": 5,
+      "toolCalls": 5,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T23:03:57.185Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/e0b756f2-1f0b-4afd-940d-145b72ea4394/subagents/agent-a5861930ac857d291.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "lexical-zooming-snowglobe.tasks.json T06",
+      "turns": 6,
+      "toolCalls": 6,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-09-30T23:04:35.523Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-ad0cd438d100290bd.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "turns": 11,
+      "toolCalls": 15,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T00:00:52.673Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a74032130743ba403.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "jolly-sprouting-magpie.tasks.json T02",
+      "turns": 12,
+      "toolCalls": 20,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T00:02:28.123Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a2b01887fd29ce62a.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "jolly-sprouting-magpie.tasks.json T03",
+      "turns": 7,
+      "toolCalls": 9,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T00:04:41.025Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-ac5d76c293622d40a.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "jolly-sprouting-magpie.tasks.json T04",
+      "turns": 10,
+      "toolCalls": 11,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T00:21:56.302Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a6827b9ee3c0c0def.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "jolly-sprouting-magpie.tasks.json T05",
+      "turns": 23,
+      "toolCalls": 28,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T00:23:06.146Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-aa401a31aab713b4c.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "jolly-sprouting-magpie.tasks.json T06",
+      "turns": 8,
+      "toolCalls": 14,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T00:29:24.858Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-abcd2ebe56fa7166d.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "turns": 8,
+      "toolCalls": 24,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T01:19:41.934Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a1a600e327d18a03a.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "jolly-sprouting-magpie.tasks.json T02",
+      "turns": 10,
+      "toolCalls": 15,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T01:20:33.121Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a765d2c766d13ddd1.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "jolly-sprouting-magpie.tasks.json T03",
+      "turns": 8,
+      "toolCalls": 8,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T01:21:47.921Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a282b4b387af18b38.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "turns": 6,
+      "toolCalls": 18,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T01:49:57.383Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a7112ad910240a4ff.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "turns": 3,
+      "toolCalls": 3,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T01:50:47.461Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-a894e072ff0005aed.jsonl",
+      "agentType": "planandtier:sonnet-high",
+      "tier": "sonnet-high",
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "turns": 4,
+      "toolCalls": 3,
+      "maxTurns": 60,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T01:51:04.253Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/cbb863e8-bad8-44da-9b17-4bb43f0d45fb/subagents/agent-aa76506ff0085b5d8.jsonl",
+      "agentType": "planandtier:sonnet-low",
+      "tier": "sonnet-low",
+      "task": "jolly-sprouting-magpie.tasks.json T01",
+      "turns": 6,
+      "toolCalls": 5,
+      "maxTurns": 30,
+      "nearLimit": false,
+      "startedAt": "2026-10-01T04:05:32.295Z",
+      "claudeCodeVersions": [
+        "2.1.285"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/b67c851e-c9eb-4034-a99f-25ca8f8e72b9/subagents/agent-a2141e55a831cccd0.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "tingly-whistling-graham.tasks.json T01",
+      "turns": 13,
+      "toolCalls": 13,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-04T02:02:57.837Z",
+      "claudeCodeVersions": [
+        "2.1.286"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/b67c851e-c9eb-4034-a99f-25ca8f8e72b9/subagents/agent-a5bb2106e1031ec92.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "tingly-whistling-graham.tasks.json T02",
+      "turns": 9,
+      "toolCalls": 10,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-04T02:07:38.758Z",
+      "claudeCodeVersions": [
+        "2.1.286"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/b67c851e-c9eb-4034-a99f-25ca8f8e72b9/subagents/agent-ac649afac2984f7a4.jsonl",
+      "agentType": "planandtier:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "tingly-whistling-graham.tasks.json T03",
+      "turns": 8,
+      "toolCalls": 7,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-04T02:08:26.779Z",
+      "claudeCodeVersions": [
+        "2.1.286"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/b67c851e-c9eb-4034-a99f-25ca8f8e72b9/subagents/agent-ae454b4a0dcde3915.jsonl",
+      "agentType": "planandtier:opus-medium",
+      "tier": "opus-medium",
+      "task": "tingly-whistling-graham.tasks.json T04",
+      "turns": 42,
+      "toolCalls": 83,
+      "maxTurns": 40,
+      "nearLimit": true,
+      "startedAt": "2026-10-04T02:12:03.637Z",
+      "claudeCodeVersions": [
+        "2.1.286"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/b67c851e-c9eb-4034-a99f-25ca8f8e72b9/subagents/agent-a72986dde0b5833d6.jsonl",
+      "agentType": "planandtier:opus-medium",
+      "tier": "opus-medium",
+      "task": "tingly-whistling-graham.tasks.json T05",
+      "turns": 31,
+      "toolCalls": 95,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-04T02:45:43.042Z",
+      "claudeCodeVersions": [
+        "2.1.286"
+      ]
+    },
+    {
+      "transcript": ".claude/projects/C--Users-timsc-Source-Repos-GitHub-timschreiber-claude-plugins/d45f547c-89ab-45b1-8cbd-043b813e841e/subagents/agent-a083de00960435a2d.jsonl",
+      "agentType": "tierminator:sonnet-medium",
+      "tier": "sonnet-medium",
+      "task": "prancy-giggling-globe.tasks.json T01",
+      "turns": 7,
+      "toolCalls": 12,
+      "maxTurns": 40,
+      "nearLimit": false,
+      "startedAt": "2026-10-04T03:15:47.027Z",
+      "claudeCodeVersions": [
+        "2.1.286"
+      ]
+    }
+  ]
+}
