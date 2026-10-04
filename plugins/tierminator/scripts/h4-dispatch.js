@@ -21,6 +21,9 @@ const git = require('./lib/git.js')
 const r = require('./lib/run.js')
 const spend = require('./lib/spend.js')
 const { settle, reportFromTranscript } = require('./lib/settle.js')
+const { MAX_TURNS } = require('./lib/tasks.js')
+const { transcriptUsage } = require('./lib/usage.js')
+const { onTurnLimit } = require('./lib/turnlimit.js')
 const { run, readInput, emit } = require('./lib/hook.js')
 
 const ours = type => typeof type === 'string' && type.startsWith(r.AGENT_PREFIX)
@@ -63,6 +66,16 @@ function stop(input, s) {
   if (s?.handedBack?.includes(input.agent_id)) return
   if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
   const report = r.parseReport(input.last_assistant_message) ?? reportFromTranscript(input.agent_transcript_path)
+  if (!report) {
+    // No report at its turn limit: the worker is not judged. The "stopped at its turn limit" notification
+    // (H1) or the Agent result (post) resumes it instead of a failed attempt and a reset.
+    const turns = transcriptUsage(input.agent_transcript_path)?.messages
+    if (typeof turns === 'number' && turns >= MAX_TURNS[s.current.tier]) {
+      const agentId = s.current.agentId ?? input.agent_id ?? null
+      state.write(input.session_id, { ...s, current: { ...s.current, turnLimited: { turns }, agentId } })
+      return
+    }
+  }
   const reported = { ...s, current: { ...s.current, report } }
   // The attempt's tokens and estimated cost go to the plan's telemetry file, and its UI line is queued
   // for the next Stop (H5); Claude's notice is unchanged.
@@ -79,8 +92,24 @@ function post(input, s) {
     state.write(input.session_id, { ...s, notice: null })
     context('PostToolUse', s.notice)
   } else if (s.phase === 'running' && s.current.inFlight) {
-    // A background launch: remember it, so the notice waits for the worker's "finished" notification.
-    if (input.tool_response?.isAsync) state.write(input.session_id, { ...s, current: { ...s.current, background: true } })
+    const response = input.tool_response
+    const agentId = typeof response?.agentId === 'string' ? response.agentId : null
+    if (response?.isAsync) {
+      // A background launch: remember it, and its agent id, so the notice waits for the worker's "finished"
+      // notification and a turn-limit notification can be matched to it.
+      state.write(input.session_id, {
+        ...s,
+        current: { ...s.current, background: true, agentId: agentId ?? s.current.agentId ?? null },
+      })
+    } else {
+      // A foreground run that ended at its turn limit (SubagentStop does not fire for it): resume it.
+      const turns = r.turnLimitOf(JSON.stringify(response)) ?? s.current.turnLimited?.turns ?? null
+      if (typeof turns === 'number' || s.current.turnLimited) {
+        const withId = agentId ? { ...s, current: { ...s.current, agentId } } : s
+        const text = onTurnLimit(input, withId, turns ?? 0)
+        if (text) return context('PostToolUse', text)
+      }
+    }
     context('PostToolUse', r.runningText(s))
   }
 }

@@ -1073,6 +1073,121 @@ test('H4 failure counts a failed Agent call as a failed attempt', () => {
   assert.equal(state.read(S).current.tier, 'sonnet-medium')
 })
 
+// ---- a worker that stops at its turn limit is resumed, not judged -----------------------
+
+const LIMIT_SUMMARY = 'Agent "T01: x" stopped at its 40-turn limit (partial result; SendMessage to task-id to continue)'
+const limitNote = id =>
+  `<task-notification>\n<task-id>${id}</task-id>\n<status>completed</status>\n<summary>${LIMIT_SUMMARY}</summary>\n</task-notification>`
+// A background launch of the current task, as the Agent tool answers it, with the agent id `id`.
+function launchInBackground(id) {
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  hook('h4-dispatch.js', agentPost(call, { tool_response: { isAsync: true, status: 'async_launched', agentId: id } }), ['post'])
+}
+// A worker transcript of `n` assistant messages.
+function turnsTranscript(n) {
+  const file = path.join(dir, 'turns.jsonl')
+  const lines = Array.from({ length: n }, (_, i) =>
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: new Date(Date.now() - (n - i) * 1000).toISOString(),
+      message: { id: `m${i}`, model: 'claude-sonnet-5', content: [{ type: 'text', text: '...' }], usage: { input_tokens: 1, output_tokens: 1 } },
+    })
+  )
+  fs.writeFileSync(file, lines.join('\n') + '\n')
+  return file
+}
+
+test('a background launch records the worker\'s agent id', () => {
+  startTestRun()
+  launchInBackground('ae454b4')
+  assert.deepEqual([state.read(S).current.background, state.read(S).current.agentId], [true, 'ae454b4'])
+})
+
+test('a turn-limit notification resumes the worker, and leaves the tree and its commits alone', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  launchInBackground('ae454b4')
+  const sha = workerCommits('T01')
+  const out = h1Prompt(limitNote('ae454b4')).stdout
+  assert.match(out, /T01 stopped at its turn limit on tierminator:sonnet-low \(resume 1 of 2\)/)
+  assert.match(out, /Call the SendMessage tool now with to "ae454b4"/)
+  const s = state.read(S)
+  assert.deepEqual([s.current.inFlight, s.current.resumePending, s.current.attempt, s.done.length], [true, true, 1, 0])
+  assert.deepEqual(s.current.turnLimited, { turns: 40 })
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), sha, 'nothing is reset')
+  assert.equal(fs.existsSync(path.join(repo, 'T01.txt')), true)
+  assert.deepEqual(telemetry.read(telemetryFile()), [], 'a resume is not an attempt')
+  assert.equal(h1Prompt(limitNote('ae454b4')).stdout, '', 'a second notification while the resume is due says nothing')
+})
+
+test('a turn-limit notification after two resumes halts the run, without a reset, and records the attempt', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  launchInBackground('ae454b4')
+  const sha = workerCommits('T01')
+  const saved = state.read(S)
+  state.write(S, { ...saved, current: { ...saved.current, resumes: 2 } })
+  const out = h1Prompt(limitNote('ae454b4')).stdout
+  assert.match(out, /stopped at T01 after 1 attempt\(s\) \(sonnet-low\)\. Reason: T01 reached its turn limit 3 times.*split it/)
+  const s = state.read(S)
+  assert.equal(s.phase, 'halted')
+  assert.equal(s.notice, null)
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), sha, 'the worker commit survives')
+  assert.equal(fs.existsSync(path.join(repo, 'T01.txt')), true)
+  const rows = telemetry.read(telemetryFile()).filter(r => r.kind === 'attempt')
+  assert.deepEqual(rows.map(r => [r.task, r.tier, r.agentId, r.outcome]), [['T01', 'sonnet-low', 'ae454b4', 'halt']])
+  assert.match(rows[0].reason, /split it/)
+})
+
+test('a turn-limit notification for another task is ignored', () => {
+  startTestRun()
+  launchInBackground('ae454b4')
+  const before = state.read(S)
+  assert.equal(h1Prompt(limitNote('someone-else')).stdout, '')
+  assert.deepEqual(state.read(S), before)
+})
+
+test('a turn-limit notification with no recorded agent id takes the notification\'s task-id', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  const out = h1Prompt(limitNote('ae454b4')).stdout
+  assert.match(out, /to "ae454b4"/)
+  assert.equal(state.read(S).current.agentId, 'ae454b4')
+})
+
+test('H4 stop with no report and as many turns as its limit is not judged', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  // sonnet-low has a 40-turn limit.
+  hook('h4-dispatch.js', subStop('', { agent_transcript_path: turnsTranscript(40) }), ['stop'])
+  const s = state.read(S)
+  assert.deepEqual([s.current.inFlight, s.notice, s.current.attempt, s.current.agentId], [true, null, 1, 'worker-1'])
+  assert.deepEqual(s.current.turnLimited, { turns: 40 })
+})
+
+test('H4 stop with no report and fewer turns than its limit is judged as before', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  hook('h4-dispatch.js', subStop('', { agent_transcript_path: turnsTranscript(39) }), ['stop'])
+  assert.equal(state.read(S).current.inFlight, false)
+  assert.match(state.read(S).notice, /T01 failed at sonnet-low: the worker returned no STATUS report/)
+})
+
+test('a foreground Agent result that stopped at the turn limit gives the resume text', () => {
+  startTestRun()
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  const response = {
+    status: 'completed',
+    agentId: 'a1b48e4',
+    content: [{ type: 'text', text: 'NOTE: this agent stopped at its 40-turn limit before finishing. It was still calling tools and had produced no report.' }],
+  }
+  const out = hook('h4-dispatch.js', agentPost(call, { tool_response: response }), ['post']).json.hookSpecificOutput
+  assert.equal(out.hookEventName, 'PostToolUse')
+  assert.match(out.additionalContext, /T01 stopped at its turn limit.*Call the SendMessage tool now with to "a1b48e4"/s)
+  const s = state.read(S)
+  assert.deepEqual([s.current.agentId, s.current.resumePending, s.current.inFlight], ['a1b48e4', true, true])
+})
+
 test('H4 post and failure ignore calls that were not dispatched by the run', () => {
   startTestRun()
   assert.equal(hook('h4-dispatch.js', agentPost(expected()), ['post']).stdout, '')

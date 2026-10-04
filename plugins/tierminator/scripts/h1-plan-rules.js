@@ -36,7 +36,9 @@ const fs = require('fs')
 const path = require('path')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
-const { doneLabel, parseReport } = require('./lib/run.js')
+const r = require('./lib/run.js')
+const { doneLabel, parseReport } = r
+const { onTurnLimit } = require('./lib/turnlimit.js')
 const { executePlan } = require('./lib/execute.js')
 const spend = require('./lib/spend.js')
 const unattended = require('./lib/unattended.js')
@@ -78,6 +80,21 @@ function runNote(input) {
     return
   }
   if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) handBack(input, s)
+  else if (/^\s*<task-notification\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) turnLimitNote(input, s)
+}
+
+// A worker's "stopped at its N-turn limit" notification: SubagentStop did not judge it, so resume the worker
+// (or halt after too many resumes) in this turn. A notification for another agent is ignored.
+function turnLimitNote(input, s) {
+  if (s.current.resumePending) return
+  const turns = r.turnLimitOf(input.prompt)
+  if (typeof turns !== 'number') return
+  const known = s.current.agentId ?? null
+  const taskId = r.taskIdOf(input.prompt)
+  if (known !== null && taskId !== known) return
+  const withId = known === null ? { ...s, current: { ...s.current, agentId: taskId } } : s
+  const text = onTurnLimit(input, withId, turns)
+  if (text) emitText(text)
 }
 
 const PRUNE_DAYS = 7
