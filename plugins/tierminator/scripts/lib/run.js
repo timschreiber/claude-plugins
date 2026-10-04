@@ -16,6 +16,7 @@ const crypto = require('crypto')
 const { tierOf, nextTier } = require('./tasks.js')
 
 const MAX_RETRIES = 2
+const MAX_RESUMES = 2
 const AGENT_PREFIX = 'tierminator:'
 const agentName = tier => `${AGENT_PREFIX}${tier}`
 
@@ -29,6 +30,10 @@ const fresh = (task, index) => ({
   report: null,
   lastFailure: null,
   dispatchFailures: 0,
+  agentId: null,
+  resumes: 0,
+  resumePending: false,
+  turnLimited: null,
 })
 
 // The state for a run that has just been approved, or picked up again by /tierminator:execute.
@@ -208,12 +213,78 @@ function advance(state, outcome) {
       inFlight: false,
       report: null,
       lastFailure: { tier: cur.tier, reason: outcome.reason },
+      agentId: null,
+      resumes: 0,
+      resumePending: false,
+      turnLimited: null,
     }
     return { state: { ...state, current }, action: 'retry' }
   }
   const halt = { task: task.id, tried, reason: outcome.fatal ?? outcome.reason }
   return { state: { ...state, phase: 'halted', halt, current: { ...cur, inFlight: false, tried } }, action: 'halt' }
 }
+
+// The turn limit N named in a subagent's "stopped at its N-turn limit" summary, else null.
+function turnLimitOf(text) {
+  const m = /stopped at its (\d+)-turn limit/.exec(String(text ?? ''))
+  return m ? Number(m[1]) : null
+}
+
+// The content of the first <task-id> element in a notification, else null.
+function taskIdOf(text) {
+  const m = /<task-id>([\s\S]*?)<\/task-id>/.exec(String(text ?? ''))
+  return m ? m[1].trim() : null
+}
+
+const RESUME_MESSAGE =
+  "tierminator: you reached your turn limit before reporting. Don't redo finished work. If your task's " +
+  'Verify step passed and you committed, end now with your report block. Otherwise finish the remaining ' +
+  'work, run Verify, commit only if it passes, and end with your report block.'
+
+// What Claude is told when a worker stopped at its turn limit: resume it with SendMessage.
+function resumeText(state) {
+  const { agentId, tier, resumes } = state.current
+  const id = currentTask(state).id
+  const to = agentId ?? "the worker's task-id from the notification"
+  return (
+    `tierminator: ${id} stopped at its turn limit on ${agentName(tier)} (resume ${resumes + 1} of ${MAX_RESUMES}). ` +
+    `Call the SendMessage tool now with to "${to}", summary "${id}: resume after the turn limit", and as its ` +
+    'message exactly the text inside this fence, without the fence lines:\n' +
+    '```\n' + RESUME_MESSAGE + '\n```\n' +
+    'Do not do the task yourself. Then end your turn; tierminator gives the next step when the worker reports.'
+  )
+}
+
+// A worker stopped at its turn limit with the task in flight. Resumes it while resumes are left, else
+// halts. It never retries or resets: a turn limit is not a tier failure, since a higher tier uses more turns.
+function turnLimitStop(state, turns) {
+  const cur = state.current
+  if (cur.resumes < MAX_RESUMES) {
+    return { state: { ...state, current: { ...cur, resumePending: true, turnLimited: { turns } } }, action: 'resume' }
+  }
+  return advance(state, {
+    ok: false,
+    fatal:
+      `${currentTask(state).id} reached its turn limit ${cur.resumes + 1} times (${turns} turns at the last ` +
+      'stop); it is probably too large for one task: split it and run /tierminator:execute again',
+  })
+}
+
+// null when the SendMessage call is the resume the run expects, else what is wrong with it.
+function checkResume(state, toolInput) {
+  if (!state || state.phase !== 'running') return 'no tierminator run is in progress'
+  if (!state.current.inFlight || !state.current.resumePending) return 'no resume is due'
+  const { agentId } = state.current
+  if (agentId && toolInput?.to !== agentId) return `the resume goes to ${agentId}, not ${toolInput?.to}`
+  if (normalize(toolInput?.message) !== normalize(RESUME_MESSAGE)) return 'the message is not the expected one'
+  return null
+}
+
+// The state once the resume has been sent.
+const resumed = state => ({
+  ...state,
+  current: { ...state.current, resumePending: false, resumes: state.current.resumes + 1 },
+})
 
 function completeText(state) {
   const list = state.done.map(doneLabel).join(', ')
@@ -236,6 +307,7 @@ function haltText(state) {
 
 module.exports = {
   MAX_RETRIES,
+  MAX_RESUMES,
   AGENT_PREFIX,
   agentName,
   startRun,
@@ -251,6 +323,13 @@ module.exports = {
   parseReport,
   judge,
   advance,
+  turnLimitOf,
+  taskIdOf,
+  RESUME_MESSAGE,
+  resumeText,
+  turnLimitStop,
+  checkResume,
+  resumed,
   completeText,
   haltText,
 }

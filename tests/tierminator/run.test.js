@@ -189,3 +189,83 @@ test('a failure at the top tier, or a fatal one, halts at once', () => {
   assert.equal(fatal.action, 'halt')
   assert.match(fatal.state.halt.reason, /left the branch/)
 })
+
+test('turnLimitOf reads the limit from a stopped-agent summary, taskIdOf the task-id element', () => {
+  const summary = 'Agent "T04: x" stopped at its 40-turn limit (partial result; SendMessage to task-id to continue)'
+  assert.equal(r.turnLimitOf(summary), 40)
+  assert.equal(r.turnLimitOf('Agent "T04: x" completed'), null)
+  assert.equal(r.turnLimitOf(undefined), null)
+  assert.equal(r.taskIdOf('<task-notification>\n<task-id>  a1b2c3d4  </task-id>\n</task-notification>'), 'a1b2c3d4')
+  assert.equal(r.taskIdOf('<task-id>first</task-id><task-id>second</task-id>'), 'first')
+  assert.equal(r.taskIdOf('no id here'), null)
+  assert.equal(r.taskIdOf(null), null)
+})
+
+test('a fresh task has no agent, no resumes and no turn limit stop', () => {
+  assert.equal(r.MAX_RESUMES, 2)
+  const { agentId, resumes, resumePending, turnLimited } = start().current
+  assert.deepEqual({ agentId, resumes, resumePending, turnLimited }, { agentId: null, resumes: 0, resumePending: false, turnLimited: null })
+})
+
+const inFlight = (over = {}) => {
+  const s = start()
+  return { ...s, current: { ...s.current, inFlight: true, agentId: 'agent-1', ...over } }
+}
+
+test('turnLimitStop resumes twice and then halts without retrying or changing tier', () => {
+  for (const resumes of [0, 1]) {
+    const out = r.turnLimitStop(inFlight({ resumes }), 40)
+    assert.equal(out.action, 'resume')
+    assert.equal(out.state.phase, 'running')
+    assert.equal(out.state.current.resumePending, true)
+    assert.deepEqual(out.state.current.turnLimited, { turns: 40 })
+    assert.equal(out.state.current.tier, 'sonnet-low')
+    assert.equal(out.state.current.attempt, 1)
+  }
+  const out = r.turnLimitStop(inFlight({ resumes: 2 }), 41)
+  assert.equal(out.action, 'halt')
+  assert.equal(out.state.phase, 'halted')
+  assert.match(out.state.halt.reason, /^T01 reached its turn limit 3 times \(41 turns at the last stop\)/)
+  assert.match(out.state.halt.reason, /split it/)
+  assert.deepEqual(out.state.halt.tried, ['sonnet-low'])
+  assert.equal(out.state.current.tier, 'sonnet-low')
+  assert.equal(out.state.current.attempt, 1)
+})
+
+test('checkResume accepts the expected resume and names each problem', () => {
+  const s = inFlight({ resumePending: true })
+  const good = { to: 'agent-1', message: r.RESUME_MESSAGE, summary: 'T01: resume after the turn limit' }
+  assert.equal(r.checkResume(s, good), null)
+  assert.equal(r.checkResume(s, { ...good, message: r.RESUME_MESSAGE + '  \r\n' }), null)
+  assert.equal(r.checkResume({ ...s, phase: 'halted' }, good), 'no tierminator run is in progress')
+  assert.equal(r.checkResume(null, good), 'no tierminator run is in progress')
+  assert.equal(r.checkResume(inFlight({ resumePending: false }), good), 'no resume is due')
+  assert.equal(r.checkResume({ ...s, current: { ...s.current, inFlight: false } }, good), 'no resume is due')
+  assert.equal(r.checkResume(s, { ...good, to: 'agent-2' }), 'the resume goes to agent-1, not agent-2')
+  assert.equal(r.checkResume(inFlight({ resumePending: true, agentId: null }), { ...good, to: 'anything' }), null)
+  assert.equal(r.checkResume(s, { ...good, message: 'go on' }), 'the message is not the expected one')
+})
+
+test('resumed clears the pending resume and counts it', () => {
+  const s = inFlight({ resumePending: true, resumes: 1 })
+  const out = r.resumed(s)
+  assert.deepEqual([out.current.resumePending, out.current.resumes], [false, 2])
+  assert.deepEqual([s.current.resumePending, s.current.resumes], [true, 1])
+})
+
+test('resumeText names the agent, the resume count and the exact message', () => {
+  const text = r.resumeText(inFlight({ resumePending: true, resumes: 1 }))
+  assert.match(text, /^tierminator: T01 stopped at its turn limit on tierminator:sonnet-low \(resume 2 of 2\)\. /)
+  assert.match(text, /to "agent-1", summary "T01: resume after the turn limit"/)
+  assert.ok(text.includes('```\n' + r.RESUME_MESSAGE + '\n```\n'))
+  assert.match(text, /Do not do the task yourself\. Then end your turn/)
+  assert.match(r.resumeText(inFlight({ agentId: null })), /to "the worker's task-id from the notification"/)
+})
+
+test('a retry after a failure is a new worker: agent and resume state are cleared', () => {
+  const s = inFlight({ resumePending: true, resumes: 2, turnLimited: { turns: 40 } })
+  const { state, action } = r.advance(s, { ok: false, reason: 'Verify failed' })
+  assert.equal(action, 'retry')
+  const { agentId, resumes, resumePending, turnLimited } = state.current
+  assert.deepEqual({ agentId, resumes, resumePending, turnLimited }, { agentId: null, resumes: 0, resumePending: false, turnLimited: null })
+})
