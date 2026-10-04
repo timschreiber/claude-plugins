@@ -1,18 +1,19 @@
-// Unattended mode: when TIERMINATOR_UNATTENDED is set, no one approves the plan, so the plan is the
-// planning model's final message. This module holds the switch, the plan file name for a session,
-// the final-message extraction (from the Stop input or the transcript) and the planning note. Every
-// function swallows errors and returns a "nothing" value, because a hook must never fail loudly.
+// The unattended mode: a headless session (claude -p) started with /tierminator:plan has no one to approve
+// the plan, so the plan is the planning model's final message. This module holds the headless check
+// (CLAUDE_CODE_ENTRYPOINT starts with "sdk" headless and is "cli" interactively; see
+// tierminator-headless-command-findings.md), the plan file name for a session, the final-message
+// extraction (from the Stop input or the transcript) and the planning note. Every function swallows
+// errors and returns a "nothing" value, because a hook must never fail loudly.
 'use strict'
 
 const fs = require('fs')
 const path = require('path')
 const { plansDir } = require('./execute.js')
 
-const ENV = 'TIERMINATOR_UNATTENDED'
-
-function enabled(env = process.env) {
+// True in a headless session. A missing entrypoint counts as interactive.
+function headless(env = process.env) {
   try {
-    return /^(1|true|yes|on)$/i.test(String(env[ENV] ?? '').trim())
+    return String(env.CLAUDE_CODE_ENTRYPOINT ?? '').startsWith('sdk')
   } catch {
     return false
   }
@@ -64,7 +65,7 @@ function finalText(input) {
 
 function note(planFile) {
   return (
-    'tierminator: unattended run (TIERMINATOR_UNATTENDED is set). No one will approve the plan: it runs as soon as you finish planning. ' +
+    'tierminator: unattended run (a headless session started with /tierminator:plan). No one will approve the plan: it runs as soon as you finish planning. ' +
     'Plan the request as the rules below say, but not in plan mode and without ExitPlanMode, which this session does not use. ' +
     'Investigate read-only: read files and run read-only commands; file edits are refused until the run starts. ' +
     'Then end your turn with the complete plan as your final message: the prose summary, then the ## Tasks section with its json tiered-tasks block. ' +
@@ -72,4 +73,4 @@ function note(planFile) {
   )
 }
 
-module.exports = { ENV, enabled, planFileFor, finalText, note }
+module.exports = { headless, planFileFor, finalText, note }

@@ -1,38 +1,42 @@
-// H1: put the tiering rules in front of the planner, and a run in progress in front of Claude.
-//   (no arg)  UserPromptSubmit: in plan mode, print the rules as added context, once per plan-mode stint:
-//             on the first prompt the user types there, unless the rules were already shown (on arming in
-//             plan mode, or on EnterPlanMode). A <task-notification> or <agent-message> prompt never shows
-//             them. A prompt outside plan mode clears the "shown" marker, so the next stint shows them
-//             again. Outside plan mode:
-//             - if H4 left a notice (a background worker finished, and its report is arriving as a
-//               prompt), print it: that is how the run moves on to its next step with nothing typed;
-//             - a report that arrives as an <agent-message> while its attempt is still in flight is
-//               judged here, in the turn it arrives (handBack): the worker's report is read from the
-//               prompt, or from its transcript, the attempt is settled and its spend recorded, and the
-//               notice (the next dispatch, a retry, a halt or completion) is printed at once. The
-//               "finished" notification that follows a hand-back is transcript-only and starts no
-//               turn, so no later event is needed, and none is waited for;
-//             - otherwise, for a prompt the user typed while a run is in progress, print where it
-//               stands and the next exact dispatch, so "continue" resumes it after an interruption;
-//             - a paused run (its tree was dirty at approval) starts here once the tree is clean.
-//   enter     PostToolUse EnterPlanMode: the model entered plan mode itself, so add the rules then.
+// H1: the typed commands, the tiering rules in front of the planner, and a run's next step in front of Claude.
+//   (no arg)  UserPromptSubmit. The commands, as typed (the hook sees the raw text, not the skill body):
+//             - /tierminator:plan <request> makes the session active and starts planning. Interactively it
+//               saves the planning phase and asks Claude to enter plan mode (or, already there, prints the
+//               rules); approving the plan then runs it (H3). In a headless session (lib/unattended.js) it
+//               starts the drafting phase instead and prints the unattended note and the rules.
+//             - /tierminator:execute [plan path | list number] [--from Txx] runs a saved plan
+//               (lib/execute.js).
+//             Either command first ends whatever the session was doing: a run in progress stops, and
+//             Claude is told what is done.
+//             Any other prompt does something only in an active session:
+//             - a <task-notification> or <agent-message> prompt (the harness, not the user) keeps the run
+//               moving: if H4 left a notice (a background worker finished), it is printed, and a report
+//               that arrives as an <agent-message> while its attempt is still in flight is judged here, in
+//               the turn it arrives (handBack): the worker's report is read from the prompt, or from its
+//               transcript, the attempt is settled and its spend recorded, and the notice (the next
+//               dispatch, a retry, a halt or completion) is printed at once. The "finished" notification
+//               that follows a hand-back is transcript-only and starts no turn, so no later event is
+//               needed, and none is waited for. In plan mode these prompts never show the rules;
+//             - while planning, a prompt typed in plan mode shows the rules once per plan-mode stint
+//               (unless /tierminator:plan or EnterPlanMode already did); one typed outside plan mode means
+//               the user left plan mode without approving, so the session is made inactive, silently;
+//             - while drafting (headless), the unattended note is printed again;
+//             - during a run, a typed prompt stops it: nothing more is dispatched, Claude is told what is
+//               done and that /tierminator:execute resumes it, and the session is made inactive;
+//             - after a run has ended (or with no state), the session is made inactive, silently.
+//   enter     PostToolUse EnterPlanMode: Claude entered plan mode after /tierminator:plan, so add the rules.
 //   compact   PreCompact: the rules are about to fall out of context, so clear the marker; the next plan-mode
-//             prompt shows them again. Disarming clears it too.
+//             prompt shows them again. Deactivation clears it too.
 //   session   SessionStart after a compaction: in an unattended session that is still drafting, re-inject the
 //             unattended note and the rules, which the compaction dropped and which no later prompt would
 //             bring back in a headless run.
-// All of that happens only in an armed session. The one thing H1 does unarmed is handle the typed
-// commands: /tierminator:arm and /tierminator:disarm, which set and clear the session's flag, and
-// /tierminator:execute-plan, which picks a saved plan up again (lib/execute.js). It also arms an
-// unattended session: when TIERMINATOR_UNATTENDED is set, the first prompt of an unarmed session arms it,
-// puts it in the drafting phase and prints the unattended note and the rules (lib/unattended.js).
 'use strict'
 
 const fs = require('fs')
 const path = require('path')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
-const { dispatchText, doneLabel, parseReport } = require('./lib/run.js')
+const { doneLabel, parseReport } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
 const spend = require('./lib/spend.js')
 const unattended = require('./lib/unattended.js')
@@ -64,6 +68,7 @@ function handBack(input, s) {
   emitText(next.notice)
 }
 
+// A harness prompt in an active session: deliver H4's notice, or judge a hand-back.
 function runNote(input) {
   const s = state.read(input.session_id)
   if (!s) return
@@ -72,158 +77,115 @@ function runNote(input) {
     emitText(s.notice)
     return
   }
-  if (fromHarness(input.prompt)) {
-    if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) handBack(input, s)
-    return
-  }
-  if (s.phase === 'drafting') {
-    emitText(unattended.note(s.planFile))
-    return
-  }
-  const where = () => `${s.done.length} of ${s.tasks.length} tasks are done`
-
-  if (s.phase === 'paused') {
-    const problem = git.problem(s.cwd ?? input.cwd)
-    if (problem) {
-      emitText(
-        `tierminator: the approved plan is waiting to run: ${problem}. ` +
-          'The user must commit or stash those changes first.'
-      )
-      return
-    }
-    const started = { ...s, phase: 'running' }
-    delete started.pausedBecause
-    if (!state.write(input.session_id, started)) return
-    emitText(`tierminator: the working tree is clean, so the run starts. ${dispatchText(started)}`)
-    return
-  }
-  if (s.phase === 'running' && !s.current?.inFlight) {
-    emitText(
-      `tierminator: a run is in progress; ${where()}. To continue: ${dispatchText(s)} ` +
-        'To stop: dispatch nothing and tell the user what is done.'
-    )
-  }
+  if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) handBack(input, s)
 }
 
 const PRUNE_DAYS = 7
 const rules = () => fs.readFileSync(path.join(__dirname, '..', 'rules', 'tiering.md'), 'utf8')
 
-// /tierminator:arm and /tierminator:disarm, as typed (the hook sees the raw text, not the skill body).
-// The skills themselves only tell Claude to report the note printed here.
-const COMMAND = /^\s*\/tierminator:(arm|disarm|execute-plan)(?![\w-])/
+const COMMAND = /^\s*\/tierminator:(plan|execute)(?![\w-])/
 
-// Arming checks the repository the way H2 does at approval, so a session that could never run a plan
-// is not armed at all. H2 and H3 still check again: the tree can change after arming.
-function armNote(input) {
+// Ends whatever the session was doing. A run in progress stops: nothing more is dispatched, and a worker
+// already running finishes unjudged. Its queued attempt lines and its spend summary are returned for the
+// UI, since the run never reaches H5 again (the session is inactive). In every case the session is made
+// inactive and its state removed; its plan listing stays, so /tierminator:execute <number> still works.
+// Returns {note, spent}, nulls when no run was stopped.
+function endRun(input) {
   const id = input.session_id
-  const already = state.isActive(id)
-  const problem = already ? null : git.problem(input.cwd)
-  if (problem) {
-    emitText(
-      `tierminator: not armed: ${problem}. It needs a Git repository with a commit, a user name and email, ` +
-        'and a clean working tree. Tell the user what to fix, then to type /tierminator:arm again.'
-    )
-    return
+  const s = state.isActive(id) ? state.read(id) : null
+  let note = null
+  let spent = null
+  if (s?.phase === 'running') {
+    const abandoned = { ...s, phase: 'abandoned', notice: null, spendReported: true, spendLines: [] }
+    const summary = s.runId && !s.spendReported ? spend.recordRunEnd(input, abandoned) : null
+    spent = [...(s.spendLines ?? []), ...(summary ? [summary] : [])].join('\n') || null
+    const finished = new Set(s.done.map(d => d.id))
+    const done = s.done.map(doneLabel).join(', ') || 'none'
+    const notRun = s.tasks.filter(t => !finished.has(t.id)).map(t => t.id).join(', ') || 'none'
+    const running = s.current?.inFlight
+      ? ` ${s.tasks[s.current.index].id}'s worker is still running; ` +
+        'whatever it commits or leaves in the working tree stays unchecked.'
+      : ''
+    note =
+      'tierminator: the run stopped because the user typed a new prompt. ' +
+      `Done: ${done}. Not done: ${notRun}.${running} To resume, the user types ` +
+      `/tierminator:execute "${s.planFile}". Tell the user, and dispatch nothing more.`
   }
-  if (!already && !state.activate(id)) {
-    emitText('tierminator: arming failed: its flag file could not be written.')
-    return
-  }
-  state.prune(PRUNE_DAYS)
-  const note = already
-    ? 'tierminator: already armed; nothing changed.'
-    : 'tierminator: armed. Plans made in plan mode now run as tiered tasks; /tierminator:disarm turns it off.'
-  if (input.permission_mode === 'plan') {
-    emitText(`${note}\n\n${rules()}`)
-    state.markRulesShown(id)
-    return
-  }
-  // Planning happens in plan mode, so arming takes the session there. No hook can set the mode here (only
-  // a PermissionRequest hook can), so Claude is asked to; H1's `enter` mode then adds the rules. Never
-  // during a run: its workers inherit the mode and could not edit anything in plan mode.
-  const s = state.read(id)
-  if (s?.phase === 'running' || s?.phase === 'paused') return emitText(note)
-  emitText(
-    `${note} Call the EnterPlanMode tool now (load it with ToolSearch first if it is deferred), then tell ` +
-      'the user in one line that tierminator is armed and ready for them to describe what to plan.'
-  )
-}
-
-// Disarming stops a run: nothing more is dispatched, and a worker already running finishes unjudged.
-function disarmNote(input) {
-  const id = input.session_id
-  const armed = state.isActive(id)
   state.deactivate(id)
-  const s = state.read(id)
-  const inRun = s && (s.phase === 'running' || s.phase === 'paused')
-  const abandoned = inRun ? { ...s, phase: 'abandoned', notice: null, spendReported: true, spendLines: [] } : null
-  if (inRun) state.write(id, abandoned)
-  else state.remove(id)
-  // A run stopped here never reaches H5 again (the session is unarmed), so its queued attempt lines and
-  // its spend summary are shown now.
-  const summary = inRun && s.runId && !s.spendReported ? spend.recordRunEnd(input, abandoned) : null
-  const spent = inRun ? [...(s.spendLines ?? []), ...(summary ? [summary] : [])].join('\n') || null : null
-
-  if (!armed) {
-    emitText('tierminator: not armed; nothing changed.')
-    return
-  }
-  if (!inRun) {
-    emitText('tierminator: disarmed. Plans are no longer tiered.')
-    return
-  }
-  const finished = new Set(s.done.map(d => d.id))
-  const done = s.done.map(doneLabel).join(', ') || 'none'
-  const notRun = s.tasks.filter(t => !finished.has(t.id)).map(t => t.id).join(', ') || 'none'
-  const running = s.current?.inFlight
-    ? ` ${s.tasks[s.current.index].id}'s worker is still running; ` +
-      'whatever it commits or leaves in the working tree stays unchecked.'
-    : ''
-  const note =
-    'tierminator: disarmed, which stops the run. ' +
-    `Done: ${done}. Not done: ${notRun}.${running} Tell the user, and dispatch nothing more.`
-  if (!spent) return emitText(note)
-  emit({ systemMessage: spent, hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: note } })
+  state.remove(id)
+  return { note, spent }
 }
 
-// An unattended session's first prompt: arm it, put it in the drafting phase and give Claude the note and
-// the rules. Nothing is armed when the session could not run a plan.
-function unattendedStart(input) {
+// A headless session's /tierminator:plan: make it active, put it in the drafting phase and give Claude the
+// note and the rules. Nothing starts when the session could not run a plan.
+function headlessStart(input) {
   const id = input.session_id
   if (input.permission_mode === 'plan') {
-    emitText(
-      'tierminator: TIERMINATOR_UNATTENDED is set, but the session is in plan mode, where a headless session has no ExitPlanMode and the workers could not edit anything. Nothing was armed. Report this and stop: relaunch without --permission-mode plan (for example with --permission-mode bypassPermissions or acceptEdits).'
-    )
-    return
+    return 'tierminator: unattended run not started: the session is in plan mode, where a headless session has no ExitPlanMode and the workers could not edit anything. Report this and stop: relaunch without --permission-mode plan (for example with --permission-mode bypassPermissions or acceptEdits).'
   }
   const problem = git.problem(input.cwd)
   if (problem) {
-    emitText(
-      `tierminator: unattended run not started: ${problem}. It needs a Git repository with a commit, a user name and email, and a clean working tree. Report this and stop; do not do the work yourself.`
-    )
-    return
+    return `tierminator: unattended run not started: ${problem}. It needs a Git repository with a commit, a user name and email, and a clean working tree. Report this and stop; do not do the work yourself.`
   }
   if (!state.activate(id)) {
-    emitText('tierminator: unattended run not started: its flag file could not be written. Report this and stop.')
-    return
+    return 'tierminator: unattended run not started: its flag file could not be written. Report this and stop.'
   }
   const planFile = unattended.planFileFor(id)
   if (!state.write(id, { phase: 'drafting', planFile, denials: 0, guardDenials: 0 })) {
     state.deactivate(id)
-    emitText('tierminator: unattended run not started: its state could not be saved. Report this and stop.')
-    return
+    return 'tierminator: unattended run not started: its state could not be saved. Report this and stop.'
   }
   state.prune(PRUNE_DAYS)
   state.markRulesShown(id)
-  emitText(`${unattended.note(planFile)}\n\n${rules()}`)
+  return `${unattended.note(planFile)}\n\n${rules()}`
+}
+
+// /tierminator:plan <request>. Starting checks the repository the way H2 does at approval, so planning
+// that could never run is not started. H2 and H3 still check again: the tree can change while planning.
+function planNote(input, request) {
+  const id = input.session_id
+  if (!request) {
+    return 'tierminator: planning was not started: /tierminator:plan needs a request, for example /tierminator:plan add a --verbose flag. Tell the user.'
+  }
+  if (unattended.headless()) return headlessStart(input)
+  const problem = git.problem(input.cwd)
+  if (problem) {
+    return (
+      `tierminator: planning was not started: ${problem}. It needs a Git repository with a commit, a user name ` +
+      'and email, and a clean working tree. Tell the user what to fix, then to type /tierminator:plan again.'
+    )
+  }
+  if (!state.activate(id)) return 'tierminator: planning was not started: its flag file could not be written. Tell the user.'
+  if (!state.write(id, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0 })) {
+    state.deactivate(id)
+    return 'tierminator: planning was not started: its state could not be saved. Tell the user.'
+  }
+  state.prune(PRUNE_DAYS)
+  const note =
+    'tierminator: planning started. Plan the request in plan mode; when the user approves the plan, ' +
+    'tierminator runs it as tiered tasks.'
+  if (input.permission_mode === 'plan') {
+    state.markRulesShown(id)
+    return `${note}\n\n${rules()}`
+  }
+  // No hook can set the mode here (only a PermissionRequest hook can), so Claude is asked to; H1's `enter`
+  // mode then adds the rules.
+  return `${note} Call the EnterPlanMode tool now (load it with ToolSearch first if it is deferred), then plan the request.`
+}
+
+// Prints `note` as added context, with `spent` for the UI when there is any.
+function say(note, spent) {
+  if (!note) return
+  if (!spent) return emitText(note)
+  emit({ systemMessage: spent, hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: note } })
 }
 
 run(async () => {
   const input = await readInput()
   if (!input || input.agent_id) return
-  if (process.argv[2] === 'compact') return state.clearRulesShown(input.session_id)
+  const id = input.session_id
+  if (process.argv[2] === 'compact') return state.clearRulesShown(id)
   if (process.argv[2] === 'session') {
-    const id = input.session_id
     const s = state.isActive(id) ? state.read(id) : null
     if (s?.phase === 'drafting') {
       emit({
@@ -236,27 +198,45 @@ run(async () => {
     }
     return
   }
-  const enter = process.argv[2] === 'enter'
-
-  const typed = enter ? null : COMMAND.exec(String(input.prompt ?? ''))
-  const command = typed?.[1]
-  if (command === 'arm') return armNote(input)
-  if (command === 'disarm') return disarmNote(input)
-  if (command === 'execute-plan') return emitText(executePlan(input, String(input.prompt).slice(typed[0].length)))
-  if (!enter && unattended.enabled() && !state.isActive(input.session_id) && !fromHarness(input.prompt)) {
-    return unattendedStart(input)
-  }
-  if (!state.isActive(input.session_id)) return
-
-  if (enter) {
+  if (process.argv[2] === 'enter') {
+    if (!state.isActive(id) || state.read(id)?.phase !== 'planning') return
     emit({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: rules() } })
-    state.markRulesShown(input.session_id)
-  } else if (input.permission_mode === 'plan') {
-    if (fromHarness(input.prompt) || state.rulesShown(input.session_id)) return
-    emitText(rules())
-    state.markRulesShown(input.session_id)
-  } else {
-    state.clearRulesShown(input.session_id)
-    runNote(input)
+    state.markRulesShown(id)
+    return
   }
+
+  const prompt = String(input.prompt ?? '')
+  const typed = COMMAND.exec(prompt)
+  if (typed) {
+    const stopped = endRun(input)
+    const rest = prompt.slice(typed[0].length)
+    const commandNote = typed[1] === 'plan' ? planNote(input, rest.trim()) : executePlan(input, rest)
+    return say([stopped.note, commandNote].filter(Boolean).join('\n\n'), stopped.spent)
+  }
+
+  if (!state.isActive(id)) return
+  const s = state.read(id)
+  if (fromHarness(prompt)) {
+    if (input.permission_mode === 'plan') return
+    state.clearRulesShown(id)
+    return runNote(input)
+  }
+  if (s?.phase === 'planning') {
+    if (input.permission_mode !== 'plan') {
+      // The user left plan mode without approving the plan: tierminator is no longer involved.
+      state.deactivate(id)
+      state.remove(id)
+      return
+    }
+    if (state.rulesShown(id)) return
+    emitText(rules())
+    state.markRulesShown(id)
+    return
+  }
+  if (s?.phase === 'drafting') {
+    state.clearRulesShown(id)
+    return emitText(unattended.note(s.planFile))
+  }
+  const stopped = endRun(input)
+  say(stopped.note, stopped.spent)
 })

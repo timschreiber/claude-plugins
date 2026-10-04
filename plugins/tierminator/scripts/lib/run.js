@@ -6,7 +6,7 @@
 //             spend, spendReported, ...}
 //   runId    tells this run's telemetry records from another run of the same plan
 //   spend    {costUsd}: the workers' estimated spend so far (lib/spend.js)
-//   phase    running | halted | complete | abandoned (or paused, before the run starts)
+//   phase    running | halted | complete | abandoned
 //   current  {index, attempt, tier, tried[], head, inFlight, report, lastFailure, dispatchFailures}
 //   done     [{id, tier, commit, attempts, skipped?}]; skipped tasks were finished by an earlier run
 //   notice   what Claude must be told next, set when an attempt is judged and cleared once shown
@@ -31,8 +31,8 @@ const fresh = (task, index) => ({
   dispatchFailures: 0,
 })
 
-// The state for a run that has just been approved, or picked up again by /tierminator:execute-plan.
-// planId marks every worker commit, so a later execute-plan can tell this plan's finished tasks apart.
+// The state for a run that has just been approved, or picked up again by /tierminator:execute.
+// planId marks every worker commit, so a later /tierminator:execute can tell this plan's finished tasks apart.
 // A run picked up part-way starts at `start`, with the tasks before it already in `done` (see
 // skippedEntry).
 function startRun({ tasks, tasksFile, tasksHash = null, planFile = null, branch = '', planId = null, start = 0, done = [] }) {

@@ -2,9 +2,9 @@
 // tasks file, and the lines shown in the UI. Nothing leaves the machine.
 //   planning       H2, each time a valid tiered plan passes the gate: plan-mode messages and planning
 //                  subagents since the session's cursor
-//   run            H3 or execute-plan, when a run starts: marks where its planning ends
+//   run            H3 or /tierminator:execute, when a run starts: marks where its planning ends
 //   attempt        H4, each worker attempt: its transcript's usage, tier, task and outcome
-//   orchestration  H5 (or H1 on a disarm), when the run ends: the main session's other messages and
+//   orchestration  H5 (or H1, when a typed prompt stops it), when the run ends: the main session's other messages and
 //                  non-tierminator subagents since the run started
 // Every function swallows errors: telemetry never affects a run.
 'use strict'
@@ -110,7 +110,7 @@ const modelsOf = records => [...new Set(records.flatMap(r => r.models ?? []))]
 // that belonged to an earlier plan):
 //   - the run's own session: anchored at the run's start record;
 //   - any other session: anchored at its latest planning record with this plan's id (a plan planned in
-//     one session and run with /tierminator:execute-plan in another).
+//     one session and run with /tierminator:execute in another).
 function planningFor(records, { planId, runId }) {
   const planning = records.filter(r => r.kind === 'planning')
   const starts = records.filter(r => r.kind === 'run')

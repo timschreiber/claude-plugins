@@ -91,7 +91,7 @@ function recordAttempt(input, prev, next, { transcript = input.agent_transcript_
 // The queued attempt lines, and the state with the queue emptied.
 const takeLines = s => ({ lines: s?.spendLines ?? [], rest: s?.spendLines?.length ? { ...s, spendLines: [] } : s })
 
-// H3 and execute-plan: a run has started. Its record lets the summary find the planning that led to it,
+// H3 and /tierminator:execute: a run has started. Its record lets the summary find the planning that led to it,
 // including rounds recorded under an earlier plan id (a plan rejected and revised in the dialog).
 function recordRunStart(input, run) {
   return safe(
@@ -108,7 +108,7 @@ function recordRunStart(input, run) {
   )
 }
 
-// H5 (or H1 on a disarm): the run has ended. Records the orchestration since the run started and returns
+// H5 (or H1, when a typed prompt stops it): the run has ended. Records the orchestration since the run started and returns
 // the spend summary for the UI, or null.
 function recordRunEnd(input, s) {
   return safe(() => {

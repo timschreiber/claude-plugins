@@ -84,7 +84,7 @@ test('with CLAUDE_PLUGIN_DATA unset, state falls back to the temp directory', ()
   assert.ok(file.startsWith(path.join(os.tmpdir(), 'tierminator')))
 })
 
-test('arm, isActive and disarm keep a flag beside the state file, apart from it', () => {
+test('activate, isActive and deactivate keep a flag beside the state file, apart from it', () => {
   assert.equal(state.isActive('s1'), false)
   assert.equal(state.activate('s1'), true)
   assert.equal(state.isActive('s1'), true)
@@ -97,7 +97,7 @@ test('arm, isActive and disarm keep a flag beside the state file, apart from it'
   state.deactivate('s1')
 })
 
-test('arming needs a usable session id and a writable data directory', () => {
+test('activation needs a usable session id and a writable data directory', () => {
   for (const id of [undefined, null, '', '///']) {
     assert.equal(state.activate(id), false)
     assert.equal(state.isActive(id), false)
@@ -109,7 +109,7 @@ test('arming needs a usable session id and a writable data directory', () => {
   assert.equal(state.isActive('s1'), false)
 })
 
-test('prune removes old arming flags too', () => {
+test('prune removes old activation flags too', () => {
   state.activate('old')
   state.activate('new')
   const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
@@ -119,12 +119,12 @@ test('prune removes old arming flags too', () => {
   assert.equal(state.isActive('new'), true)
 })
 
-test('arming starts the telemetry cursor, setCursor moves it, and disarming removes it', () => {
+test('activation starts the telemetry cursor, setCursor moves it, and deactivation removes it', () => {
   assert.equal(state.cursor('s1'), null)
   const before = new Date().toISOString()
   state.activate('s1')
   const started = state.cursor('s1')
-  assert.ok(started >= before, 'the cursor starts at the time of arming')
+  assert.ok(started >= before, 'the cursor starts at the time of activation')
   assert.equal(state.setCursor('s1', '2026-09-28T12:00:00.000Z'), true)
   assert.equal(state.cursor('s1'), '2026-09-28T12:00:00.000Z')
   state.deactivate('s1')
@@ -133,7 +133,7 @@ test('arming starts the telemetry cursor, setCursor moves it, and disarming remo
   assert.equal(state.setCursor('', 'x'), false)
 })
 
-test('the rules marker is set, read and cleared apart from the flag, and disarming removes it', () => {
+test('the rules marker is set, read and cleared apart from the flag, and deactivation removes it', () => {
   assert.equal(state.rulesShown('s1'), false)
   assert.equal(state.markRulesShown('s1'), true)
   assert.equal(state.rulesShown('s1'), true)

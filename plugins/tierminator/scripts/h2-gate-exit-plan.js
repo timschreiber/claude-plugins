@@ -4,6 +4,7 @@
 // A valid block is then moved to the tasks file, leaving a short table in the plan. The dialog
 // reads the plan file after this hook runs, and it withholds a plan with a very long line. A plan
 // that passes also has its planning's tokens and cost recorded beside it (lib/spend.js).
+// It acts only while the session is active and planning (after /tierminator:plan), never during a run.
 'use strict'
 
 const fs = require('fs')
@@ -38,6 +39,8 @@ function readPlan(toolInput) {
 run(async () => {
   const input = await readInput()
   if (!input || input.agent_id || !state.isActive(input.session_id)) return
+  const current = state.read(input.session_id)
+  if (current && current.phase !== 'planning') return
   const toolInput = input.tool_input ?? {}
 
   const { text, fromFile } = readPlan(toolInput)
@@ -63,15 +66,15 @@ run(async () => {
     if (result.section === undefined && fromFile) {
       if (!moveBlock(toolInput.planFilePath, text, result.tasks)) debug('H2: the task block could not be moved')
     }
-    // What planning has cost since the last submission (or since arming), beside the plan.
+    // What planning has cost since the last submission (or since /tierminator:plan), beside the plan.
     recordPlanning(input, planIdOf(result, text), toolInput.planFilePath ?? null)
     return
   }
 
   // After MAX_DENIALS in a row, let the plan through untiered rather than burn turns.
-  const current = state.read(input.session_id) ?? { phase: 'planning', tasks: [], denials: 0 }
-  if ((current.denials ?? 0) >= MAX_DENIALS) return
-  state.write(input.session_id, { ...current, denials: (current.denials ?? 0) + 1 })
+  const planning = current ?? { phase: 'planning', tasks: [], denials: 0 }
+  if ((planning.denials ?? 0) >= MAX_DENIALS) return
+  state.write(input.session_id, { ...planning, denials: (planning.denials ?? 0) + 1 })
 
   const where = toolInput.planFilePath ? ` (${toolInput.planFilePath})` : ''
   const fix =

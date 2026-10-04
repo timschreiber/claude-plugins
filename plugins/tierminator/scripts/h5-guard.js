@@ -9,7 +9,7 @@
 //         is displayed; a SubagentStop hook's is not, for a background worker.
 // Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
 // forever. Workers are subagents, which every hook ignores.
-// An unattended session (TIERMINATOR_UNATTENDED, lib/unattended.js) is "drafting" until its plan is
+// An unattended session (a headless /tierminator:plan, lib/unattended.js) is "drafting" until its plan is
 // approved by nobody: pre refuses its file edits, and stop takes its final message as the plan. A valid
 // plan is saved to the session's plan file and run; an invalid one is blocked with the errors and the
 // rules, a few times; an opt-out ends the state and lets Claude implement the plan itself.

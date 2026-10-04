@@ -20,17 +20,17 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-test('enabled() accepts 1, true, yes and on in any case, with spaces', () => {
-  for (const v of ['1', 'true', 'YES', ' on ']) {
-    assert.equal(unattended.enabled({ [unattended.ENV]: v }), true, v)
+test('headless() is true for an sdk entrypoint', () => {
+  for (const v of ['sdk-cli', 'sdk-ts']) {
+    assert.equal(unattended.headless({ CLAUDE_CODE_ENTRYPOINT: v }), true, v)
   }
 })
 
-test('enabled() is false for unset, empty and other values', () => {
-  assert.equal(unattended.enabled({}), false)
-  for (const v of ['', '0', 'false', 'no']) {
-    assert.equal(unattended.enabled({ [unattended.ENV]: v }), false, v)
+test('headless() is false for cli, empty and a missing entrypoint', () => {
+  for (const v of ['cli', '', undefined]) {
+    assert.equal(unattended.headless({ CLAUDE_CODE_ENTRYPOINT: v }), false, String(v))
   }
+  assert.equal(unattended.headless({}), false)
 })
 
 test('planFileFor names the file by UTC time and session prefix', () => {

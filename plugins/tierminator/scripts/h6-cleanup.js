@@ -1,4 +1,4 @@
-// H6: SessionEnd deletes the session's state file, its arming flag and telemetry cursor, and its saved plan
+// H6: SessionEnd deletes the session's state file, its activation flag and telemetry cursor, and its saved plan
 // listing. A run does not outlive its session; the tasks
 // that finished are already committed.
 'use strict'

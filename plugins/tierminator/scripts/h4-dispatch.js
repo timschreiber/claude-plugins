@@ -96,8 +96,8 @@ function failure(input, s) {
 
 run(async () => {
   const input = await readInput()
-  // Unarmed, even tierminator's own agents are left alone. SubagentStop's session_id is the main
-  // session's, so this also covers a worker still running when the session was disarmed.
+  // In an inactive session, even tierminator's own agents are left alone. SubagentStop's session_id is the
+  // main session's, so this also covers a worker still running when a typed prompt stopped the run.
   if (!input || !state.isActive(input.session_id)) return
   const mode = process.argv[2]
   if (mode === 'stop') {

@@ -4,8 +4,8 @@ Plan in plan mode, approve, and watch. Each task in the approved plan runs as it
 time, on the model and effort chosen for it during planning, and commits its own work. A task that fails
 is rolled back and retried on a stronger tier.
 
-You use plan mode as you always do, after typing `/tierminator:arm` once in the session. The plugin adds
-a task list to the end of the plan and runs it after you approve. There is nothing to type after approval.
+Type `/tierminator:plan` and what you want: Claude plans it in plan mode, the plugin adds a task list to
+the end of the plan, and it runs after you approve. There is nothing to type after approval.
 
 For a project too big for one plan (milestones, parallel work, planned reviews), use
 [Orchestratinator](https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator)
@@ -24,8 +24,9 @@ To try it from a checkout of this repo instead:
 claude --plugin-dir ./plugins/tierminator
 ```
 
-Installing it changes nothing on its own: every session starts unarmed, and an unarmed session plans and
-works exactly as if the plugin were not installed. So it can stay installed everywhere.
+Installing it changes nothing on its own: only `/tierminator:plan` and `/tierminator:execute` turn it on, and
+a session without them plans and works exactly as if the plugin were not installed. A plan made in plan
+mode without `/tierminator:plan` is not tiered. So it can stay installed everywhere.
 
 Requirements:
 - **Node 20 or later** on the PATH. The hooks are Node scripts.
@@ -37,16 +38,19 @@ Tested on Claude Code 2.1.283.
 
 ## How to use
 
-1. **Commit or stash your changes.** Arming, and later approving a tiered plan, need a clean working
-   tree.
-2. **Arm the session: type `/tierminator:arm`.**
-   - **Claude switches the session to plan mode** if it isn't there already, then confirms in one line.
-     Claude Code may ask you to approve entering plan mode.
-   - **Arming is refused, with the reason,** if Git is missing, the directory is not a repository with a
-     commit, Git has no user name and email, or the tree has uncommitted changes. Fix that and arm again.
-   - **Arming lasts for the session;** `/clear` starts a new, unarmed one.
+1. **Commit or stash your changes.** Starting to plan, and later approving a tiered plan, need a clean
+   working tree.
+2. **Type `/tierminator:plan` and what you want planned,** for example
+   `/tierminator:plan add a --verbose flag`.
+   - **Claude switches the session to plan mode** if it isn't there already. Claude Code may ask you to
+     approve entering plan mode. The plugin adds its tiering rules to the conversation.
+   - **Planning is refused, with the reason,** if Git is missing, the directory is not a repository with a
+     commit, Git has no user name and email, or the tree has uncommitted changes. Fix that and type the
+     command again.
    - **The same checks run again when Claude submits the plan,** since the tree can change in between.
-3. **Describe what you want planned.** The plugin adds its tiering rules to the conversation.
+   - **Leaving plan mode without approving** ends the plugin's part: the next plan is not tiered unless it
+     starts with `/tierminator:plan` again.
+3. **Answer Claude's questions, if it has any.**
 4. **Claude plans** and ends the plan with a `## Tasks` section holding a `json tiered-tasks` block: one
    entry per task, each with a model, an effort and a self-contained prompt. If the block is invalid,
    `ExitPlanMode` is denied with the problems listed, and Claude fixes the plan and tries again. You never
@@ -68,25 +72,28 @@ It is retried, twice at most, each time one tier up (`sonnet` from `low` to `hig
 task, so earlier tasks' commits are kept. If the second retry fails too, or a task fails at `opus` /
 `high`, the run stops, and the last attempt's changes stay in the working tree for you to inspect.
 
-### Continuing after an interruption
+### Stopping a run
 
-If you interrupt a run, just say "continue": the plugin tells Claude where the run stands and what to
-dispatch next. The run lasts until the session ends. The tasks that finished are already committed.
+Typing anything while a run is in progress stops it: nothing more is dispatched, and Claude tells you which
+tasks are done and committed, which did not run, and the `/tierminator:execute` command that resumes it. A
+worker already running finishes, but its work is not checked or rolled back. The tasks that finished are
+already committed.
 
 ### Picking a plan up again
 
-A run does not survive its session, and neither does a plan you never got to approve. The plan file stays
-on disk, though (in `~/.claude/plans/`), and you can run it in a new session:
+A run does not survive a prompt you type during it, or its session, and neither does a plan you never got
+to approve. The plan file stays on disk, though (in `~/.claude/plans/`), and you can run it, in this session
+or a new one:
 
 ```
-/tierminator:execute-plan ~/.claude/plans/brave-fox.md
+/tierminator:execute ~/.claude/plans/brave-fox.md
 ```
 
-- **A tierminator plan runs as tiered tasks.** The session is armed, and the run starts at the first task
+- **A tierminator plan runs as tiered tasks.** The run starts at the first task
   not already committed on the current branch: tasks from an earlier run of the same plan are skipped, and
   Claude says which. It needs the same clean Git repository as approving a plan does.
 - **With no path,** Claude lists the most recent tierminator plans, numbered. Then pick one by typing its
-  number: `/tierminator:execute-plan 1`. A number always refers to the list you were last shown in the
+  number: `/tierminator:execute 1`. A number always refers to the list you were last shown in the
   session.
 - **`--from T03`** starts at a given task instead, treating the ones before it as done. Use it for a run
   whose commits predate the plan line, or when Claude reports a gap (a later task committed, an earlier one
@@ -105,7 +112,7 @@ The plugin estimates the tokens and cost of every run, and shows them to you as 
 - **After each task attempt**, a line such as
   `tierminator: T02 on sonnet-medium done: 412k tokens (96% cache reads), ~$0.31. Run so far: ~$0.52.`
   It appears when Claude next ends a turn, which in a normal run is right after it starts the next task.
-- **When the run ends** (completed, stopped or disarmed), a summary:
+- **When the run ends** (completed, halted, or stopped by a prompt you typed), a summary:
 
   ```
   tierminator spend (estimated, prices as of 2026-09-28):
@@ -136,44 +143,34 @@ from Anthropic's published rates, so they are **estimates**:
 - fast mode is priced at the standard rate;
 - a subscription plan isn't billed per token at all.
 
-### Disarming
-
-Type `/tierminator:disarm` to turn the plugin off for the rest of the session. If a run is in progress, it
-stops: nothing more is dispatched, and Claude tells you which tasks are done and committed and which did
-not run. A worker already running finishes, but its work is not checked or rolled back.
-
 ### Opting out
 
-In an armed session, for a normal, untiered plan, ask for one. Claude then puts the line `Tiered execution: off` in the plan
+After `/tierminator:plan`, for a normal, untiered plan, ask for one. Claude then puts the line `Tiered execution: off` in the plan
 instead of a task block, and nothing about Git is required. Without a task block or that line, the plan
 cannot be approved.
 
 ## Unattended runs
 
-Without the variable nothing changes: interactive sessions plan in plan mode and approve in the dialog.
-
-For a headless run, set `TIERMINATOR_UNATTENDED=1` when launching Claude Code:
+For a headless run, start the prompt with `/tierminator:plan`:
 
 ```bash
-TIERMINATOR_UNATTENDED=1 claude -p --model opus --effort medium --permission-mode bypassPermissions "<request>"
+claude -p --model opus --effort medium --permission-mode bypassPermissions "/tierminator:plan <request>"
 ```
 
-```powershell
-$env:TIERMINATOR_UNATTENDED = '1'; claude -p --model opus --effort medium --permission-mode bypassPermissions "<request>"
-```
+The plugin tells a headless session from an interactive one by `CLAUDE_CODE_ENTRYPOINT`, which Claude Code
+sets to `sdk-cli` for `claude -p`. Interactive sessions plan in plan mode and approve in the dialog.
 
 - **The main thread plans and then orchestrates,** so `--model` and `--effort` choose the planning model.
   Opus at `medium` effort is the recommendation, and other values override it. tierminator cannot set them
   itself. Workers always run at their task's tier.
-- **The first prompt arms the session.** Claude plans read-only outside plan mode and ends its turn with
+- **`/tierminator:plan` starts unattended planning.** Claude plans read-only outside plan mode and ends its turn with
   the plan. tierminator saves it as `tierminator-unattended-<time>-<session>.md` in the plans directory and
   runs it with no approval.
 - **Requirements:** not plan mode (headless sessions have no `ExitPlanMode`), a clean Git tree with a commit
   identity, and permissions for workers to edit, run their `Verify:` commands and `git commit` unattended
   (`bypassPermissions` in a sandbox or CI, or `acceptEdits` with `--allowedTools` rules).
 - **An invalid plan gets three chances and then nothing runs.** It never falls back to untiered work. After
-  a compaction the rules are given again. `/tierminator:disarm` still stops a run; in an interactive
-  session with the variable set, the next prompt arms again.
+  a compaction the rules are given again.
 
 ## The tiers
 
@@ -198,17 +195,17 @@ definition. Workers cannot start agents or workflows.
 
 ## How it works
 
-Every hook does nothing in an unarmed session, except H1 handling the arm, disarm and execute-plan
-commands and H6 cleaning up.
+Every hook does nothing in an inactive session, except H1 handling the `/tierminator:plan` and
+`/tierminator:execute` commands and H6 cleaning up.
 
 | Hook | Job |
 |---|---|
-| Rules (H1) | Arms and disarms the session when you type the commands, and starts a saved plan for `/tierminator:execute-plan`. Adds the tiering rules once when planning starts, and again after compaction (`PreCompact` clears the record that they were shown). During a run, gives Claude the next step when a worker's report arrives, and reminds it of the next dispatch when you write. |
+| Rules (H1) | Starts planning for `/tierminator:plan` and a saved plan for `/tierminator:execute`. Adds the tiering rules once when planning starts, and again after compaction (`PreCompact` clears the record that they were shown). During a run, gives Claude the next step when a worker's report arrives, and stops the run when you type a prompt. |
 | Gate (H2) | Denies `ExitPlanMode` until the task block validates and the repository can run it (a commit, a commit identity and a clean tree), then moves the block to the tasks file and leaves a table |
-| Hand-off (H3) | On approval, starts the run and gives Claude the first dispatch |
+| Hand-off (H3) | On approval of a plan made after `/tierminator:plan`, starts the run and gives Claude the first dispatch |
 | Dispatch (H4) | Lets through only the expected dispatch; when the worker finishes, reads its report, checks its commit, and decides the next dispatch, a retry after a reset, or a stop |
 | Guard (H5) | Blocks main-thread file edits and stopping while a task is due, and gives up after a few blocks |
-| Cleanup (H6) | Deletes the run's state and the arming flag when the session ends |
+| Cleanup (H6) | Deletes the run's state and the activation flag when the session ends |
 
 ## What it does not do
 
@@ -227,10 +224,10 @@ commands and H6 cleaning up.
   back, so a long plan adds some main-session cost.
 - **Manual permissions:** workers may ask for permission as they edit files or run commands. Allow rules
   for the tools your tasks use will reduce that.
-- **A run does not outlive its session.** Its state is deleted at session end. Tasks that finished are
-  committed, and `/tierminator:execute-plan` can pick the plan up in a new session.
+- **A run does not outlive its session, or a prompt you type during it.** Tasks that finished are
+  committed, and `/tierminator:execute` can pick the plan up again.
 - **Spend is an estimate,** from transcripts and a price table fixed in the plugin with its date. A
-  worker still running when you disarm is not counted, and orchestration includes anything else you ask
+  worker still running when you stop the run is not counted, and orchestration includes anything else you ask
   Claude during the run.
 - **The plan listing only looks in `~/.claude/plans`.** If you moved the plans directory with the
   `plansDirectory` setting, type the plan's path.
@@ -243,7 +240,7 @@ commands and H6 cleaning up.
 ## Configuration notes
 
 - The run's state lives in `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside your repo, and
-  the arming flag beside it in `<session_id>.active`. Both are deleted when the session ends, and any left
+  the activation flag beside it in `<session_id>.active`. Both are deleted when the session ends, and any left
   behind are removed after 7 days. The tasks
   file sits next to the plan file in Claude Code's plans directory and is kept as a record of what ran.
   The only changes to your repository are the tasks' own commits.

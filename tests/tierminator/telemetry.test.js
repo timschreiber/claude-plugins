@@ -105,7 +105,7 @@ test('planning includes rounds rejected in the dialog, and planning from another
     plan('2026-09-28T11:00:00Z', 'A', 'Y1', 0.26),
     plan('2026-09-28T11:02:00Z', 'A', 'Y2', 0.02),
     start('2026-09-28T11:03:00Z', 'A', 'Y2', 'ry'),
-    // Session B planned Z twice and left; session C runs Z with execute-plan.
+    // Session B planned Z twice and left; session C runs Z with /tierminator:execute.
     plan('2026-09-28T12:00:00Z', 'B', 'Z1', 0.5),
     plan('2026-09-28T12:05:00Z', 'B', 'Z2', 0.1),
     start('2026-09-28T13:00:00Z', 'C', 'Z2', 'rz'),

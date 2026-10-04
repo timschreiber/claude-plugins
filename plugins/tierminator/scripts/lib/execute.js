@@ -1,8 +1,10 @@
-// /tierminator:execute-plan [plan path | list number] [--from Txx]: picks a saved plan up again, for when its
-// session is gone (SessionEnd deletes the run state and the arming flag). H1 calls executePlan() with
-// the UserPromptSubmit input and prints the note it returns; the skill only tells Claude to follow it.
+// /tierminator:execute [plan path | list number] [--from Txx]: runs a saved plan, for when its run
+// ended or its session is gone (SessionEnd deletes the run state and the activation flag). H1 calls
+// executePlan() with the UserPromptSubmit input and prints the note it returns; the skill only tells
+// Claude to follow it. H3 calls it too, with { approved: true }, to start a plan the user has just
+// approved in plan mode.
 //   - A tierminator plan (a task table or a raw task block) runs tiered, from its first task that is
-//     not already committed on this branch, and the session is armed.
+//     not already committed on this branch, and the session is active.
 //   - A plain plan runs without tierminator: Claude implements it as usual.
 //   - A tierminator plan whose tasks cannot be loaded is refused: its prompts are not in the plan.
 'use strict'
@@ -77,7 +79,7 @@ function recentPlans(dir = plansDir(), limit = LISTED) {
   return plans.sort((a, b) => b.mtime - a.mtime).slice(0, limit)
 }
 
-// The numbered listing of recent plans, saved for the session so /tierminator:execute-plan <number> can
+// The numbered listing of recent plans, saved for the session so /tierminator:execute <number> can
 // pick one. `why` opens the note (for example "no plan path was given").
 function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
   const plans = recentPlans(dir)
@@ -96,8 +98,8 @@ function listNote(sessionId, why = 'no plan path was given', dir = plansDir()) {
   return (
     `${PREFIX} ${why}. Recent tierminator plans in ${dir}, newest first:\n` +
     `${rows.join('\n')}\n` +
-    'Show the user this numbered list and ask which to run: they type /tierminator:execute-plan with its ' +
-    'number (for example /tierminator:execute-plan 1) or its path. Do not run anything yourself. ' +
+    'Show the user this numbered list and ask which to run: they type /tierminator:execute with its ' +
+    'number (for example /tierminator:execute 1) or its path. Do not run anything yourself. ' +
     'A plan outside this directory (plansDirectory setting) needs its path.'
   )
 }
@@ -126,20 +128,15 @@ function startPoint(tasks, committed, from) {
   return { start, done: tasks.slice(0, start).map(t => entry(t, 'committed')) }
 }
 
-function executePlan(input, rest) {
+// opts.approved: the user has just approved the plan in plan mode (H3), so plan mode is not refused and
+// the note says the user wants it run.
+function executePlan(input, rest, opts = {}) {
   const id = input.session_id
   const cwd = input.cwd
-  if (input.permission_mode === 'plan') {
+  if (!opts.approved && input.permission_mode === 'plan') {
     return (
       `${PREFIX} a plan cannot be executed in plan mode, because its subagents could not edit anything. ` +
       'Tell the user to leave plan mode (Shift+Tab) and type the command again.'
-    )
-  }
-  const current = state.read(id)
-  if (state.isActive(id) && (current?.phase === 'running' || current?.phase === 'paused')) {
-    return (
-      `${PREFIX} a run is already in progress in this session. ` +
-      'Tell the user to type /tierminator:disarm first to stop it.'
     )
   }
   const args = parseArgs(rest)
@@ -192,7 +189,7 @@ function executePlan(input, rest) {
   if (problem) {
     return (
       `${PREFIX} the plan cannot run here: ${problem}. ` +
-      'Tell the user what to fix, then to type the command again.'
+      `Tell the user what to fix, then to type /tierminator:execute "${planFile}".`
     )
   }
 
@@ -212,7 +209,7 @@ function executePlan(input, rest) {
   const tasksFile = result.section?.file ?? writeTasksFile([sidecarPath(planFile), sessionTasks], block)
   if (!tasksFile) return `${PREFIX} the plan's tasks could not be saved to a tasks file, so it cannot run. Tell the user.`
   if (!state.isActive(id) && !state.activate(id)) {
-    return `${PREFIX} the session could not be armed (its flag file could not be written), so the plan cannot run. Tell the user.`
+    return `${PREFIX} the session could not be activated (its flag file could not be written), so the plan cannot run. Tell the user.`
   }
 
   const run = {
@@ -235,8 +232,11 @@ function executePlan(input, rest) {
   const skipped = point.done.length
     ? ` ${point.done.map(doneLabel).join(', ')} ${point.done.length === 1 ? 'is' : 'are'} not run again.`
     : ''
+  const opening = opts.approved
+    ? `${PREFIX} the user approved ${count} and wants them run.`
+    : `${PREFIX} running the plan in ${planFile} (${count}).`
   return (
-    `${PREFIX} running the plan in ${planFile} (${count}); the session is armed.` +
+    opening +
     `${skipped} Dispatch the tasks one at a time, exactly as tierminator says. ` +
     'Do not implement the plan yourself. ' +
     dispatchText(run)
