@@ -19,13 +19,16 @@ function filesToChange(prompt) {
     .filter(s => s !== '')
 }
 
-// The reasons a task may be too large, as strings (empty when it looks fine).
+// The reasons a task may be too large, as strings (empty when it looks fine). An opus task's files are
+// only expected, so their count and a missing Files line are not flagged.
 function flags(task) {
   const out = []
   const prompt = typeof task?.prompt === 'string' ? task.prompt : ''
-  const files = filesToChange(prompt)
-  if (files === null) out.push('has no "Files to change:" line')
-  else if (files.length > MAX_FILES) out.push(`changes ${files.length} files (guideline: at most ${MAX_FILES})`)
+  if (task?.model !== 'opus') {
+    const files = filesToChange(prompt)
+    if (files === null) out.push('has no "Files to change:" line')
+    else if (files.length > MAX_FILES) out.push(`changes ${files.length} files (guideline: at most ${MAX_FILES})`)
+  }
   const max = MAX_PROMPT[task?.model]
   if (max !== undefined && prompt.length > max) {
     out.push(`has a ${thousands(prompt.length)}-character prompt (guideline: at most ${max} for ${task.model})`)

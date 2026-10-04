@@ -48,6 +48,28 @@ test('flags: files, at and just over the limit', () => {
   ])
 })
 
+test('flags: an opus task is not flagged for its files', () => {
+  const none = 'Do it. Verify: x'
+  const many = `${filesLine(MAX_FILES + 2)}\nVerify: x`
+  assert.deepEqual(flags(task(1, { model: 'opus', effort: 'medium', prompt: none })), [])
+  assert.deepEqual(flags(task(1, { model: 'opus', effort: 'medium', prompt: many })), [])
+  assert.deepEqual(flags(task(1, { model: 'sonnet', effort: 'medium', prompt: none })), ['has no "Files to change:" line'])
+  assert.deepEqual(flags(task(1, { model: 'sonnet', effort: 'medium', prompt: many })), [
+    'changes 6 files (guideline: at most 4)',
+  ])
+})
+
+test('flags: an opus task still gets the prompt-length and title flags', () => {
+  assert.deepEqual(flags(task(1, { model: 'opus', effort: 'medium', title: 'A and B', prompt: 'x'.repeat(5001) })), [
+    'has a 5,001-character prompt (guideline: at most 5000 for opus)',
+    'has "and", "then" or ";" in its title, which suggests two changes',
+  ])
+})
+
+test('review skips an opus task with no Files line', () => {
+  assert.deepEqual(review([task(1, { model: 'opus', effort: 'medium', prompt: 'no files line' })], ''), [])
+})
+
 test('flags: prompt length, at and just over the limit for each model', () => {
   for (const model of ['sonnet', 'opus']) {
     const max = MAX_PROMPT[model]
