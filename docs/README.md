@@ -24,7 +24,7 @@ tierminator was called planandtier until 2026-10-03; probes and evidence recorde
 | `decidinator/decidinator-reference.md` | Every Decidinator hook, file format, command, configuration key and environment variable. Start here for Decidinator. |
 | `decidinator/decidinator-e2e-run.md` | The WP-10 end-to-end runbook: seven interactive scenarios and the fresh-install check. Results in `tests/decidinator/e2e/fixtures/scenario-*/result.json`, written by `tests/decidinator/e2e/check.js`. |
 | `tierminator/tierminator-headless-command-findings.md` | Derived from `probes/evidence/tierminator-headless-probe-results.json`, `-hooks.jsonl` and `-output.json` (1 headless session): a plugin command typed headless reaches the hook as raw text, the hook sees an `sdk` entrypoint, `$ARGUMENTS` expands, and `additionalContext` reaches the model. |
-| `tierminator/tierminator-opt-in-draft-plan.md` | A superseded design draft. Its opt-in part is implemented as `/tierminator:arm` and `/tierminator:disarm`. |
+| `tierminator/tierminator-opt-in-draft-plan.md` | A superseded design draft. Its opt-in part was implemented as arm/disarm commands, later replaced by `/tierminator:plan` and `/tierminator:execute`. |
 
 Probes live in `probes/`. See `probes/README.md` for what each one answers and
 which spec decision it unblocks. Regenerate findings by re-running the probe,

@@ -15,12 +15,15 @@ cataloged in `.claude-plugin/marketplace.json`:
   model and effort chosen during planning and committed by its worker, with
   failed attempts reset and retried a tier up. It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
-  `/tierminator:arm` in the session; `/tierminator:disarm` turns it off, and
-  `/tierminator:execute-plan` runs a saved plan in a later session. Setting
-  `TIERMINATOR_UNATTENDED=1` at launch arms the session on its first prompt
-  and runs the plan Claude ends its planning turn with, with no approval, for
-  headless `claude -p` runs (launch with `--model opus --effort medium` to
-  plan on Opus). Each
+  `/tierminator:plan <request>`, which enters plan mode; approving the plan
+  runs it. `/tierminator:execute [plan path | list number] [--from Txx]` runs
+  a saved plan (no arguments lists recent plans). A run ends when it
+  completes or halts, or when the user types any prompt during it, and
+  resumes only via `/tierminator:execute`; a plan-mode plan made without
+  `/tierminator:plan` is not tiered. Headless, `claude -p --model opus
+  --effort medium "/tierminator:plan <request>"` plans read-only and runs
+  the plan Claude ends its turn with, with no approval (detected from
+  `CLAUDE_CODE_ENTRYPOINT`). Each
   run's estimated token spend (per tier, planning, orchestration) is shown
   in the UI and written to `<plan>.telemetry.jsonl`; the summary also estimates
   the tokens and cost had the planning model run the tasks itself, and the

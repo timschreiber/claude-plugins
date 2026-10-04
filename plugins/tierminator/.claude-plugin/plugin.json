@@ -1,7 +1,7 @@
 {
   "name": "tierminator",
   "displayName": "Tierminator",
-  "description": "Turns an approved plan-mode plan into serial subagent execution, each task at the model and effort chosen during planning, committed by its worker and retried a tier up on failure.",
+  "description": "Turns an approved plan-mode plan into serial subagent execution, each task at the model and effort chosen during planning, committed by its worker and retried a tier up on failure. Start with /tierminator:plan <request>; /tierminator:execute runs a saved plan.",
   "author": {
     "name": "Tim Schreiber",
     "url": "https://github.com/timschreiber"

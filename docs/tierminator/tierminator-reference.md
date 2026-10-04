@@ -11,7 +11,7 @@ Tested on Claude Code 2.1.283 (Windows).
 
 - [What it is](#what-it-is)
 - [Requirements and installation](#requirements-and-installation)
-- [Arming](#arming)
+- [Commands](#commands)
 - [The lifecycle of a plan](#the-lifecycle-of-a-plan)
 - [The task block](#the-task-block)
 - [Model and effort tiers](#model-and-effort-tiers)
@@ -39,8 +39,9 @@ tierminator turns an approved plan-mode plan into serial subagent execution. Eac
 as its own subagent, one at a time, on the model and effort chosen for it while planning, and commits its
 own work.
 
-The plugin is off in every session until the user types `/tierminator:arm` (see [Arming](#arming)). After
-that, the user's experience is plain plan mode: plan, approve, watch. The plugin adds four things:
+The plugin does nothing until the user types `/tierminator:plan <request>` or `/tierminator:execute`
+(see [Commands](#commands)). After `/tierminator:plan`, the user's experience is plain plan mode: plan,
+approve, watch. The plugin adds four things:
 
 1. **Tiering rules while planning.** In plan mode, Claude is told to end the plan with a machine-readable
    task list, with a model, an effort and a self-contained prompt for each task.
@@ -59,7 +60,7 @@ that, the user's experience is plain plan mode: plan, approve, watch. The plugin
 | **Seamless** | Built-in plan mode is unchanged; hooks do the hand-off. No command to type after approval. |
 | **Cheap** | Each task runs on the cheapest tier expected to succeed first time. Orchestration costs one short Agent call and one short report per task attempt in the main session. |
 | **Deterministic** | Task order, tier and prompt come from the tasks file named in the approved plan, checked against its hash. Workers read their prompt from that file; no model recalls or retypes a task. Hooks check every dispatch and every result. |
-| **Recoverable** | Every finished task is a commit with `Tierminator-Task:` and `Tierminator-Plan:` lines, and a failed attempt is reset to the commit before it. A plan whose session ended can be picked up again with `/tierminator:execute-plan`, skipping the tasks already committed. |
+| **Recoverable** | Every finished task is a commit with `Tierminator-Task:` and `Tierminator-Plan:` lines, and a failed attempt is reset to the commit before it. A run that stopped, or whose session ended, can be picked up again with `/tierminator:execute`, skipping the tasks already committed. |
 | **Built-in first** | Plan mode, `ExitPlanMode` approval, the Agent tool and plugin agents are all Claude Code's own. |
 
 ### Why not a workflow
@@ -96,50 +97,65 @@ claude --plugin-dir ./plugins/tierminator
 /reload-plugins
 ```
 
-The plugin's state is one JSON file per session under the plugin's data directory, plus an arming flag
+The plugin's state is one JSON file per session under the plugin's data directory, plus an activation flag
 beside it (see [Session state](#session-state)). It also writes a tasks file next to each approved plan's
 file, and shortens that plan file (see [The tasks file](#the-tasks-file)). The only changes to the
 project are the tasks' own commits.
 
-## Arming
+## Commands
 
-Installing the plugin changes nothing on its own. Every session starts **unarmed**, and in an unarmed
-session every hook returns at once without output, so Claude Code behaves as if the plugin were not
-installed. The plugin can therefore stay installed everywhere, and how Claude was launched does not matter.
+Installing the plugin changes nothing on its own. Every session starts **inactive**, and in an inactive
+session every hook returns at once without output (H1 still handles the two commands below), so Claude
+Code behaves as if the plugin were not installed. The plugin can therefore stay installed everywhere. A
+plan made in plan mode without `/tierminator:plan` is not tiered.
 
 | Command | Effect |
 |---|---|
-| `/tierminator:arm` | Checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)). If it passes, arms the session: writes `sessions/<session_id>.armed` beside the state file. Typed in plan mode, it also adds the tiering rules at once. Typed outside plan mode (armed now or already), the note asks Claude to call `EnterPlanMode`, loading it with ToolSearch first if it is deferred; the rules then come from H1's `enter` mode. It never asks during a `running` or `paused` run, whose workers inherit the mode. If the check fails, the session stays unarmed. |
-| `/tierminator:disarm` | Disarms the session: removes the flag. A `running` or `paused` run is marked `abandoned` with its notice cleared, so nothing more is dispatched; any other state is deleted. |
+| `/tierminator:plan <request>` | Starts planning the request as tiered tasks. Interactively: checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)); if it passes, makes the session **active** (writes `sessions/<session_id>.active` beside the state file) and saves the `planning` phase. Typed in plan mode, it adds the tiering rules at once. Typed outside plan mode, the note asks Claude to call `EnterPlanMode`, loading it with ToolSearch first if it is deferred; the rules then come from H1's `enter` mode. Approving the plan runs it (H3). In a headless session it starts [an unattended run](#unattended-runs) instead. |
+| `/tierminator:execute [plan path \| list number] [--from Txx]` | Runs a saved plan (see [Executing a saved plan](#executing-a-saved-plan)). With no arguments, lists recent plans. |
+
+Either command first ends whatever the session was doing: a run in progress stops (as for a typed prompt,
+below), and the session is made inactive before the command starts anew.
+
+**How tierminator's part ends.** The session is made inactive, and its state removed, when:
+
+- the user leaves plan mode without approving: the next prompt typed outside plan mode while planning
+  ends it, silently;
+- the approved plan does not start a run (it opts out, its tasks cannot be loaded, it is invalid after the
+  denial cap, or the repository cannot run it);
+- the user types any prompt during a run: the run stops, nothing more is dispatched, and Claude is told
+  which tasks are done, which are not, and that `/tierminator:execute "<plan file>"` resumes it;
+- the user types any prompt after a run has ended (`complete`, `halted` or `abandoned`), silently;
+- the session ends (H6).
+
+A run resumes only through `/tierminator:execute`. A worker still running when a run is stopped finishes,
+but H4 no longer judges it: whatever it commits or leaves in the working tree stays. `/clear` starts a new
+session id, and so an inactive session; flags left behind are pruned after 7 days.
 
 **Why Claude switches the mode, not the hook.** A hook can set the permission mode only while answering a
 permission prompt (`updatedPermissions` `setMode` on `PermissionRequest`), and none is pending when the
 command is typed. Skill frontmatter has no mode key. Whether `EnterPlanMode` asks the user to approve is
 not documented; the run guide records it.
 
-Both are skills in [`skills/`](../../plugins/tierminator/skills/) with `disable-model-invocation: true`, so
-only the user can run them. **H1 does the work**, not the skill: `UserPromptSubmit` receives the raw typed
-text (measured; see [Evidence](#evidence)), and H1 matches `/tierminator:arm` or `/tierminator:disarm` at
-the start of the prompt. It sets or clears the flag and prints a note starting with `tierminator:`. The
-skill body only tells Claude to report that note in one line, or to say tierminator did not respond if
-there is none. So Claude never claims the session is armed when the hook did not run.
+Both are skills in [`skills/`](../../plugins/tierminator/skills/) (`plan` and `execute`) with
+`disable-model-invocation: true`, so only the user can run them. **H1 does the work**, not the skill:
+`UserPromptSubmit` receives the raw typed text (measured; see [Evidence](#evidence)), and H1 matches
+`/tierminator:plan` or `/tierminator:execute` at the start of the prompt. It does the work and prints a
+note starting with `tierminator:`. The `plan` skill's body tells Claude to follow the note (call
+`EnterPlanMode` if asked, or report a refusal in its words) and gives it the request through
+`$ARGUMENTS`; the `execute` skill's body tells Claude to do what the note says and nothing more. With no
+note, Claude says tierminator did not respond and neither plans nor runs anything.
 
-The notes:
+The `/tierminator:plan` notes (interactive):
 
 | Situation | Note |
 |---|---|
-| Armed | A note that the session is armed and that plans made in plan mode now run as tiered tasks, then the rules if in plan mode |
-| Already armed | A note that the session was already armed and nothing changed |
-| The repository cannot run a plan | `tierminator: not armed, because <reason>.` Git is missing, the directory is not a repository or has no commit, Git has no user name and email, or the tree has uncommitted changes. Claude tells the user what to fix and to arm again. No rules are added. |
-| The flag could not be written | `tierminator: arming failed, …` The session stays unarmed. |
-| Disarmed, no run | A note that the session is disarmed and plans are no longer tiered |
-| Disarmed during a run | Which tasks are done and committed (with their commits and tiers), which are not, and, if a worker is still running, that it will not be checked or rolled back. Claude is told not to dispatch more tasks. |
-| Not armed | A note that the session was not armed and nothing changed |
-
-A worker still running when the session is disarmed finishes, but H4 no longer judges it: whatever it
-commits or leaves in the working tree stays. The flag lasts for the session: H6 deletes it at
-`SessionEnd`, `/clear` starts a new session id (and so an unarmed session), and flags left behind are
-pruned after 7 days.
+| No request after the command | `tierminator: planning was not started: /tierminator:plan needs a request, …` Nothing is activated. |
+| The repository cannot run a plan | `tierminator: planning was not started: <reason>. …` Git is missing, the directory is not a repository or has no commit, Git has no user name and email, or the tree has uncommitted changes. Claude tells the user what to fix and to type `/tierminator:plan` again. Nothing is activated. |
+| The flag or the state could not be written | `tierminator: planning was not started: …` The session stays inactive. |
+| Planning started, in plan mode | `tierminator: planning started. …`, then the rules |
+| Planning started, outside plan mode | `tierminator: planning started. …` and a request to call `EnterPlanMode` now |
+| A run was in progress | The run's stop note (done, not done, the resume command) comes first, then the note above |
 
 ## The lifecycle of a plan
 
@@ -149,9 +165,9 @@ sequenceDiagram
     participant M as Main session
     participant H as Plugin hooks
     participant A as Tier agent
-    U->>M: /tierminator:arm
-    H-->>M: H1 arms the session
-    U->>M: Prompt in plan mode
+    U->>M: /tierminator:plan <request>
+    H-->>M: H1 activates the session and asks for plan mode
+    M->>M: EnterPlanMode
     H-->>M: H1 adds the tiering rules
     M->>M: Explores, writes the plan and its tiered-tasks block
     M->>H: ExitPlanMode
@@ -171,7 +187,9 @@ sequenceDiagram
     H-->>M: All tasks done (or the run stopped)
 ```
 
-0. **Arming.** The user types `/tierminator:arm`. Until then, none of what follows happens.
+0. **The command.** The user types `/tierminator:plan` and the request. H1 checks the repository,
+   activates the session in the `planning` phase, and asks Claude to enter plan mode (or, already there,
+   adds the rules). Without the command, none of what follows happens.
 1. **Planning.** In plan mode, H1 adds the rules in [`rules/tiering.md`](../../plugins/tierminator/rules/tiering.md)
    to the conversation. Claude plans as usual, including any Explore or Plan research, and ends the plan
    with a `## Tasks` section holding one `json tiered-tasks` block.
@@ -181,14 +199,17 @@ sequenceDiagram
    uncommitted changes, the call is denied and Claude tells the user. Once both are fine, H2 moves the block to the tasks file and puts a
    table of the tasks in its place, because the approval dialog cannot show a plan with very long lines.
 3. **Approval.** The user reads the plan, with the table, and approves it. The prompts are in the tasks
-   file the table names. A rejected plan triggers nothing: Claude revises it and offers it again.
-4. **Hand-off.** H3 loads the tasks from the tasks file, saves a `running` state, and gives Claude the
-   exact Agent call for T01.
+   file the table names. A rejected plan triggers nothing: Claude revises it and offers it again. Leaving
+   plan mode without approving ends tierminator's part.
+4. **Hand-off.** H3 starts the run as `/tierminator:execute` would (`executePlan()` in `lib/execute.js`):
+   it loads the tasks from the tasks file, saves a `running` state, and gives Claude the exact Agent call
+   for the first task.
 5. **The run.** Claude makes that call. H4 checks it. In an interactive session the worker runs in the
    background, so Claude ends its turn. The worker does its task and commits. When it stops, H4 checks the
    result and moves the run on, and when the worker's report arrives, H1 gives Claude the next call: the
    next task, a retry one tier up after a reset, or the end of the run. See [The run](#the-run).
-6. **Session end.** H6 deletes the session's state file and its arming flag.
+6. **The end.** The run completes or halts. The next prompt the user types makes the session inactive,
+   and H6 deletes the session's state file and its activation flag when the session ends.
 
 ## The task block
 
@@ -404,8 +425,8 @@ line and outside any code fence, with no task block:
 Tiered execution: off
 ```
 
-With that line, H2 lets the plan through without any Git check, H3 deletes any earlier run state for the
-session, and the plan is approved and carried out the ordinary way. The rules tell Claude to use the line
+With that line, H2 lets the plan through without any Git check, H3 deletes the session's planning state
+and makes the session inactive, and the plan is approved and carried out the ordinary way. The rules tell Claude to use the line
 only when the user asks for it or the task is trivial.
 
 A plan with neither a task block nor the opt-out line cannot be approved (until the denial cap below is
@@ -437,33 +458,45 @@ Every hook ignores calls made by subagents (any input with an `agent_id`), so wo
 never gated, guarded or given the rules. H4's `stop` mode is the exception: `SubagentStop` comes from the
 subagent itself.
 
-**Every hook is gated on arming.** Unless the session's flag exists, each hook returns without output:
+**Every hook is gated on activation.** Unless the session's flag exists, each hook returns without output:
 
-| Hook | In an unarmed session |
+| Hook | In an inactive session |
 |---|---|
-| H1 | Handles `/tierminator:arm`, `/tierminator:disarm` and `/tierminator:execute-plan` only. No rules, no `enter` output, no run notes. |
-| H2 | Silent: every plan goes to the dialog unchanged. |
-| H3 | Silent: nothing is saved. |
-| H4 | Silent in every mode, even for `tierminator:*` agents. `SubagentStop`'s `session_id` is the main session's, so a worker still running at a disarm is not judged. |
+| H1 | Handles `/tierminator:plan` and `/tierminator:execute` only. No rules, no `enter` output, no run notes. |
+| H2 | Silent: every plan goes to the dialog unchanged. It also acts only in the `planning` phase (or with no state), never during a run. |
+| H3 | Silent: nothing is saved. It also acts only in the `planning` phase, so a plan-mode plan made without `/tierminator:plan` is not tiered. |
+| H4 | Silent in every mode, even for `tierminator:*` agents. `SubagentStop`'s `session_id` is the main session's, so a worker still running when its run was stopped is not judged. |
 | H5 | Silent. |
 | H6 | Still deletes the session's state and flag at `SessionEnd`. |
 
 ### H1: rules
 
-- On `UserPromptSubmit`, a prompt that starts with `/tierminator:arm` or `/tierminator:disarm` arms or
-  disarms the session and prints the note (see [Arming](#arming)), and one that starts with
-  `/tierminator:execute-plan` starts a saved plan (see [Executing a saved plan](#executing-a-saved-plan)).
-  These commands are the only thing H1 handles in an unarmed session. Everything below needs the session
-  armed.
+- On `UserPromptSubmit`, a prompt that starts with `/tierminator:plan` or `/tierminator:execute` (matched
+  by `COMMAND`, `^\s*\/tierminator:(plan|execute)(?![\w-])`) first ends whatever the session was doing
+  (`endRun()`: a run in progress stops, and the session is made inactive), then starts planning (see
+  [Commands](#commands)) or runs a saved plan (see [Executing a saved plan](#executing-a-saved-plan)). The
+  stop note, if any, comes before the command's note, and a stopped run's spend goes to the UI as
+  `systemMessage`. These commands are the only thing H1 handles in an inactive session. Everything below
+  needs the session active.
 - The rules (the text of `rules/tiering.md`) are shown once per plan-mode stint, and the file
-  `sessions/<session_id>.rules`, beside the `.armed` flag, records that they were shown. They are shown on
-  `/tierminator:arm` typed in plan mode, on `PostToolUse` for `EnterPlanMode` (as `additionalContext`, which
-  covers Claude entering plan mode itself), and on the first prompt the user types in plan mode if neither
-  has happened yet. A `<task-notification>` or `<agent-message>` prompt never shows them.
-- The marker is cleared by a prompt outside plan mode, by `PreCompact` (`h1-plan-rules.js compact`, since the
-  rules are about to fall out of context), and by disarming (which `SessionEnd` also does). The next
-  plan-mode stint or prompt then shows the rules again. H2's denial of a plan with a missing or invalid task
-  block appends them regardless.
+  `sessions/<session_id>.rules`, beside the `.active` flag, records that they were shown. They are shown on
+  `/tierminator:plan` typed in plan mode, on `PostToolUse` for `EnterPlanMode` while planning (as
+  `additionalContext`), and on the first prompt the user types in plan mode while planning if neither has
+  happened yet. A `<task-notification>` or `<agent-message>` prompt never shows them.
+- The marker is cleared by a harness prompt outside plan mode, by `PreCompact` (`h1-plan-rules.js compact`,
+  since the rules are about to fall out of context), and by deactivation (which `SessionEnd` also does).
+  The next plan-mode stint or prompt then shows the rules again. H2's denial of a plan with a missing or
+  invalid task block appends them regardless.
+- A prompt the user types (not a command, not a harness prompt) in an active session:
+  - while `planning`, in plan mode: the rules once per stint, as above;
+  - while `planning`, outside plan mode: the user left plan mode without approving, so the session is made
+    inactive and its state removed, silently;
+  - while `drafting` (headless): the unattended note again;
+  - during a `running` run: the run stops. It is marked `abandoned`, its queued attempt lines and its spend
+    summary go to the UI, and Claude is told which tasks are done, which are not, whether a worker is still
+    running unchecked, and that the user types `/tierminator:execute "<plan file>"` to resume. The session is
+    made inactive and the state removed;
+  - after a run has ended, or with no state: the session is made inactive, silently.
 - On `UserPromptSubmit` outside plan mode, if H4 left a **notice** (a worker finished and its attempt was
   judged), it prints the notice and clears it. The worker's report arrives as an `<agent-message>` or
   task-notification prompt, so this is how a background run moves on to its next step with nothing typed.
@@ -478,25 +511,21 @@ subagent itself.
   saves the state with the agent id in `handedBack`. It then gives Claude the notice (the next dispatch, a
   retry, a halt or the completion message) in that same turn. If H4 already judged the attempt, it gives
   that notice once and does not judge again. With no task in flight it prints nothing.
-- Otherwise, for a prompt the user typed, with a run `running` and no task in flight, it prints where the
-  run stands and the next exact dispatch, so the user can say "continue" after an interruption. Worker
-  reports and task notifications get no such note.
-- For a `paused` run (the tree was dirty at approval), it checks the tree again. If it is clean now, the
-  run becomes `running` and the note gives the first dispatch; otherwise the note says why it still waits.
-- With `TIERMINATOR_UNATTENDED` set, the first prompt of an unarmed session arms it and starts the drafting
-  phase, and the `SessionStart` hook re-injects the note and rules after a compaction. See
+- In a headless session, `/tierminator:plan` starts the drafting phase instead of plan mode, and the
+  `SessionStart` hook re-injects the note and rules after a compaction. See
   [Unattended runs](#unattended-runs).
 
 ### H2: gate
 
-Runs before every main-thread `ExitPlanMode` call.
+Runs before every main-thread `ExitPlanMode` call in an active session that is planning (the `planning`
+phase, or no state). During a run, or after `/tierminator:execute`, it does nothing.
 
 1. Reads the plan from the file at `tool_input.planFilePath`. If the file is missing or empty, it falls
    back to `tool_input.plan`. The file comes first because `tool_input.plan` is whatever Claude sent and
    was measured to be stale after a retry.
 2. Parses it with `resolvePlan()`. The opt-out line passes silently.
 3. For a valid tiered plan, checks the Git working directory (`cwd`) with `git.problem()`, the same check
-   arming makes: `git` must run (`git --version`; otherwise the reason says Git is missing, not that there
+   `/tierminator:plan` makes: `git` must run (`git --version`; otherwise the reason says Git is missing, not that there
    is no repository), and the directory must be inside a repository that has a commit and a commit identity (`git var GIT_COMMITTER_IDENT` succeeds),
    with no uncommitted changes (`git status --porcelain` empty; ignored files do not count). Without an
    identity every worker's commit would fail and use up its retries, so the plan is refused up front.
@@ -519,7 +548,10 @@ Claude sees a denial as `PreToolUse:ExitPlanMode hook error: <reason>`. The user
 ### H3: hand-off
 
 Runs after a successful `ExitPlanMode`, which means the user approved the plan. A rejected plan does not
-fire it. Calls from agents (`tool_response.isAgent`) are ignored.
+fire it. Calls from agents (`tool_response.isAgent`) are ignored. It acts only in an active session in the
+`planning` phase, that is, after `/tierminator:plan`; a plan-mode plan made without it is not tiered.
+Whatever happens, planning is over: unless a run started, H3 makes the session inactive and removes its
+state.
 
 It reads the approved text from the file at `tool_response.filePath`, then `tool_input.planFilePath`, then
 `tool_response.plan`, then `tool_input.plan`, taking the first that is non-empty. The file comes first
@@ -528,15 +560,17 @@ measured to hold the same shortened text. It parses the text with `resolvePlan()
 
 | Parse result | What H3 does |
 |---|---|
-| Opt-out line | Deletes the session state (an untiered plan replaces any earlier run) and says nothing. |
-| A table that was edited, or whose tasks file is missing, changed or invalid | Deletes the state and tells Claude that nothing will run: tell the user and suggest planning again, and do not implement the plan, since its prompts are not in it. |
-| Invalid (only possible after H2's cap) | Deletes the state and tells Claude the plan will not run as tiered tasks: tell the user, then implement the plan normally. |
-| Valid, tree clean | Saves a `running` state (tasks, tasks file and hash, branch, working directory), prunes session files older than 7 days, and gives Claude the exact Agent call for T01. |
-| Valid, tree no longer clean | Saves the run as `paused` with the reason, and tells Claude to ask the user to commit or stash: the run starts on their next message once the tree is clean (H1). |
-| Valid, state not saved | Tells Claude the tasks could not be saved: tell the user, then implement the plan normally. |
+| Opt-out line | Ends planning (inactive, state removed) and says nothing. |
+| A table that was edited, or whose tasks file is missing, changed or invalid | Ends planning and tells Claude that nothing will run: tell the user and suggest planning again, and do not implement the plan, since its prompts are not in it. |
+| Invalid (only possible after H2's cap) | Ends planning and tells Claude the plan will not run as tiered tasks: tell the user, then implement the plan normally. |
+| Valid | Runs the plan file with `executePlan(input, planFile, { approved: true })`, the code behind `/tierminator:execute` (see [Executing a saved plan](#executing-a-saved-plan)), and gives Claude its note as `additionalContext`. On success the note opens `tierminator: the user approved <n> tiered tasks and wants them run.` and gives the exact Agent call for the first task not already committed; a `running` state is saved and session files older than 7 days are pruned. |
+| Valid, but the run did not start | The note is `executePlan()`'s refusal. For a tree that is no longer clean (or any other Git problem) it is `tierminator: the plan cannot run here: <reason>. Tell the user what to fix, then to type /tierminator:execute "<plan file>".` Planning ends. |
 
-If H2 could not write a tasks file, H3 writes the tasks to `<session_id>.tasks.json` beside the state file,
-so the workers always have one to read.
+The plan file is `tool_response.filePath`, else `tool_input.planFilePath`. If neither is readable, H3
+saves the plan text as `<session_id>.plan.md` beside the state file and runs that; if that write fails,
+planning ends and Claude is told to implement the plan normally. If H2 could not write a tasks file,
+`executePlan()` writes the tasks to `<plan>.tasks.json`, or else `<session_id>.tasks.json` beside the state
+file, so the workers always have one to read.
 
 ### H4: dispatch
 
@@ -596,7 +630,8 @@ In an unattended session, H5 also guards the drafting phase and turns the final 
 
 ### H6: cleanup
 
-On `SessionEnd` it deletes the session's state file and its arming flag. A run does not outlive its session; the tasks that
+On `SessionEnd` it deletes the session's state file, its activation flag, its telemetry cursor and rules
+marker, and its saved plan listing. A run does not outlive its session; the tasks that
 finished are already committed.
 
 ## The run
@@ -678,11 +713,13 @@ Earlier tasks' commits are kept, because the recorded HEAD is after them.
 
 ### Continuing and stopping
 
-If the user interrupts the run, the state stays `running`. On the user's next message, H1 tells Claude
-where the run stands and gives the next dispatch, so "continue" resumes it at the task that was due. To
-stop it, the user types `/tierminator:disarm`: the run is marked `abandoned` and Claude is told what is
-done and what is not (see [Arming](#arming)). If the user just asks Claude to stop, Claude does not
-dispatch, and H5 steps aside after a few blocks.
+Any prompt the user types during a run stops it: the run is marked `abandoned`, nothing more is
+dispatched, and Claude is told which tasks are done, which are not, and that
+`/tierminator:execute "<plan file>"` resumes it (see [H1](#h1-rules)). The session is made inactive. A
+worker already running finishes unjudged; the tasks that finished are already committed, so
+`/tierminator:execute` picks the plan up at the first task that is not. Prompts from the harness (a
+worker's `<agent-message>` or a `<task-notification>`) do not stop the run. If Claude stops dispatching
+on its own, H5 blocks a few times and then steps aside.
 
 ### Plan identity
 
@@ -695,12 +732,14 @@ what tells one plan's T01 from another's.
 
 ## Executing a saved plan
 
-A run's state and the arming flag are deleted when the session ends, and a run starts only when a plan is
-approved. So a plan interrupted before approval, or a run that stopped partway, cannot continue in a new
-session on its own. The plan file and its tasks file stay in the plans directory, and
-`/tierminator:execute-plan [plan path] [--from Txx]` runs them.
+A run ends when it completes or halts, when the user types a prompt during it, or with its session, and a
+run starts by itself only when a plan made after `/tierminator:plan` is approved. So a plan left
+unapproved, or a run that stopped partway, does not continue on its own. The plan file and its tasks file
+stay in the plans directory, and `/tierminator:execute [plan path | list number] [--from Txx]` runs them,
+in the same session or a new one.
 
-As with arming, **H1 does the work.** The skill ([`skills/execute-plan/`](../../plugins/tierminator/skills/execute-plan/SKILL.md),
+As with `/tierminator:plan`, **H1 does the work.** It first ends whatever the session was doing (a run in
+progress stops). The skill ([`skills/execute/`](../../plugins/tierminator/skills/execute/SKILL.md),
 user-only) only tells Claude to do what the note says. H1 matches the command at the start of the prompt
 and parses the rest (`lib/execute.js`):
 
@@ -713,21 +752,20 @@ and parses the rest (`lib/execute.js`):
 
 It then checks, in order:
 
-| Case | Note (the session is armed only in the last row) |
+| Case | Note (the session is active only in the last row) |
 |---|---|
-| In plan mode | Refused: leave plan mode first. Workers work in the session's permission mode, so they could not edit anything. |
-| The session is armed and a run is `running` or `paused` | Refused: `/tierminator:disarm` first. |
+| In plan mode | Refused: leave plan mode first. Workers work in the session's permission mode, so they could not edit anything. (H3's call, after approval, skips this check.) |
 | `--from` without a task id | Refused. |
 | No path | Lists up to 5 plans in `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` that hold a tierminator table or block, newest first, numbered, each with its `# ` heading, task count and time. Saves the list for the session. Claude shows them and asks the user to type the command with a number. A custom `plansDirectory` is not visible to hooks, so the note says the path must then be typed. |
 | The file cannot be read | Refused, naming the resolved path. |
-| No table or block, or `Tiered execution: off` | **Runs without tierminator:** Claude reads the file and implements the plan as it normally would. The session is not armed and Git is not checked. |
+| No table or block, or `Tiered execution: off` | **Runs without tierminator:** Claude reads the file and implements the plan as it normally would. The session is not activated and Git is not checked. |
 | A table whose tasks file is missing, changed or invalid, or a table that was edited | Refused with `resolvePlan()`'s errors. The prompts are not in the plan, so Claude must not implement it itself. |
 | An invalid raw block | Refused with the errors. |
-| `git.problem()` finds a problem | Refused with the reason, as for arming. |
+| `git.problem()` finds a problem | Refused with the reason, as for `/tierminator:plan`, and told to type `/tierminator:execute "<plan file>"` once it is fixed. |
 | A gap: a task is committed while an earlier one is not | Refused; `--from` chooses the start. |
 | `--from` names no task in the plan | Refused, naming the plan's first and last task. |
 | Every task is committed | Nothing runs; the note lists the commits. |
-| Otherwise | Arms the session, saves a `running` state starting at the first task not done, and gives the first dispatch. |
+| Otherwise | Activates the session, saves a `running` state starting at the first task not done, and gives the first dispatch. |
 
 **Which tasks are done.** `git.committedTasks()` runs `git log HEAD` for commits with this plan's
 `Tierminator-Plan:` line and reads their `Tierminator-Task:` lines. Only commits reachable from HEAD count,
@@ -749,28 +787,33 @@ and H5 guards the main thread.
 
 For headless `claude -p` runs, where no one approves a plan.
 
-- **The switch.** `TIERMINATOR_UNATTENDED` is on when set to `1`, `true`, `yes` or `on`, in any case
-  (`lib/unattended.js`, `enabled()`). Anything else, or unset, leaves every behavior described elsewhere in
-  this reference unchanged.
-- **Launch flags.** Recommended:
-  `TIERMINATOR_UNATTENDED=1 claude -p --model opus --effort medium --permission-mode bypassPermissions "<request>"`.
+- **Headless detection.** A session is headless when the hook process's `CLAUDE_CODE_ENTRYPOINT` starts
+  with `sdk` (`lib/unattended.js`, `headless()`). Claude Code sets it to `sdk-cli` for `claude -p`, and
+  interactive sessions record `cli`; a missing value counts as interactive (measured; see
+  [`tierminator-headless-command-findings.md`](tierminator-headless-command-findings.md)). Only
+  `/tierminator:plan` consults it: a headless session without the command is left alone, like any
+  inactive session.
+- **Launch.** Recommended:
+  `claude -p --model opus --effort medium --permission-mode bypassPermissions "/tierminator:plan <request>"`.
   The main thread plans and then orchestrates, so `--model` and `--effort` choose the planning model.
   Hooks cannot set the main thread's model or effort, so tierminator does not try. Workers run at their
   task's tier regardless.
 - **Not plan mode.** A headless session has no `ExitPlanMode`
   (see [the interactive spike](tierminator-spike-interactive-run.md)), so the session must not be in plan
-  mode. H1 refuses to arm there, tells Claude why, and arms nothing.
-- **Arming and drafting.** H1 arms the session on its first prompt (not a harness message) if the Git
-  checks pass, and puts it in the `drafting` phase with a plan file name:
+  mode. H1 refuses `/tierminator:plan` there, tells Claude to report that the session must be relaunched
+  without `--permission-mode plan`, and activates nothing.
+- **Activation and drafting.** On `/tierminator:plan`, if the Git checks pass, H1 activates the session
+  and puts it in the `drafting` phase with a plan file name:
   `tierminator-unattended-<UTC YYYYMMDD-HHmmss>-<first 8 characters of the session id>.md` in the plans
-  directory. It prints the unattended note and the tiering rules. Claude plans read-only and ends its turn
-  with the plan as its final message.
+  directory. It prints the unattended note (`tierminator: unattended run (a headless session started
+  with /tierminator:plan). …`) and the tiering rules. The skill gives Claude the request through
+  `$ARGUMENTS`. Claude plans read-only and ends its turn with the plan as its final message.
 - **The drafting guard (H5 `pre`).** While the phase is `drafting`, main-thread `Edit`, `Write` and
   `NotebookEdit` are denied with a reason that files cannot be edited until the plan runs. After three
   denials the guard steps aside, as it does during a run.
 - **Stop handling (H5 `stop`).** In the `drafting` phase the final message is the plan:
   - **Valid:** it is written to the plan file, its planning spend is recorded, and `executePlan` starts the
-    run as `/tierminator:execute-plan` would. The stop is blocked with the first dispatch. If the file
+    run as `/tierminator:execute` would. The stop is blocked with the first dispatch. If the file
     cannot be written, the phase becomes `abandoned` and the user is told nothing ran.
   - **`executePlan` refuses** (a dirty tree, for example): the state is removed, the refusal is given to
     Claude to report, and the next stop passes.
@@ -780,8 +823,8 @@ For headless `claude -p` runs, where no one approves a plan.
     run the plan and to implement it itself.
 - **After a compaction.** The `SessionStart` hook with matcher `compact` runs `h1-plan-rules.js session`,
   which re-injects the note and rules for a session still `drafting`.
-- **Disarming and re-arming.** `/tierminator:disarm` stops an unattended run like any other. In an
-  interactive session with the variable set, the next prompt arms again.
+- **Stopping.** A headless run has no one typing, so it ends when it completes, halts or is abandoned by the guard. A later
+  `/tierminator:execute` resumes a stopped run like any other.
 - **Permissions.** No hook sets `permissionDecision: "allow"`. Workers need permissions to edit, run their
   `Verify:` commands and `git commit` on their own: `--permission-mode bypassPermissions` in a sandbox or
   CI, or `acceptEdits` with `--allowedTools` rules.
@@ -819,16 +862,16 @@ no plan file known, they go to `sessions/<session_id>.telemetry.jsonl`. Every re
 |---|---|---|---|
 | `planning` | H2, each time a valid tiered plan passes | Plan-mode main messages and non-tierminator subagents that started since the session's cursor | `window`, `subagents`, `mainModel` |
 | `attempt` | H4 `stop`, and `failure` for a failed Agent call (zero usage) | The worker's whole transcript | `runId`, `task`, `tier`, `effort`, `attempt`, `agentId`, `outcome` (`done`, `retry`, `halt`), `reason`, `durationMs` |
-| `orchestration` | H5 at the first Stop after the run ends, or H1 on a disarm that stops it | Non-plan main messages, and non-tierminator subagents, since the run was approved or started | `runId`, `end` (the phase), `window`, `subagents` |
-| `run` | H3 on approval, and execute-plan, when a run starts | Nothing (no usage fields) | `runId`, `startTask`, `contextTokens` |
+| `orchestration` | H5 at the first Stop after the run ends, or H1 when a typed prompt or command stops it | Non-plan main messages, and non-tierminator subagents, since the run was approved or started | `runId`, `end` (the phase), `window`, `subagents` |
+| `run` | `executePlan()` when a run starts: H3 on approval, `/tierminator:execute`, or H5 for an unattended plan | Nothing (no usage fields) | `runId`, `startTask`, `contextTokens` |
 | `estimate` | H5 or H1, right after orchestration | Nothing | `runId`, `model`, `costUsd`, `total`, `extraCacheRead`, `reason` |
 
-**The cursor.** `sessions/<session_id>.cursor` holds the time up to which planning has been counted. Arming
-starts it, each planning record moves it, and disarming and SessionEnd delete it. So a rejected plan and its
+**The cursor.** `sessions/<session_id>.cursor` holds the time up to which planning has been counted. Activation
+starts it, each planning record moves it, and deactivation and SessionEnd delete it. So a rejected plan and its
 resubmission each record only their own share.
 
 **Runs.** `startRun` gives each run a random `runId`, so a plan run twice (for example with
-`/tierminator:execute-plan` after a partial run) is summed per run. The run state keeps
+`/tierminator:execute` after a partial run) is summed per run. The run state keeps
 `spend: {costUsd}` for the running total, `spendLines` for attempt lines not yet shown, and `spendReported`
 once the summary has been shown.
 
@@ -836,7 +879,7 @@ once the summary has been shown.
 planning is not matched by id alone. Each session that planned the run contributes its `planning` records
 back to its previous `run` record:
 - the run's own session, up to this run's `run` record;
-- any other session (a plan run with `/tierminator:execute-plan`), up to its latest planning record with
+- any other session (a plan run with `/tierminator:execute`), up to its latest planning record with
   this plan's id.
 
 ### What is shown
@@ -851,8 +894,8 @@ context.
   - In a background run, that Stop is the one right after the next dispatch.
   - A failed attempt says `failed, retrying a tier up` or `failed, run stopped`.
   - An unreadable transcript says `usage unavailable`.
-  - Lines still queued when the session is disarmed go out with the disarm note.
-- **When the run ends** (H5, or H1 on a disarm), once, after any queued lines:
+  - Lines still queued when a typed prompt stops the run go out with the stop note.
+- **When the run ends** (H5, or H1 when a typed prompt stops it), once, after any queued lines:
   - a row for planning (see above);
   - a row per tier used by this run, in ladder order, with its attempts, failures and tokens;
   - a row for orchestration;
@@ -885,8 +928,9 @@ it:
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
-The arming flag is a separate file beside it, `<session_id>.armed` (its content is the time it was armed),
-so the run state's own removals never disarm the session. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/tierminator/sessions/` is used. With `--plugin-dir`, Claude
+The activation flag is a separate file beside it, `<session_id>.active` (its content is the time it was
+activated), so the run state's own removals never deactivate the session. `/tierminator:plan` and
+`/tierminator:execute` write it. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/tierminator/sessions/` is used. With `--plugin-dir`, Claude
 Code sets `CLAUDE_PLUGIN_DATA` itself, to `~/.claude/plugins/data/tierminator-inline`.
 
 During a run the file looks like this:
@@ -916,46 +960,46 @@ During a run the file looks like this:
 
 `notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
 `post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A halted run
-also has `halt: {task, tried, reason}`; a paused run has `pausedBecause`. A run started by
-`/tierminator:execute-plan` part-way has the skipped tasks in `done` (see
-[Executing a saved plan](#executing-a-saved-plan)). Before approval the file, if any,
-holds only H2's denial count. Timestamps are written by hooks.
+also has `halt: {task, tried, reason}`. A run started part-way (by `/tierminator:execute`, or by approving
+a plan some of whose tasks are already committed) has the skipped tasks in `done` (see
+[Executing a saved plan](#executing-a-saved-plan)). Before approval the file holds the `planning` phase
+that `/tierminator:plan` wrote, with H2's denial count. Timestamps are written by hooks.
 
 ### Phases
 
 ```mermaid
 stateDiagram-v2
-    [*] --> planning: H2 denies an invalid plan
+    [*] --> planning: H1, /tierminator:plan
+    [*] --> drafting: H1, /tierminator:plan (headless)
     planning --> running: H3, plan approved
-    [*] --> running: H3, plan approved
-    [*] --> paused: H3, approved but the tree is dirty
-    [*] --> running: H1, execute-plan
-    paused --> running: H1, the tree is clean again
+    planning --> [*]: H3, no run started; H1, plan mode left
+    drafting --> running: H5, valid final plan
+    drafting --> abandoned: H5, invalid plan or guard gives up
+    [*] --> running: H1, /tierminator:execute
     running --> running: H4, next task or retry
     running --> complete: H4, last task done
     running --> halted: H4, retries used up or a fatal problem
-    running --> abandoned: H5, guard gives up; H1, disarmed
-    paused --> abandoned: H1, disarmed
+    running --> abandoned: H5, guard gives up
+    running --> [*]: H1, a typed prompt stops it
+    complete --> [*]: H1, the next typed prompt
+    halted --> [*]: H1, the next typed prompt
+    abandoned --> [*]: H1, the next typed prompt
     running --> [*]: H6 session end
-    complete --> [*]: H6 session end
-    halted --> [*]: H6 session end
-    abandoned --> [*]: H6 session end
 ```
 
 | Phase | Set by | Meaning | Guards | Dispatches accepted |
 |---|---|---|---|---|
-| (no file) | H3 opt-out or invalid, H1 disarm outside a run, H6 end | Idle. | Off | No |
-| `planning` | H2, on a denial with no earlier state | Holds only the denial count. | Off | No |
-| `paused` | H3 | Approved, waiting for a clean tree. | Off | No |
-| `running` | H3; H1 for a paused run or execute-plan | Tasks in progress. | **On** while no task is in flight | Only the expected one |
+| (no file) | H1 on a command or a typed prompt that ends tierminator's part, H3 when no run started, H6 end | Idle; the session is inactive. | Off | No |
+| `planning` | H1, on `/tierminator:plan`; H2 keeps its denial count there | Planning in plan mode. | Off | No |
+| `drafting` | H1, on a headless `/tierminator:plan` | Unattended planning; see [Unattended runs](#unattended-runs). | File edits denied | No |
+| `running` | `executePlan()`: H3 on approval, H1 on `/tierminator:execute`, H5 for an unattended plan | Tasks in progress. | **On** while no task is in flight | Only the expected one |
 | `complete` | H4 | Every task committed. | Off | No |
 | `halted` | H4 | Stopped at a task; see `halt`. | Off | No |
-| `abandoned` | H5, after giving up; H1, on a disarm | Claude stopped dispatching, or the user disarmed. | Off | No |
+| `abandoned` | H5, after giving up; H1, when a typed prompt stops the run (the state is then removed) | Claude stopped dispatching, or the user typed a prompt. | Off | No |
 
-Approving a new plan replaces the state. State writes are atomic (a temp file, then a rename). Session ids
-are reduced to letters, digits, `_` and `-` before being used as file names. A corrupt or unreadable file
-reads as no state. Each approval and each arming prunes session files, flags and temp files not modified in
-7 days.
+State writes are atomic (a temp file, then a rename). Session ids are reduced to letters, digits, `_` and
+`-` before being used as file names. A corrupt or unreadable file reads as no state. Each approval and each
+`/tierminator:plan` prunes session files, flags and temp files not modified in 7 days.
 
 ## The tier agents
 
@@ -993,9 +1037,9 @@ Rules every hook follows, enforced by [`lib/hook.js`](../../plugins/tierminator/
 
 - **Never fail loudly.** Every error, including an uncaught exception or unhandled rejection, is swallowed
   and the exit code stays 0. Empty, malformed or non-object stdin produces no output.
-- **Degrade to ordinary Claude Code.** In an unarmed session every hook does nothing (H1 still handles
-  the arm, disarm and execute-plan commands). If the state cannot be read, a hook does nothing. If it cannot be
-  written at approval, H3 tells Claude to implement the plan normally.
+- **Degrade to ordinary Claude Code.** In an inactive session every hook does nothing (H1 still handles
+  the `/tierminator:plan` and `/tierminator:execute` commands). If the state cannot be read, a hook does
+  nothing. If the run cannot be saved at approval, nothing starts and Claude tells the user.
 - **Never grant permission.** No hook sets `permissionDecision: "allow"`.
 - **Never block forever.** H2 gives up after three denials of an invalid plan, H5's `pre` after three, and
   H5's `stop` on the second consecutive stop. H2's Git denials are the user's to fix and are not capped,
@@ -1014,8 +1058,9 @@ How the plugin behaves when something goes wrong:
 | Claude cannot produce a valid block in three tries | The fourth `ExitPlanMode` passes; H3 tells Claude to implement the plan normally and tell the user. |
 | The working tree is dirty or not a Git repository when the plan is submitted | H2 denies, and Claude tells the user to commit or stash. |
 | Git has no user name and email for the repository | H2 denies, and Claude tells the user to set `user.name` and `user.email`. |
-| The user disarms during a run | The run is marked `abandoned`; Claude is told what is done and what is not. A worker in flight finishes unjudged. |
-| The tree becomes dirty between submission and approval | The run is saved as `paused` and starts on the user's next message once the tree is clean. |
+| The user types a prompt during a run | The run is marked `abandoned` and the session made inactive; Claude is told what is done, what is not, and the `/tierminator:execute` command that resumes it. A worker in flight finishes unjudged. |
+| The user leaves plan mode without approving | The next typed prompt makes the session inactive. The plan, if saved, can still be run with `/tierminator:execute`. |
+| The tree becomes dirty between submission and approval | Nothing starts and the session is made inactive; Claude tells the user to fix it and type `/tierminator:execute "<plan file>"`. |
 | The tree is dirty, or the branch changed, at a dispatch | The run halts before the task starts. |
 | A task fails | It is reset and retried one tier up, twice at most, then the run halts with the last attempt left in place. |
 | A worker reports `DONE` without exactly one trailer commit, or leaves changes uncommitted | Treated as a failed attempt. |
@@ -1023,7 +1068,7 @@ How the plugin behaves when something goes wrong:
 | The Agent call itself fails | Treated as a failed attempt. |
 | A failed attempt's commit is on a remote branch | The run halts without a reset. |
 | Claude dispatches the wrong tier or prompt, or a second task while one is running | H4 refuses and repeats the right call. |
-| The worker's report never arrives as a prompt | The notice waits in the state; the user's next message gets it from H1, or H5 gives it if Claude stops. |
+| The worker's report never arrives as a prompt | The notice waits in the state, and the run waits with it. A prompt the user types then stops the run, and `/tierminator:execute` resumes it from the first task not committed. |
 | Claude edits files or stops instead of dispatching | H5 blocks a few times, then steps aside and marks the run `abandoned`. |
 | The tasks file or the table changes after the table is written | H2 denies a resubmission and asks for the full block again. After approval, H3 runs nothing and tells Claude to say so. |
 | H2 cannot write the tasks file or the plan | The plan reaches the dialog with its block, and H3 writes a tasks file beside the state. A plan with a very long line is then withheld by the dialog. |
@@ -1035,6 +1080,7 @@ How the plugin behaves when something goes wrong:
 | `TIERMINATOR_DEBUG` | When set, hook errors, unparseable input, a block H2 could not move, and every state write and removal are appended, with timestamps, to `tierminator-debug.log` in the system temp directory. |
 | `CLAUDE_PLUGIN_DATA` | Set by Claude Code. Parent of the `sessions/` state directory. A value set in the shell is ignored under `--plugin-dir`. |
 | `CLAUDE_PLUGIN_ROOT` | Set by Claude Code. Used to locate the hook scripts and the rules file. |
+| `CLAUDE_CODE_ENTRYPOINT` | Set by Claude Code. A value starting with `sdk` (`sdk-cli` for `claude -p`) makes `/tierminator:plan` start an [unattended run](#unattended-runs); anything else, or unset, plans interactively. |
 | `CLAUDE_CODE_EFFORT_LEVEL` | If set, overrides the agents' effort. Leave unset. |
 | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` | If set, overrides the agents' models. Leave unset. |
 
@@ -1048,7 +1094,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 | Retries per task | 2 | `lib/run.js` `MAX_RETRIES` |
 | Commit lines | `Tierminator-Task: <id>` and `Tierminator-Plan: <plan id>` | the agents; checked in `lib/run.js` |
 | Plan id | First 16 hex characters of the sha256 of the task block | `lib/sidecar.js` `planIdOf` |
-| Plans listed by execute-plan | 5, from `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` | `lib/execute.js` |
+| Plans listed by `/tierminator:execute` | 5, from `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` | `lib/execute.js` |
 | Maximum tasks | 99 | `lib/tasks.js` |
 | Maximum title length | 100 characters | `lib/tasks.js` |
 | Block info string | `json tiered-tasks` | `lib/tasks.js` |
@@ -1059,7 +1105,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 | H2 denial cap | 3 | `h2-gate-exit-plan.js` |
 | H5 tool-denial cap | 3 | `h5-guard.js` |
 | State pruning age | 7 days | `h3-post-approval.js`, `h1-plan-rules.js` |
-| Commands | `/tierminator:arm`, `/tierminator:disarm`, `/tierminator:execute-plan`, at the start of the prompt | `h1-plan-rules.js` `COMMAND` |
+| Commands | `/tierminator:plan`, `/tierminator:execute`, at the start of the prompt | `h1-plan-rules.js` `COMMAND` |
 
 ## Plugin layout
 
@@ -1070,9 +1116,8 @@ plugins/tierminator/
   agents/<model>-<effort>.md     # the five tier agents, one shared body
   hooks/hooks.json               # H1-H6 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
-  skills/arm/SKILL.md            # /tierminator:arm (user-only; H1 does the arming)
-  skills/disarm/SKILL.md         # /tierminator:disarm (user-only; H1 does the disarming)
-  skills/execute-plan/SKILL.md   # /tierminator:execute-plan (user-only; H1 starts the plan)
+  skills/plan/SKILL.md           # /tierminator:plan (user-only; H1 starts planning, the body passes $ARGUMENTS)
+  skills/execute/SKILL.md        # /tierminator:execute (user-only; H1 starts the plan)
   scripts/
     h1-plan-rules.js
     h2-gate-exit-plan.js
@@ -1082,7 +1127,7 @@ plugins/tierminator/
     h6-cleanup.js
     lib/git.js                   # the Git commands a run needs; never throws
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
-    lib/execute.js               # /tierminator:execute-plan: arguments, the plan listing, where to start
+    lib/execute.js               # /tierminator:execute and H3's approval: arguments, the plan listing, where to start
     lib/prices.js                # per-model prices by token category, from Anthropic's pricing page
     lib/settle.js                # judging a worker's report: the report from a transcript, and settle()
     lib/spend.js                 # what each hook records for telemetry, and the UI text
@@ -1090,9 +1135,9 @@ plugins/tierminator/
     lib/usage.js                 # token usage from transcripts: de-duplicated, windowed, by mode
     lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
     lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
-    lib/state.js                 # per-session state file, arming flag and telemetry cursor: read, atomic write, remove, arm, prune
+    lib/state.js                 # per-session state file, activation flag and telemetry cursor: read, atomic write, remove, activate, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
-    lib/unattended.js            # TIERMINATOR_UNATTENDED: the switch, the plan file name, the final message, the note
+    lib/unattended.js            # headless runs: the CLAUDE_CODE_ENTRYPOINT check, the plan file name, the final message, the note
 ```
 
 The plugin is pure Node and Markdown, with no dependencies and nothing vendored from `shared/`. It is
@@ -1118,16 +1163,16 @@ file and fails.
 | `tests/tierminator/git.test.js` | The Git-installed, repository, commit identity and clean-tree check, HEAD and branch, commits since a base, a plan's committed tasks on the current branch, pushed commits (with a bare remote), and the reset. |
 | `tests/tierminator/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt (with and without a plan id), and moving on: next, complete, retry up the ladder, halt; a run started part-way. |
 | `tests/tierminator/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
-| `tests/tierminator/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, the arming flag and the telemetry cursor. |
+| `tests/tierminator/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, the activation flag and the telemetry cursor. |
 | `tests/tierminator/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
 | `tests/tierminator/usage.test.js` | De-duplicating repeated message lines, cache writes with and without a 5 m / 1 h split, an `opusplan` session split by mode and priced per model, time windows, unpriced models, unreadable transcripts, and subagents by window and type. |
 | `tests/tierminator/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
-| `tests/tierminator/unattended.test.js` | The `TIERMINATOR_UNATTENDED` switch and its accepted values, the plan file name, the final message from the Stop input or the transcript, and the planning note. |
-| `tests/tierminator/hooks.test.js` | Each hook run as a child process against real stdin: arming (refusing where a plan could not run, and asking for plan mode outside it, but never during a run) and disarming, a background task's next step given with its notification and not by a Stop block, execute-plan by list number, every hook silent when unarmed, disarming mid-run, execute-plan in every case it handles (a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when unarmed), the gate and its Git checks (including a repository with no identity), the tasks file, starting and pausing a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, the resume note, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/tierminator/unattended.test.js` | The headless check (`sdk-cli`, `sdk-ts`, `cli`, empty and unset entrypoints), the plan file name, the final message from the Stop input or the transcript, and the planning note. |
+| `tests/tierminator/hooks.test.js` | Each hook run as a child process against real stdin, with no `CLAUDE_CODE_ENTRYPOINT` unless a test sets one: `/tierminator:plan` (activating and asking for plan mode outside it, the rules inside it, refusing an empty request or a repository where a plan could not run, drafting when headless and refusing headless plan mode, stopping a run first), a plan-mode plan made without the command not being tiered, approval running the plan or, with a dirty tree, naming `/tierminator:execute`, leaving plan mode deactivating silently, a typed prompt stopping a run while harness prompts do not, a background task's next step given with its notification and not by a Stop block, every hook silent when inactive, `/tierminator:execute` in every case it handles (stopping a run first, by list number, a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when inactive), the gate and its Git checks (including a repository with no identity), the tasks file, starting a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
-To try the plugin by hand, load it with `claude --plugin-dir ./plugins/tierminator`, type
-`/tierminator:arm`, enter plan mode in a clean repository, and ask for a small multi-step change.
+To try the plugin by hand, load it with `claude --plugin-dir ./plugins/tierminator` in a clean repository
+and type `/tierminator:plan` with a small multi-step change.
 
 ## Limitations and non-goals
 
@@ -1139,7 +1184,7 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/tierminat
   - Fast mode is priced at the standard rate (transcripts do not record it).
   - Web searches' per-search fee is not counted.
   - The price table is fixed in the plugin, with its date.
-  - A worker still running when the session is disarmed is not counted.
+  - A worker still running when a typed prompt stops the run is not counted.
   - Orchestration includes anything else the user asks Claude during the run.
   - On a subscription plan, the figures are what the usage would cost at API rates.
 - **Git required.** A tiered plan needs a Git repository with a commit identity and a clean working tree.
@@ -1151,22 +1196,24 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/tierminat
 - **A hand-back's usage is as of the hand-back.** H1 records the worker's spend when it judges the
   hand-back, so tokens the worker uses after handing back are not counted.
 - **A background task's next step waits for its "finished" notification.** That notification arrived after
-  the worker's `SubagentStop` in every live run. If one never came, the run would wait until the user types
-  something, and H1 would give the next step then.
-- **Switching to plan mode on arming is Claude's call to make.** The hook can only ask for `EnterPlanMode`.
+  the worker's `SubagentStop` in every live run. If one never came, the run would wait; a prompt the user
+  types then stops it, and `/tierminator:execute` resumes it.
+- **Switching to plan mode on `/tierminator:plan` is Claude's call to make.** The hook can only ask for
+  `EnterPlanMode`.
 - **The model dispatches.** The plugin gives the exact call and refuses any other, but cannot make the call
   itself. If Claude never dispatches, the guard steps aside after a few blocks.
-- **A run ends with its session.** A resumed session does not continue a run by itself. The tasks that
-  finished are committed with their plan's id, and `/tierminator:execute-plan` picks the plan up from the
-  first task that is not. Commits made before the plan line existed are not recognized; use `--from`.
+- **A run ends with its session, or with any prompt the user types during it.** Neither a resumed session
+  nor "continue" carries a run on. The tasks that finished are committed with their plan's id, and
+  `/tierminator:execute` picks the plan up from the first task that is not. Commits made before the plan line existed are not recognized; use `--from`.
 - **The plan listing sees only the default plans directory.** Hooks cannot read the `plansDirectory`
   setting, so a moved plans directory needs the path typed.
 - **The user approves a table, not the prompts.** The dialog cannot show very long lines, so the prompts
   are in the tasks file, which the user has to open to read.
 - **Tasks files are kept.** One is written next to each plan file that passes H2, and none is deleted.
-- **Armed per session.** Arming does not carry over to a new session, a `/clear` or a resumed session;
-  type `/tierminator:arm` again. In an armed session, plan mode gets the tiering rules and `ExitPlanMode`
-  is gated; use the opt-out line for an ordinary plan, or disarm.
+- **One plan per command.** Only a plan started with `/tierminator:plan` is tiered, and leaving plan mode
+  without approving it ends tierminator's part; the next tiered plan needs the command again. Activation
+  does not carry over to a new session, a `/clear` or a resumed session. While planning after the command,
+  ask for the opt-out line for an ordinary plan.
 - **Rules are shown once per stint.** After compaction, or after leaving plan mode and entering it again, the
   rules are shown again. A planner that lost them without either relies on H2's denial messages, which
   include them.
@@ -1175,20 +1222,21 @@ To try the plugin by hand, load it with `claude --plugin-dir ./plugins/tierminat
 
 | Symptom | Likely cause and fix |
 |---|---|
-| Claude says tierminator is not armed, with a reason | Arming checks the repository first. Fix what the reason names (install Git, commit or stash, set `user.name` and `user.email`), then type `/tierminator:arm` again. |
-| Plan mode behaves as if the plugin were absent | The session is not armed: type `/tierminator:arm`. If Claude says tierminator did not respond, Node is not on the `PATH` or the plugin is not enabled. Check `node --version` and `/plugin`. Set `TIERMINATOR_DEBUG=1` and look at `tierminator-debug.log` in the temp directory. |
-| `/tierminator:arm` is not recognized | The plugin is not installed or not enabled in this session. Check `/plugin`. |
+| Claude says planning was not started, with a reason | `/tierminator:plan` checks the repository first, and needs a request after the command. Fix what the reason names (install Git, commit or stash, set `user.name` and `user.email`), then type `/tierminator:plan` again. |
+| Plan mode behaves as if the plugin were absent | The plan was not started with `/tierminator:plan`, or plan mode was left without approving. Type `/tierminator:plan` and the request. If Claude says tierminator did not respond, Node is not on the `PATH` or the plugin is not enabled. Check `node --version` and `/plugin`. Set `TIERMINATOR_DEBUG=1` and look at `tierminator-debug.log` in the temp directory. |
+| `/tierminator:plan` is not recognized | The plugin is not installed or not enabled in this session. Check `/plugin`. |
+| The run stopped after I typed something | Expected: any typed prompt stops a run. Type the `/tierminator:execute` command Claude gave to resume it from the first task not committed. |
 | `ExitPlanMode` keeps being denied for the task block | The block is invalid; the denial lists each problem. After three denials the plan goes through untiered. |
 | `ExitPlanMode` is denied because of the working tree | Commit or stash your changes, or make sure you are in a Git repository with at least one commit. |
 | `ExitPlanMode` is denied because Git has no user name and email | Set them, globally (`git config --global user.name …`) or for the repository. |
 | The dialog says the plan is too large to be shown in full | A line in the plan is too long for the dialog. If the plan still has its task block, H2 could not rewrite the plan file; `TIERMINATOR_DEBUG=1` logs that. If the long line is in the prose, ask Claude to wrap it. |
 | After approval Claude says the tasks could not be loaded | The tasks file or the table was changed after the table was written. Plan again. |
-| After approval Claude says the run cannot start | The tree became dirty after the plan was submitted. Commit or stash, then send any message. |
-| A session ended before its plan ran or finished | Type `/tierminator:execute-plan` (no path lists recent plans), or `/tierminator:execute-plan <plan path>`. |
-| execute-plan reports a gap in the committed tasks | A later task is committed on this branch but an earlier one is not. Check `git log`, then type the command again with `--from` and the task to start at. |
-| execute-plan says the plan's tasks cannot be loaded | The tasks file beside the plan is missing or was changed, or the table was edited. The prompts are gone from the plan, so plan it again. |
-| execute-plan reruns tasks that an old run finished | Those commits predate the `Tierminator-Plan:` line. Use `--from` to start after them. |
-| The run goes idle after a task reports | A hand-back is judged when it arrives, so idling means something else. Check the run state, or resume a saved plan with `/tierminator:execute-plan`, which skips committed tasks. |
+| After approval Claude says the plan cannot run here | The tree became dirty after the plan was submitted. Commit or stash, then type the `/tierminator:execute "<plan file>"` command Claude gave. |
+| A session ended before its plan ran or finished | Type `/tierminator:execute` (no path lists recent plans), or `/tierminator:execute <plan path>`. |
+| `/tierminator:execute` reports a gap in the committed tasks | A later task is committed on this branch but an earlier one is not. Check `git log`, then type the command again with `--from` and the task to start at. |
+| `/tierminator:execute` says the plan's tasks cannot be loaded | The tasks file beside the plan is missing or was changed, or the table was edited. The prompts are gone from the plan, so plan it again. |
+| `/tierminator:execute` reruns tasks that an old run finished | Those commits predate the `Tierminator-Plan:` line. Use `--from` to start after them. |
+| The run goes idle after a task reports | A hand-back is judged when it arrives, so idling means something else. Check the run state, or type `/tierminator:execute` with the plan, which stops the run and resumes it, skipping committed tasks. |
 | A dispatch is refused | Claude's call did not match the expected one. The refusal repeats the right call; Claude should make it. |
 | The run stopped at a task | Read Claude's report: the task, the tiers tried and the reason. The last attempt's changes are in the working tree. Fix or discard them, then plan the rest again. |
 | The run stopped because of uncommitted changes or a branch change | Something other than a task changed the tree or the branch during the run. Nothing was reset. |
@@ -1208,8 +1256,9 @@ their findings about plan mode, hooks and the dialog still apply.
 | A background Agent result carries no usage, so worker usage comes from its transcript; repeated lines of a message need the largest value per field; the main transcript's mode entries separate planning from execution; `meta.json` types each subagent; Opus 5.5 cache reads cost 0.05× input and Sonnet 5 is $2/$10 | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md) | `planandtier-usage-shapes.json`, `planandtier-pricing.json` |
 | In a live interactive run: a `SubagentStop` `systemMessage` is not shown for a background worker, a `Stop` one is; the planning of a rejected round is recorded under another plan id; the `sonnet` agents resolved to `claude-sonnet-5-5` | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md#the-first-live-run) | `planandtier-agents-20260928-155438-session-output.txt`, `-telemetry.jsonl`, `-git-log.txt` |
 | With the fixes, in a live run: each attempt's spend line shows at the next Stop, and the summary's planning includes a rejected round | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md#the-fixes-in-a-live-run) | `planandtier-agents-20260928-161554-session-output.txt`, `-telemetry.jsonl`, `-git-log.txt` |
-| `/tierminator:execute-plan` live: a plan left unapproved runs in a later session; committed tasks are skipped; planning is counted across sessions; a plain plan runs without tierminator | [`tierminator-agent-dispatch-findings.md`](tierminator-agent-dispatch-findings.md#executing-a-saved-plan-live) | `planandtier-execute-plan-20260928-162334-partB-*`, `-partC-*`, `-partD-*`, `-telemetry.jsonl` |
+| Running a saved plan live (measured under the command's earlier name): a plan left unapproved runs in a later session; committed tasks are skipped; planning is counted across sessions; a plain plan runs without tierminator | [`tierminator-agent-dispatch-findings.md`](tierminator-agent-dispatch-findings.md#executing-a-saved-plan-live) | `planandtier-execute*-20260928-162334-partB-*`, `-partC-*`, `-partD-*`, `-telemetry.jsonl` |
 | A typed plugin skill command reaches `UserPromptSubmit` as the raw text (for example `/planandtier-agent-probe:arm`), the namespaced name resolves, and a `disable-model-invocation` skill's body still reaches the model | [`tierminator-agent-dispatch-findings.md`](tierminator-agent-dispatch-findings.md#arming-what-a-typed-skill-command-looks-like-to-a-hook) | `planandtier-arm-probe.log`, `planandtier-arm-probe-results.json` |
+| Headless, a typed plugin command reaches the hook as raw text, the hook sees `CLAUDE_CODE_ENTRYPOINT=sdk-cli` (interactive transcripts record `cli`), `$ARGUMENTS` expands to the text after the command, and `additionalContext` reaches the model | [`tierminator-headless-command-findings.md`](tierminator-headless-command-findings.md) | `tierminator-headless-probe-results.json`, `tierminator-headless-probe-hooks.jsonl`, `tierminator-headless-probe-output.json` |
 | Opus 5.5 at `low` scored above Sonnet 5 at `xhigh` at a lower cost per task on every published comparison found; Sonnet 5.5 at `high` scores above Opus 5.5 at `low`, Opus 5.5 at `high` matches or beats Sonnet 5.5 at `xhigh` for equal or less, and Opus 5.5 at `xhigh` adds little over `high` | [`tierminator-tier-findings.md`](tierminator-tier-findings.md) | `planandtier-tier-research.json` (published sources, fetched 2026-09-28), `planandtier-sonnet-5-5-charts.json` (Anthropic's Sonnet 5.5 launch charts) |
 | A worker's `SubagentHandback` report arrives as an `<agent-message>` prompt, and the later `<task-notification>` is transcript-only (`queueTranscriptOnly`): no turn, no `UserPromptSubmit`, so H1 judges the hand-back when it arrives | [`tierminator-agent-dispatch-findings.md`](tierminator-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2285) | `planandtier-handback-stall.json` |
 | Agent-tool subagents get no user-request frame; `PreToolUse` on Agent sees `subagent_type` and `prompt`, and a corrective denial is followed; the report is in `SubagentStop`'s `last_assistant_message`; in an interactive session the Agent call has no `run_in_background` field and the subagent runs in the background | [`tierminator-agent-dispatch-findings.md`](tierminator-agent-dispatch-findings.md) | `planandtier-agent-probe.log`, `planandtier-agent-probe-results.json`, `planandtier-reject-worker-frames.json`, `planandtier-agents-interactive-attempt1-probe.log`, `planandtier-agents-probe.log`, `planandtier-agents-debug.log`, `planandtier-agents-rerun-probe.log`, `planandtier-agents-rerun-debug.log` |
@@ -1231,7 +1280,8 @@ and confirmed in a live rerun. The probe plugins and their scripts are in
 ## Planned changes
 
 [`tierminator-opt-in-draft-plan.md`](tierminator-opt-in-draft-plan.md) was a draft for making the plugin
-opt-in per session and for running a saved plan named in a prompt. Its opt-in part is implemented, as
-`/tierminator:arm` and `/tierminator:disarm` (see [Arming](#arming)). Its saved-plan and workflow parts
+opt-in per session and for running a saved plan named in a prompt. Its opt-in part was implemented as a
+per-session arm and disarm pair, since replaced by `/tierminator:plan` and `/tierminator:execute` (see
+[Commands](#commands)). Its saved-plan and workflow parts
 were written for the earlier workflow design and are not planned. This document describes the plugin as it
 is now.
