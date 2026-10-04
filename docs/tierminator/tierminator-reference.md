@@ -21,6 +21,7 @@ Tested on Claude Code 2.1.283 (Windows).
 - [Executing a saved plan](#executing-a-saved-plan)
 - [Unattended runs](#unattended-runs)
 - [Spend telemetry](#spend-telemetry)
+- [The sizing review](#the-sizing-review)
 - [Session state](#session-state)
 - [The tier agents](#the-tier-agents)
 - [Permission modes](#permission-modes)
@@ -450,6 +451,9 @@ Six scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered i
 | H4 Dispatch | `SubagentStop` | none | `h4-dispatch.js stop` | 15 s |
 | H4 Dispatch | `PostToolUse` | `Agent` | `h4-dispatch.js post` | 60 s |
 | H4 Dispatch | `PostToolUseFailure` | `Agent` | `h4-dispatch.js failure` | 60 s |
+| H4 Dispatch | `PreToolUse` | `SendMessage` | `h4-dispatch.js resume-pre` | 30 s |
+| H4 Dispatch | `PostToolUse` | `SendMessage` | `h4-dispatch.js resume-post` | 30 s |
+| H4 Dispatch | `PostToolUseFailure` | `SendMessage` | `h4-dispatch.js resume-failure` | 60 s |
 | H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `h5-guard.js pre` | 15 s |
 | H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
 | H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
@@ -511,6 +515,15 @@ subagent itself.
   saves the state with the agent id in `handedBack`. It then gives Claude the notice (the next dispatch, a
   retry, a halt or the completion message) in that same turn. If H4 already judged the attempt, it gives
   that notice once and does not judge again. With no task in flight it prints nothing.
+- A `<task-notification>` that says a worker "stopped at its N-turn limit" does start a turn, but no
+  `SubagentStop` judged the worker (see
+  [the findings](tierminator-agent-dispatch-findings.md#a-worker-that-reaches-its-turn-limit-claude-code-21286)).
+  While a task is in flight and no resume is pending, H1 matches the notification's `<task-id>` to the
+  task's recorded `agentId` (an unknown `agentId` is taken from the notification; a notification for another
+  agent is ignored) and calls `onTurnLimit()` (`lib/turnlimit.js`). With resumes left it saves
+  `resumePending` and tells Claude to resume the worker with `SendMessage`; otherwise the run halts (see
+  [Judging an attempt](#judging-an-attempt)). Either way it speaks in that same turn, since no later event
+  would.
 - In a headless session, `/tierminator:plan` starts the drafting phase instead of plan mode, and the
   `SessionStart` hook re-injects the note and rules after a compaction. See
   [Unattended runs](#unattended-runs).
@@ -592,14 +605,29 @@ other agent types are left alone.
   Claude must be told next as the state's `notice`. It also records the attempt's tokens and cost, and queues
   the line H5 shows the user (see [Spend telemetry](#spend-telemetry)). It ignores an agent listed in the
   state's `handedBack`: H1 already judged that worker's hand-back, and the run's next task may be in flight.
+  The defensive rule: when no report can be found and the worker's transcript holds at least the tier's
+  `maxTurns` messages, `stop` judges nothing. It records `turnLimited: {turns}` and the `agentId` and leaves
+  the resume to H1 or `post`. The findings measured no `SubagentStop` at a turn limit, so this only keeps a
+  stop that does fire from becoming a failed attempt and a reset.
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
   already finished (a foreground run, as in a headless session): it gives Claude the notice as
   `additionalContext` and clears it. Otherwise the task is running in the background: it marks the attempt
-  `background`, and tells Claude to end its turn. The next step comes when the report arrives (H1). When a
-  background attempt is judged, its notice is flagged `noticeByNotification`, for H1 to give with the
-  "finished" notification instead of H5 blocking a stop.
+  `background`, records the `agentId` from the launch response, and tells Claude to end its turn. The next
+  step comes when the report arrives (H1). When a background attempt is judged, its notice is flagged
+  `noticeByNotification`, for H1 to give with the "finished" notification instead of H5 blocking a stop.
+  A foreground call (no `isAsync`) whose result says `stopped at its N-turn limit` is a turn-limit stop:
+  `SubagentStop` does not fire for it (measured headless), so `post` calls `onTurnLimit()` and gives Claude
+  the resume, or the halt, as `additionalContext`.
 - **`failure`** (`PostToolUseFailure`) treats a failed Agent call as a failed attempt, with the error's
   first line as the reason, and gives Claude the result directly.
+- **`resume-pre`**, **`resume-post`** and **`resume-failure`** handle the `SendMessage` that resumes a worker
+  stopped at its turn limit. A `SendMessage` is touched only when it is addressed to the run's worker
+  (`to` equal to the task's `agentId`) or a resume is pending; any other message is left alone. `resume-pre`
+  refuses, with the reason and the expected call, a resume sent when none is due, to another agent, or with a
+  message other than `RESUME_MESSAGE`; on a pass it clears `resumePending` and adds one to `resumes`.
+  `resume-post` tells Claude to end its turn. `resume-failure` halts the run without a reset, with the
+  error's first line as the reason. The resumed worker runs in the background; its report, or another
+  turn-limit notification, arrives as for any worker.
 
 Whether a dispatch runs in the foreground is not checked. In an interactive session the Agent tool has no
 `run_in_background` setting and always runs subagents in the background; in a headless session Claude can
@@ -610,7 +638,9 @@ It never sets `permissionDecision: "allow"`; its only decisions are denials.
 ### H5: guard
 
 Keeps the main thread dispatching while a task is due. Active only while the run is `running` and no task
-is in flight.
+is in flight, except that `stop` also blocks while a task is in flight with `resumePending` set: the resume
+`SendMessage` is still due, so the turn must stay open until it is sent, with the resume instruction as the
+reason.
 
 - **`pre`:** denies main-thread `Edit`, `Write` and `NotebookEdit` calls, with a reason that repeats the
   next dispatch. After three denials it steps aside and marks the run `abandoned`. Shell commands are not
@@ -689,7 +719,7 @@ NOTE: <one line>
 
 H4's `stop` mode does not take `DONE` on trust. An attempt succeeds only if all of these hold:
 
-- the report says `DONE`;
+- the report says `DONE` and its `VERIFY` line says `PASS`;
 - exactly one new commit exists since the recorded HEAD, and its message has the task's
   `Tierminator-Task:` line and, when the run has a plan id, its `Tierminator-Plan:` line;
 - the working tree is clean;
@@ -697,6 +727,15 @@ H4's `stop` mode does not take `DONE` on trust. An attempt succeeds only if all 
 
 A different branch is fatal. Anything else that fails is a failed attempt, with the worker's NOTE or the
 failed check as the reason.
+
+**A turn limit is not a failure.** A worker that reaches its `maxTurns` before reporting is not judged as a
+failed attempt: nothing is reset and no tier up is asked for, because a higher tier uses more turns on the
+same task, not fewer (see
+[the findings](tierminator-agent-dispatch-findings.md#turn-usage-per-tier)). Claude is told to resume the
+worker with `SendMessage` and a fixed message (`RESUME_MESSAGE`), at most `MAX_RESUMES = 2` times per
+attempt; a resume gets a fresh turn budget. The resumed worker's report is then judged as above. A worker
+that stops at its limit again after the second resume **halts** the run, without a reset, with the reason
+that the task is probably too large for one task: split it and run `/tierminator:execute` again.
 
 ### After an attempt
 
@@ -706,6 +745,8 @@ failed check as the reason.
 | Success, last task | The run is `complete`. Claude lists each task's commit and tier and tells the user. |
 | Failure, fewer than 2 retries used, a higher tier exists | H4 checks that no commit made by the attempt is on a remote branch, runs `git reset --hard <recorded HEAD>` and `git clean -fd`, and asks for the same task one tier up, with the reason. |
 | Failure after 2 retries, or at `opus-high` | The run is `halted`. Nothing is reset: the last attempt's changes and any commit it made stay for the user to inspect. Claude reports the task, each tier tried and the reason, and must not fix it itself. |
+| Turn limit reached, fewer than `MAX_RESUMES` resumes used | The worker is resumed (see above); the task stays in flight on the same attempt and tier. |
+| Turn limit reached after `MAX_RESUMES` resumes | The run is `halted`, without a reset and without a tier up. |
 | A failed attempt's commit is on a remote branch, the reset fails, or the branch changed | The run is `halted` at once, without a reset. |
 
 The reset removes the failed attempt's commits, changes and untracked files. Ignored files are left alone.
@@ -861,10 +902,19 @@ no plan file known, they go to `sessions/<session_id>.telemetry.jsonl`. Every re
 | `kind` | Written by | Counts | Also has |
 |---|---|---|---|
 | `planning` | H2, each time a valid tiered plan passes | Plan-mode main messages and non-tierminator subagents that started since the session's cursor | `window`, `subagents`, `mainModel` |
-| `attempt` | H4 `stop`, and `failure` for a failed Agent call (zero usage) | The worker's whole transcript | `runId`, `task`, `tier`, `effort`, `attempt`, `agentId`, `outcome` (`done`, `retry`, `halt`), `reason`, `durationMs` |
+| `attempt` | H4 `stop`, and `failure` for a failed Agent call (zero usage) | The worker's whole transcript | `runId`, `task`, `tier`, `effort`, `attempt`, `maxTurns`, `resumes`, `stopReason`, `agentId`, `outcome` (`done`, `retry`, `halt`), `reason`, `durationMs` |
 | `orchestration` | H5 at the first Stop after the run ends, or H1 when a typed prompt or command stops it | Non-plan main messages, and non-tierminator subagents, since the run was approved or started | `runId`, `end` (the phase), `window`, `subagents` |
 | `run` | `executePlan()` when a run starts: H3 on approval, `/tierminator:execute`, or H5 for an unattended plan | Nothing (no usage fields) | `runId`, `startTask`, `contextTokens` |
 | `estimate` | H5 or H1, right after orchestration | Nothing | `runId`, `model`, `costUsd`, `total`, `extraCacheRead`, `reason` |
+
+**Turn fields.** On an `attempt` record, `maxTurns` is the tier agent's limit (`MAX_TURNS`), `resumes` the
+resumes sent before the record, and `stopReason` why it was written: `report` (the worker reported),
+`no-report` (it stopped without a report), `turn-limit` (the run halted at the limit) or `call-failed` (the
+Agent call itself failed). `messages` is the worker's turn count. An attempt is written once:
+`recordAttempt` skips a record whose `runId`, `task`, `attempt` and `agentId` are already in the file, and
+the summary and the estimate de-duplicate the same way when they read, so older files with duplicates count
+each attempt once. The summary adds a line, for example `Near the turn limit: T04 75/100 turns
+(opus-medium)`, for each attempt whose `messages` exceed 70% of its `maxTurns`.
 
 **The cursor.** `sessions/<session_id>.cursor` holds the time up to which planning has been counted. Activation
 starts it, each planning record moves it, and deactivation and SessionEnd delete it. So a rejected plan and its
@@ -925,6 +975,22 @@ it:
 
 `prices.test.js` holds the table equal to that evidence file.
 
+## The sizing review
+
+A task that may be too large for one worker is sent back to the planner before the plan is approved
+(`lib/sizing.js`). These are guidelines: a task is flagged when it
+
+- has no `Files to change:` line, or lists more than 4 files (`MAX_FILES`);
+- has a prompt over 4,000 characters for `sonnet` or 5,000 for `opus` (`MAX_PROMPT`);
+- has "and", "then" or ";" in its title.
+
+The planner splits a flagged task, or keeps it by adding a line `Keep T03: <why it stays one task>` to the
+plan, outside the task block; a kept task is not flagged again. H2 denies `ExitPlanMode` with the list of
+flags, and in a headless draft H5 blocks the final message the same way. A plan gets at most
+`MAX_REVIEWS = 2` reviews, counted in `sizingReviews` (not toward H2's denial cap), and then passes with
+whatever flags remain. Only H2 and headless drafting review: `/tierminator:execute` runs a saved plan as it
+is.
+
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
@@ -948,7 +1014,8 @@ During a run the file looks like this:
   "current": {
     "index": 1, "attempt": 2, "tier": "sonnet-high", "tried": ["sonnet-medium"],
     "head": "<sha recorded at dispatch>", "inFlight": false, "report": null,
-    "lastFailure": { "tier": "sonnet-medium", "reason": "..." }
+    "lastFailure": { "tier": "sonnet-medium", "reason": "..." },
+    "agentId": null, "resumes": 0, "resumePending": false, "turnLimited": null
   },
   "done": [ { "id": "T01", "tier": "sonnet-low", "commit": "<sha>", "attempts": 1 } ],
   "notice": "<what Claude must be told next, or null>",
@@ -957,6 +1024,12 @@ During a run the file looks like this:
   "guardDenials": 0
 }
 ```
+
+In `current`, `agentId` is the worker's agent id (recorded from the background launch's response, or from the
+turn-limit notification), `resumes` counts the resumes sent for this attempt, `resumePending` is true from
+a turn-limit stop until the resume is sent, and `turnLimited` is `{turns}` after a turn-limit stop, else
+`null`. A retry starts these again at `null`, 0, false and `null`. `sizingReviews`, at the top level, counts
+the sizing reviews of the plan (see [The sizing review](#the-sizing-review)).
 
 `notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
 `post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A halted run
@@ -1004,8 +1077,15 @@ State writes are atomic (a temp file, then a rename). Session ids are reduced to
 ## The tier agents
 
 [`agents/`](../../plugins/tierminator/agents/) holds five plugin agents, one per tier, named
-`<model>-<effort>` and run as `tierminator:<model>-<effort>`. They share one body (the worker's rules and
-report block above) and differ only in frontmatter:
+`<model>-<effort>` and run as `tierminator:<model>-<effort>`. They share the commit and
+report parts of the body (above) and have two versions of the rest, by model, because the two kinds of task
+differ. The prompt of a `sonnet` task is a contract (exact names, behavior and test cases), so a `sonnet`
+worker makes only small local choices and reports `FAILED` with a question when a choice would change the
+result materially. The prompt of an `opus` task gives the goal, the constraints and the acceptance criteria,
+so an `opus` worker makes routine judgment calls itself and asks only when readings differ materially or the
+task conflicts with the code or a spec. Both are told to keep working until the task is done, to make
+independent tool calls together, and to run only narrow checks until the `Verify:` step. The agents differ
+in frontmatter:
 
 | Frontmatter | Value |
 |---|---|

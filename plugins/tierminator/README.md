@@ -72,6 +72,21 @@ It is retried, twice at most, each time one tier up (`sonnet` from `low` to `hig
 task, so earlier tasks' commits are kept. If the second retry fails too, or a task fails at `opus` /
 `high`, the run stops, and the last attempt's changes stay in the working tree for you to inspect.
 
+### When a worker runs out of turns
+
+Each worker has a turn limit. A worker that reaches it before reporting is not treated as a failure: its
+work is kept, nothing is reset, and it is resumed where it stopped, at most twice. If it still has not
+reported after the second resume, the run stops at that task, and the cause is usually a task too large for
+one worker: split it and run `/tierminator:execute` again. A higher tier would use more turns, not fewer, so
+the task is not retried a tier up.
+
+### The sizing review
+
+Before you approve a plan, tierminator may send it back to Claude once or twice because a task looks too
+large for one worker: no `Files to change:` line, more than 4 files, a very long prompt, or "and", "then"
+or ";" in its title. Claude splits the task, or keeps it and says why in a `Keep T03: <why>` line. These
+are guidelines, so after two reviews the plan goes to the approval dialog either way.
+
 ### Stopping a run
 
 Typing anything while a run is in progress stops it: nothing more is dispatched, and Claude tells you which

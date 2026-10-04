@@ -123,6 +123,23 @@ log is then missing from the record.
    node --test
    ```
 
+7. **Check a turn-limit stop (a second, short run in the same throwaway repo).** Type
+   `/tierminator:plan` with this request:
+   > Plan one task, T01, on sonnet/low: create the files part01.txt to part60.txt, each containing its own
+   > number, one file per tool call, and verify with `ls part*.txt`.
+
+   That is deliberately more than a `sonnet`/`low` worker can do in its 40 turns. If the sizing review sends
+   the plan back, keep the task with a `Keep T01: oversized on purpose` line. Approve and type nothing, then
+   check:
+   - a "stopped at its 40-turn limit" notification arrives, and Claude calls `SendMessage` to the worker with
+     the resume text, instead of the run stalling or retrying on `sonnet-medium`;
+   - the task is not reset: the files made so far are still there, and the next attempt is still
+     `sonnet-low`;
+   - the worker's report is judged after the resume (T01 is committed, or the run halts after the second
+     resume with a message that the task is probably too large);
+   - `<plan>.telemetry.jsonl` has one `attempt` record for T01 with `maxTurns: 40`, `resumes` and a
+     `stopReason`.
+
 ## Record
 
 Save this as `probes/evidence/planandtier-agents-<stamp>-observations.json` (in `probes\evidence` at the

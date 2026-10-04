@@ -13,7 +13,8 @@ cataloged in `.claude-plugin/marketplace.json`:
 - `tierminator`: hooks and five tier agents (`<model>-<effort>`) that turn an
   approved plan-mode plan into serial subagent execution, each task at the
   model and effort chosen during planning and committed by its worker, with
-  failed attempts reset and retried a tier up. It needs Git (a commit
+  failed attempts reset and retried a tier up. A worker that reaches its
+  turn limit is resumed, at most twice, then the run halts. It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
   `/tierminator:plan <request>`, which enters plan mode; approving the plan
   runs it. `/tierminator:execute [plan path | list number] [--from Txx]` runs
