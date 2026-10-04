@@ -1,0 +1,9 @@
+{
+  "name": "turn-limit-probe",
+  "description": "Development-time probe for tierminator: logs what hooks see when a subagent stops at its maxTurns and is resumed. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}

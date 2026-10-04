@@ -255,6 +255,42 @@ Inferred, not measured: a retry one tier up does not make a task fit in fewer tu
 a reason to retry higher. The sample is small (one `opus-high` worker, six `opus-medium`), and different
 runs of one task can differ in what was already done, so these are signs, not limits to set from.
 
+### Headless (foreground) turn-limit stop
+
+Evidence: `probes/evidence/planandtier-turn-limit-probe.log` (every hook input) and
+`probes/evidence/planandtier-turn-limit-probe-results.json` (a summary), made by
+`probes/planandtier/turn-limit-probe.js` with `probes/planandtier/turn-limit-probe-plugin/` (Claude Code
+2.1.289, 2026-10-04, one run, $0.17). One `claude -p` session in a throwaway repo dispatched the probe
+agent `turn-probe` (`sonnet`, `low`, `maxTurns: 3`, told to run `echo step N` for N = 1..8, one call per
+turn) with `run_in_background: false`, and was told to send one `SendMessage` if it stopped at its limit.
+The probe's hooks only log.
+
+Measured:
+- **`SubagentStop` never fired**, neither at the first stop nor after the resume (0 `SubagentStop`
+  events). The only signals of the stop are the Agent result and, after a resume, the notification.
+- **The foreground Agent call completed normally.** `PostToolUse` on Agent fired with
+  `tool_response.status: "completed"`, `agentId` set, no `isAsync`, `handback: "withheld"` and
+  `totalToolUseCount: 3`. Its content text starts `NOTE: this agent stopped at its 3-turn limit before
+  finishing. It was still calling tools and had produced no report. Send the agent a message
+  (SendMessage) to let it continue from where it stopped.` Like the notification's summary, it contains
+  `stopped at its 3-turn limit`.
+- **`SendMessage` exists headless**, but deferred: it is in the session's tool list, and Claude loaded it
+  with `ToolSearch` before calling it. `PreToolUse` and `PostToolUse` fired for it. Its `tool_input` has
+  `to` and `message` (plus `recipient`, `content`, `summary`, `type`), and its result was `{"success":
+  true, "message": "Resuming agent a1b48e4", "resumedAgentId": …}`, returned at once.
+- **The resume ran in the background.** The `SendMessage` turn ended (`Stop`, not blocked), and the
+  resumed agent's stop then arrived as a `<task-notification>` that fired `UserPromptSubmit` and started a
+  turn, with `<task-id>` equal to the `agentId` and the summary `Agent "turn probe" stopped at its
+  3-turn limit (partial result; SendMessage to task-id to continue)`. The `claude -p` session waited for
+  it before exiting.
+- **A resume gets a fresh turn budget, not the rest of the old one.** The resumed agent made 3 more
+  calls (steps 4 to 6) and stopped at the limit again. Its transcript has 6 turns and 6 tool calls in
+  all, continuing where it stopped.
+
+Inferred, not measured: on the foreground path tierminator must detect the stop from the `PostToolUse`
+Agent content (its `stopped at its N-turn limit` text), since `SubagentStop` gives
+nothing; after a resume, the stop or the hand-back comes back the way a background worker's does.
+
 ## Not measured
 
 - The fixes in `af16b43` and `eb1e5fc` (the early-report note, and the next step given with the "finished"
