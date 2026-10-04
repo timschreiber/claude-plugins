@@ -510,11 +510,19 @@ subagent itself.
 - A hand-back's `<task-notification>` is transcript-only: it starts no turn and fires no `UserPromptSubmit`
   (see [the findings](tierminator-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2285)).
   So H1 judges the hand-back itself. When an `<agent-message>` arrives while the task is still in flight,
-  it takes the report from the prompt, or else from the worker's transcript at
-  `subagents/agent-<id>.jsonl`, runs `settle()` from `lib/settle.js`, records the attempt's spend, and
-  saves the state with the agent id in `handedBack`. It then gives Claude the notice (the next dispatch, a
-  retry, a halt or the completion message) in that same turn. If H4 already judged the attempt, it gives
-  that notice once and does not judge again. With no task in flight it prints nothing.
+  it first claims the attempt (see below), then takes the report from the prompt, or else from the worker's
+  transcript at `subagents/agent-<id>.jsonl`, runs `settle()` from `lib/settle.js`, records the attempt's
+  spend, and saves the state with the agent id in `handedBack`. It then gives Claude the notice (the next
+  dispatch, a retry, a halt or the completion message) in that same turn. If H4 already judged the attempt,
+  it gives that notice once and does not judge again. With no task in flight it prints nothing.
+- The hand-back and the worker's `SubagentStop` (H4 `stop`) fire within about 50-100 ms of each other, in
+  either order, so one hook claims each attempt and the other stands down. The claim is a file created
+  exclusively beside the state, `<session_id>.<run>-<task index>-<attempt>.claim` (`state.claimAttempt()`);
+  only the first hook to create it judges the attempt. When H4 claimed it first, H1 judges nothing: it
+  waits up to 4 seconds, polling every 50 ms, for H4's saved state to show the attempt settled with a
+  notice, then gives that notice and clears it. If none comes in time it prints nothing and leaves the state
+  as it is; the notice stays flagged `noticeByNotification`, and H5 lets the turn end. A claim that cannot
+  be written for any reason but an existing claim is granted, so an attempt is never left unjudged.
 - A `<task-notification>` that says a worker "stopped at its N-turn limit" does start a turn, but no
   `SubagentStop` judged the worker (see
   [the findings](tierminator-agent-dispatch-findings.md#a-worker-that-reaches-its-turn-limit-claude-code-21286)).
@@ -603,10 +611,13 @@ other agent types are left alone.
   and then ends with a line such as "Task complete.", so its last message is not reliably the report. It
   then judges the attempt (see [Judging an attempt](#judging-an-attempt)), moves the run on, and saves what
   Claude must be told next as the state's `notice`. It also records the attempt's tokens and cost, and queues
-  the line H5 shows the user (see [Spend telemetry](#spend-telemetry)). It ignores an agent listed in the
-  state's `handedBack`: H1 already judged that worker's hand-back, and the run's next task may be in flight.
+  the line H5 shows the user (see [Spend telemetry](#spend-telemetry)). Before judging, it claims the
+  attempt: the hand-back (H1) and `SubagentStop` of one attempt arrive close together, so one hook claims
+  each attempt and the other stands down (see [H1](#h1-rules)). When H1 claimed it first, `stop` returns
+  without writing the state. It also ignores an agent listed in the state's `handedBack`: H1 already judged
+  that worker's hand-back, and the run's next task may be in flight.
   The defensive rule: when no report can be found and the worker's transcript holds at least the tier's
-  `maxTurns` messages, `stop` judges nothing. It records `turnLimited: {turns}` and the `agentId` and leaves
+  `maxTurns` messages, `stop` judges nothing and claims nothing. It records `turnLimited: {turns}` and the `agentId` and leaves
   the resume to H1 or `post`. The findings measured no `SubagentStop` at a turn limit, so this only keeps a
   stop that does fire from becoming a failed attempt and a reset.
 - **`post`** (`PostToolUse`) fires when Claude's Agent call returns. If a notice is waiting, the worker
@@ -752,9 +763,10 @@ that the task is probably too large for one task: split it and run `/tierminator
 The reset removes the failed attempt's commits, changes and untracked files. Ignored files are left alone.
 Earlier tasks' commits are kept, because the recorded HEAD is after them. A git command that fails with a
 lock-type error (a Git `.lock` file another git command holds, or a Windows file another process has open)
-is repeated after waits of 100, 200, 400, 800 and 1500 ms; the hand-back prompt (H1) and SubagentStop (H4)
-can settle the same attempt at once, and their two resets then meet each other's `index.lock`
-(`probes/evidence/planandtier-reset-failure.json`). `git clean` runs only after `git reset --hard`
+is repeated after waits of 100, 200, 400, 800 and 1500 ms. Two runs failed this way when the hand-back
+prompt (H1) and SubagentStop (H4) both settled the same attempt and their two resets met each other's
+`index.lock` (`probes/evidence/planandtier-reset-failure.json`); one hook now claims each attempt and the
+other stands down (see [H1](#h1-rules)), so only one of them resets. `git clean` runs only after `git reset --hard`
 succeeds, and a failed `git reset --hard` changes nothing. When the reset still fails, the halt reason
 names the git command and the first line of its error output, for example `the reset to 397dcba before
 the retry failed (git reset --hard <sha> failed: fatal: Unable to create '.../index.lock': File exists.)`.

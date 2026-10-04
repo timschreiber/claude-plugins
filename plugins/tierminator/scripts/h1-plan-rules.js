@@ -16,7 +16,10 @@
 //               transcript, the attempt is settled and its spend recorded, and the notice (the next
 //               dispatch, a retry, a halt or completion) is printed at once. The "finished" notification
 //               that follows a hand-back is transcript-only and starts no turn, so no later event is
-//               needed, and none is waited for. In plan mode these prompts never show the rules;
+//               needed, and none is waited for. The worker's SubagentStop (H4) arrives close by, in either
+//               order, so the hand-back first claims the attempt (state.claimAttempt): only the hook that
+//               claims it judges it. When H4 claimed it first, H1 waits briefly for H4's saved notice and
+//               prints that instead. In plan mode these prompts never show the rules;
 //             - while planning, a prompt typed in plan mode shows the rules once per plan-mode stint
 //               (unless /tierminator:plan or EnterPlanMode already did); one typed outside plan mode means
 //               the user left plan mode without approving, so the session is made inactive, silently;
@@ -51,8 +54,11 @@ const fromHarness = prompt => /^\s*<(agent-message|task-notification)\b/.test(St
 
 // A worker's report arrived as an <agent-message> while its attempt was in flight (SubagentStop had not
 // judged it): judge it now, and give Claude the notice in this same turn. The agent id is remembered in
-// `handedBack`, so the SubagentStop that follows does not touch the run (H4 stop).
-function handBack(input, s) {
+// `handedBack`, so the SubagentStop that follows does not touch the run (H4 stop). The attempt is claimed
+// first; when H4's SubagentStop claimed it already, H4 judges it and H1 gives H4's notice (awaitNotice).
+async function handBack(input, s) {
+  const key = state.attemptKey(s)
+  if (!state.claimAttempt(input.session_id, key)) return awaitNotice(input, key)
   const id = /^\s*<agent-message\s+from="([A-Za-z0-9_-]+)"/.exec(input.prompt)?.[1] ?? null
   const dir = subagentsDir(input.transcript_path)
   const transcript = id && dir ? path.join(dir, `agent-${id}.jsonl`) : null
@@ -70,8 +76,29 @@ function handBack(input, s) {
   emitText(next.notice)
 }
 
+const NOTICE_WAIT_MS = 4000
+const NOTICE_POLL_MS = 50
+
+// H4 claimed the attempt `key` and is judging it. The "finished" notification after a hand-back starts no
+// turn, so its notice must still be given in this one: wait a bounded time for H4's saved state to show the
+// attempt settled with a notice, then give it and clear it the way runNote does. If none comes in time,
+// nothing is printed and the state is left as it is: H4's notice stays flagged for the notification, and H5
+// lets the turn end.
+async function awaitNotice(input, key) {
+  const until = Date.now() + NOTICE_WAIT_MS
+  for (;;) {
+    const s = state.read(input.session_id)
+    if (s?.notice && (s.phase !== 'running' || state.attemptKey(s) !== key)) {
+      if (state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })) emitText(s.notice)
+      return
+    }
+    if (Date.now() >= until) return
+    await new Promise(resolve => setTimeout(resolve, NOTICE_POLL_MS))
+  }
+}
+
 // A harness prompt in an active session: deliver H4's notice, or judge a hand-back.
-function runNote(input) {
+async function runNote(input) {
   const s = state.read(input.session_id)
   if (!s) return
   if (s.notice) {
@@ -79,7 +106,7 @@ function runNote(input) {
     emitText(s.notice)
     return
   }
-  if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) handBack(input, s)
+  if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) await handBack(input, s)
   else if (/^\s*<task-notification\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) turnLimitNote(input, s)
 }
 

@@ -10,6 +10,9 @@
 //            (the next task, a retry one tier up after a reset, completion, or a halt), saving the
 //            notice. Records the attempt's tokens and cost, and queues the line H5 shows the user.
 //            An agent whose hand-back H1 already judged (`handedBack`) is ignored: the run has moved on.
+//            The hand-back (H1) and SubagentStop of one attempt arrive close together, in either order, so
+//            stop first claims the attempt (state.claimAttempt); when H1 claimed it first, stop stands down
+//            without writing the state. A worker stopped at its turn limit is not judged and claims nothing.
 //   post     PostToolUse Agent: gives Claude the notice if there is one (a foreground run); otherwise
 //            the task is running in the background, and Claude is told to end its turn and wait.
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
@@ -79,6 +82,8 @@ function stop(input, s) {
       return
     }
   }
+  // Only one hook judges an attempt: when H1's hand-back claimed it first, H1 judges it.
+  if (!state.claimAttempt(input.session_id, state.attemptKey(s))) return
   const reported = { ...s, current: { ...s.current, report } }
   // The attempt's tokens and estimated cost go to the plan's telemetry file, and its UI line is queued
   // for the next Stop (H5); Claude's notice is unchanged.

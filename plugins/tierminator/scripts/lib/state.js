@@ -1,6 +1,7 @@
 // Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the activation flag beside
 // it, <session_id>.active, which the run state's own removals leave alone, and the rules marker,
-// <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint). Every function
+// <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint), and the attempt claims,
+// <session_id>.<key>.claim (which hook judges an attempt). Every function
 // swallows filesystem errors and returns a "nothing happened" value, because a hook must
 // never fail loudly.
 'use strict'
@@ -47,12 +48,44 @@ function write(sessionId, state) {
   }
 }
 
+// Removes the state file and the session's attempt claims.
 function remove(sessionId) {
   try {
     const file = fileFor(sessionId)
     if (file) fs.rmSync(file, { force: true })
     if (file) debug(`state ${path.basename(file, '.json')}: removed`)
+    if (file) {
+      const prefix = `${path.basename(file, '.json')}.`
+      for (const name of fs.readdirSync(sessionsDir())) {
+        if (name.startsWith(prefix) && name.endsWith('.claim')) fs.rmSync(path.join(sessionsDir(), name), { force: true })
+      }
+    }
   } catch {}
+}
+
+// The key of the attempt in flight: the run (runId, else planId), the task index and the attempt number.
+const attemptKey = s => `${s?.runId ?? s?.planId ?? 'run'}-${s?.current?.index}-${s?.current?.attempt}`
+
+// Claims the judging of an attempt, <session_id>.<key>.claim beside the state: a background worker's
+// hand-back (H1) and its SubagentStop (H4) arrive close together, in either order, and only the hook that
+// claims the attempt first judges it. The file is created exclusively, since the state's temp-file-and-rename
+// write is not a check-and-set. Returns true for the first caller and false once the claim exists. Any other
+// failure (no session id, an empty key, an unwritable directory) returns true, so an attempt is never left
+// judged by neither hook; both may then judge it, as before claims existed. The key keeps only filename-safe
+// characters.
+function claimAttempt(sessionId, key) {
+  try {
+    const file = fileFor(sessionId)
+    const safe = String(key ?? '').replace(/[^A-Za-z0-9_-]/g, '_')
+    if (!file || !safe) return true
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+    const claim = file.replace(/\.json$/, `.${safe}.claim`)
+    fs.closeSync(fs.openSync(claim, 'wx'))
+    debug(`state ${path.basename(file, '.json')}: claimed ${safe}`)
+    return true
+  } catch (e) {
+    return e?.code !== 'EEXIST'
+  }
 }
 
 // The session is active when its flag file exists: /tierminator:plan and /tierminator:execute write it; the
@@ -187,14 +220,14 @@ function deactivate(sessionId) {
   } catch {}
 }
 
-// Deletes session files (state, activation flags, cursors, rules markers, fallback tasks and telemetry files, and leftover
-// temp files) not modified within `days` days.
+// Deletes session files (state, activation flags, cursors, rules markers, attempt claims, fallback tasks and telemetry
+// files, and leftover temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.plan.md'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.claim', '.plan.md'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
@@ -206,6 +239,8 @@ module.exports = {
   read,
   write,
   remove,
+  attemptKey,
+  claimAttempt,
   isActive,
   activate,
   deactivate,

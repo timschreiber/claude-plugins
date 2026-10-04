@@ -2,7 +2,7 @@
 
 const { test, before, after, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
-const { spawnSync } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -1006,6 +1006,121 @@ test('a background task\'s next step comes with its "finished" notification, and
   const arrived = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>done</task-notification>' }).stdout
   assert.match(arrived, /T01 done .*Call the Agent tool now with subagent_type "tierminator:sonnet-medium"/)
   assert.deepEqual([state.read(S).notice, state.read(S).noticeByNotification], [null, false])
+})
+
+// ---- one hook judges each attempt: the hand-back (H1) and SubagentStop (H4) claim it --------
+
+// Runs a hook script without waiting for it, so two hooks can run at once. Resolves to {status, stdout}.
+function hookAsync(script, stdin, args = []) {
+  const env = { ...process.env }
+  delete env.CLAUDE_CODE_ENTRYPOINT
+  return new Promise(resolve => {
+    const child = spawn(process.execPath, [path.join(PLUGIN, 'scripts', script), ...args], { env })
+    let stdout = ''
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', chunk => (stdout += chunk))
+    child.on('close', status => resolve({ status, stdout }))
+    child.stdin.end(JSON.stringify(stdin))
+  })
+}
+// A background attempt of T01, launched and in flight. Returns the state.
+function backgroundAttempt() {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  hook('h4-dispatch.js', agentPost(call, { tool_response: { isAsync: true, status: 'async_launched', agentId: 'worker-1' } }), ['post'])
+  return state.read(S)
+}
+const attemptRows = () => telemetry.read(path.join(dir, 'plan.telemetry.jsonl')).filter(r => r.kind === 'attempt')
+const noticesIn = outputs => (outputs.join('\n').match(/tierminator: T01 (done|failed)/g) ?? []).length
+const handBackInput = text => ({ session_id: S, permission_mode: 'default', prompt: handBackPrompt('worker-1', text) })
+
+test('a hand-back, then its SubagentStop: H1 judges the attempt once and H4 stands down', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const stopInput = subStop(report('DONE', sha))
+  const h1 = hook('h1-plan-rules.js', handBackInput(report('DONE', sha))).stdout
+  const h4 = hook('h4-dispatch.js', stopInput, ['stop']).stdout
+  const s = state.read(S)
+  assert.deepEqual(s.done.map(d => d.id), ['T01'])
+  assert.equal(s.current.index, 1)
+  assert.equal(s.notice, null)
+  assert.equal(attemptRows().length, 1)
+  assert.equal(noticesIn([h1, h4]), 1)
+  assert.match(h1, /T01 done/)
+})
+
+test('a SubagentStop, then its hand-back: H4 judges the attempt once and H1 only gives the notice', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const h4 = hook('h4-dispatch.js', subStop(report('DONE', sha)), ['stop']).stdout
+  const h1 = hook('h1-plan-rules.js', handBackInput(report('DONE', sha))).stdout
+  const s = state.read(S)
+  assert.deepEqual(s.done.map(d => d.id), ['T01'])
+  assert.equal(s.current.index, 1)
+  assert.deepEqual([s.notice, s.noticeByNotification], [null, false])
+  assert.equal(attemptRows().length, 1)
+  assert.equal(noticesIn([h1, h4]), 1)
+  assert.match(h1, /T01 done/)
+})
+
+test('a hand-back and its SubagentStop at once: a DONE attempt is judged once and its notice given once', async () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const outs = await Promise.all([
+    hookAsync('h1-plan-rules.js', handBackInput(report('DONE', sha))),
+    hookAsync('h4-dispatch.js', subStop(report('DONE', sha)), ['stop']),
+  ])
+  const s = state.read(S)
+  assert.equal(s.phase, 'running')
+  assert.deepEqual(s.done.map(d => [d.id, d.attempts]), [['T01', 1]])
+  assert.equal(s.current.index, 1)
+  assert.equal(s.current.attempt, 1)
+  assert.equal(s.notice, null)
+  assert.equal(attemptRows().length, 1)
+  assert.equal(noticesIn(outs.map(o => o.stdout)), 1)
+})
+
+test('a hand-back and its SubagentStop at once: a FAILED attempt is reset and retried once, with no halt', async () => {
+  const before = backgroundAttempt()
+  workerCommits('T01')
+  const failed = report('FAILED', 'NONE', 'tests fail')
+  const outs = await Promise.all([
+    hookAsync('h1-plan-rules.js', handBackInput(failed)),
+    hookAsync('h4-dispatch.js', subStop(failed), ['stop']),
+  ])
+  const s = state.read(S)
+  assert.equal(s.phase, 'running', s.halt?.reason)
+  assert.equal(s.done.length, 0)
+  assert.equal(s.current.index, 0)
+  assert.equal(s.current.attempt, 2)
+  assert.equal(s.current.tier, 'sonnet-medium')
+  assert.deepEqual(s.current.tried, ['sonnet-low'])
+  assert.equal(s.notice, null)
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), before.current.head, 'the failed attempt was reset')
+  assert.equal(attemptRows().length, 1)
+  assert.equal(noticesIn(outs.map(o => o.stdout)), 1)
+})
+
+test('when H4 claimed the attempt first, H1 waits for H4\'s saved notice, prints it and clears it', async () => {
+  const s = backgroundAttempt()
+  assert.equal(state.claimAttempt(S, state.attemptKey(s)), true, 'H4 claims the attempt')
+  const h1 = hookAsync('h1-plan-rules.js', handBackInput(report('DONE', 'NONE')))
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  const judged = {
+    ...s,
+    done: [{ id: 'T01', tier: 'sonnet-low', commit: 'abc1234', attempts: 1 }],
+    current: { ...s.current, index: 1, inFlight: false },
+    notice: 'tierminator: T01 done (judged by H4).',
+    noticeByNotification: true,
+  }
+  state.write(S, judged)
+  assert.equal((await h1).stdout, 'tierminator: T01 done (judged by H4).\n')
+  const after = state.read(S)
+  assert.deepEqual([after.notice, after.noticeByNotification], [null, false])
+  assert.deepEqual(after.done, judged.done, 'H1 judged nothing')
+  assert.equal(after.handedBack, undefined)
+  assert.equal(attemptRows().length, 0, 'H1 recorded no attempt')
 })
 
 test('with nothing in flight and no notice, a stop is still blocked', () => {

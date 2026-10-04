@@ -175,6 +175,55 @@ test('prune removes old rules markers too', () => {
   assert.equal(state.rulesShown('new'), true)
 })
 
+test('an attempt is claimed once: the first claim of a key wins, a later one loses, another key wins', () => {
+  assert.equal(state.claimAttempt('s1', 'run1-0-1'), true)
+  assert.equal(state.claimAttempt('s1', 'run1-0-1'), false)
+  assert.equal(state.claimAttempt('s1', 'run1-0-2'), true)
+  assert.equal(state.claimAttempt('s2', 'run1-0-1'), true, 'another session has its own claims')
+})
+
+test('the attempt key names the run, the task index and the attempt', () => {
+  assert.equal(state.attemptKey({ runId: 'ab12', planId: 'p', current: { index: 2, attempt: 3 } }), 'ab12-2-3')
+  assert.equal(state.attemptKey({ planId: 'p', current: { index: 0, attempt: 1 } }), 'p-0-1')
+})
+
+test('remove clears the session\'s claims and leaves other sessions\' alone', () => {
+  state.write('s1', { phase: 'running' })
+  state.claimAttempt('s1', 'k1')
+  state.claimAttempt('s1', 'k2')
+  state.claimAttempt('s10', 'k1')
+  state.remove('s1')
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['s10.k1.claim'])
+  assert.equal(state.claimAttempt('s1', 'k1'), true)
+})
+
+test('an unsafe claim key cannot escape the sessions directory', () => {
+  assert.equal(state.claimAttempt('s1', '../../evil/x'), true)
+  assert.equal(state.claimAttempt('s1', '../../evil/x'), false)
+  assert.deepEqual(fs.readdirSync(dir), ['sessions'])
+  const [claim] = fs.readdirSync(path.join(dir, 'sessions'))
+  assert.match(claim, /^s1\.[A-Za-z0-9_-]+\.claim$/)
+})
+
+test('a claim that cannot be written is granted, so the attempt is still judged', () => {
+  for (const [id, key] of [['', 'k'], ['s1', ''], [undefined, undefined]]) assert.equal(state.claimAttempt(id, key), true)
+  const blocker = path.join(dir, 'file')
+  fs.writeFileSync(blocker, '')
+  process.env.CLAUDE_PLUGIN_DATA = path.join(blocker, 'nested')
+  assert.equal(state.claimAttempt('s1', 'k'), true)
+  assert.equal(state.claimAttempt('s1', 'k'), true)
+})
+
+test('prune removes old claims too', () => {
+  state.claimAttempt('old', 'k')
+  state.claimAttempt('new', 'k')
+  const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+  fs.utimesSync(path.join(dir, 'sessions', 'old.k.claim'), past, past)
+  state.prune(7)
+  assert.equal(state.claimAttempt('old', 'k'), true)
+  assert.equal(state.claimAttempt('new', 'k'), false)
+})
+
 test('prune removes old cursors and fallback telemetry files too', () => {
   state.setCursor('old', '2026-09-01T00:00:00.000Z')
   const telemetry = path.join(dir, 'sessions', 'old.telemetry.jsonl')
