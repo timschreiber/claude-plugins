@@ -49,15 +49,20 @@ to `<plan>.tasks.json` and replaced by a task table. To change the tasks, write 
 - A failed task is reset and retried twice, one tier up each time. The tiers, weakest first: `sonnet` at
   `low`, `medium`, `high`, then `opus` at `medium`, `high`. The run stops after the second retry fails,
   or after a failure at `opus` / `high`.
+- A worker that reaches its turn limit is resumed where it stopped, at most twice. If it still has not
+  reported, the run stops at that task, leaving its work in place. It is never retried a tier up: a higher
+  tier uses more turns, not fewer.
 
 ## Choosing a tier
 
 Use the smallest tier that will do the job: a retry costs less than a tier that is too big.
 
-1. Pick the model by the kind of work: `sonnet` for fully specified work, `opus` for judgment the prompt
-   cannot pin down.
-2. Start at `medium` effort for both. Lower `sonnet` for simpler tasks and raise it for harder ones; raise
-   `opus` to `high` only for the hardest.
+1. Pick the model by the kind of work. `sonnet` does any work the plan can fully specify, however large or
+   important. `opus` is only for work that needs judgment you cannot settle while planning; if you can
+   write the change out, it is a `sonnet` task.
+2. Pick the effort by complexity. Start at `medium`. Use `sonnet` / `low` only for work written out in
+   full (below) and `sonnet` / `high` for intricate work. Raise `opus` to `high` only for the hardest
+   judgment.
 3. Past `sonnet` / `high`, use `opus` / `medium`.
 
 | Tier | Use for |
@@ -87,17 +92,44 @@ Only work whose result is fully written out in the prompt:
 
 Anything the worker has to work out goes to `sonnet` / `medium` or higher.
 
+## Sizing tasks
+
+Small tasks finish; large ones run out of turns. Split the work until each task:
+
+- has one purpose, which its title states without "and";
+- changes at most about 3 files, listed on its `Files to change:` line;
+- has one `Verify:` step that is fast and targeted, such as a named test file or a grep, rather than the
+  whole suite unless the change can break anything;
+- needs only a few rounds of reading, editing and checking.
+
+Split along seams: a new type or module with its tests, then wiring it in, then docs and config. Keep a
+refactor (a rename, a move, an extraction) in its own task, apart from behavior changes. If a higher tier
+would do part of a task differently from the rest, it is two tasks. When unsure, split: an extra task
+costs a commit; an oversized one can stop the run.
+
+`ExitPlanMode` flags a task with no `Files to change:` line, more than 4 files to change, a prompt over
+4,000 characters (`sonnet`) or 5,000 (`opus`), or "and", "then" or ";" in its title. These are guidelines:
+split a flagged task, or keep it and add a line `Keep T03: <why it stays one task>` to the plan, outside
+the task block.
+
 ## Task prompts
 
 A worker sees only its prompt, the repository and the project's CLAUDE.md, never this plan or this
-conversation. Each prompt must:
+conversation. Every prompt:
 
-- Name the files and spec sections to read first, including AGENTS.md or a spec if there is one.
-- Give exact names, signatures, behavior, error handling and test cases, leaving no design decisions.
-- For find-and-replace, be a list of `(file, old_str, new_str)` triples, then the `Verify:` step.
-- Cover one coherent change, about one commit, in a few files.
-- End with `Verify:`: a command or check that fails if the task is incomplete, such as a build, a named
+- names the files and spec sections to read first, including AGENTS.md or a spec if there is one;
+- has a `Files to change:` line listing every file the task creates, edits or deletes;
+- covers one coherent change, about one commit;
+- ends with `Verify:`: a command or check that fails if the task is incomplete, such as a build, a named
   test run or a grep. The task commits only when it passes.
+
+A `sonnet` prompt is a contract: exact names, signatures, behavior, error handling and test cases, leaving
+no design decisions. For find-and-replace it is a list of `(file, old_str, new_str)` triples. Use numbered
+steps only where order or completeness matters.
+
+An `opus` prompt states the goal, the constraints, what to read and the acceptance criteria, then
+`Verify:`. Don't script it edit by edit: the worker makes routine judgment calls itself. If you find
+yourself writing every edit out, the task belongs on `sonnet`.
 
 A task can depend only on earlier tasks.
 
