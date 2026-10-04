@@ -142,6 +142,8 @@ test('judge accepts only DONE with one trailer commit, a clean tree and the same
   assert.match(r.judge({ ...base, sameBranch: false }).fatal, /left the branch/)
   assert.match(r.judge({ ...base, report: null }).reason, /no STATUS report/)
   assert.equal(r.judge({ ...base, report: { ...report, status: 'FAILED', note: 'tests fail' } }).reason, 'tests fail')
+  assert.match(r.judge({ ...base, report: { ...report, verify: 'FAIL' } }).reason, /DONE but VERIFY was FAIL/)
+  assert.match(r.judge({ ...base, report: r.parseReport('STATUS: DONE\nCOMMIT: abc\nNOTE: x') }).reason, /DONE but VERIFY was NOT RUN/)
   assert.match(r.judge({ ...base, commits: [] }).reason, /made 0 commits instead of one/)
   assert.match(r.judge({ ...base, commits: [commit, commit] }).reason, /made 2 commits/)
   assert.match(r.judge({ ...base, commits: [{ ...commit, message: 'Task 2' }] }).reason, /no "Tierminator-Task: T02" trailer/)

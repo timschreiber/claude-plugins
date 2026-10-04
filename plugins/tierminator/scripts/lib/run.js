@@ -169,11 +169,14 @@ function parseReport(text) {
 
 // Judges a finished attempt from its report and the Git facts after it. Returns {ok: true, commit},
 // {ok: false, reason}, or {ok: false, fatal} when the run must stop without a reset. With a planId, the
-// commit must also carry the plan's line.
+// commit must also carry the plan's line. A DONE report counts only when its VERIFY line says PASS.
 function judge({ report, taskId, planId = null, commits, clean, sameBranch }) {
   if (!sameBranch) return { ok: false, fatal: 'the worker left the branch the run started on' }
   if (!report) return { ok: false, reason: 'the worker returned no STATUS report' }
   if (report.status !== 'DONE') return { ok: false, reason: report.note || 'the worker reported FAILED' }
+  if (!/^PASS\b/i.test(report.verify)) {
+    return { ok: false, reason: `the worker reported DONE but VERIFY was ${report.verify}` }
+  }
   if (commits.length !== 1) {
     return { ok: false, reason: `the worker reported DONE but made ${commits.length} commits instead of one` }
   }
