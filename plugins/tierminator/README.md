@@ -83,7 +83,8 @@ the task is not retried a tier up.
 ### The sizing review
 
 Before you approve a plan, tierminator may send it back to Claude once or twice because a task looks too
-large for one worker: no `Files to change:` line, more than 4 files, a very long prompt, or "and", "then"
+large for one worker: a Sonnet task with no `Files to change:` line or more than 4 files (an Opus task's
+files are only expected, so they are not counted), a very long prompt, or "and", "then"
 or ";" in its title. Claude splits the task, or keeps it and says why in a `Keep T03: <why>` line. These
 are guidelines, so after two reviews the plan goes to the approval dialog either way.
 

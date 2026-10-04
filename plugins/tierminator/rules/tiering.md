@@ -97,7 +97,8 @@ Anything the worker has to work out goes to `sonnet` / `medium` or higher.
 Small tasks finish; large ones run out of turns. Split the work until each task:
 
 - has one purpose, which its title states without "and";
-- changes at most about 3 files, listed on its `Files to change:` line;
+- for `sonnet`, changes at most about 3 files, listed on its `Files to change:` line; for `opus`, whose
+  right files are often unknown while planning, has one goal and a few acceptance criteria instead;
 - has one `Verify:` step that is fast and targeted, such as a named test file or a grep, rather than the
   whole suite unless the change can break anything;
 - needs only a few rounds of reading, editing and checking.
@@ -107,7 +108,7 @@ refactor (a rename, a move, an extraction) in its own task, apart from behavior 
 would do part of a task differently from the rest, it is two tasks. When unsure, split: an extra task
 costs a commit; an oversized one can stop the run.
 
-`ExitPlanMode` flags a task with no `Files to change:` line, more than 4 files to change, a prompt over
+`ExitPlanMode` flags a `sonnet` task with no `Files to change:` line or more than 4 files to change, and any task with a prompt over
 4,000 characters (`sonnet`) or 5,000 (`opus`), or "and", "then" or ";" in its title. These are guidelines:
 split a flagged task, or keep it and add a line `Keep T03: <why it stays one task>` to the plan, outside
 the task block.
@@ -118,7 +119,8 @@ A worker sees only its prompt, the repository and the project's CLAUDE.md, never
 conversation. Every prompt:
 
 - names the files and spec sections to read first, including AGENTS.md or a spec if there is one;
-- has a `Files to change:` line listing every file the task creates, edits or deletes;
+- has a `Files to change:` line: for `sonnet`, every file the task creates, edits or deletes; for `opus`,
+  the files you expect it to change;
 - covers one coherent change, about one commit;
 - ends with `Verify:`: a command or check that fails if the task is incomplete, such as a build, a named
   test run or a grep. The task commits only when it passes.
@@ -128,7 +130,8 @@ no design decisions. For find-and-replace it is a list of `(file, old_str, new_s
 steps only where order or completeness matters.
 
 An `opus` prompt states the goal, the constraints, what to read and the acceptance criteria, then
-`Verify:`. Don't script it edit by edit: the worker makes routine judgment calls itself. If you find
+`Verify:`. Its `Files to change:` line is a starting point, not a limit: the worker changes any other file
+the goal needs and names it in its report. Don't script it edit by edit: the worker makes routine judgment calls itself. If you find
 yourself writing every edit out, the task belongs on `sonnet`.
 
 A task can depend only on earlier tasks.

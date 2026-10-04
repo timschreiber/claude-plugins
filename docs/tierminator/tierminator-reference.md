@@ -987,7 +987,9 @@ it:
 A task that may be too large for one worker is sent back to the planner before the plan is approved
 (`lib/sizing.js`). These are guidelines: a task is flagged when it
 
-- has no `Files to change:` line, or lists more than 4 files (`MAX_FILES`);
+- is a `sonnet` task with no `Files to change:` line, or one that lists more than 4 files (`MAX_FILES`).
+  An `opus` task's line lists only the files the planner expects, and its worker may change others, so
+  neither is checked for it;
 - has a prompt over 4,000 characters for `sonnet` or 5,000 for `opus` (`MAX_PROMPT`);
 - has "and", "then" or ";" in its title.
 
@@ -1090,7 +1092,9 @@ differ. The prompt of a `sonnet` task is a contract (exact names, behavior and t
 worker makes only small local choices and reports `FAILED` with a question when a choice would change the
 result materially. The prompt of an `opus` task gives the goal, the constraints and the acceptance criteria,
 so an `opus` worker makes routine judgment calls itself and asks only when readings differ materially or the
-task conflicts with the code or a spec. Both are told to keep working until the task is done, to make
+task conflicts with the code or a spec. The files an `opus` task names are a starting point, not a limit:
+its worker changes any other file the goal needs, such as a caller, a test or a config entry, and no more,
+and names each one, with why, in its `NOTE:`. Both are told to keep working until the task is done, to make
 independent tool calls together, and to run only narrow checks until the `Verify:` step. The agents differ
 in frontmatter:
 
