@@ -1,0 +1,13 @@
+{
+  "name": "tierminator",
+  "displayName": "Tierminator",
+  "description": "Turns an approved plan-mode plan into serial subagent execution, each task at the model and effort chosen during planning, committed by its worker and retried a tier up on failure.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "homepage": "https://github.com/timschreiber/claude-plugins/tree/main/plugins/tierminator",
+  "repository": "https://github.com/timschreiber/claude-plugins",
+  "license": "Apache-2.0",
+  "keywords": ["planning", "subagents", "git", "token-efficiency"]
+}

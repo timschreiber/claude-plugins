@@ -44,7 +44,7 @@ Non-goals:
 
 ## Architecture
 
-Oracles run as ordinary subagents dispatched by the model (Option 1). Hooks enforce the flow and scripts do every write, so the model never edits Decidinator's files and plan mode never blocks them. Hooks are Node scripts, as in planandtier.
+Oracles run as ordinary subagents dispatched by the model (Option 1). Hooks enforce the flow and scripts do every write, so the model never edits Decidinator's files and plan mode never blocks them. Hooks are Node scripts, as in tierminator.
 
 | Component | Kind | Job |
 | --- | --- | --- |

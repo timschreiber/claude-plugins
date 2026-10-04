@@ -10,14 +10,14 @@ cataloged in `.claude-plugin/marketplace.json`:
 - `denoizinator-net`: a `PreToolUse` hook that rewrites `dotnet`/`msbuild`
   commands in-flight to add quiet flags, so verbose build/test output never
   enters Claude's context.
-- `planandtier`: hooks and five tier agents (`<model>-<effort>`) that turn an
+- `tierminator`: hooks and five tier agents (`<model>-<effort>`) that turn an
   approved plan-mode plan into serial subagent execution, each task at the
   model and effort chosen during planning and committed by its worker, with
   failed attempts reset and retried a tier up. It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
-  `/planandtier:arm` in the session; `/planandtier:disarm` turns it off, and
-  `/planandtier:execute-plan` runs a saved plan in a later session. Setting
-  `PLANANDTIER_UNATTENDED=1` at launch arms the session on its first prompt
+  `/tierminator:arm` in the session; `/tierminator:disarm` turns it off, and
+  `/tierminator:execute-plan` runs a saved plan in a later session. Setting
+  `TIERMINATOR_UNATTENDED=1` at launch arms the session on its first prompt
   and runs the plan Claude ends its planning turn with, with no approval, for
   headless `claude -p` runs (launch with `--model opus --effort medium` to
   plan on Opus). Each
@@ -26,9 +26,9 @@ cataloged in `.claude-plugin/marketplace.json`:
   the tokens and cost had the planning model run the tasks itself, and the
   savings; prices live in
   `scripts/lib/prices.js`, held equal to `probes/evidence/planandtier-pricing.json`.
-  The hooks are Node scripts under `plugins/planandtier/scripts/`, tested with
-  `node --test tests/planandtier/*.test.js` (the tests need `git`).
-  The design and the measurements behind it are in `docs/planandtier/`, with
+  The hooks are Node scripts under `plugins/tierminator/scripts/`, tested with
+  `node --test tests/tierminator/*.test.js` (the tests need `git`).
+  The design and the measurements behind it are in `docs/tierminator/`, with
   evidence under `probes/evidence/planandtier-*`.
 - `decidinator`: hooks that send every `AskUserQuestion` call to a read-only
   oracle subagent first, so only questions research cannot settle reach a
@@ -44,7 +44,7 @@ cataloged in `.claude-plugin/marketplace.json`:
 
 `orcastrat` (formerly `orchestratinator`) lives in `plugins/orcastrat/` but is parked: it is
 listed under `_parked` in `marketplace.json`, not `plugins`, so it is not published. Only
-`denoizinator-net`, `planandtier` and `decidinator` are. Do not move it into `plugins` unless the user asks.
+`denoizinator-net`, `tierminator` and `decidinator` are. Do not move it into `plugins` unless the user asks.
 It splits a spec into small tasks and runs each on the cheapest model and effort that can
 do it, with Bash scripts and hooks (POSIX only, no `pwsh`; `scripts/Validate-All.ps1` checks
 that) tested with bats via `scripts/run-bats.sh`. Its README and
@@ -76,10 +76,10 @@ findings doc without adding the evidence file behind it.
 # Run the rewriter's unit tests (pure PowerShell, no .NET needed)
 Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 
-# Run planandtier's hook and library tests. Pass the files, not the directory:
-# on Node 24, `node --test tests/planandtier/` treats the directory as one file
+# Run tierminator's hook and library tests. Pass the files, not the directory:
+# on Node 24, `node --test tests/tierminator/` treats the directory as one file
 # and fails. Node expands the glob itself, so this works in pwsh too.
-node --test tests/planandtier/*.test.js
+node --test tests/tierminator/*.test.js
 
 # Run decidinator's hook and library tests (same glob rule).
 node --test tests/decidinator/*.test.js
@@ -97,7 +97,7 @@ claude --plugin-dir ./plugins/denoizinator-net
 
 CI (`.github/workflows/validate.yml`) runs `claude plugin validate .`, validates
 each `plugins/*/` directory, runs `Sync-Shared.ps1 -Check`, and runs the
-planandtier and decidinator tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
+tierminator and decidinator tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
 yourself before pushing changes to the segmenter.
 
 There is no build step; plugins are PowerShell scripts + JSON/Markdown consumed

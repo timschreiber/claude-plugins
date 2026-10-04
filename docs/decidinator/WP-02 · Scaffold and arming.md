@@ -12,7 +12,7 @@ Depends on: WP-01 (complete).
 Spec sections: Architecture; Commands and configuration; Safety and integration.
 
 Scope:
-- Plugin manifest and layout in the marketplace repo, following planandtier's conventions (Node 20 hook scripts, hooks/hooks.json, commands/, agents/).
+- Plugin manifest and layout in the marketplace repo, following tierminator's conventions (Node 20 hook scripts, hooks/hooks.json, commands/, agents/).
 - Configuration loader: defaults, then ~/.claude/decidinator.json, then .claude/decidinator.json, with validation of every key in the spec's configuration table.
 - Arming: /decidinator:arm [ask|sidecar], /decidinator:disarm, /decidinator:status (status shows mode only until later packages add counts), and DECIDINATOR_MODE arming at session start.
 - Session state and arming flag files under ${CLAUDE_PLUGIN_DATA}/sessions/, the SessionEnd cleanup hook, and removal of files older than 7 days.

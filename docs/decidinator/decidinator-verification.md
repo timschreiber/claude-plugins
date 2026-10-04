@@ -159,7 +159,7 @@ seven headless and four interactive cells:
   `CLAUDE_CODE_CHILD_SESSION=1` is present in both and does not discriminate.
 - **Payload keys:** `scratchpad_dir` is in every interactive hook input (PreToolUse, PostToolUse,
   SessionStart, SessionEnd, Stop, SubagentStart, SubagentStop, UserPromptSubmit) and in no headless
-  one (`item4.differences.keys`); prior planandtier evidence agrees
+  one (`item4.differences.keys`); prior tierminator evidence agrees
   (`probes/evidence/planandtier-agents-probe.log`: 44 of 44 with it, interactive;
   `probes/evidence/planandtier-agent-probe.log`: 0 of 8, headless).
 - **Method:** treat a session as headless when `CLAUDE_CODE_SESSION_ATTENDED` is `0`, or when

@@ -48,11 +48,11 @@ claude --plugin-dir ./plugins/decidinator
 ```
 
 Add the tests to `.github/workflows/validate.yml` in the package that first
-creates them, as planandtier's are.
+creates them, as tierminator's are.
 
 ## Architecture rules
 
-- Hooks are Node scripts under `scripts/`, as in planandtier. No `pwsh`, no
+- Hooks are Node scripts under `scripts/`, as in tierminator. No `pwsh`, no
   Bash-only logic.
 - **Unarmed is inert.** Every hook exits with no output unless the session is
   armed by `/decidinator:arm` or `DECIDINATOR_MODE`. The exceptions are command

@@ -59,7 +59,7 @@ Paste-ready prompts, one per package: Prompts
 
 **Scope:**
 
-- Plugin manifest and layout in the marketplace repo, following planandtier's conventions (Node 20 hook scripts, `hooks/hooks.json`, `commands/`, `agents/`).
+- Plugin manifest and layout in the marketplace repo, following tierminator's conventions (Node 20 hook scripts, `hooks/hooks.json`, `commands/`, `agents/`).
 - Configuration loader: defaults, then `~/.claude/decidinator.json`, then `.claude/decidinator.json`, with validation of every key in the spec's configuration table.
 - Arming: `/decidinator:arm [ask|sidecar]`, `/decidinator:disarm`, `/decidinator:status` (status shows mode only until later packages add counts), and `DECIDINATOR_MODE` arming at session start.
 - Session state and arming flag files under `${CLAUDE_PLUGIN_DATA}/sessions/`, the `SessionEnd` cleanup hook, and removal of files older than 7 days.
@@ -295,7 +295,7 @@ Paste-ready prompts, one per package: Prompts
   5. Plan mode: scenario 1 repeated with the session in plan mode, oracle research tools working.
   6. Escalation: a question engineered to return low confidence reaches rung 2 with rung 1's verdict in its prompt.
   7. Round trip: export, fill answers, import, and check the report.
-- `README.md` in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, the tools to allow for unattended research (`WebFetch`, `WebSearch`, `Bash(gh search:*)`), and known limitations (headless `claude -p` sessions are out of scope; rung models are honored only outside plan mode).
+- `README.md` in tierminator's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, the tools to allow for unattended research (`WebFetch`, `WebSearch`, `Bash(gh search:*)`), and known limitations (headless `claude -p` sessions are out of scope; rung models are honored only outside plan mode).
 - A reference document covering every hook, file format, configuration key, and environment variable.
 - Leave `probes/decidinator/` in place: it is outside the plugin package and never ships.
 

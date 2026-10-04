@@ -20,7 +20,7 @@ Scope:
   5. Plan mode: scenario 1 repeated with the session in plan mode, oracle research tools working.
   6. Escalation: a question engineered to return low confidence reaches rung 2 with rung 1's verdict in its prompt.
   7. Round trip: export, fill answers, import, and check the report.
-- README.md in planandtier's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, the tools to allow for unattended research (`WebFetch`, `WebSearch`, `Bash(gh search:*)`), and known limitations (headless `claude -p` sessions are out of scope; rung models are honored only outside plan mode).
+- README.md in tierminator's style: what it does, install, requirements, how to use each mode, the stakeholder workflow, the ladder and how to change it, cost note for subscription plans, the tools to allow for unattended research (`WebFetch`, `WebSearch`, `Bash(gh search:*)`), and known limitations (headless `claude -p` sessions are out of scope; rung models are honored only outside plan mode).
 - A reference document covering every hook, file format, configuration key, and environment variable.
 - Leave probes/decidinator/ in place: it is outside the plugin package and never ships.
 

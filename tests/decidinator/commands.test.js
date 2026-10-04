@@ -182,7 +182,7 @@ test('status counts open sidecar entries and unconfirmed decisions', () => {
 })
 
 test('other prompts produce no output', () => {
-  for (const p of ['hello', '/decidinator:armed', '/decidinator:reviews', '/planandtier:arm']) {
+  for (const p of ['hello', '/decidinator:armed', '/decidinator:reviews', '/tierminator:arm']) {
     assert.equal(spawn(p).stdout, '', p)
   }
   assert.equal(spawn('/decidinator:arm', { agent_id: 'a1' }).stdout, '')

@@ -36,11 +36,11 @@ Write-Host '== shared asset drift'
 & (Join-Path $PSScriptRoot 'Sync-Shared.ps1') -Check
 if ($LASTEXITCODE -ne 0) { $failed = $true }
 
-Write-Host '== planandtier tests'
+Write-Host '== tierminator tests'
 # node --test takes file paths, and pwsh does not expand globs, so list the files here.
-$planandtierTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/planandtier') -Filter '*.test.js' |
+$tierminatorTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/tierminator') -Filter '*.test.js' |
     ForEach-Object { $_.FullName }
-node --test @planandtierTests
+node --test @tierminatorTests
 if ($LASTEXITCODE -ne 0) { $failed = $true }
 
 Write-Host '== decidinator tests'

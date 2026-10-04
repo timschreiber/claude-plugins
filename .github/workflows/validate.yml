@@ -33,8 +33,8 @@ jobs:
         shell: pwsh
         run: ./scripts/Sync-Shared.ps1 -Check
 
-      - name: Test planandtier
-        run: node --test tests/planandtier/*.test.js
+      - name: Test tierminator
+        run: node --test tests/tierminator/*.test.js
 
       - name: Test decidinator
         run: node --test tests/decidinator/*.test.js
