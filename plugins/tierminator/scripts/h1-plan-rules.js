@@ -59,7 +59,7 @@ function handBack(input, s) {
   const report = parseReport(input.prompt) ?? (transcript ? reportFromTranscript(transcript) : null)
   const reported = { ...s, current: { ...s.current, report } }
   const settledState = settle(reported, s.cwd ?? input.cwd)
-  const { next } = spend.recordAttempt({ ...input, agent_id: id }, s, settledState, { transcript })
+  const { next } = spend.recordAttempt({ ...input, agent_id: id }, s, settledState, { transcript, stopReason: report ? 'report' : 'no-report' })
   const saved = {
     ...next,
     notice: null,

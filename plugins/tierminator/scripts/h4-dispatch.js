@@ -82,7 +82,7 @@ function stop(input, s) {
   const reported = { ...s, current: { ...s.current, report } }
   // The attempt's tokens and estimated cost go to the plan's telemetry file, and its UI line is queued
   // for the next Stop (H5); Claude's notice is unchanged.
-  const { next } = spend.recordAttempt(input, s, settle(reported, s.cwd ?? input.cwd))
+  const { next } = spend.recordAttempt(input, s, settle(reported, s.cwd ?? input.cwd), { stopReason: report ? 'report' : 'no-report' })
   // A background worker's "finished" notification always arrives after this, and H1 gives the notice on
   // it; H5 then lets Claude's turn end instead of blocking it, which Claude Code shows as an error.
   state.write(input.session_id, { ...next, noticeByNotification: !!(next.notice && s.current.background) })
@@ -121,7 +121,7 @@ function failure(input, s) {
   if (!ours(input.tool_input?.subagent_type) || s?.phase !== 'running' || !s.current.inFlight) return
   const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
   const settledState = settle(s, s.cwd ?? input.cwd, { ok: false, reason: `the Agent call failed: ${error}` })
-  const { next } = spend.recordAttempt(input, s, settledState, { ran: false })
+  const { next } = spend.recordAttempt(input, s, settledState, { ran: false, stopReason: 'call-failed' })
   state.write(input.session_id, { ...next, notice: null })
   context('PostToolUseFailure', next.notice)
 }

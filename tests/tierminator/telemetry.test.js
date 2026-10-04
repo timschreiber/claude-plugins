@@ -73,8 +73,8 @@ test('the summary has planning from every session, this run by tier in ladder or
     { kind: 'planning', at: '2026-09-28T11:00:00Z', planId: 'P', sessionId: 'new', subagents: 1, ...usage(0.1), models: ['claude-opus-5-5'] },
     { kind: 'planning', at: '2026-09-28T09:00:00Z', planId: 'OTHER', sessionId: 'elsewhere', ...usage(9) },
     { kind: 'attempt', runId: 'r2', task: 'T02', tier: 'opus-high', outcome: 'done', ...usage(0.61) },
-    { kind: 'attempt', runId: 'r2', task: 'T01', tier: 'sonnet-low', outcome: 'retry', ...usage(0.02) },
-    { kind: 'attempt', runId: 'r2', task: 'T01', tier: 'sonnet-medium', outcome: 'done', ...usage(0.03) },
+    { kind: 'attempt', runId: 'r2', task: 'T01', attempt: 1, tier: 'sonnet-low', outcome: 'retry', ...usage(0.02) },
+    { kind: 'attempt', runId: 'r2', task: 'T01', attempt: 2, tier: 'sonnet-medium', outcome: 'done', ...usage(0.03) },
     { kind: 'attempt', runId: 'r1', task: 'T01', tier: 'sonnet-low', outcome: 'done', ...usage(5) },
     { kind: 'orchestration', runId: 'r2', ...usage(0.2) },
   ]
@@ -137,7 +137,7 @@ const { costOf } = require('../../plugins/tierminator/scripts/lib/prices.js')
 const OPUS = 'claude-opus-5-5'
 const toks = { input: 0, output: 1000, cacheWrite5m: 10000, cacheWrite1h: 0, cacheRead: 0 }
 const ctxAttempt = (task, at, messages, contextStart, contextEnd, over = {}) => ({
-  kind: 'attempt', at, runId: 'r', task, tier: 'sonnet-medium', outcome: 'done',
+  kind: 'attempt', at, agentId: `a-${task}-${at}`, runId: 'r', task, tier: 'sonnet-medium', outcome: 'done',
   tokens: toks, total: 11000, messages, contextStart, contextEnd, costUsd: 0.05, unpriced: [], models: ['claude-sonnet-5'], ...over,
 })
 const estRecords = () => [
@@ -218,4 +218,51 @@ test('when the estimate fails the main-agent row says so and nothing follows it'
   const lines = text.split('\n').slice(1)
   assert.match(lines[lines.length - 1], /^ {2}main agent\s+-\s+not estimated: no context size for the run$/)
   assert.deepEqual(labels(text).map(l => l.split(' ')[0]), ['planning', 'sonnet-medium', 'total', 'main'])
+})
+
+const spend = require('../../plugins/tierminator/scripts/lib/spend.js')
+const attemptState = () => ({
+  planId: 'P',
+  runId: 'r',
+  planFile: path.join(dir, 'plans', 'p.md'),
+  phase: 'running',
+  done: [],
+  tasks: [{ id: 'T04', title: 'x' }],
+  current: { index: 0, tier: 'opus-medium', attempt: 1, resumes: 2 },
+  spend: { costUsd: 0.5 },
+})
+
+test('recordAttempt records maxTurns, resumes and the stop reason', () => {
+  for (const stopReason of ['report', 'no-report', 'turn-limit', 'call-failed']) {
+    const prev = attemptState()
+    const input = { session_id: 's', agent_id: `ag-${stopReason}` }
+    spend.recordAttempt(input, prev, { ...prev, phase: 'halted' }, { ran: false, stopReason })
+    const rec = t.read(t.fileFor(prev.planFile, 's')).filter(r => r.agentId === `ag-${stopReason}`)[0]
+    assert.equal(rec.stopReason, stopReason)
+    assert.equal(rec.maxTurns, 100)
+    assert.equal(rec.resumes, 2)
+  }
+})
+
+test('a second identical recordAttempt appends nothing and leaves the run cost alone', () => {
+  const prev = attemptState()
+  const input = { session_id: 's', agent_id: 'ag' }
+  const first = spend.recordAttempt(input, prev, { ...prev }, { ran: false, stopReason: 'report' })
+  assert.ok(first.line)
+  const second = spend.recordAttempt(input, prev, { ...prev }, { ran: false, stopReason: 'report' })
+  assert.equal(second.line, null)
+  assert.equal(second.next.spend.costUsd, 0.5)
+  assert.equal(t.read(t.fileFor(prev.planFile, 's')).length, 1)
+})
+
+test('the summary counts a duplicated attempt row once', () => {
+  const a = { kind: 'attempt', runId: 'r', task: 'T01', attempt: 1, agentId: 'x', tier: 'sonnet-low', outcome: 'done', ...usage(0.02) }
+  const once = t.summary([a], { planId: 'P', runId: 'r' })
+  assert.equal(t.summary([a, { ...a }], { planId: 'P', runId: 'r' }), once)
+})
+
+test('the summary flags attempts over 70% of their turn limit', () => {
+  const at = messages => ({ kind: 'attempt', runId: 'r', task: 'T04', attempt: 1, agentId: 'x', tier: 'sonnet-low', maxTurns: 40, outcome: 'done', ...usage(0.02), messages })
+  assert.match(t.summary([at(29)], { planId: 'P', runId: 'r' }), /Near the turn limit: T04 29\/40 turns \(sonnet-low\)/)
+  assert.doesNotMatch(t.summary([at(28)], { planId: 'P', runId: 'r' }), /Near the turn limit/)
 })

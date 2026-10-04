@@ -93,6 +93,18 @@ function attemptLine(r, runCost) {
   return `tierminator: ${r.task} on ${r.tier} ${verb}: ${usage}. Run so far: ${fmtUsd(runCost)}.`
 }
 
+// Attempt records once each, by (runId, task, attempt, agentId), keeping the first: old files hold duplicates.
+function dedupe(records) {
+  const seen = new Set()
+  return records.filter(r => {
+    if (r.kind !== 'attempt') return true
+    const key = JSON.stringify([r.runId, r.task, r.attempt, r.agentId])
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 const sum = (records, pick) => records.reduce((n, r) => n + (pick(r) ?? 0), 0)
 // The share of cache reads in the tokens of the records that have usage, as a whole percent, or null.
 function cachePct(records) {
@@ -136,7 +148,8 @@ function planningFor(records, { planId, runId }) {
 // added by re-reading its context (the run's start context, plus what earlier tasks added, less what this
 // task's worker started with) on each of the task's messages. Returns {model, costUsd, total,
 // extraCacheRead, reason}; reason is null on success, else a short phrase and the numbers are null.
-function mainAgentEstimate(records, { planId, runId }) {
+function mainAgentEstimate(allRecords, { planId, runId }) {
+  const records = dedupe(allRecords)
   const planning = planningFor(records, { planId, runId })
   const fail = (model, reason) => ({ model, costUsd: null, total: null, extraCacheRead: null, reason })
   const latest = planning
@@ -172,7 +185,8 @@ function mainAgentEstimate(records, { planId, runId }) {
 
 // The end-of-run summary: the planning that led to the run (planningFor), then this run's attempts by
 // tier and its orchestration, and a total.
-function summary(records, { planId, runId }) {
+function summary(allRecords, { planId, runId }) {
+  const records = dedupe(allRecords)
   const planning = planningFor(records, { planId, runId })
   const attempts = records.filter(r => r.kind === 'attempt' && r.runId === runId)
   const orchestration = records.filter(r => r.kind === 'orchestration' && r.runId === runId)
@@ -213,10 +227,12 @@ function summary(records, { planId, runId }) {
       rows.push(['extra cost', fmtUsd(-dUsd), `${pct}% more than the main agent, ${tokPart}`])
     }
   }
+  const near = attempts.filter(a => typeof a.messages === 'number' && typeof a.maxTurns === 'number' && a.messages > 0.7 * a.maxTurns)
+  const nearLine = near.length ? `Near the turn limit: ${near.map(a => `${a.task} ${a.messages}/${a.maxTurns} turns (${a.tier})`).join(', ')}` : null
   const width = Math.max(...rows.map(r => r[0].length))
   const col = Math.max(...rows.map(r => r[1].length))
   const lines = rows.map(([a, b, c]) => `  ${a.padEnd(width)}  ${b.padEnd(col)}  ${c}`.trimEnd())
-  return [`tierminator spend (estimated, prices as of ${AS_OF}):`, ...lines].join('\n')
+  return [`tierminator spend (estimated, prices as of ${AS_OF}):`, ...lines, ...(nearLine ? [nearLine] : [])].join('\n')
 }
 
 module.exports = { fileFor, append, read, usageFields, fmtTokens, fmtUsd, attemptLine, planningFor, mainAgentEstimate, summary }

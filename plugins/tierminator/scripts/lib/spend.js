@@ -7,6 +7,7 @@ const state = require('./state.js')
 const t = require('./telemetry.js')
 const { transcriptUsage, subagentUsage, subagentsDir, combine, tally } = require('./usage.js')
 const { currentTask } = require('./run.js')
+const { MAX_TURNS } = require('./tasks.js')
 
 const WORKER = type => String(type ?? '').startsWith('tierminator:')
 const safe = (fn, fallback) => {
@@ -58,9 +59,21 @@ function outcomeOf(prev, next) {
 // queues its UI line in the state's `spendLines`. Returns {next, line}: the state to save and the line.
 // The line is shown by the next Stop (takeLines), not here: a SubagentStop hook's systemMessage is not
 // displayed for a background worker, and a Stop hook's is (tierminator-telemetry-findings.md).
-function recordAttempt(input, prev, next, { transcript = input.agent_transcript_path, ran = true } = {}) {
+function recordAttempt(input, prev, next, { transcript = input.agent_transcript_path, ran = true, stopReason = null } = {}) {
   return safe(
     () => {
+      const file = t.fileFor(prev.planFile, input.session_id)
+      const duplicate = t
+        .read(file)
+        .some(
+          r =>
+            r.kind === 'attempt' &&
+            r.runId === (prev.runId ?? null) &&
+            r.task === currentTask(prev).id &&
+            r.attempt === prev.current.attempt &&
+            r.agentId === (input.agent_id ?? null)
+        )
+      if (duplicate) return { next, line: null }
       const usage = ran ? transcriptUsage(transcript) : tally([])
       const cost = usage?.costUsd ?? 0
       const runCost = (prev.spend?.costUsd ?? 0) + cost
@@ -74,13 +87,16 @@ function recordAttempt(input, prev, next, { transcript = input.agent_transcript_
         tier: prev.current.tier,
         effort: input.effort?.level ?? prev.current.tier.split('-')[1],
         attempt: prev.current.attempt,
+        maxTurns: MAX_TURNS[prev.current.tier] ?? null,
+        resumes: prev.current.resumes ?? 0,
+        stopReason,
         agentId: input.agent_id ?? null,
         outcome,
         reason,
         durationMs: usage?.firstAt && usage?.lastAt ? Date.parse(usage.lastAt) - Date.parse(usage.firstAt) : null,
         ...t.usageFields(usage),
       }
-      t.append(t.fileFor(prev.planFile, input.session_id), record)
+      t.append(file, record)
       const line = t.attemptLine(record, runCost)
       return { next: { ...next, spend: { costUsd: runCost }, spendLines: [...(prev.spendLines ?? []), line] }, line }
     },

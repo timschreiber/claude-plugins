@@ -21,7 +21,7 @@ function onTurnLimit(input, s, turns) {
   const agentId = s.current.agentId ?? null
   const dir = subagentsDir(input.transcript_path)
   const transcript = agentId && dir ? path.join(dir, `agent-${agentId}.jsonl`) : undefined
-  const recorded = spend.recordAttempt({ ...input, agent_id: agentId }, s, { ...next.state, notice: null }, { transcript }).next
+  const recorded = spend.recordAttempt({ ...input, agent_id: agentId }, s, { ...next.state, notice: null }, { transcript, stopReason: 'turn-limit' }).next
   if (!state.write(input.session_id, { ...recorded, notice: null, noticeByNotification: false })) return null
   return r.haltText(next.state)
 }
