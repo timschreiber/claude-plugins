@@ -22,6 +22,7 @@ const state = require('./lib/state.js')
 const spend = require('./lib/spend.js')
 const { recordPlanning } = spend
 const unattended = require('./lib/unattended.js')
+const sizing = require('./lib/sizing.js')
 const { dispatchText, resumeText } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
 const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
@@ -62,6 +63,22 @@ function draftingStop(input, s) {
     )
   }
   if (result.ok) {
+    // A task that may be too large for one worker is sent back to the planner, a couple of times, as H2 does.
+    const reviews = s.sizingReviews ?? 0
+    if (reviews < sizing.MAX_REVIEWS) {
+      const pending = sizing.review(result.tasks, text)
+      if (pending.length > 0) {
+        state.write(id, { ...s, sizingReviews: reviews + 1 })
+        return block(
+          sizing
+            .reviewText(pending)
+            .replace(
+              /Then call ExitPlanMode again\.$/,
+              'Then end your turn again with the complete plan as your final message.'
+            )
+        )
+      }
+    }
     try {
       fs.mkdirSync(path.dirname(s.planFile), { recursive: true })
       fs.writeFileSync(s.planFile, text)

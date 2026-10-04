@@ -12,6 +12,7 @@ const path = require('path')
 const { resolvePlan, moveBlock, planIdOf } = require('./lib/sidecar.js')
 const { recordPlanning } = require('./lib/spend.js')
 const state = require('./lib/state.js')
+const sizing = require('./lib/sizing.js')
 const git = require('./lib/git.js')
 const { run, readInput, emit, debug } = require('./lib/hook.js')
 
@@ -59,6 +60,20 @@ run(async () => {
           'Do not call ExitPlanMode again until it is fixed.'
       )
       return
+    }
+
+    // A task that may be too large for one worker is sent back to the planner, a couple of times: it is
+    // split, or kept with a "Keep Txx:" line. These are guidelines, so the plan then passes. A review
+    // does not count toward the invalid-block denials.
+    const reviews = current?.sizingReviews ?? 0
+    if (reviews < sizing.MAX_REVIEWS) {
+      const pending = sizing.review(result.tasks, text)
+      if (pending.length > 0) {
+        const base = current ?? { phase: 'planning', tasks: [], denials: 0 }
+        state.write(input.session_id, { ...base, sizingReviews: reviews + 1 })
+        deny(sizing.reviewText(pending))
+        return
+      }
     }
 
     // A plan that already has its table (a resubmission) stays as it is. If the move fails, the

@@ -83,7 +83,7 @@ const task = (n, over = {}) => ({
   title: `Task ${n}`,
   model: 'sonnet',
   effort: 'medium',
-  prompt: 'Read docs/spec.md. Do the work. Verify: node --test passes.',
+  prompt: 'Read docs/spec.md.\nFiles to change: src/a.js\nDo the work. Verify: node --test passes.',
   ...over,
 })
 const planText = (tasks, extra = '') =>
@@ -534,6 +534,70 @@ test('H2 denies a tiered plan outside a Git repository or with a dirty tree, wit
     assert.match(again.permissionDecisionReason, /uncommitted changes \(README\.md\)/, 'never passed through')
   }
   assert.equal(state.read(S), null, 'not counted as a denial')
+})
+
+// ---- H2: task sizing ---------------------------------------------------------------
+
+const BIG = task(2, { title: 'Wire it in and test it' })
+const FLAGGED = planText([task(1), BIG])
+const denyReason = r => r.json?.hookSpecificOutput?.permissionDecisionReason
+
+test('H2 denies a plan with a flagged task, and lets it through after a Keep line is added', () => {
+  planning()
+  const file = writePlanFile(FLAGGED)
+  const first = hook('h2-gate-exit-plan.js', exitPre(FLAGGED, file))
+  assert.equal(first.json.hookSpecificOutput.permissionDecision, 'deny')
+  const reason = denyReason(first)
+  assert.match(reason, /some tasks may be too large for one worker/)
+  assert.match(reason, /- T02: has "and", "then" or ";" in its title/)
+  assert.ok(!reason.includes('- T01:'))
+  assert.equal(state.read(S).sizingReviews, 1)
+  assert.equal(fs.readFileSync(file, 'utf8'), FLAGGED, 'the block is not moved by a review')
+
+  const kept = FLAGGED + '\nKeep T02: the wiring and its test are one change.\n'
+  fs.writeFileSync(file, kept)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(kept, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()), 'the block is moved')
+})
+
+test('H2 lets an unchanged flagged plan through after two reviews', () => {
+  planning()
+  const file = writePlanFile(FLAGGED)
+  for (let i = 1; i <= 2; i++) {
+    assert.equal(hook('h2-gate-exit-plan.js', exitPre(FLAGGED, file)).json.hookSpecificOutput.permissionDecision, 'deny')
+    assert.equal(state.read(S).sizingReviews, i)
+  }
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(FLAGGED, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
+test('H2 passes a clean plan on the first call', () => {
+  planning()
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(VALID, writePlanFile(VALID))).stdout, '')
+  assert.equal(state.read(S).sizingReviews, undefined)
+})
+
+test('H2 sizing reviews do not count toward the invalid-block denials', () => {
+  planning({ denials: 1 })
+  const file = writePlanFile(FLAGGED)
+  hook('h2-gate-exit-plan.js', exitPre(FLAGGED, file))
+  assert.equal(state.read(S).denials, 1)
+  assert.equal(state.read(S).sizingReviews, 1)
+  hook('h2-gate-exit-plan.js', exitPre(NO_BLOCK, writePlanFile(NO_BLOCK)))
+  assert.equal(state.read(S).denials, 2)
+  assert.equal(state.read(S).sizingReviews, 1)
+})
+
+test('H2 reviews a resubmitted plan whose block is already a table, with the tasks it loaded', () => {
+  planning({ sizingReviews: 2 })
+  const file = writePlanFile(FLAGGED)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(FLAGGED, file)).stdout, '')
+  const withTable = fs.readFileSync(file, 'utf8')
+  assert.ok(withTable.includes('tierminator:tasks'))
+  planning()
+  const out = hook('h2-gate-exit-plan.js', exitPre('stale', file))
+  assert.match(denyReason(out), /- T02: /)
+  assert.equal(state.read(S).sizingReviews, 1)
 })
 
 // A clean repository with one commit but no identity to commit with, and the environment a hook needs
@@ -1412,6 +1476,27 @@ test('H5 stop with no task block while drafting blocks with the rules', () => {
   const empty = draftStop('')
   assert.equal(empty.json.decision, 'block')
   assert.equal(state.read(S).denials, 2)
+})
+
+test('H5 stop with a flagged plan while drafting blocks once with the review text, then runs it', () => {
+  state.write(S, draftingState())
+  const text = planText([task(1), BIG])
+  const r = draftStop(text)
+  assert.equal(r.json.decision, 'block')
+  assert.match(r.json.reason, /some tasks may be too large for one worker/)
+  assert.match(r.json.reason, /- T02: /)
+  assert.match(r.json.reason, /then end your turn again with the complete plan as your final message\.$/i)
+  assert.ok(!r.json.reason.includes('ExitPlanMode'))
+  assert.equal(state.read(S).phase, 'drafting')
+  assert.equal(state.read(S).sizingReviews, 1)
+  assert.equal(state.read(S).denials, 0)
+  assert.ok(!fs.existsSync(draftPlanFile()))
+
+  const kept = text + '\nKeep T02: one change.\n'
+  const again = draftStop(kept)
+  assert.match(again.json.reason, /Dispatch/)
+  assert.equal(state.read(S).phase, 'running')
+  assert.equal(fs.readFileSync(draftPlanFile(), 'utf8'), kept)
 })
 
 test('H5 stop with an opt-out plan while drafting removes the state and tells Claude to implement it', () => {
