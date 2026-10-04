@@ -631,7 +631,7 @@ In an unattended session, H5 also guards the drafting phase and turns the final 
 ### H6: cleanup
 
 On `SessionEnd` it deletes the session's state file, its activation flag, its telemetry cursor and rules
-marker, and its saved plan listing. A run does not outlive its session; the tasks that
+marker, its saved plan listing and its `<session_id>.plan.md` (a pruned file too, after 7 days). A run does not outlive its session; the tasks that
 finished are already committed.
 
 ## The run

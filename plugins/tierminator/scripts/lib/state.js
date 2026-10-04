@@ -194,7 +194,7 @@ function prune(days) {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.plan.md'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }

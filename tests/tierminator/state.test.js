@@ -109,6 +109,18 @@ test('activation needs a usable session id and a writable data directory', () =>
   assert.equal(state.isActive('s1'), false)
 })
 
+test('prune removes old saved plans too', () => {
+  const sessions = path.join(dir, 'sessions')
+  fs.mkdirSync(sessions, { recursive: true })
+  fs.writeFileSync(path.join(sessions, 'old.plan.md'), 'plan')
+  fs.writeFileSync(path.join(sessions, 'new.plan.md'), 'plan')
+  const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+  fs.utimesSync(path.join(sessions, 'old.plan.md'), past, past)
+  state.prune(7)
+  assert.equal(fs.existsSync(path.join(sessions, 'old.plan.md')), false)
+  assert.equal(fs.existsSync(path.join(sessions, 'new.plan.md')), true)
+})
+
 test('prune removes old activation flags too', () => {
   state.activate('old')
   state.activate('new')

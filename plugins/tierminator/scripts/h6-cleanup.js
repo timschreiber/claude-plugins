@@ -13,4 +13,9 @@ run(async () => {
   state.remove(input.session_id)
   state.deactivate(input.session_id)
   state.clearListing(input.session_id)
+  // The approved plan H3 saved beside the state when the plan file could not be read.
+  try {
+    const plan = state.fileFor(input.session_id)?.replace(/\.json$/, '.plan.md')
+    if (plan) require('fs').rmSync(plan, { force: true })
+  } catch {}
 })
