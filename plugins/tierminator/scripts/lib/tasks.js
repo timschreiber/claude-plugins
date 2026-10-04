@@ -21,6 +21,9 @@ const ALIASES = {
 // The tiers, weakest first. Each is also the name of the agent that runs it (tierminator:<tier>).
 // A failed task is retried one step up this ladder.
 const TIERS = Object.entries(ALLOWED).flatMap(([model, efforts]) => efforts.map(e => `${model}-${e}`))
+// Each tier agent's maxTurns (agents/<tier>.md). Higher effort makes more tool calls on the same task,
+// so the limit grows with the tier (tierminator-agent-dispatch-findings.md, turn usage).
+const MAX_TURNS = { 'sonnet-low': 40, 'sonnet-medium': 60, 'sonnet-high': 100, 'opus-medium': 100, 'opus-high': 150 }
 const tierOf = task => `${task.model}-${task.effort}`
 const nextTier = tier => {
   const i = TIERS.indexOf(tier)
@@ -237,6 +240,6 @@ function replaceBlock(text, sectionLines) {
 }
 
 module.exports = {
-  ALLOWED, ALIASES, TIERS, tierOf, nextTier, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
+  ALLOWED, ALIASES, TIERS, MAX_TURNS, tierOf, nextTier, BLOCK_INFO, OPT_OUT_LINE, SECTION_START, SECTION_END,
   extractBlock, validate, parseBlock, parsePlan, renderSection, replaceBlock,
 }

@@ -4,10 +4,9 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('fs')
 const path = require('path')
-const { TIERS } = require('../../plugins/tierminator/scripts/lib/tasks.js')
+const { TIERS, MAX_TURNS } = require('../../plugins/tierminator/scripts/lib/tasks.js')
 
 const DIR = path.join(__dirname, '..', '..', 'plugins', 'tierminator', 'agents')
-const TURNS = { low: 30, medium: 40, high: 60 }
 
 // {fields, body} from an agent file: simple "key: value" frontmatter between --- lines.
 function read(tier) {
@@ -33,7 +32,7 @@ test('each agent runs its tier: name, model, effort, maxTurns and no nested agen
     assert.equal(fields.name, tier)
     assert.equal(fields.model, model, tier)
     assert.equal(fields.effort, effort, tier)
-    assert.equal(Number(fields.maxTurns), TURNS[effort], tier)
+    assert.equal(Number(fields.maxTurns), MAX_TURNS[tier], tier)
     assert.deepEqual(fields.disallowedTools.split(',').map(s => s.trim()).sort(), ['Agent', 'Workflow'])
     assert.match(fields.description, /tierminator/)
   }

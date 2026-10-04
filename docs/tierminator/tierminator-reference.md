@@ -1011,7 +1011,7 @@ report block above) and differ only in frontmatter:
 |---|---|
 | `model` | `sonnet` or `opus` |
 | `effort` | The tier's effort |
-| `maxTurns` | 30, 40 or 60 for `low`, `medium`, `high` |
+| `maxTurns` | 40, 60 and 100 for `sonnet` at `low`, `medium` and `high`; 100 and 150 for `opus` at `medium` and `high` (`MAX_TURNS` in `lib/tasks.js`) |
 | `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows |
 
 Workers inherit the session's permission mode and get the project's `CLAUDE.md` automatically. The

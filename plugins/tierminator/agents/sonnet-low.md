@@ -3,7 +3,7 @@ name: sonnet-low
 description: tierminator worker: runs one task of an approved plan on sonnet at low effort. Dispatched only by tierminator.
 model: sonnet
 effort: low
-maxTurns: 30
+maxTurns: 40
 disallowedTools: Agent, Workflow
 ---
 
