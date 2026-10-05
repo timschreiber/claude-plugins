@@ -185,16 +185,30 @@ function parseReport(text) {
   return { status, commit: after('COMMIT') ?? 'NONE', verify: after('VERIFY') ?? 'NOT RUN', note: after('NOTE') ?? '' }
 }
 
+// The verdict a VERIFY value gives, PASS, FAIL or NOT RUN (PASSED and FAILED count as PASS and FAIL),
+// else null.
+function verdictOf(verify) {
+  const m = /^(PASS(?:ED)?|FAIL(?:ED)?|NOT RUN)\b/i.exec(String(verify ?? '').trim())
+  if (!m) return null
+  const word = m[1].toUpperCase()
+  if (word.startsWith('PASS')) return 'PASS'
+  if (word.startsWith('FAIL')) return 'FAIL'
+  return 'NOT RUN'
+}
+
 // Judges a finished attempt from its report and the Git facts after it. Returns {ok: true, commit},
 // {ok: false, reason}, or {ok: false, fatal} when the run must stop without a reset. With a planId, the
-// commit must also carry the plan's line. A DONE report counts only when its VERIFY line says PASS.
+// commit must also carry the plan's line. A DONE report counts only when VERIFY says PASS; a VERIFY that
+// is no verdict at all is fatal, so the run halts without a reset rather than retry.
 function judge({ report, taskId, planId = null, commits, clean, sameBranch }) {
   if (!sameBranch) return { ok: false, fatal: 'the worker left the branch the run started on' }
   if (!report) return { ok: false, reason: 'the worker returned no STATUS report' }
   if (report.status !== 'DONE') return { ok: false, reason: report.note || 'the worker reported FAILED' }
-  if (!/^PASS\b/i.test(report.verify)) {
-    return { ok: false, reason: `the worker reported DONE but VERIFY was ${report.verify}` }
+  const verdict = verdictOf(report.verify)
+  if (!verdict) {
+    return { ok: false, fatal: `the worker reported DONE but its VERIFY line is not PASS, FAIL or NOT RUN (${String(report.verify).slice(0, 200)}), so its report could not be read; its commit and changes are left in place` }
   }
+  if (verdict !== 'PASS') return { ok: false, reason: `the worker reported DONE but VERIFY was ${report.verify}` }
   if (commits.length !== 1) {
     return { ok: false, reason: `the worker reported DONE but made ${commits.length} commits instead of one` }
   }
@@ -354,6 +368,7 @@ module.exports = {
   noticeText,
   checkDispatch,
   parseReport,
+  verdictOf,
   judge,
   advance,
   turnLimitOf,

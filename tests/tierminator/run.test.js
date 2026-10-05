@@ -184,6 +184,25 @@ test('judge accepts only DONE with one trailer commit, a clean tree and the same
   assert.match(r.judge({ ...base, clean: false }).reason, /uncommitted changes/)
 })
 
+test('judge halts on a DONE report whose VERIFY is not a verdict, and still retries a real FAIL or NOT RUN', () => {
+  const report = { status: 'DONE', commit: 'abc', verify: 'PASS', note: '' }
+  const commit = { sha: 'abc123', message: 'Task 2\n\nTierminator-Task: T02' }
+  const base = { report, taskId: 'T02', commits: [commit], clean: true, sameBranch: true }
+  const inputs = ['PASS', 'pass - 12 tests', 'PASSED', 'FAIL', 'FAILED: 2', 'NOT RUN', 'not run', 'maybe', '** the V1', undefined]
+  assert.deepEqual(inputs.map(r.verdictOf), ['PASS', 'PASS', 'PASS', 'FAIL', 'FAIL', 'NOT RUN', 'NOT RUN', null, null, null])
+  const maybe = r.judge({ ...base, report: { ...report, verify: 'maybe' } })
+  assert.equal(maybe.ok, false)
+  assert.match(maybe.fatal, /not PASS, FAIL or NOT RUN \(maybe\)/)
+  assert.equal(maybe.reason, undefined)
+  assert.equal(r.judge({ ...base, report: { ...report, verify: 'PASSED' } }).ok, true)
+  for (const verify of ['FAIL', 'NOT RUN']) {
+    const j = r.judge({ ...base, report: { ...report, verify } })
+    assert.equal(typeof j.reason, 'string')
+    assert.equal(j.fatal, undefined)
+  }
+  assert.equal(r.advance(start(), maybe).action, 'halt')
+})
+
 test('advance moves to the next task, then completes', () => {
   let { state, action } = r.advance(start(), { ok: true, commit: 'aaa1111' })
   assert.equal(action, 'next')
