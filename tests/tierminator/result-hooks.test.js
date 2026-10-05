@@ -186,3 +186,86 @@ test('with no plan file the result goes beside the session state', () => {
   assert.equal(r.outcome, 'halted')
   assert.equal(r.planFile, null)
 })
+
+const task = n => ({ id: `T0${n}`, title: `Task ${n}`, model: 'sonnet', effort: 'medium', prompt: 'Read docs/spec.md.\nFiles to change: src/a.js\nDo the work. Verify: node --test passes.' })
+const planText = tasks => `# Plan\n\nProse.\n\n## Tasks\n\n\`\`\`json tiered-tasks\n${JSON.stringify({ tasks }, null, 2)}\n\`\`\`\n`
+const VALID = planText([task(1)])
+const INVALID = planText([{ ...task(1), model: 'fable' }])
+const DRAFT = () => path.join(dir, 'plans', 'unattended.md')
+const DRAFT_RESULT = () => path.join(dir, 'plans', 'unattended.result.json')
+const draftState = () => ({ phase: 'drafting', planFile: DRAFT(), denials: 0, guardDenials: 0 })
+const draftStop = (text, cwd = repo) =>
+  hook('h5-guard.js', { session_id: S, cwd, last_assistant_message: text }, ['stop'], { CLAUDE_CONFIG_DIR: dir })
+const startPrompt = (cwd, mode = 'default') =>
+  hook('h1-plan-rules.js', { session_id: S, cwd, permission_mode: mode, prompt: '/tierminator:plan Add a clock' }, [], { CLAUDE_CODE_ENTRYPOINT: 'sdk-cli', CLAUDE_CONFIG_DIR: dir })
+const plansResults = () => fs.readdirSync(path.join(dir, 'plans')).filter(n => n.endsWith('.result.json'))
+const dirtyRepo = () => {
+  const dirty = makeRepo(path.join(dir, 'dirty'))
+  fs.writeFileSync(path.join(dirty, 'wip.txt'), 'wip\n')
+  return dirty
+}
+
+test('an unattended plan still invalid after three tries writes a no-plan result', () => {
+  state.write(S, draftState())
+  for (let i = 0; i < 4; i++) draftStop(INVALID)
+  const r = readResult(DRAFT_RESULT())
+  assert.equal(r.outcome, 'no-plan')
+  assert.equal(r.reason, 'the plan was still not valid after 3 tries')
+  assert.deepEqual(r.tasksDone, [])
+  assert.deepEqual(r.tasksNotRun, [])
+  assert.equal(r.haltedAt, null)
+  assert.equal(r.tasksFile, null)
+  assert.equal(r.planFile, DRAFT())
+  const s = state.read(S)
+  assert.equal(s.phase, 'abandoned')
+  assert.equal(s.resultWritten, true)
+})
+
+test('an unattended plan that opts out writes a declined result', () => {
+  state.write(S, draftState())
+  draftStop('# Plan\n\nTiered execution: off\n')
+  const r = readResult(DRAFT_RESULT())
+  assert.equal(r.outcome, 'declined')
+  assert.equal(r.reason, 'the plan opts out of tiered execution')
+})
+
+test('an unattended plan that cannot start writes a declined result', () => {
+  state.write(S, draftState())
+  const dirty = dirtyRepo()
+  draftStop(VALID, dirty)
+  const r = readResult(DRAFT_RESULT())
+  assert.equal(r.outcome, 'declined')
+  assert.match(r.reason, /uncommitted changes/)
+  assert.equal(r.planFile, DRAFT())
+  assert.equal(fs.existsSync(DRAFT()), true)
+})
+
+test('a refused headless start writes a declined result although nothing was active', () => {
+  state.deactivate(S)
+  const dirty = dirtyRepo()
+  startPrompt(dirty)
+  assert.equal(plansResults().length, 1)
+  const r = readResult(path.join(dir, 'plans', plansResults()[0]))
+  assert.equal(r.outcome, 'declined')
+  assert.match(r.reason, /uncommitted changes/)
+  assert.equal(r.sessionId, S)
+  assert.match(r.planFile, /tierminator-unattended-.*-sess-res\.md$/)
+  assert.equal(r.tasksFile, null)
+  assert.equal(state.isActive(S), false)
+})
+
+test('a headless start in plan mode writes a declined result', () => {
+  state.deactivate(S)
+  startPrompt(repo, 'plan')
+  assert.equal(plansResults().length, 1)
+  const r = readResult(path.join(dir, 'plans', plansResults()[0]))
+  assert.equal(r.outcome, 'declined')
+  assert.match(r.reason, /plan mode/)
+})
+
+test('an interactive refused start writes no result', () => {
+  state.deactivate(S)
+  const dirty = dirtyRepo()
+  hook('h1-plan-rules.js', { session_id: S, cwd: dirty, permission_mode: 'default', prompt: '/tierminator:plan Add a clock' }, [], { CLAUDE_CONFIG_DIR: dir })
+  assert.equal(fs.existsSync(path.join(dir, 'plans')), false)
+})
