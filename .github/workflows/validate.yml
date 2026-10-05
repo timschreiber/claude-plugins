@@ -38,3 +38,6 @@ jobs:
 
       - name: Test decidinator
         run: node --test tests/decidinator/*.test.js
+
+      - name: Test grindinator
+        run: node --test tests/grindinator/*.test.js
