@@ -142,3 +142,99 @@ test('--from skips the earlier tasks', () => {
   assert.equal(fs.existsSync(path.join(repo, 'T01.txt')), false)
   assert.equal(gitIn(repo, 'log', '--format=%s').split('\n').length, 3)
 })
+
+const sidecar = require(path.join(PLUGIN, 'scripts', 'lib', 'sidecar.js'))
+const { extractBlock } = require(path.join(PLUGIN, 'scripts', 'lib', 'tasks.js'))
+
+const OUT = () => path.join(dir, 'out', 'r.json')
+const SESSION_RESULT = () => path.join(dir, 'data', 'sessions', `${S}.result.json`)
+
+// A repository whose Git has no commit identity, with the env that hides the global one.
+function repoWithoutIdentity() {
+  const anon = path.join(dir, 'anon')
+  fs.mkdirSync(anon)
+  gitIn(anon, 'init', '-q', '-b', 'main')
+  gitIn(anon, 'config', 'user.useConfigOnly', 'true')
+  gitIn(anon, 'config', 'commit.gpgsign', 'false')
+  fs.writeFileSync(path.join(anon, 'README.md'), '# test\n')
+  gitIn(anon, 'add', '-A')
+  gitIn(anon, '-c', 'user.name=Setup', '-c', 'user.email=setup@example.com', 'commit', '-q', '-m', 'init')
+  const emptyConfig = path.join(dir, 'empty.gitconfig')
+  fs.writeFileSync(emptyConfig, '')
+  const env = { GIT_CONFIG_GLOBAL: emptyConfig, GIT_CONFIG_NOSYSTEM: '1' }
+  for (const key of ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'EMAIL']) env[key] = ''
+  return { repo: anon, env }
+}
+
+function assertDeclined(file, reason, planFile) {
+  const r = readResult(file)
+  assert.equal(r.outcome, 'declined')
+  assert.equal(r.sessionId, S)
+  assert.equal(r.tasksFile, null)
+  assert.deepEqual(r.tasksDone, [])
+  assert.match(r.reason, reason)
+  assert.equal(r.planFile, planFile)
+  assert.equal(state.isActive(S), false)
+  assert.equal(state.read(S), null)
+}
+
+test('a headless execute that cannot start writes a declined result', () => {
+  const env = { TIERMINATOR_RESULT_FILE: OUT() }
+  const cases = [
+    [() => execute(`"${path.join(dir, 'nope.md')}"`, { env }), /the plan file .*nope\.md cannot be read/, null],
+    [() => execute(`"${plan}" --from T09`, { env }), /the plan has no task T09; its tasks are T01 to T03/, plan],
+    [() => {
+      fs.writeFileSync(path.join(repo, 'scratch.txt'), 'x')
+      try {
+        return execute(`"${plan}"`, { env })
+      } finally {
+        fs.rmSync(path.join(repo, 'scratch.txt'), { force: true })
+      }
+    }, /the working tree has uncommitted changes \(scratch\.txt\)/, plan],
+    [() => execute(`"${plan}"`, { mode: 'plan', env }), /cannot be executed in plan mode/, null],
+    [() => {
+      const anon = repoWithoutIdentity()
+      return execute(`"${plan}"`, { cwd: anon.repo, env: { ...anon.env, ...env } })
+    }, /Git has no user name and email for this repository/, plan],
+    [() => execute('1', { env }), /there is no plan list in this session yet to pick number 1 from/, null],
+  ]
+  for (const [run, reason, planFile] of cases) {
+    fs.rmSync(OUT(), { force: true })
+    run()
+    assertDeclined(OUT(), reason, planFile)
+  }
+})
+
+test('without TIERMINATOR_RESULT_FILE a declined result goes beside the plan, or beside the session state', () => {
+  fs.writeFileSync(path.join(repo, 'scratch.txt'), 'x')
+  execute(`"${plan}"`)
+  assert.equal(readResult().outcome, 'declined')
+  fs.rmSync(path.join(repo, 'scratch.txt'))
+  execute(`"${path.join(dir, 'nope.md')}"`)
+  const r = readResult(SESSION_RESULT())
+  assert.equal(r.outcome, 'declined')
+  assert.equal(r.planFile, null)
+})
+
+test('a headless execute of a plan already committed writes a complete result', () => {
+  const planId = sidecar.hashOf(extractBlock(fs.readFileSync(plan, 'utf8')).blocks[0])
+  for (const id of ['T01', 'T02', 'T03']) workerCommits(id, `${id}.txt`, planId)
+  assert.match(execute(`"${plan}"`), /every task in .* is already committed on this branch/)
+  const r = readResult()
+  assert.equal(r.outcome, 'complete')
+  assert.equal(r.reason, null)
+  assert.equal(r.planFile, plan)
+  assert.equal(r.tasksFile, null)
+  assert.deepEqual(r.tasksDone, ['T01', 'T02', 'T03'])
+  assert.deepEqual(r.tasksNotRun, [])
+  assert.equal(state.isActive(S), false)
+})
+
+test('an interactive execute that cannot start writes no result', () => {
+  const env = { CLAUDE_CODE_ENTRYPOINT: 'cli' }
+  execute(`"${path.join(dir, 'nope.md')}"`, { env })
+  fs.writeFileSync(path.join(repo, 'scratch.txt'), 'x')
+  execute(`"${plan}"`, { env })
+  assert.equal(fs.existsSync(RESULT()), false)
+  assert.equal(fs.existsSync(SESSION_RESULT()), false)
+})
