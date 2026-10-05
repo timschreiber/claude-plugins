@@ -8,11 +8,16 @@ const r = require('./run.js')
 
 const short = sha => String(sha ?? '').slice(0, 7)
 
+// A report the run can judge: any but a DONE report whose VERIFY is no verdict.
+const readable = report => !!report && (report.status !== 'DONE' || r.verdictOf(report.verify) !== null)
+
 // The worker's report block, from its transcript, newest first. A worker often delivers the block
 // through Claude Code's SubagentHandback tool and then ends with a line such as "Task complete.",
 // so its last message is not reliably the report. Each assistant message is searched in its tool
-// calls' `message` inputs, then its text. null when no block is found.
+// calls' `message` inputs, then its text. Returns the first readable report found; if only
+// unreadable ones are found, the newest of those; null when no block is found.
 function reportFromTranscript(transcript) {
+  let newest = null
   try {
     const lines = fs.readFileSync(transcript, 'utf8').split('\n').filter(Boolean).reverse()
     for (const line of lines) {
@@ -26,11 +31,22 @@ function reportFromTranscript(transcript) {
       ]
       for (const text of candidates) {
         const report = r.parseReport(text)
-        if (report) return report
+        if (!report) continue
+        if (readable(report)) return report
+        newest ??= report
       }
     }
   } catch {}
-  return null
+  return newest
+}
+
+// The worker's report from its message, else its transcript; a report that cannot be read is read again
+// from the transcript, which may hold the block intact.
+function readReport(text, transcript) {
+  const first = r.parseReport(text)
+  if (readable(first)) return first
+  const again = transcript ? reportFromTranscript(transcript) : null
+  return readable(again) ? again : (first ?? again)
 }
 
 // Judges the finished attempt (from its report, or the given failure), moves the run on, and returns
@@ -67,4 +83,4 @@ function settle(s, cwd, failure) {
 }
 const settled = (s, { state: next, action }, outcome) => ({ ...next, notice: r.noticeText(s, next, action, outcome) })
 
-module.exports = { reportFromTranscript, settle, settled }
+module.exports = { reportFromTranscript, readReport, settle, settled }

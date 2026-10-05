@@ -1035,6 +1035,38 @@ const attemptRows = () => telemetry.read(path.join(dir, 'plan.telemetry.jsonl'))
 const noticesIn = outputs => (outputs.join('\n').match(/tierminator: T01 (done|failed)/g) ?? []).length
 const handBackInput = text => ({ session_id: S, permission_mode: 'default', prompt: handBackPrompt('worker-1', text) })
 
+test('a DONE hand-back whose VERIFY is not a verdict stops the run and resets nothing', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const out = hook('h1-plan-rules.js', handBackInput(`STATUS: DONE\nCOMMIT: ${sha}\nVERIFY: maybe\nNOTE: x`)).stdout
+  assert.equal(state.read(S).phase, 'halted')
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), sha)
+  assert.match(out, /the run stopped at T01/)
+  assert.match(out, /not PASS, FAIL or NOT RUN \(maybe\)/)
+})
+
+test('a hand-back with a bold Verify summary before its block is judged by the block', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const text = `Summary of the work.\n\n**Verify:** the row count is 9. A node script found all 90 links.\n\n${report('DONE', sha)}`
+  const out = hook('h1-plan-rules.js', handBackInput(text)).stdout
+  assert.match(out, /T01 done/)
+  assert.deepEqual(state.read(S).done.map(d => d.id), ['T01'])
+})
+
+test('an unreadable VERIFY in a hand-back is read again from the worker transcript', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const subagents = path.join(dir, 'main', 'subagents')
+  fs.mkdirSync(subagents, { recursive: true })
+  fs.writeFileSync(
+    path.join(subagents, 'agent-worker-1.jsonl'),
+    JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'SubagentHandback', input: { message: report('DONE', sha) } }] } }) + '\n'
+  )
+  const out = hook('h1-plan-rules.js', { ...handBackInput(`STATUS: DONE\nCOMMIT: ${sha}\nVERIFY: ???\nNOTE: x`), transcript_path: path.join(dir, 'main.jsonl') }).stdout
+  assert.match(out, /T01 done/)
+})
+
 test('a hand-back, then its SubagentStop: H1 judges the attempt once and H4 stands down', () => {
   backgroundAttempt()
   const sha = workerCommits('T01')

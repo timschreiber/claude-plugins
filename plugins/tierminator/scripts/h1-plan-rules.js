@@ -41,12 +41,12 @@ const path = require('path')
 const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const r = require('./lib/run.js')
-const { doneLabel, parseReport } = r
+const { doneLabel } = r
 const { onTurnLimit } = require('./lib/turnlimit.js')
 const { executePlan } = require('./lib/execute.js')
 const spend = require('./lib/spend.js')
 const unattended = require('./lib/unattended.js')
-const { settle, reportFromTranscript } = require('./lib/settle.js')
+const { settle, readReport } = require('./lib/settle.js')
 const { subagentsDir } = require('./lib/usage.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
@@ -65,7 +65,7 @@ async function handBack(input, s) {
   const id = /^\s*<agent-message\s+from="([A-Za-z0-9_-]+)"/.exec(input.prompt)?.[1] ?? null
   const dir = subagentsDir(input.transcript_path)
   const transcript = id && dir ? path.join(dir, `agent-${id}.jsonl`) : null
-  const report = parseReport(input.prompt) ?? (transcript ? reportFromTranscript(transcript) : null)
+  const report = readReport(input.prompt, transcript)
   const reported = { ...s, current: { ...s.current, report } }
   const settledState = settle(reported, s.cwd ?? input.cwd)
   const { next } = spend.recordAttempt({ ...input, agent_id: id }, s, settledState, { transcript, stopReason: report ? 'report' : 'no-report' })
