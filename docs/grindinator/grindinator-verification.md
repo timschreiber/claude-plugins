@@ -214,6 +214,7 @@ Two probe readings need correcting:
   the last paragraph as the trailer block, so `%(trailers:key=Tierminator-Task)` finds nothing.
   Anything that reads the task from Git trailers (the runner, or Tierminator's result file) must
   parse the message body instead, or the worker must put the trailers in one paragraph.
+  Decided in WP-05: the body is read; the probe's gitInfo now reads the Tierminator-Task line from the body.
 
 ## V6: Decidinator in `-p`
 
