@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, beforeEach, afterEach } = require('node:test')
+const { test, mock, beforeEach, afterEach } =require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('fs')
 const os = require('os')
@@ -57,6 +57,55 @@ test('missing or empty session ids read and write nothing', () => {
 test('write leaves no temp file behind', () => {
   state.write('s1', { phase: 'approved' })
   assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['s1.json'])
+})
+
+const lockError = code => Object.assign(new Error(code), { code })
+
+test('write retries a rename that fails with a lock error, then saves', () => {
+  const original = fs.renameSync
+  let calls = 0
+  mock.method(fs, 'renameSync', (...args) => {
+    if (++calls <= 2) throw lockError('EPERM')
+    return original(...args)
+  })
+  try {
+    assert.equal(state.write('s1', { phase: 'running' }, [0, 0, 0, 0, 0]), true)
+    assert.deepEqual(state.read('s1'), { phase: 'running' })
+    assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['s1.json'])
+    assert.equal(calls, 3)
+  } finally {
+    mock.restoreAll()
+  }
+})
+
+test('write gives up after its retries, removes the temp file and returns false', () => {
+  let calls = 0
+  mock.method(fs, 'renameSync', () => {
+    calls++
+    throw lockError('EBUSY')
+  })
+  try {
+    assert.equal(state.write('s1', { phase: 'running' }, [0, 0]), false)
+    assert.equal(calls, 3)
+    assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), [])
+  } finally {
+    mock.restoreAll()
+  }
+})
+
+test('write does not retry an error that is not a lock error', () => {
+  let calls = 0
+  mock.method(fs, 'renameSync', () => {
+    calls++
+    throw lockError('EXDEV')
+  })
+  try {
+    assert.equal(state.write('s1', { phase: 'running' }, [0, 0]), false)
+    assert.equal(calls, 1)
+    assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), [])
+  } finally {
+    mock.restoreAll()
+  }
 })
 
 test('prune removes files older than the cutoff and keeps recent ones', () => {

@@ -132,4 +132,4 @@ function resetTo(cwd, sha, delays = LOCK_RETRY_MS) {
   return { ok: true }
 }
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo }
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep }

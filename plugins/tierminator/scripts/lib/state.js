@@ -11,7 +11,12 @@ const os = require('os')
 const path = require('path')
 const { debug } = require('./hook.js')
 
-const DAY_MS = 24 * 60 * 60 * 1000
+const { LOCK_RETRY_MS, sleep } = require('./git.js')
+
+// The errors Windows gives when another process holds the state file open.
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES'])
+
+const DAY_MS =24 * 60 * 60 * 1000
 
 function sessionsDir() {
   return path.join(process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'tierminator'), 'sessions')
@@ -32,18 +37,29 @@ function read(sessionId) {
   }
 }
 
-// Writes atomically (temp file, then rename). Returns true when the state was saved.
-function write(sessionId, state) {
+// Writes atomically (temp file, then rename); the rename is retried with backoff on the lock errors. On
+// failure the temp file is removed and the failure logged. Returns true when the state was saved.
+function write(sessionId, state, delays = LOCK_RETRY_MS) {
+  const file = fileFor(sessionId)
+  if (!file) return false
+  const tmp = `${file}.${process.pid}.tmp`
   try {
-    const file = fileFor(sessionId)
-    if (!file) return false
     fs.mkdirSync(sessionsDir(), { recursive: true })
-    const tmp = `${file}.${process.pid}.tmp`
     fs.writeFileSync(tmp, JSON.stringify(state, null, 2))
-    fs.renameSync(tmp, file)
+    for (let i = 0; ; i++) {
+      try {
+        fs.renameSync(tmp, file)
+        break
+      } catch (e) {
+        if (!RENAME_RETRY_CODES.has(e?.code) || i >= delays.length) throw e
+        sleep(delays[i])
+      }
+    }
     debug(`state ${path.basename(file, '.json')}: phase=${state?.phase} denials=${state?.denials ?? 0} guardDenials=${state?.guardDenials ?? 0}`)
     return true
-  } catch {
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }) } catch {}
+    debug(`state ${path.basename(file, '.json')}: write failed (${e?.code ?? e?.message}) phase=${state?.phase}`)
     return false
   }
 }
