@@ -2,12 +2,14 @@
 // blocks the stop once and tells Claude to ask through AskUserQuestion. "Once" is stop_hook_active: the
 // stop that follows a block carries it, and is let through. Off when nudgeOnPlainTextQuestions is false,
 // and while an oracle dispatch is due or running, when the guard is telling Claude to end its turn.
+// In a headless session the reason sends the question to the oracle, because AskUserQuestion is not available.
 'use strict'
 
 const { runArmed, emit } = require('./lib/hook.js')
 const config = require('./lib/config.js')
 const state = require('./lib/state.js')
 const reasons = require('./lib/reasons.js')
+const headless = require('./lib/headless.js')
 const Q = require('./lib/questions.js')
 const { endsWithQuestion } = require('./lib/plain-question.js')
 
@@ -18,5 +20,5 @@ runArmed(async input => {
   if (!endsWithQuestion(input.last_assistant_message)) return
   const s = state.read(input.session_id)
   if (s && Q.due(s, cfg.rungs)) return
-  emit({ decision: 'block', reason: reasons.NUDGE })
+  emit({ decision: 'block', reason: headless.is() ? reasons.NUDGE_HEADLESS : reasons.NUDGE })
 })
