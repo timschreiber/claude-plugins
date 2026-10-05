@@ -159,3 +159,94 @@ test('TIERMINATOR_RESULT_FILE overrides the path', () => {
   assert.equal(readResult(out).outcome, 'limit')
   assert.equal(fs.existsSync(RESULT()), false)
 })
+
+test('SessionEnd after a limit keeps the limit', () => {
+  state.write(S, midRun())
+  h7(payload('oauth'))
+  h6()
+  assert.equal(readResult().outcome, 'limit')
+  assert.equal(readResult().limit.resetsAt, fx.RESET_OAUTH)
+  assert.equal(state.read(S), null)
+})
+
+test('SessionEnd keeps a limit when the state lost its resultWritten flag', () => {
+  state.write(S, midRun())
+  h7(payload('oauth'))
+  const { resultWritten, ...rest } = state.read(S)
+  state.write(S, rest)
+  h6()
+  assert.equal(readResult().outcome, 'limit')
+})
+
+test('a limit from an earlier run in the same session does not block the next result', () => {
+  fs.writeFileSync(RESULT(), JSON.stringify({ ...result.record({ sessionId: S, outcome: 'limit' }), endedAt: '2020-01-01T00:00:00.000Z' }))
+  state.write(S, midRun())
+  h6()
+  const res = readResult()
+  assert.equal(res.outcome, 'halted')
+  assert.equal(res.reason, 'session ended during run')
+})
+
+test('a limit result from another session does not block SessionEnd', () => {
+  fs.writeFileSync(RESULT(), JSON.stringify({ ...result.record({ sessionId: 'other', outcome: 'limit' }), endedAt: new Date().toISOString() }))
+  state.write(S, midRun())
+  h6()
+  assert.equal(readResult().outcome, 'halted')
+})
+
+test('a completed run whose Stop never came keeps its outcome', () => {
+  state.write(S, runState({ phase: 'complete', done: TASKS.map(t => doneEntry(t.id)) }))
+  h7(payload('oauth'))
+  const res = readResult()
+  assert.equal(res.outcome, 'complete')
+  assert.equal(res.limit, null)
+  assert.equal(state.read(S).resultWritten, true)
+})
+
+test('a halted run keeps its outcome', () => {
+  state.write(S, runState({ phase: 'halted', done: [doneEntry('T01')], halt: { task: 'T02', tried: ['sonnet-medium'], reason: 'boom' } }))
+  h7(payload('oauth'))
+  const res = readResult()
+  assert.equal(res.outcome, 'halted')
+  assert.equal(res.reason, 'boom')
+  assert.equal(res.haltedAt, 'T02')
+})
+
+test('a result already written is not overwritten', () => {
+  state.write(S, midRun({ resultWritten: true }))
+  fs.writeFileSync(RESULT(), 'marker')
+  h7(payload('oauth'))
+  assert.equal(fs.readFileSync(RESULT(), 'utf8'), 'marker')
+})
+
+test('a limit while drafting an unattended plan writes a limit result beside the draft', () => {
+  const draft = path.join(dir, 'plans', 'unattended.md')
+  state.write(S, { phase: 'drafting', planFile: draft, denials: 0, guardDenials: 0 })
+  h7(payload('oauth'))
+  const res = readResult(path.join(dir, 'plans', 'unattended.result.json'))
+  assert.equal(res.outcome, 'limit')
+  assert.equal(res.planFile, draft)
+  assert.equal(res.tasksFile, null)
+  assert.equal(res.haltedAt, null)
+  assert.deepEqual(res.tasksDone, [])
+  assert.deepEqual(res.tasksNotRun, [])
+  assert.equal(res.limit.resetsAt, fx.RESET_OAUTH)
+})
+
+test('interactive planning is left alone', () => {
+  state.write(S, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0 })
+  h7(payload('oauth'))
+  h7(payload('error'))
+  assert.equal(fs.existsSync(SESSION_RESULT()), false)
+  assert.equal(fs.existsSync(RESULT()), false)
+  assert.equal(state.read(S).resultWritten, undefined)
+})
+
+test('the plan, tasks and telemetry files stay in place', () => {
+  const files = { [PLAN()]: '# plan\n', [path.join(dir, 'plan.tasks.json')]: '{}', [path.join(dir, 'plan.telemetry.jsonl')]: '{}\n' }
+  for (const [f, c] of Object.entries(files)) fs.writeFileSync(f, c)
+  state.write(S, midRun())
+  h7(payload('oauth'))
+  h6()
+  for (const [f, c] of Object.entries(files)) assert.equal(fs.readFileSync(f, 'utf8'), c)
+})
