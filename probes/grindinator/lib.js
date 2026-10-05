@@ -225,17 +225,18 @@ function gitInfo(repo) {
   if (probe.error || probe.status !== 0 || probe.stdout.trim() !== 'true') return null
   const head = git(repo, ['rev-parse', 'HEAD'])
   const status = git(repo, ['status', '--porcelain'])
-  const log = git(repo, ['log', '--format=%H%x09%s%x09%(trailers:key=Tierminator-Task,valueonly,separator=%x2C)'])
+  const log = git(repo, ['log', '--format=%H%x1f%s%x1f%B%x1e'])
   const commits = []
   if (log.status === 0) {
-    for (const line of log.stdout.split('\n')) {
-      if (!line.trim()) continue
-      const [sha, subject = '', trailer = ''] = line.split('\t')
+    for (const entry of log.stdout.split('\x1e')) {
+      const trimmed = entry.trim()
+      if (!trimmed) continue
+      const [sha, subject = '', body = ''] = trimmed.split('\x1f')
       const show = git(repo, ['show', '--name-only', '--format=', sha])
       commits.push({
         sha,
         subject,
-        task: trailer.trim() || null,
+        task: /^Tierminator-Task: (T\d+)\s*$/m.exec(body)?.[1] ?? null,
         files: show.status === 0 ? show.stdout.split('\n').map(s => s.trim()).filter(Boolean) : [],
       })
     }
