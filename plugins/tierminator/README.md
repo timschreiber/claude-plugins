@@ -182,6 +182,9 @@ sets to `sdk-cli` for `claude -p`. Interactive sessions plan in plan mode and ap
 - **`/tierminator:plan` starts unattended planning.** Claude plans read-only outside plan mode and ends its turn with
   the plan. tierminator saves it as `tierminator-unattended-<time>-<session>.md` in the plans directory and
   runs it with no approval.
+- **A saved plan runs headless too:** `claude -p --permission-mode bypassPermissions '/tierminator:execute "<plan file>" --from T03'`
+  runs it with no approval, from the first task not committed or from `--from`. Always pass the path: a list
+  number refers to a list shown earlier in the same session, so a fresh headless session only lists plans.
 - **Requirements:** not plan mode (headless sessions have no `ExitPlanMode`), a clean Git tree with a commit
   identity, and permissions for workers to edit, run their `Verify:` commands and `git commit` unattended
   (`bypassPermissions` in a sandbox or CI, or `acceptEdits` with `--allowedTools` rules).
@@ -190,7 +193,9 @@ sets to `sdk-cli` for `claude -p`. Interactive sessions plan in plan mode and ap
 - **A result file is written when the run ends:** `<plan>.result.json` beside the plan, or the path in
   `TIERMINATOR_RESULT_FILE`, with the outcome (`complete`, `halted`, `limit`, `no-plan` or `declined`), the tasks done and
   not run, and the reason. A caller reads it after the session is gone; see the
-  [reference](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#the-result-file). A usage limit that ends the session is recorded as `limit`, with its reset time when Claude Code gives one (an OAuth login); tierminator never waits or relaunches.
+  [reference](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#the-result-file). A usage limit that ends the session is recorded as `limit`, with its reset time when Claude Code gives one (an OAuth login); tierminator never waits or relaunches. A headless `/tierminator:execute` that does not start writes one too: `declined` with the reason (a missing plan, an unknown task, a dirty tree, plan mode, no commit identity), or `complete` when every task was already committed.
+
+Task commits carry `Tierminator-Task:` and `Tierminator-Plan:` lines in the message body, not as Git trailers, so a script finding a task's commit searches the body (`git log --grep`); see [The worker](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#the-worker).
 
 ## The tiers
 
