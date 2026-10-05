@@ -1151,6 +1151,78 @@ test('when H4 claimed the attempt first, H1 waits for H4\'s saved notice, prints
   assert.equal(attemptRows().length, 0, 'H1 recorded no attempt')
 })
 
+// ---- a judged attempt whose state cannot be saved ends the run with a message ------------------
+
+// NODE_OPTIONS treats a backslash inside quotes as an escape, hence the forward slashes. Each failing save waits
+// out the rename retry backoff (about 3 s).
+const FAIL_RENAME = path.join(__dirname, 'fixtures', 'fail-rename.js').replace(/\\/g, '/')
+const failingSaves = { NODE_OPTIONS: `--require "${FAIL_RENAME}"`, TIERMINATOR_TEST_FAIL_RENAME: `${S}.json` }
+const sessionFiles = () => fs.readdirSync(path.join(dir, 'data', 'sessions'))
+
+test('when H1 cannot save a judged hand-back, it stops the run and says how to resume', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const out = hook('h1-plan-rules.js', handBackInput(report('DONE', sha)), [], failingSaves).stdout
+  assert.match(out, /the run stopped: T02 was not dispatched because the run's state could not be saved/)
+  assert.match(out, /Done: T01 [0-9a-f]{7} \(sonnet-low\)/)
+  assert.match(out, /\/tierminator:execute "/)
+  assert.equal(state.isActive(S), false)
+  assert.equal(sessionFiles().some(name => name.endsWith('.tmp')), false)
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), sha)
+})
+
+test('when H4 cannot save a judged attempt, the hand-back gives the lost-state note and stops the run', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  hook('h4-dispatch.js', subStop(report('DONE', sha)), ['stop'], failingSaves)
+  const files = sessionFiles()
+  assert.ok(files.includes(`${S}.lost`))
+  assert.equal(files.some(name => name.endsWith('.tmp')), false)
+  assert.equal(state.read(S).current.inFlight, true)
+  const out = hook('h1-plan-rules.js', handBackInput(report('DONE', sha))).stdout
+  assert.match(out, /T02 was not dispatched/)
+  assert.equal(state.isActive(S), false)
+  assert.equal(sessionFiles().includes(`${S}.lost`), false)
+  assert.equal(attemptRows().length, 1)
+})
+
+test('when H4 cannot save a judged attempt, the finished notification gives the lost-state note and stops the run', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  hook('h4-dispatch.js', subStop(report('DONE', sha)), ['stop'], failingSaves)
+  assert.ok(sessionFiles().includes(`${S}.lost`))
+  assert.equal(state.read(S).current.inFlight, true)
+  const out = hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', prompt: '<task-notification>done</task-notification>' }).stdout
+  assert.match(out, /T02 was not dispatched/)
+  assert.equal(state.isActive(S), false)
+  assert.equal(sessionFiles().includes(`${S}.lost`), false)
+  assert.equal(attemptRows().length, 1)
+})
+
+test('H4 post gives the lost-state note on a foreground run', () => {
+  startTestRun()
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  state.saveLost(S, 'tierminator: lost note')
+  const post = hook('h4-dispatch.js', agentPost(call), ['post']).json
+  assert.equal(post.hookSpecificOutput.additionalContext, 'tierminator: lost note')
+  assert.equal(state.isActive(S), false)
+})
+
+test('H1 gives H4\'s notice even when it cannot clear it', () => {
+  const s = backgroundAttempt()
+  assert.equal(state.claimAttempt(S, state.attemptKey(s)), true, 'H4 claims the attempt')
+  state.write(S, {
+    ...s,
+    done: [{ id: 'T01', tier: 'sonnet-low', commit: 'abc1234', attempts: 1 }],
+    current: { ...s.current, index: 1, inFlight: false },
+    notice: 'tierminator: T01 done (judged by H4).',
+    noticeByNotification: true,
+  })
+  const out = hook('h1-plan-rules.js', handBackInput(report('DONE', 'NONE')), [], failingSaves).stdout
+  assert.equal(out, 'tierminator: T01 done (judged by H4).\n')
+})
+
 test('with nothing in flight and no notice, a stop is still blocked', () => {
   startTestRun()
   const out = hook('h5-guard.js', { session_id: S, stop_hook_active: false }, ['stop']).json

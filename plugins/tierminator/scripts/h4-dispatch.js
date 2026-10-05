@@ -8,13 +8,15 @@
 //            run's branch. On a pass it records HEAD, which a retry resets to.
 //   stop     SubagentStop: the worker finished. Judges the attempt against Git and moves the run on
 //            (the next task, a retry one tier up after a reset, completion, or a halt), saving the
-//            notice. Records the attempt's tokens and cost, and queues the line H5 shows the user.
+//            notice. Records the attempt's tokens and cost, and queues the line H5 shows the user. When the
+//            state cannot be saved, it keeps a lost-state note for H1 or post to give.
 //            An agent whose hand-back H1 already judged (`handedBack`) is ignored: the run has moved on.
 //            The hand-back (H1) and SubagentStop of one attempt arrive close together, in either order, so
 //            stop first claims the attempt (state.claimAttempt); when H1 claimed it first, stop stands down
 //            without writing the state. A worker stopped at its turn limit is not judged and claims nothing.
 //   post     PostToolUse Agent: gives Claude the notice if there is one (a foreground run); otherwise
-//            the task is running in the background, and Claude is told to end its turn and wait.
+//            the task is running in the background, and Claude is told to end its turn and wait. A lost-state
+//            note left by stop is given instead, and ends the run.
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
 // Agent calls for other agent types are left alone.
 //   resume-pre / resume-post / resume-failure: the SendMessage that resumes a worker stopped at its turn
@@ -90,11 +92,20 @@ function stop(input, s) {
   const { next } = spend.recordAttempt(input, s, settle(reported, s.cwd ?? input.cwd), { stopReason: report ? 'report' : 'no-report' })
   // A background worker's "finished" notification always arrives after this, and H1 gives the notice on
   // it; H5 then lets Claude's turn end instead of blocking it, which Claude Code shows as an error.
-  state.write(input.session_id, { ...next, noticeByNotification: !!(next.notice && s.current.background) })
+  const saved = { ...next, noticeByNotification: !!(next.notice && s.current.background) }
+  // When the state could not be saved, H1 (the hand-back or the finished notification) or post gives Claude
+  // the lost-state note and ends the run.
+  if (!state.write(input.session_id, saved)) state.saveLost(input.session_id, next.phase === 'running' ? r.lostText(next) : next.notice)
 }
 
 function post(input, s) {
   if (!ours(input.tool_input?.subagent_type) || !s) return
+  const lost = state.takeLost(input.session_id)
+  if (lost) {
+    state.deactivate(input.session_id)
+    state.remove(input.session_id)
+    return context('PostToolUse', lost)
+  }
   if (s.notice) {
     // The worker already stopped: a foreground run. Tell Claude what comes next.
     state.write(input.session_id, { ...s, notice: null })

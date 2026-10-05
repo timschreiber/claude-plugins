@@ -19,7 +19,8 @@
 //               needed, and none is waited for. The worker's SubagentStop (H4) arrives close by, in either
 //               order, so the hand-back first claims the attempt (state.claimAttempt): only the hook that
 //               claims it judges it. When H4 claimed it first, H1 waits briefly for H4's saved notice and
-//               prints that instead. In plan mode these prompts never show the rules;
+//               prints that instead. When a judged attempt's state could not be saved (H1's own, or H4's lost-state note),
+//               the run ends here with a message saying how to resume. In plan mode these prompts never show the rules;
 //             - while planning, a prompt typed in plan mode shows the rules once per plan-mode stint
 //               (unless /tierminator:plan or EnterPlanMode already did); one typed outside plan mode means
 //               the user left plan mode without approving, so the session is made inactive, silently;
@@ -56,6 +57,8 @@ const fromHarness = prompt => /^\s*<(agent-message|task-notification)\b/.test(St
 // judged it): judge it now, and give Claude the notice in this same turn. The agent id is remembered in
 // `handedBack`, so the SubagentStop that follows does not touch the run (H4 stop). The attempt is claimed
 // first; when H4's SubagentStop claimed it already, H4 judges it and H1 gives H4's notice (awaitNotice).
+// When the judged state cannot be saved, the dispatch could not be made (H4 pre would still see the attempt in
+// flight), so the run ends with the lost-state note (endLost).
 async function handBack(input, s) {
   const key = state.attemptKey(s)
   if (!state.claimAttempt(input.session_id, key)) return awaitNotice(input, key)
@@ -72,39 +75,56 @@ async function handBack(input, s) {
     noticeByNotification: false,
     handedBack: [...(s.handedBack ?? []), ...(id ? [id] : [])].slice(-20),
   }
-  if (!state.write(input.session_id, saved)) return
+  if (!state.write(input.session_id, saved)) return endLost(input.session_id, next.phase === 'running' ? r.lostText(next) : next.notice)
   emitText(next.notice)
+}
+
+// The run's state could not be saved after an attempt was judged, so the run ends here; /tierminator:execute
+// resumes it.
+function endLost(sessionId, text) {
+  emitText(text)
+  state.deactivate(sessionId)
+  state.remove(sessionId)
 }
 
 // Long enough for H4's slowest settle (a reset and a clean, each with its lock retries, lib/git.js), and
 // under this hook's 15-second timeout in hooks.json.
 const NOTICE_WAIT_MS = 10000
-const NOTICE_POLL_MS = 50
+// The waits between reads, the last repeated, so the reader holds the state file open less often while H4
+// renames over it.
+const NOTICE_POLL_MS = [50, 100, 200, 250]
 
 // H4 claimed the attempt `key` and is judging it. The "finished" notification after a hand-back starts no
 // turn, so its notice must still be given in this one: wait a bounded time for H4's saved state to show the
-// attempt settled with a notice, then give it and clear it the way runNote does. If none comes in time,
+// attempt settled with a notice, then give it and clear it the way runNote does (or, when H4 could not save
+// its state, give its lost-state note and end the run). If none comes in time,
 // nothing is printed and the state is left as it is: H4's notice stays flagged for the notification, and H5
 // lets the turn end.
 async function awaitNotice(input, key) {
   const until = Date.now() + NOTICE_WAIT_MS
-  for (;;) {
+  for (let i = 0; ; i++) {
+    const lost = state.takeLost(input.session_id)
+    if (lost) return endLost(input.session_id, lost)
     const s = state.read(input.session_id)
     if (s?.notice && (s.phase !== 'running' || state.attemptKey(s) !== key)) {
-      if (state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })) emitText(s.notice)
+      state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
+      emitText(s.notice)
       return
     }
     if (Date.now() >= until) return
-    await new Promise(resolve => setTimeout(resolve, NOTICE_POLL_MS))
+    await new Promise(resolve => setTimeout(resolve, NOTICE_POLL_MS[Math.min(i, NOTICE_POLL_MS.length - 1)]))
   }
 }
 
 // A harness prompt in an active session: deliver H4's notice, or judge a hand-back.
 async function runNote(input) {
+  const lost = state.takeLost(input.session_id)
+  if (lost) return endLost(input.session_id, lost)
   const s = state.read(input.session_id)
   if (!s) return
   if (s.notice) {
-    if (!state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })) return
+    // Given whether or not it could be cleared: a repeat is harmless, since the next dispatch's pre clears it.
+    state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
     emitText(s.notice)
     return
   }
