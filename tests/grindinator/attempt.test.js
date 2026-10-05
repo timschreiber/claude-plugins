@@ -208,3 +208,74 @@ test('an already-aborted signal is interrupted and the package stays pending', a
     assert.equal(st.packages['WP-01'].status, 'pending')
   })
 })
+
+test('complete with no new commit is unverified', async () => {
+  const scenario = h.completeScenario()
+  scenario.commit = false
+  await withAttempt(scenario, async ({ root, st, run }) => {
+    const a = await run()
+    assert.equal(a.outcome, 'unverified')
+    assert.equal(a.sessionOutcome, 'complete')
+    assert.equal(a.commits, 0)
+    assert.match(a.reason, /has not advanced from the package's start commit/)
+    assert.match(a.reason, /made no commits/)
+    assert.equal(a.gate, null)
+    assert.equal(st.packages['WP-01'].status, 'failed')
+    assert.equal(state.isDone(root, 'WP-01'), false)
+  })
+})
+
+test('complete off the run branch is unverified', async () => {
+  await withAttempt(h.completeScenario(), async ({ root, st, run }) => {
+    h.git(root, 'switch', '-q', 'main')
+    const a = await run()
+    assert.equal(a.outcome, 'unverified')
+    assert.ok(a.reason.includes('left the run branch grindinator/t (now on main)'))
+    assert.equal(state.isDone(root, 'WP-01'), false)
+  })
+})
+
+test('a passing gate writes the marker', async () => {
+  await withAttempt(h.completeScenario(), async ({ root, st, run }) => {
+    const a = await run()
+    assert.equal(a.outcome, 'complete')
+    assert.equal(a.gate.status, 'passed')
+    assert.equal(a.gate.exitCode, 0)
+    assert.equal(state.isDone(root, 'WP-01'), true)
+    assert.equal(st.packages['WP-01'].status, 'done')
+    const out = fs.readFileSync(path.join(attemptPaths(root, 'WP-01', 1).dir, 'gate.stdout.txt'), 'utf8')
+    assert.ok(out.includes('gate stdout WP-01'))
+  }, { gate: h.gateCommand() })
+})
+
+test('a failing gate fails the package', async () => {
+  await withAttempt(h.completeScenario(), async ({ root, st, run }) => {
+    const a = await run()
+    assert.equal(a.outcome, 'gate-failed')
+    assert.equal(a.sessionOutcome, 'complete')
+    assert.equal(a.reason, 'the gate exited 1')
+    assert.equal(a.gate.exitCode, 1)
+    assert.equal(a.commits, 1)
+    assert.equal(st.packages['WP-01'].status, 'failed')
+    assert.equal(state.isDone(root, 'WP-01'), false)
+  }, { gate: h.gateCommand('WP-01') })
+})
+
+test('no gate configured is skipped', async () => {
+  await withAttempt(h.completeScenario(), async ({ root, run }) => {
+    const a = await run()
+    assert.equal(a.gate.status, 'skipped')
+    assert.equal(state.isDone(root, 'WP-01'), true)
+  })
+})
+
+test('commits are counted for a halted session', async () => {
+  const scenario = h.completeScenario()
+  scenario.resultFile = h.resultRecord({ outcome: 'halted', haltedAt: 'T02', reason: 'T02 failed' })
+  await withAttempt(scenario, async ({ run }) => {
+    const a = await run()
+    assert.equal(a.commits, 1)
+    assert.equal(a.gate, null)
+    assert.equal(a.outcome, 'halted')
+  })
+})
