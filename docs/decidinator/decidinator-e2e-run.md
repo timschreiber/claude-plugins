@@ -1,6 +1,6 @@
 # Decidinator: end-to-end run
 
-These runs need a person, because AskUserQuestion does not exist in headless `claude -p` sessions (verification item 5 in `docs/decidinator/decidinator-verification.md`). Each block below sets up a fresh fixture repo (the tally project) under `%TEMP%/decidinator-e2e`, starts Claude there with `plugins/decidinator` and the WP-01 probe logger (`probes/decidinator/probe-plugin`) loaded, and afterwards checks the files and hook records with `tests/decidinator/e2e/check.js`, prints PASS or FAIL, and writes `tests/decidinator/e2e/fixtures/scenario-<n>/`. The run passes when all seven scenarios print PASS and, after pushing, the fresh-install check prints PASS.
+Scenarios 1 to 7 and the install check need a person, because AskUserQuestion does not exist in headless `claude -p` sessions (verification item 5 in `docs/decidinator/decidinator-verification.md`). Scenario 8 runs headless with no person. Each block below sets up a fresh fixture repo (the tally project) under `%TEMP%/decidinator-e2e`, starts Claude there with `plugins/decidinator` and the WP-01 probe logger (`probes/decidinator/probe-plugin`) loaded, and afterwards checks the files and hook records with `tests/decidinator/e2e/check.js`, prints PASS or FAIL, and writes `tests/decidinator/e2e/fixtures/scenario-<n>/`. The run passes when all eight scenarios print PASS and, after pushing, the fresh-install check prints PASS.
 
 ## Before you start
 
@@ -25,6 +25,7 @@ These runs need a person, because AskUserQuestion does not exist in headless `cl
 | 5 | Scenario 1 in plan mode, with the oracle's web research working. | Already armed (ask), starts in plan mode. Paste the prompt, send; if a plan approval dialog appears, choose to keep planning. `/exit` after the RESULT line. |
 | 6 | Escalation: a spec-silent question reaches rung 2 with rung 1's verdict in its prompt. | Already armed (ask). Paste the prompt, send, pick the first option if asked (two oracles run, so it takes longer), then `/exit` after the RESULT line. |
 | 7 | The stakeholder round trip: export, answers filled in, import and its report. | Session 1: type `/decidinator:export docs/stakeholders.md`, send, `/exit` when it replies. Session 2 (already armed): type `/decidinator:import docs/stakeholders.md`, send, wait for the final import report with Confirmed and Changed sections, then `/exit`. |
+| 8 | The headless path: `claude -p` armed by DECIDINATOR_MODE=ask runs in sidecar mode, an open decision goes to oracle-1, and the log and sidecar are written under `.grindinator/decisions/` so the repo tree stays clean. | Nothing to type: the block runs `claude -p` and prints PASS or FAIL. |
 | install | A fresh marketplace install, following only the README, arms and resolves a question. | Type `/decidinator:arm`, send, and wait for the armed confirmation. Then paste the prompt, send, and `/exit` after the RESULT line. |
 
 ## Scenarios 1 to 6
@@ -246,6 +247,52 @@ try {
 node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
 ```
 
+### Scenario 8: headless-sidecar
+
+Runs `claude -p` armed by DECIDINATOR_MODE=ask, headless, with no person: the open decision goes to oracle-1 and the log and sidecar are written under `.grindinator/decisions/`.
+
+Nothing to type: the block runs `claude -p` and prints PASS or FAIL.
+
+```powershell
+$repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
+$n = '8'
+$base = Join-Path $env:TEMP ("decidinator-e2e/s$n-" + (Get-Date -Format 'yyyyMMddHHmmss'))
+if ((claude plugin list 2>$null | Out-String) -match 'decidinator@') { throw 'Decidinator is installed from a marketplace. Run: claude plugin uninstall decidinator@timschreiber' }
+node "$repoRoot/tests/decidinator/e2e/setup.js" repo $n "$base/repo"
+if ($LASTEXITCODE -ne 0) { throw 'setup failed; check $repoRoot' }
+New-Item -ItemType Directory -Force "$base/repo/.grindinator/decisions" | Out-Null
+Copy-Item "$base/repo/docs/decisions.md" "$base/repo/.grindinator/decisions/decisions.md"
+Copy-Item "$base/repo/docs/open-questions.md" "$base/repo/.grindinator/decisions/open-questions.md"
+Add-Content "$base/repo/.git/info/exclude" '.grindinator/'
+$prompt = node "$repoRoot/tests/decidinator/e2e/setup.js" prompt $n | Out-String
+Push-Location "$base/repo"
+try {
+    $env:PROBE_RUN = "e2e-$n"
+    $env:PROBE_OUT = "$base/out"
+    $env:PROBE_DENY = '0'
+    $env:DECIDINATOR_CONTEXT = "e2e-$n"
+    $env:DECIDINATOR_MODE = 'ask'
+    $env:DECIDINATOR_LOG = '.grindinator/decisions/decisions.md'
+    $env:DECIDINATOR_SIDECAR = '.grindinator/decisions/open-questions.md'
+    claude -p $prompt --permission-mode acceptEdits --plugin-dir "$repoRoot/plugins/decidinator" --plugin-dir "$repoRoot/probes/decidinator/probe-plugin" --allowedTools WebFetch WebSearch 'Bash(gh search:*)' 'Bash(gh repo view:*)' 'Bash(gh api:*)' | Out-Host
+} finally {
+    Remove-Item Env:PROBE_RUN, Env:PROBE_OUT, Env:PROBE_DENY, Env:DECIDINATOR_CONTEXT, Env:DECIDINATOR_MODE, Env:DECIDINATOR_LOG, Env:DECIDINATOR_SIDECAR -ErrorAction SilentlyContinue
+    Pop-Location
+}
+git -C "$base/repo" status --porcelain
+node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
+```
+
+Expected results:
+
+- The command returns on its own with a final line starting `RESULT:`.
+- No prompt or dialog appears.
+- `check.js` prints `PASS: scenario 8 (headless-sidecar)`.
+- `git status --porcelain` prints nothing, because the decision files are excluded.
+- The repo's `docs/decisions.md` and `docs/open-questions.md` are unchanged.
+- `.grindinator/decisions/open-questions.md` has one open entry Q-0002 with a provisional answer, and `decisions.md` has one oracle-provisional decision for it.
+- The oracle was dispatched as oracle-1 (a PreToolUse Agent record) and AskUserQuestion was never called.
+
 ## When a scenario fails
 
 Run the block once more, because oracle research is not deterministic. If it fails again, the failing check names the part at fault. Fix it in the package that owns it (gate and dispatch check: WP-05; recorder, ladder and guard: WP-06; modes and the user-answer hook: WP-07; nudge and oracle shell allowlist: WP-08; review, confirm, export and import: WP-09), with a unit test, then run the scenario again.
@@ -258,9 +305,10 @@ Run the block once more, because oracle research is not deterministic. If it fai
 | `one-sidecar-entry`, `entry-fields`, `entry-depends-on`, `session-continued`, `decision-provisional` (sidecar entries and provisional decisions) | WP-07 |
 | `decision-user`, `decision-answer-5`, `decision-no-rung`, `ask-shown-after-research` (user decisions) | WP-07 |
 | `export-marker`, `export-entries`, `export-groups`, `answers-filled`, `stakeholder-decisions`, `provisionals-superseded`, `entries-imported`, `judgment-dispatched`, `report-header`, `report-confirmed`, `report-changed` (export, import and report) | WP-09 |
+| Scenario 8: headless rule, opening and nudge | WP-04 of the Grindinator work packages |
 | `plan-mode-throughout`, `oracle-web-research` | The oracle agents, WP-04 |
 
-## After all seven pass
+## After all eight pass
 
 Commit `tests/decidinator/e2e/fixtures/` (`git add tests/decidinator/e2e/fixtures`, then a commit such as `Decidinator: end-to-end fixtures`), then push. The "In development" wording has since been removed from `plugins/decidinator/README.md`, the root `README.md`, the decidinator entry's description in `.claude-plugin/marketplace.json`, the decidinator bullet in the root `CLAUDE.md`, and `plugins/decidinator/CLAUDE.md`.
 
@@ -287,5 +335,5 @@ try {
     Pop-Location
 }
 node "$repoRoot/tests/decidinator/e2e/check.js" $n $base
-Write-Host 'Before running scenarios 1 to 7 again: claude plugin uninstall decidinator@timschreiber'
+Write-Host 'Before running scenarios 1 to 8 again: claude plugin uninstall decidinator@timschreiber'
 ```
