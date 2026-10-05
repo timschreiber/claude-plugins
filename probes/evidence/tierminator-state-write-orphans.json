@@ -1,0 +1,132 @@
+{
+  "generated": "2026-10-05T03:47:22.453Z",
+  "note": "Orphaned state-write temp files left in the tierminator sessions directory, and the telemetry record for the T07 attempt of the Grindinator WP-01 run (plan 24fe1a818b7fd278). Prompts and other long fields are omitted.",
+  "claudeCodeVersion": "2.1.289",
+  "platform": "win32",
+  "sessionsDirectory": "~/.claude/plugins/data/tierminator-timschreiber/sessions",
+  "orphans": [
+    {
+      "file": "0239a45c-b03a-48e8-aa61-6767d8e1344c.json.13872.tmp",
+      "session": "0239a45c-b03a-48e8-aa61-6767d8e1344c",
+      "pid": 13872,
+      "bytes": 42151,
+      "mtime": "2026-10-04T20:44:54.150Z",
+      "phase": "running",
+      "taskIndex": 8,
+      "attempt": 1,
+      "inFlight": false,
+      "hasNotice": false,
+      "noticeHead": null,
+      "noticeByNotification": false,
+      "handedBack": [
+        "a42b8d8070b3093e0",
+        "a2e869aac08bf734e",
+        "a1d7da809386db8a8",
+        "a0771f220cd9aab25"
+      ],
+      "liveStateFileExists": false
+    },
+    {
+      "file": "0239a45c-b03a-48e8-aa61-6767d8e1344c.json.18060.tmp",
+      "session": "0239a45c-b03a-48e8-aa61-6767d8e1344c",
+      "pid": 18060,
+      "bytes": 42385,
+      "mtime": "2026-10-04T20:49:53.605Z",
+      "phase": "running",
+      "taskIndex": 9,
+      "attempt": 1,
+      "inFlight": false,
+      "hasNotice": false,
+      "noticeHead": null,
+      "noticeByNotification": false,
+      "handedBack": [
+        "ad3f99e18a00f50d8"
+      ],
+      "liveStateFileExists": false
+    },
+    {
+      "file": "0239a45c-b03a-48e8-aa61-6767d8e1344c.json.21000.tmp",
+      "session": "0239a45c-b03a-48e8-aa61-6767d8e1344c",
+      "pid": 21000,
+      "bytes": 41988,
+      "mtime": "2026-10-04T20:18:05.566Z",
+      "phase": "running",
+      "taskIndex": 4,
+      "attempt": 1,
+      "inFlight": false,
+      "hasNotice": true,
+      "noticeHead": "tierminator: T04 done (commit 1317516, sonnet-high). Call the Agent tool now with subagent_type \"tierminator:sonnet-high\", description \"T05: Detect a worker's turn-limit stop in H1 and H4 instead of s",
+      "noticeByNotification": true,
+      "handedBack": [
+        "a42b8d8070b3093e0",
+        "a2e869aac08bf734e"
+      ],
+      "liveStateFileExists": false
+    },
+    {
+      "file": "d33d34ef-2aac-4d94-95ea-5e393bd07cc0.json.14308.tmp",
+      "session": "d33d34ef-2aac-4d94-95ea-5e393bd07cc0",
+      "pid": 14308,
+      "bytes": 13762,
+      "mtime": "2026-10-04T21:36:07.169Z",
+      "phase": "running",
+      "taskIndex": 2,
+      "attempt": 1,
+      "inFlight": false,
+      "hasNotice": false,
+      "noticeHead": null,
+      "noticeByNotification": false,
+      "handedBack": [
+        "acf836577ec9ded54"
+      ],
+      "liveStateFileExists": false
+    },
+    {
+      "file": "d33d34ef-2aac-4d94-95ea-5e393bd07cc0.json.2396.tmp",
+      "session": "d33d34ef-2aac-4d94-95ea-5e393bd07cc0",
+      "pid": 2396,
+      "bytes": 13900,
+      "mtime": "2026-10-04T21:39:24.443Z",
+      "phase": "running",
+      "taskIndex": 3,
+      "attempt": 1,
+      "inFlight": false,
+      "hasNotice": false,
+      "noticeHead": null,
+      "noticeByNotification": false,
+      "handedBack": [
+        "a5ada687bc9fab2a5"
+      ],
+      "liveStateFileExists": false
+    },
+    {
+      "file": "dcf7c769-76f1-4166-bf8b-4e1d93434b04.json.24196.tmp",
+      "session": "dcf7c769-76f1-4166-bf8b-4e1d93434b04",
+      "pid": 24196,
+      "bytes": 59718,
+      "mtime": "2026-10-05T01:47:26.213Z",
+      "phase": "running",
+      "taskIndex": 7,
+      "attempt": 1,
+      "inFlight": false,
+      "hasNotice": true,
+      "noticeHead": "tierminator: T07 done (commit e0ae220, sonnet-high). Call the Agent tool now with subagent_type \"tierminator:sonnet-high\", description \"T08: Add the probe runner with the API cells\", and as its prompt",
+      "noticeByNotification": true,
+      "handedBack": [
+        "a9506a0af804db020"
+      ],
+      "liveStateFileExists": false
+    }
+  ],
+  "t07Telemetry": [
+    {
+      "at": "2026-10-05T01:47:26.211Z",
+      "task": "T07",
+      "tier": "sonnet-high",
+      "agentId": "a4590def065cda351",
+      "outcome": "done",
+      "stopReason": "report",
+      "durationMs": 28677
+    }
+  ]
+}
