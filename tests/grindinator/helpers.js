@@ -67,8 +67,16 @@ function completeScenario() {
       { type: 'result', subtype: 'success', is_error: false, result: 'done', session_id: 'stub-session', result_index: 0 }
     ],
     resultFile: resultRecord(),
+    commit: true,
     exitCode: 0
   }
+}
+
+const GATE = path.join(__dirname, 'fixtures', 'gate.js')
+
+// A shell command that runs the gate fixture under this Node and fails for the given package ids.
+function gateCommand(...failIds) {
+  return [process.execPath, GATE, ...failIds].map(a => `"${a}"`).join(' ')
 }
 
 // Writes the scenario to <dir>/scenario.json and returns an environment that runs the stub with it.
@@ -80,6 +88,8 @@ function stubEnv(dir, scenario) {
     if (key.startsWith('GRINDINATOR_STUB_') || key.startsWith('DECIDINATOR_')) delete env[key]
   }
   delete env.TIERMINATOR_RESULT_FILE
+  delete env.GRINDINATOR_PACKAGE
+  delete env.GRINDINATOR_GATE_SLEEP_MS
   env.GRINDINATOR_CLAUDE_BIN = STUB
   env.GRINDINATOR_STUB_SCENARIO = file
   env.GRINDINATOR_STUB_LOG = path.join(dir, 'stub-log.jsonl')
@@ -108,5 +118,5 @@ function waitFor(fn, ms = 10000) {
 
 module.exports = {
   tempDir, git, makeRepo, writePackages, remove,
-  STUB, INIT, resultRecord, completeScenario, stubEnv, readStubLog, waitFor
+  STUB, GATE, INIT, resultRecord, completeScenario, gateCommand, stubEnv, readStubLog, waitFor
 }

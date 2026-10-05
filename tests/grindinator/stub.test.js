@@ -20,10 +20,10 @@ function baseEnv() {
   return env
 }
 
-function runStub(extraEnv = {}, claudeArgs = []) {
+function runStub(extraEnv = {}, claudeArgs = [], cwd) {
   const env = { ...baseEnv(), ...extraEnv }
   const { command, args } = claudeCommand(env)
-  return spawnSync(command, [...args, ...claudeArgs], { env, encoding: 'utf8' })
+  return spawnSync(command, [...args, ...claudeArgs], { env, encoding: 'utf8', cwd })
 }
 
 test('claudeCommand resolves the executable', () => {
@@ -98,4 +98,48 @@ test('a bad scenario file exits 99', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('commit makes one commit and untracked leaves a file', () => {
+  const repo = h.makeRepo()
+  const dir = h.tempDir('grind-stub-')
+  try {
+    const scenario = path.join(dir, 'scenario.json')
+    fs.writeFileSync(scenario, JSON.stringify({ commit: true, untracked: 'litter.txt' }))
+    const r = runStub({ GRINDINATOR_STUB_SCENARIO: scenario, DECIDINATOR_CONTEXT: 'WP-07' }, [], repo)
+    assert.equal(r.status, 0)
+    assert.equal(h.git(repo, 'rev-list', '--count', 'HEAD'), '2')
+    assert.equal(h.git(repo, 'log', '-1', '--format=%s'), 'stub commit WP-07')
+    assert.equal(h.git(repo, 'status', '--porcelain'), '?? litter.txt')
+  } finally {
+    h.remove(repo)
+    h.remove(dir)
+  }
+})
+
+test('commit outside a repository root is skipped', () => {
+  const work = h.tempDir('grind-plain-')
+  const dir = h.tempDir('grind-stub-')
+  try {
+    const scenario = path.join(dir, 'scenario.json')
+    fs.writeFileSync(scenario, JSON.stringify({ commit: true }))
+    const r = runStub({ GRINDINATOR_STUB_SCENARIO: scenario }, [], work)
+    assert.equal(r.status, 0)
+    assert.match(r.stderr, /commit skipped/)
+  } finally {
+    h.remove(work)
+    h.remove(dir)
+  }
+})
+
+test('the gate fixture fails only for the listed packages', () => {
+  const run = id => spawnSync(process.execPath, [h.GATE, 'WP-02'], {
+    encoding: 'utf8',
+    env: { ...process.env, GRINDINATOR_PACKAGE: id }
+  })
+  const failing = run('WP-02')
+  assert.equal(failing.status, 1)
+  assert.ok(failing.stdout.includes('gate stdout WP-02'))
+  assert.ok(failing.stderr.includes('gate stderr WP-02'))
+  assert.equal(run('WP-01').status, 0)
 })
