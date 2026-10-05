@@ -31,6 +31,10 @@ afterEach(() => {
 function spawn(script, input, envExtra = {}) {
   const env = { ...process.env }
   delete env.DECIDINATOR_MODE
+  delete env.CLAUDE_CODE_ENTRYPOINT
+  delete env.CLAUDE_CODE_SESSION_ATTENDED
+  delete env.DECIDINATOR_LOG
+  delete env.DECIDINATOR_SIDECAR
   delete env.DECIDINATOR_DEBUG
   Object.assign(env, {
     CLAUDE_PLUGIN_DATA: data,

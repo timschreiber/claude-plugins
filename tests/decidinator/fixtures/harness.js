@@ -17,6 +17,10 @@ function setup(prefix) {
   fs.mkdirSync(projectDir)
   const env = { ...process.env }
   delete env.DECIDINATOR_MODE
+  delete env.CLAUDE_CODE_ENTRYPOINT
+  delete env.CLAUDE_CODE_SESSION_ATTENDED
+  delete env.DECIDINATOR_LOG
+  delete env.DECIDINATOR_SIDECAR
   delete env.DECIDINATOR_DEBUG
   delete env.DECIDINATOR_CONTEXT
   env.CLAUDE_PLUGIN_DATA = dataDir
