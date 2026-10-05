@@ -1,0 +1,58 @@
+{
+  "generated": "2026-10-05T03:51:44.329Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "limit-oauth-noretry",
+  "items": [
+    "V1",
+    "V2",
+    "V3",
+    "V4"
+  ],
+  "args": [
+    "-p",
+    "Reply with the single word OK.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-oauth-noretry\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low"
+  ],
+  "envSet": [
+    "CLAUDE_CODE_MAX_RETRIES"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 3557,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "6428848e5f21bd0138b787ccc7e6dbfcfd90f086",
+    "status": "",
+    "commits": [
+      {
+        "sha": "6428848e5f21bd0138b787ccc7e6dbfcfd90f086",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

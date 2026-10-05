@@ -1,0 +1,1019 @@
+{
+  "generated": "2026-10-05T03:51:57.362Z",
+  "claudeCodeVersions": [
+    "2.1.289 (Claude Code)"
+  ],
+  "cells": {
+    "error": {
+      "items": [
+        "V2"
+      ],
+      "exitCode": 1,
+      "timedOut": false,
+      "durationMs": 3709,
+      "analysis": {
+        "common": {
+          "exitCode": 1,
+          "timedOut": false,
+          "resultSubtype": "success",
+          "isError": true,
+          "resultKeys": [
+            "duration_api_ms",
+            "stop_reason",
+            "session_id",
+            "total_cost_usd",
+            "usage",
+            "modelUsage",
+            "permission_denials",
+            "terminal_reason",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "subagent_stats",
+            "is_error",
+            "num_turns",
+            "subtype",
+            "api_error_status",
+            "result",
+            "type",
+            "duration_ms",
+            "uuid",
+            "queued_turn_count",
+            "result_index"
+          ],
+          "resultText": "API Error: 400 probe: invalid request",
+          "initKeys": [
+            "type",
+            "subtype",
+            "cwd",
+            "session_id",
+            "tools",
+            "mcp_servers",
+            "model",
+            "permissionMode",
+            "slash_commands",
+            "terminal_slash_commands",
+            "apiKeySource",
+            "claude_code_version",
+            "output_style",
+            "agents",
+            "skills",
+            "plugins",
+            "capabilities",
+            "analytics_disabled",
+            "product_feedback_disabled",
+            "uuid",
+            "memory_paths",
+            "messaging_socket_path",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "per_turn_effort_active",
+            "view_mode",
+            "powershell_path"
+          ],
+          "sessionIdIn": [
+            "system/hook_started",
+            "system/hook_response",
+            "system/init",
+            "assistant",
+            "result/success"
+          ],
+          "typeCounts": {
+            "system/hook_started": 1,
+            "system/hook_response": 1,
+            "system/init": 1,
+            "assistant": 1,
+            "result/success": 1
+          },
+          "apiRetries": 0,
+          "permissionDenials": [],
+          "hookEventCounts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "StopFailure": 1,
+            "SessionEnd": 1
+          },
+          "stopFailure": [
+            {
+              "session_id": "9a6ecdc6-5de0-4fb4-a0f3-3d435d9e0540",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-error-repo\\9a6ecdc6-5de0-4fb4-a0f3-3d435d9e0540.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\error\\repo",
+              "prompt_id": "2cd53049-d0d9-44bf-bde0-01d7b3185843",
+              "effort": {
+                "level": "low"
+              },
+              "hook_event_name": "StopFailure",
+              "error": "unknown",
+              "last_assistant_message": "API Error: 400 probe: invalid request"
+            }
+          ],
+          "sessionEnd": [
+            {
+              "session_id": "9a6ecdc6-5de0-4fb4-a0f3-3d435d9e0540",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-error-repo\\9a6ecdc6-5de0-4fb4-a0f3-3d435d9e0540.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\error\\repo",
+              "prompt_id": "2cd53049-d0d9-44bf-bde0-01d7b3185843",
+              "hook_event_name": "SessionEnd",
+              "reason": "other"
+            }
+          ],
+          "pluginsLoaded": [
+            {
+              "name": "grindinator-probe",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+              "source": "grindinator-probe@inline"
+            },
+            {
+              "name": "grindinator-probe-stopfailure",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+              "source": "grindinator-probe-stopfailure@inline"
+            },
+            {
+              "name": "cc-plugin-agents-md",
+              "path": "builtin",
+              "source": "cc-plugin-agents-md@builtin"
+            },
+            {
+              "name": "cc-plugin-telemetry",
+              "path": "builtin",
+              "source": "cc-plugin-telemetry@builtin"
+            },
+            {
+              "name": "cc-plugin-plugin-authoring",
+              "path": "builtin",
+              "source": "cc-plugin-plugin-authoring@builtin"
+            }
+          ],
+          "duplicatePlugins": []
+        },
+        "cell": {
+          "mockRequests": 4,
+          "firstAuthKind": "none"
+        }
+      }
+    },
+    "limit-apikey": {
+      "items": [
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ],
+      "exitCode": 1,
+      "timedOut": false,
+      "durationMs": 2964,
+      "analysis": {
+        "common": {
+          "exitCode": 1,
+          "timedOut": false,
+          "resultSubtype": "success",
+          "isError": true,
+          "resultKeys": [
+            "duration_api_ms",
+            "stop_reason",
+            "session_id",
+            "total_cost_usd",
+            "usage",
+            "modelUsage",
+            "permission_denials",
+            "terminal_reason",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "subagent_stats",
+            "is_error",
+            "num_turns",
+            "subtype",
+            "api_error_status",
+            "result",
+            "type",
+            "duration_ms",
+            "uuid",
+            "queued_turn_count",
+            "result_index"
+          ],
+          "resultText": "API Error: Request rejected (429) · This request would exceed your account rate limit. Please try again later.",
+          "initKeys": [
+            "type",
+            "subtype",
+            "cwd",
+            "session_id",
+            "tools",
+            "mcp_servers",
+            "model",
+            "permissionMode",
+            "slash_commands",
+            "terminal_slash_commands",
+            "apiKeySource",
+            "claude_code_version",
+            "output_style",
+            "agents",
+            "skills",
+            "plugins",
+            "capabilities",
+            "analytics_disabled",
+            "product_feedback_disabled",
+            "uuid",
+            "memory_paths",
+            "messaging_socket_path",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "per_turn_effort_active",
+            "view_mode",
+            "powershell_path"
+          ],
+          "sessionIdIn": [
+            "system/hook_started",
+            "system/hook_response",
+            "system/init",
+            "assistant",
+            "result/success"
+          ],
+          "typeCounts": {
+            "system/hook_started": 1,
+            "system/hook_response": 1,
+            "system/init": 1,
+            "assistant": 1,
+            "result/success": 1
+          },
+          "apiRetries": 0,
+          "permissionDenials": [],
+          "hookEventCounts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "StopFailure": 1,
+            "SessionEnd": 1
+          },
+          "stopFailure": [
+            {
+              "session_id": "76ba2c01-c654-4c29-b875-170a20390bbf",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-apikey-repo\\76ba2c01-c654-4c29-b875-170a20390bbf.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-apikey\\repo",
+              "prompt_id": "8acc13de-4a5e-4be0-9390-bd3f84b02dfd",
+              "effort": {
+                "level": "low"
+              },
+              "hook_event_name": "StopFailure",
+              "error": "rate_limit",
+              "last_assistant_message": "API Error: Request rejected (429) · This request would exceed your account rate limit. Please try again later."
+            }
+          ],
+          "sessionEnd": [
+            {
+              "session_id": "76ba2c01-c654-4c29-b875-170a20390bbf",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-apikey-repo\\76ba2c01-c654-4c29-b875-170a20390bbf.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-apikey\\repo",
+              "prompt_id": "8acc13de-4a5e-4be0-9390-bd3f84b02dfd",
+              "hook_event_name": "SessionEnd",
+              "reason": "other"
+            }
+          ],
+          "pluginsLoaded": [
+            {
+              "name": "grindinator-probe",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+              "source": "grindinator-probe@inline"
+            },
+            {
+              "name": "grindinator-probe-stopfailure",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+              "source": "grindinator-probe-stopfailure@inline"
+            },
+            {
+              "name": "cc-plugin-agents-md",
+              "path": "builtin",
+              "source": "cc-plugin-agents-md@builtin"
+            },
+            {
+              "name": "cc-plugin-telemetry",
+              "path": "builtin",
+              "source": "cc-plugin-telemetry@builtin"
+            },
+            {
+              "name": "cc-plugin-plugin-authoring",
+              "path": "builtin",
+              "source": "cc-plugin-plugin-authoring@builtin"
+            }
+          ],
+          "duplicatePlugins": []
+        },
+        "cell": {
+          "mockRequests": 2,
+          "firstAuthKind": "none",
+          "stopFailureFired": true,
+          "stopFailureKeys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "effort",
+            "hook_event_name",
+            "error",
+            "last_assistant_message"
+          ],
+          "sessionEndReasons": [
+            "other"
+          ],
+          "apiRetryErrors": [],
+          "resetFound": {}
+        }
+      }
+    },
+    "limit-oauth": {
+      "items": [
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ],
+      "exitCode": 1,
+      "timedOut": false,
+      "durationMs": 3841,
+      "analysis": {
+        "common": {
+          "exitCode": 1,
+          "timedOut": false,
+          "resultSubtype": "success",
+          "isError": true,
+          "resultKeys": [
+            "duration_api_ms",
+            "stop_reason",
+            "session_id",
+            "total_cost_usd",
+            "usage",
+            "modelUsage",
+            "permission_denials",
+            "terminal_reason",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "subagent_stats",
+            "is_error",
+            "num_turns",
+            "subtype",
+            "api_error_status",
+            "result",
+            "type",
+            "duration_ms",
+            "uuid",
+            "queued_turn_count",
+            "result_index"
+          ],
+          "resultText": "You've hit your session limit · resets 1:51am (America/New_York)",
+          "initKeys": [
+            "type",
+            "subtype",
+            "cwd",
+            "session_id",
+            "tools",
+            "mcp_servers",
+            "model",
+            "permissionMode",
+            "slash_commands",
+            "terminal_slash_commands",
+            "apiKeySource",
+            "claude_code_version",
+            "output_style",
+            "agents",
+            "skills",
+            "plugins",
+            "capabilities",
+            "analytics_disabled",
+            "product_feedback_disabled",
+            "uuid",
+            "memory_paths",
+            "messaging_socket_path",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "per_turn_effort_active",
+            "view_mode",
+            "powershell_path"
+          ],
+          "sessionIdIn": [
+            "system/hook_started",
+            "system/hook_response",
+            "system/init",
+            "rate_limit_event",
+            "assistant",
+            "result/success"
+          ],
+          "typeCounts": {
+            "system/hook_started": 1,
+            "system/hook_response": 1,
+            "system/init": 1,
+            "rate_limit_event": 1,
+            "assistant": 1,
+            "result/success": 1
+          },
+          "apiRetries": 0,
+          "permissionDenials": [],
+          "hookEventCounts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "StopFailure": 1,
+            "SessionEnd": 1
+          },
+          "stopFailure": [
+            {
+              "session_id": "232d6957-45aa-465f-968e-824a5ff69f1c",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-oauth-repo\\232d6957-45aa-465f-968e-824a5ff69f1c.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-oauth\\repo",
+              "prompt_id": "75f46ad6-f8be-42e9-a5a0-96416effcbec",
+              "effort": {
+                "level": "low"
+              },
+              "hook_event_name": "StopFailure",
+              "error": "rate_limit",
+              "last_assistant_message": "You've hit your session limit · resets 1:51am (America/New_York)"
+            }
+          ],
+          "sessionEnd": [
+            {
+              "session_id": "232d6957-45aa-465f-968e-824a5ff69f1c",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-oauth-repo\\232d6957-45aa-465f-968e-824a5ff69f1c.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-oauth\\repo",
+              "prompt_id": "75f46ad6-f8be-42e9-a5a0-96416effcbec",
+              "hook_event_name": "SessionEnd",
+              "reason": "other"
+            }
+          ],
+          "pluginsLoaded": [
+            {
+              "name": "grindinator-probe",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+              "source": "grindinator-probe@inline"
+            },
+            {
+              "name": "grindinator-probe-stopfailure",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+              "source": "grindinator-probe-stopfailure@inline"
+            },
+            {
+              "name": "cc-plugin-agents-md",
+              "path": "builtin",
+              "source": "cc-plugin-agents-md@builtin"
+            },
+            {
+              "name": "cc-plugin-telemetry",
+              "path": "builtin",
+              "source": "cc-plugin-telemetry@builtin"
+            },
+            {
+              "name": "cc-plugin-plugin-authoring",
+              "path": "builtin",
+              "source": "cc-plugin-plugin-authoring@builtin"
+            }
+          ],
+          "duplicatePlugins": []
+        },
+        "cell": {
+          "mockRequests": 2,
+          "firstAuthKind": "none",
+          "stopFailureFired": true,
+          "stopFailureKeys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "effort",
+            "hook_event_name",
+            "error",
+            "last_assistant_message"
+          ],
+          "sessionEndReasons": [
+            "other"
+          ],
+          "apiRetryErrors": [],
+          "resetFound": {
+            "stream": [
+              "1791179511",
+              "1am"
+            ],
+            "transcript": [
+              "1791179511",
+              "1am"
+            ],
+            "StopFailure": [
+              "1am"
+            ]
+          }
+        }
+      }
+    },
+    "limit-oauth-noretry": {
+      "items": [
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+      ],
+      "exitCode": 1,
+      "timedOut": false,
+      "durationMs": 3557,
+      "analysis": {
+        "common": {
+          "exitCode": 1,
+          "timedOut": false,
+          "resultSubtype": "success",
+          "isError": true,
+          "resultKeys": [
+            "duration_api_ms",
+            "stop_reason",
+            "session_id",
+            "total_cost_usd",
+            "usage",
+            "modelUsage",
+            "permission_denials",
+            "terminal_reason",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "subagent_stats",
+            "is_error",
+            "num_turns",
+            "subtype",
+            "api_error_status",
+            "result",
+            "type",
+            "duration_ms",
+            "uuid",
+            "queued_turn_count",
+            "result_index"
+          ],
+          "resultText": "You've hit your session limit · resets 1:51am (America/New_York)",
+          "initKeys": [
+            "type",
+            "subtype",
+            "cwd",
+            "session_id",
+            "tools",
+            "mcp_servers",
+            "model",
+            "permissionMode",
+            "slash_commands",
+            "terminal_slash_commands",
+            "apiKeySource",
+            "claude_code_version",
+            "output_style",
+            "agents",
+            "skills",
+            "plugins",
+            "capabilities",
+            "analytics_disabled",
+            "product_feedback_disabled",
+            "uuid",
+            "memory_paths",
+            "messaging_socket_path",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "per_turn_effort_active",
+            "view_mode",
+            "powershell_path"
+          ],
+          "sessionIdIn": [
+            "system/hook_started",
+            "system/hook_response",
+            "system/init",
+            "rate_limit_event",
+            "assistant",
+            "result/success"
+          ],
+          "typeCounts": {
+            "system/hook_started": 1,
+            "system/hook_response": 1,
+            "system/init": 1,
+            "rate_limit_event": 1,
+            "assistant": 1,
+            "result/success": 1
+          },
+          "apiRetries": 0,
+          "permissionDenials": [],
+          "hookEventCounts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "StopFailure": 1,
+            "SessionEnd": 1
+          },
+          "stopFailure": [
+            {
+              "session_id": "dba30237-f5af-42ef-937e-8cc42f1f0929",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-oauth-noretry-repo\\dba30237-f5af-42ef-937e-8cc42f1f0929.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-oauth-noretry\\repo",
+              "prompt_id": "78ba77b6-8c1f-487e-849c-30e01ab7b8d5",
+              "effort": {
+                "level": "low"
+              },
+              "hook_event_name": "StopFailure",
+              "error": "rate_limit",
+              "last_assistant_message": "You've hit your session limit · resets 1:51am (America/New_York)"
+            }
+          ],
+          "sessionEnd": [
+            {
+              "session_id": "dba30237-f5af-42ef-937e-8cc42f1f0929",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-oauth-noretry-repo\\dba30237-f5af-42ef-937e-8cc42f1f0929.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-oauth-noretry\\repo",
+              "prompt_id": "78ba77b6-8c1f-487e-849c-30e01ab7b8d5",
+              "hook_event_name": "SessionEnd",
+              "reason": "other"
+            }
+          ],
+          "pluginsLoaded": [
+            {
+              "name": "grindinator-probe",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+              "source": "grindinator-probe@inline"
+            },
+            {
+              "name": "grindinator-probe-stopfailure",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+              "source": "grindinator-probe-stopfailure@inline"
+            },
+            {
+              "name": "cc-plugin-agents-md",
+              "path": "builtin",
+              "source": "cc-plugin-agents-md@builtin"
+            },
+            {
+              "name": "cc-plugin-telemetry",
+              "path": "builtin",
+              "source": "cc-plugin-telemetry@builtin"
+            },
+            {
+              "name": "cc-plugin-plugin-authoring",
+              "path": "builtin",
+              "source": "cc-plugin-plugin-authoring@builtin"
+            }
+          ],
+          "duplicatePlugins": []
+        },
+        "cell": {
+          "mockRequests": 2,
+          "firstAuthKind": "none",
+          "stopFailureFired": true,
+          "stopFailureKeys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "effort",
+            "hook_event_name",
+            "error",
+            "last_assistant_message"
+          ],
+          "sessionEndReasons": [
+            "other"
+          ],
+          "apiRetryErrors": [],
+          "resetFound": {
+            "stream": [
+              "1791179500",
+              "1am"
+            ],
+            "transcript": [
+              "1791179500",
+              "1am"
+            ],
+            "StopFailure": [
+              "1am"
+            ]
+          }
+        }
+      }
+    },
+    "pass": {
+      "items": [
+        "V3"
+      ],
+      "exitCode": 0,
+      "timedOut": false,
+      "durationMs": 3409,
+      "analysis": {
+        "common": {
+          "exitCode": 0,
+          "timedOut": false,
+          "resultSubtype": "success",
+          "isError": false,
+          "resultKeys": [
+            "duration_api_ms",
+            "stop_reason",
+            "session_id",
+            "total_cost_usd",
+            "usage",
+            "modelUsage",
+            "permission_denials",
+            "terminal_reason",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "subagent_stats",
+            "is_error",
+            "num_turns",
+            "subtype",
+            "api_error_status",
+            "result",
+            "ttft_ms",
+            "type",
+            "duration_ms",
+            "uuid",
+            "ttft_stream_ms",
+            "time_to_request_ms",
+            "first_content_frame_ms",
+            "queued_turn_count",
+            "result_index"
+          ],
+          "resultText": "OK",
+          "initKeys": [
+            "type",
+            "subtype",
+            "cwd",
+            "session_id",
+            "tools",
+            "mcp_servers",
+            "model",
+            "permissionMode",
+            "slash_commands",
+            "terminal_slash_commands",
+            "apiKeySource",
+            "claude_code_version",
+            "output_style",
+            "agents",
+            "skills",
+            "plugins",
+            "capabilities",
+            "analytics_disabled",
+            "product_feedback_disabled",
+            "uuid",
+            "memory_paths",
+            "messaging_socket_path",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "per_turn_effort_active",
+            "view_mode",
+            "powershell_path"
+          ],
+          "sessionIdIn": [
+            "system/hook_started",
+            "system/hook_response",
+            "system/init",
+            "assistant",
+            "rate_limit_event",
+            "result/success"
+          ],
+          "typeCounts": {
+            "system/hook_started": 1,
+            "system/hook_response": 1,
+            "system/init": 1,
+            "assistant": 1,
+            "rate_limit_event": 1,
+            "result/success": 1
+          },
+          "apiRetries": 0,
+          "permissionDenials": [],
+          "hookEventCounts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "Stop": 1,
+            "SessionEnd": 1
+          },
+          "stopFailure": [],
+          "sessionEnd": [
+            {
+              "session_id": "2c6b19cd-1f23-4da1-aa84-ada048862bcb",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-pass-repo\\2c6b19cd-1f23-4da1-aa84-ada048862bcb.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\pass\\repo",
+              "prompt_id": "73e89169-0d18-42e0-a387-e41bb4a9509a",
+              "hook_event_name": "SessionEnd",
+              "reason": "other"
+            }
+          ],
+          "pluginsLoaded": [
+            {
+              "name": "grindinator-probe",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+              "source": "grindinator-probe@inline"
+            },
+            {
+              "name": "grindinator-probe-stopfailure",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+              "source": "grindinator-probe-stopfailure@inline"
+            },
+            {
+              "name": "cc-plugin-agents-md",
+              "path": "builtin",
+              "source": "cc-plugin-agents-md@builtin"
+            },
+            {
+              "name": "cc-plugin-telemetry",
+              "path": "builtin",
+              "source": "cc-plugin-telemetry@builtin"
+            },
+            {
+              "name": "cc-plugin-plugin-authoring",
+              "path": "builtin",
+              "source": "cc-plugin-plugin-authoring@builtin"
+            }
+          ],
+          "duplicatePlugins": []
+        },
+        "cell": {
+          "mockRequests": 2,
+          "firstAuthKind": "none",
+          "rateHeaders": [
+            {
+              "n": 1,
+              "url": "/api/hello",
+              "status": 200,
+              "rateHeaders": {}
+            },
+            {
+              "n": 2,
+              "url": "/v1/messages?beta=true",
+              "status": 200,
+              "rateHeaders": {
+                "anthropic-ratelimit-unified-5h-status": "allowed",
+                "anthropic-ratelimit-unified-overage-utilization": "0.0",
+                "anthropic-ratelimit-unified-representative-claim": "five_hour",
+                "anthropic-ratelimit-unified-fallback-percentage": "0.5",
+                "anthropic-ratelimit-unified-reset": "1791177000",
+                "anthropic-ratelimit-unified-5h-utilization": "0.09",
+                "anthropic-ratelimit-unified-7d-reset": "1791392400",
+                "anthropic-ratelimit-unified-5h-reset": "1791177000",
+                "anthropic-ratelimit-unified-7d-status": "allowed",
+                "anthropic-ratelimit-unified-overage-reset": "1793491200",
+                "anthropic-ratelimit-unified-overage-status": "allowed",
+                "anthropic-ratelimit-unified-7d-utilization": "0.09",
+                "anthropic-ratelimit-unified-status": "allowed"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "success": {
+      "items": [
+        "V2"
+      ],
+      "exitCode": 0,
+      "timedOut": false,
+      "durationMs": 3433,
+      "analysis": {
+        "common": {
+          "exitCode": 0,
+          "timedOut": false,
+          "resultSubtype": "success",
+          "isError": false,
+          "resultKeys": [
+            "duration_api_ms",
+            "stop_reason",
+            "session_id",
+            "total_cost_usd",
+            "usage",
+            "modelUsage",
+            "permission_denials",
+            "terminal_reason",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "subagent_stats",
+            "is_error",
+            "num_turns",
+            "subtype",
+            "api_error_status",
+            "result",
+            "ttft_ms",
+            "type",
+            "duration_ms",
+            "uuid",
+            "ttft_stream_ms",
+            "time_to_request_ms",
+            "first_content_frame_ms",
+            "queued_turn_count",
+            "result_index"
+          ],
+          "resultText": "OK",
+          "initKeys": [
+            "type",
+            "subtype",
+            "cwd",
+            "session_id",
+            "tools",
+            "mcp_servers",
+            "model",
+            "permissionMode",
+            "slash_commands",
+            "terminal_slash_commands",
+            "apiKeySource",
+            "claude_code_version",
+            "output_style",
+            "agents",
+            "skills",
+            "plugins",
+            "capabilities",
+            "analytics_disabled",
+            "product_feedback_disabled",
+            "uuid",
+            "memory_paths",
+            "messaging_socket_path",
+            "fast_mode_state",
+            "fast_mode_disabled_reason",
+            "per_turn_effort_active",
+            "view_mode",
+            "powershell_path"
+          ],
+          "sessionIdIn": [
+            "system/hook_started",
+            "system/hook_response",
+            "system/init",
+            "assistant",
+            "rate_limit_event",
+            "result/success"
+          ],
+          "typeCounts": {
+            "system/hook_started": 1,
+            "system/hook_response": 1,
+            "system/init": 1,
+            "assistant": 1,
+            "rate_limit_event": 1,
+            "result/success": 1
+          },
+          "apiRetries": 0,
+          "permissionDenials": [],
+          "hookEventCounts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "Stop": 1,
+            "SessionEnd": 1
+          },
+          "stopFailure": [],
+          "sessionEnd": [
+            {
+              "session_id": "6000955a-e3cb-4566-ab3f-c9060cbe87c7",
+              "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-success-repo\\6000955a-e3cb-4566-ab3f-c9060cbe87c7.jsonl",
+              "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\success\\repo",
+              "prompt_id": "b859f56e-29ae-49df-b5d0-131fe8105055",
+              "hook_event_name": "SessionEnd",
+              "reason": "other"
+            }
+          ],
+          "pluginsLoaded": [
+            {
+              "name": "grindinator-probe",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+              "source": "grindinator-probe@inline"
+            },
+            {
+              "name": "grindinator-probe-stopfailure",
+              "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+              "source": "grindinator-probe-stopfailure@inline"
+            },
+            {
+              "name": "cc-plugin-agents-md",
+              "path": "builtin",
+              "source": "cc-plugin-agents-md@builtin"
+            },
+            {
+              "name": "cc-plugin-telemetry",
+              "path": "builtin",
+              "source": "cc-plugin-telemetry@builtin"
+            },
+            {
+              "name": "cc-plugin-plugin-authoring",
+              "path": "builtin",
+              "source": "cc-plugin-plugin-authoring@builtin"
+            }
+          ],
+          "duplicatePlugins": []
+        },
+        "cell": {
+          "mockRequests": 0,
+          "firstAuthKind": null
+        }
+      }
+    }
+  },
+  "items": {
+    "V1": [
+      "limit-apikey",
+      "limit-oauth",
+      "limit-oauth-noretry"
+    ],
+    "V2": [
+      "error",
+      "limit-apikey",
+      "limit-oauth",
+      "limit-oauth-noretry",
+      "success"
+    ],
+    "V3": [
+      "limit-apikey",
+      "limit-oauth",
+      "limit-oauth-noretry",
+      "pass"
+    ],
+    "V4": [
+      "limit-apikey",
+      "limit-oauth",
+      "limit-oauth-noretry"
+    ],
+    "V5": [],
+    "V6": [],
+    "V7": [],
+    "V8": [],
+    "V9": []
+  }
+}

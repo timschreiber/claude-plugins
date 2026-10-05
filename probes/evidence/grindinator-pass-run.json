@@ -1,0 +1,53 @@
+{
+  "generated": "2026-10-05T03:51:38.321Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "pass",
+  "items": [
+    "V3"
+  ],
+  "args": [
+    "-p",
+    "Reply with the single word OK.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\pass\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low"
+  ],
+  "envSet": [],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 3409,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "e8b5ff15eb03f27cd62ed80c29ce584f63185082",
+    "status": "",
+    "commits": [
+      {
+        "sha": "e8b5ff15eb03f27cd62ed80c29ce584f63185082",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

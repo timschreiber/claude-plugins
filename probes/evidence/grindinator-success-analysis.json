@@ -1,0 +1,132 @@
+{
+  "common": {
+    "exitCode": 0,
+    "timedOut": false,
+    "resultSubtype": "success",
+    "isError": false,
+    "resultKeys": [
+      "duration_api_ms",
+      "stop_reason",
+      "session_id",
+      "total_cost_usd",
+      "usage",
+      "modelUsage",
+      "permission_denials",
+      "terminal_reason",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "subagent_stats",
+      "is_error",
+      "num_turns",
+      "subtype",
+      "api_error_status",
+      "result",
+      "ttft_ms",
+      "type",
+      "duration_ms",
+      "uuid",
+      "ttft_stream_ms",
+      "time_to_request_ms",
+      "first_content_frame_ms",
+      "queued_turn_count",
+      "result_index"
+    ],
+    "resultText": "OK",
+    "initKeys": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "sessionIdIn": [
+      "system/hook_started",
+      "system/hook_response",
+      "system/init",
+      "assistant",
+      "rate_limit_event",
+      "result/success"
+    ],
+    "typeCounts": {
+      "system/hook_started": 1,
+      "system/hook_response": 1,
+      "system/init": 1,
+      "assistant": 1,
+      "rate_limit_event": 1,
+      "result/success": 1
+    },
+    "apiRetries": 0,
+    "permissionDenials": [],
+    "hookEventCounts": {
+      "SessionStart": 1,
+      "UserPromptSubmit": 1,
+      "Stop": 1,
+      "SessionEnd": 1
+    },
+    "stopFailure": [],
+    "sessionEnd": [
+      {
+        "session_id": "6000955a-e3cb-4566-ab3f-c9060cbe87c7",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-success-repo\\6000955a-e3cb-4566-ab3f-c9060cbe87c7.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\success\\repo",
+        "prompt_id": "b859f56e-29ae-49df-b5d0-131fe8105055",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      }
+    ],
+    "pluginsLoaded": [
+      {
+        "name": "grindinator-probe",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+        "source": "grindinator-probe@inline"
+      },
+      {
+        "name": "grindinator-probe-stopfailure",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+        "source": "grindinator-probe-stopfailure@inline"
+      },
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      },
+      {
+        "name": "cc-plugin-plugin-authoring",
+        "path": "builtin",
+        "source": "cc-plugin-plugin-authoring@builtin"
+      }
+    ],
+    "duplicatePlugins": []
+  },
+  "cell": {
+    "mockRequests": 0,
+    "firstAuthKind": null
+  }
+}

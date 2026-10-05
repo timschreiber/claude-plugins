@@ -1,0 +1,155 @@
+{
+  "common": {
+    "exitCode": 1,
+    "timedOut": false,
+    "resultSubtype": "success",
+    "isError": true,
+    "resultKeys": [
+      "duration_api_ms",
+      "stop_reason",
+      "session_id",
+      "total_cost_usd",
+      "usage",
+      "modelUsage",
+      "permission_denials",
+      "terminal_reason",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "subagent_stats",
+      "is_error",
+      "num_turns",
+      "subtype",
+      "api_error_status",
+      "result",
+      "type",
+      "duration_ms",
+      "uuid",
+      "queued_turn_count",
+      "result_index"
+    ],
+    "resultText": "API Error: Request rejected (429) · This request would exceed your account rate limit. Please try again later.",
+    "initKeys": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "sessionIdIn": [
+      "system/hook_started",
+      "system/hook_response",
+      "system/init",
+      "assistant",
+      "result/success"
+    ],
+    "typeCounts": {
+      "system/hook_started": 1,
+      "system/hook_response": 1,
+      "system/init": 1,
+      "assistant": 1,
+      "result/success": 1
+    },
+    "apiRetries": 0,
+    "permissionDenials": [],
+    "hookEventCounts": {
+      "SessionStart": 1,
+      "UserPromptSubmit": 1,
+      "StopFailure": 1,
+      "SessionEnd": 1
+    },
+    "stopFailure": [
+      {
+        "session_id": "76ba2c01-c654-4c29-b875-170a20390bbf",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-apikey-repo\\76ba2c01-c654-4c29-b875-170a20390bbf.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-apikey\\repo",
+        "prompt_id": "8acc13de-4a5e-4be0-9390-bd3f84b02dfd",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "StopFailure",
+        "error": "rate_limit",
+        "last_assistant_message": "API Error: Request rejected (429) · This request would exceed your account rate limit. Please try again later."
+      }
+    ],
+    "sessionEnd": [
+      {
+        "session_id": "76ba2c01-c654-4c29-b875-170a20390bbf",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-limit-apikey-repo\\76ba2c01-c654-4c29-b875-170a20390bbf.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-apikey\\repo",
+        "prompt_id": "8acc13de-4a5e-4be0-9390-bd3f84b02dfd",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      }
+    ],
+    "pluginsLoaded": [
+      {
+        "name": "grindinator-probe",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+        "source": "grindinator-probe@inline"
+      },
+      {
+        "name": "grindinator-probe-stopfailure",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+        "source": "grindinator-probe-stopfailure@inline"
+      },
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      },
+      {
+        "name": "cc-plugin-plugin-authoring",
+        "path": "builtin",
+        "source": "cc-plugin-plugin-authoring@builtin"
+      }
+    ],
+    "duplicatePlugins": []
+  },
+  "cell": {
+    "mockRequests": 2,
+    "firstAuthKind": "none",
+    "stopFailureFired": true,
+    "stopFailureKeys": [
+      "session_id",
+      "transcript_path",
+      "cwd",
+      "prompt_id",
+      "effort",
+      "hook_event_name",
+      "error",
+      "last_assistant_message"
+    ],
+    "sessionEndReasons": [
+      "other"
+    ],
+    "apiRetryErrors": [],
+    "resetFound": {}
+  }
+}

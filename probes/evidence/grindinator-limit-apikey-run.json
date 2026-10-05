@@ -1,0 +1,59 @@
+{
+  "generated": "2026-10-05T03:51:49.407Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "limit-apikey",
+  "items": [
+    "V1",
+    "V2",
+    "V3",
+    "V4"
+  ],
+  "args": [
+    "-p",
+    "Reply with the single word OK.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\limit-apikey\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\stopfailure-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low"
+  ],
+  "envSet": [
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_CODE_MAX_RETRIES"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 1,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 2964,
+  "spawnError": null,
+  "stderr": "⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors\n",
+  "git": {
+    "head": "fe76f6dd7a7b5bf765c9fee1be3094a40865c507",
+    "status": "",
+    "commits": [
+      {
+        "sha": "fe76f6dd7a7b5bf765c9fee1be3094a40865c507",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}
