@@ -273,6 +273,25 @@ test('prune removes old claims too', () => {
   assert.equal(state.claimAttempt('new', 'k'), false)
 })
 
+test('the lost-state note is saved, taken once, and removed by remove and prune', () => {
+  const sessions = path.join(dir, 'sessions')
+  assert.equal(state.saveLost('s1', 'gone'), true)
+  assert.equal(state.takeLost('s1'), 'gone')
+  assert.equal(state.takeLost('s1'), null)
+  assert.equal(state.saveLost('s1', 'again'), true)
+  state.remove('s1')
+  assert.equal(fs.existsSync(path.join(sessions, 's1.lost')), false)
+  state.saveLost('old', 'x')
+  state.saveLost('new', 'x')
+  const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+  fs.utimesSync(path.join(sessions, 'old.lost'), past, past)
+  state.prune(7)
+  assert.equal(fs.existsSync(path.join(sessions, 'old.lost')), false)
+  assert.equal(fs.existsSync(path.join(sessions, 'new.lost')), true)
+  assert.equal(state.saveLost('', 'x'), false)
+  assert.equal(state.takeLost(''), null)
+})
+
 test('prune removes old cursors and fallback telemetry files too', () => {
   state.setCursor('old', '2026-09-01T00:00:00.000Z')
   const telemetry = path.join(dir, 'sessions', 'old.telemetry.jsonl')

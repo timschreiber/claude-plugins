@@ -181,6 +181,15 @@ test('a failure retries one tier up, twice, and then halts; past sonnet/high the
   assert.match(r.haltText(out.state), /do not fix it or dispatch more tasks/)
 })
 
+test('lostText tells Claude the run stopped because its state could not be saved', () => {
+  const s = { ...r.advance(start(), { ok: true, commit: 'aaa1111' }).state, planFile: 'C:/plans/p.md' }
+  const text = r.lostText(s)
+  assert.match(text, /^tierminator: the run stopped: T02 was not dispatched because the run's state could not be saved\. Done: T01 aaa1111 \(/)
+  assert.ok(text.includes('/tierminator:execute "C:/plans/p.md"'))
+  assert.ok(r.lostText({ ...s, planFile: null }).includes('with the plan\'s path'))
+  assert.ok(r.lostText({ ...start(), planFile: null }).includes('Done: none'))
+})
+
 test('a failure at the top tier, or a fatal one, halts at once', () => {
   let s = start()
   s = r.advance(s, { ok: true, commit: 'a' }).state

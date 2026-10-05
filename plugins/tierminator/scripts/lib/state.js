@@ -64,11 +64,12 @@ function write(sessionId, state, delays = LOCK_RETRY_MS) {
   }
 }
 
-// Removes the state file and the session's attempt claims.
+// Removes the state file, the lost-state note and the session's attempt claims.
 function remove(sessionId) {
   try {
     const file = fileFor(sessionId)
     if (file) fs.rmSync(file, { force: true })
+    if (file) fs.rmSync(lostFor(sessionId), { force: true })
     if (file) debug(`state ${path.basename(file, '.json')}: removed`)
     if (file) {
       const prefix = `${path.basename(file, '.json')}.`
@@ -207,6 +208,34 @@ function clearListing(sessionId) {
   } catch {}
 }
 
+// The lost-state note, <session_id>.lost: the text H4 gives Claude when it judged an attempt but could not save
+// the state. Written without a rename, and taken (read and removed) by the hook that delivers it.
+const lostFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.lost') ?? null
+
+function saveLost(sessionId, text) {
+  try {
+    const file = lostFor(sessionId)
+    if (!file) return false
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+    fs.writeFileSync(file, String(text))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function takeLost(sessionId) {
+  try {
+    const file = lostFor(sessionId)
+    if (!file) return null
+    const text = fs.readFileSync(file, 'utf8')
+    fs.rmSync(file, { force: true })
+    return text || null
+  } catch {
+    return null
+  }
+}
+
 // Returns true when the flag was written. Also starts the telemetry cursor.
 function activate(sessionId) {
   try {
@@ -236,14 +265,14 @@ function deactivate(sessionId) {
   } catch {}
 }
 
-// Deletes session files (state, activation flags, cursors, rules markers, attempt claims, fallback tasks and telemetry
+// Deletes session files (state, activation flags, cursors, rules markers, attempt claims, lost-state notes, fallback tasks and telemetry
 // files, and leftover temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.claim', '.plan.md'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.claim', '.lost', '.plan.md'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
@@ -268,5 +297,7 @@ module.exports = {
   rulesShown,
   markRulesShown,
   clearRulesShown,
+  saveLost,
+  takeLost,
   prune,
 }
