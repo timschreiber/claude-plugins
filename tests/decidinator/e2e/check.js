@@ -84,12 +84,13 @@ function load(n, base) {
   const outDir = n === '7' ? path.join(base, 'out-import') : path.join(base, 'out')
   const records = readRecords(outDir)
   const { transcriptStrings, finalMessage } = readTranscript(records)
+  const docsDir = n === '8' ? path.join(base, 'repo', '.grindinator', 'decisions') : path.join(base, 'repo', 'docs')
   return {
     records,
     transcriptStrings,
     finalMessage,
-    logText: readText(path.join(base, 'repo', 'docs', 'decisions.md')),
-    sidecarText: readText(path.join(base, 'repo', 'docs', 'open-questions.md')),
+    logText: readText(path.join(docsDir, 'decisions.md')),
+    sidecarText: readText(path.join(docsDir, 'open-questions.md')),
     exportedText: readText(path.join(base, 'stakeholders-exported.md')),
     answeredText: readText(path.join(base, 'stakeholders-answered.md'))
   }
@@ -107,9 +108,10 @@ function claudeVersion() {
 function writeFixtures(n, base, dir, result, inputs) {
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(dir, { recursive: true })
+  const docsDir = n === '8' ? path.join(base, 'repo', '.grindinator', 'decisions') : path.join(base, 'repo', 'docs')
   const copies = [
-    [path.join(base, 'repo', 'docs', 'decisions.md'), 'decisions.md'],
-    [path.join(base, 'repo', 'docs', 'open-questions.md'), 'open-questions.md']
+    [path.join(docsDir, 'decisions.md'), 'decisions.md'],
+    [path.join(docsDir, 'open-questions.md'), 'open-questions.md']
   ]
   if (n === '7') {
     copies.push([path.join(base, 'stakeholders-exported.md'), 'stakeholders-exported.md'])

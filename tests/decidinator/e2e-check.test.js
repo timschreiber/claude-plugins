@@ -13,7 +13,7 @@ const lib = path.join(__dirname, '..', '..', 'plugins', 'decidinator', 'scripts'
 const decisionLog = require(path.join(lib, 'decision-log.js'))
 const sidecar = require(path.join(lib, 'sidecar.js'))
 const exporter = require(path.join(lib, 'export.js'))
-const { QUESTIONS, contextLabel } = require('./e2e/scenarios.js')
+const { QUESTIONS, contextLabel, prompt } = require('./e2e/scenarios.js')
 const { ANSWERS, setupRepo, fillAnswers } = require('./e2e/fixture.js')
 const { checkScenario, evidence } = require('./e2e/checks.js')
 
@@ -143,6 +143,11 @@ function build(t, n, edit) {
     inputs.records = [askPre(1), stop(2, O1)]
     inputs.finalMessage = 'RESULT: 5 lists'
   }
+  if (n === '8') {
+    provisional()
+    inputs.records = [stop(1, O1)]
+    inputs.finalMessage = 'RESULT: 5 lists'
+  }
   if (n === '6') {
     appendDecision(logFile, decision(QUESTIONS.specSilent, { answer: 'In the order they were added.', rung: 2 }))
     inputs.records = [askPre(1), stop(2, O1), dispatch2(3, VERDICT_LOW), stop(4, O2)]
@@ -191,6 +196,7 @@ const NAMES = {
   ],
   3: SIDECAR_CHECKS,
   4: [...SIDECAR_CHECKS, 'ask-intercepted'],
+  8: SIDECAR_CHECKS,
   5: [...FILES_RESOLVED, ...RECORDS_RESOLVED, 'plan-mode-throughout', 'oracle-web-research'],
   6: [
     'log-marker', 'one-new-decision', 'decision-question', 'decision-rung-2-or-user', 'oracle-1-stopped', 'oracle-2-stopped',
@@ -207,7 +213,7 @@ function failing(result) {
   return result.checks.filter((c) => !c.pass).map((c) => c.name)
 }
 
-for (const n of ['1', '2', '3', '4', '5', '6', '7', 'install']) {
+for (const n of ['1', '2', '3', '4', '5', '6', '7', '8', 'install']) {
   test(`scenario ${n} passes with its checks in order`, (t) => {
     const result = checkScenario(n, build(t, n))
     assert.deepEqual(failing(result), [])
@@ -262,6 +268,18 @@ test('scenario 3 fails on the wrong depends-on label', (t) => {
 test('scenario 4 fails when the question was shown', (t) => {
   const inputs = build(t, '4', (i) => i.records.push(askPost(3, QUESTIONS.humanOnly)))
   assertFails(checkScenario('4', inputs), 'ask-never-shown')
+})
+
+test('scenario 8 fails without the sidecar entry', (t) => {
+  const inputs = build(t, '8')
+  inputs.sidecarText = ''
+  assertFails(checkScenario('8', inputs), 'one-sidecar-entry')
+})
+
+test('scenario 8 prompt is headless', () => {
+  const p = prompt('8')
+  assert.ok(p.includes(QUESTIONS.humanOnly.question))
+  assert.ok(!p.includes('AskUserQuestion'))
 })
 
 test('scenario 5 fails when a record is not in plan mode', (t) => {

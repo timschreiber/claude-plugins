@@ -279,6 +279,7 @@ const BUILDERS = {
   5: (x) => [...filesResolved(x), ...recordsResolved(x), ...scenarioPlanMode(x)],
   6: scenarioEscalation,
   7: scenarioRoundTrip,
+  8: scenarioSidecar,
   install: filesResolved
 }
 

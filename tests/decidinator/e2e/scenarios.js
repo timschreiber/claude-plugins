@@ -38,6 +38,7 @@ const SCENARIOS = {
   5: { name: 'plan-mode', question: 'researchable' },
   6: { name: 'escalation', question: 'specSilent' },
   7: { name: 'round-trip', question: null },
+  8: { name: 'headless-sidecar', question: 'humanOnly' },
   install: { name: 'fresh-install', question: 'researchable' }
 }
 
@@ -47,6 +48,15 @@ function prompt(n) {
   const key = String(n)
   if (!Object.hasOwn(SCENARIOS, key) || SCENARIOS[key].question === null) return null
   const q = QUESTIONS[SCENARIOS[key].question]
+  if (key === '8') {
+    return [
+      'This is a test of the Decidinator plugin. Do not edit, create or delete any files.',
+      `A decision is open and no person will answer it: ${q.question}`,
+      'The options are:',
+      ...q.options.map((o) => `- ${o.label}: ${o.description}`),
+      'Decide it as the rules you were given say. When it is settled, reply with exactly one line: "RESULT: " followed by the answer you will use. Then end your turn.'
+    ].join('\n')
+  }
   return [
     'This is a test of the Decidinator plugin. Do not edit, create or delete any files, and do not call ExitPlanMode.',
     'Before doing anything else, call the AskUserQuestion tool with exactly one question:',
