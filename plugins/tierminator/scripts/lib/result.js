@@ -80,4 +80,56 @@ function write(sessionId, rec, { allowInactive = false } = {}) {
   }
 }
 
-module.exports = { VERSION, FIELDS, OUTCOMES, pathFor, currentId, record, write }
+const REASONS = {
+  interrupted: 'the user typed a prompt during the run',
+  lost: `the run's state could not be saved after an attempt was judged`,
+  sessionEnded: 'session ended during run',
+  abandoned: 'tierminator stopped dispatching tasks: Claude stopped without dispatching the next task, or the guard gave up',
+  noPlan: 'planning ended without a valid plan',
+}
+
+// What an ended state says: {outcome, reason, haltedAt}, or null when it has not ended. A running state counts
+// only when the caller says why it ended (runningReason).
+function endOf(s, runningReason) {
+  const run = Array.isArray(s?.tasks) && s.tasks.length > 0 && !!s.current
+  if (s?.phase === 'complete') return { outcome: 'complete', reason: null, haltedAt: null }
+  if (s?.phase === 'halted') {
+    return { outcome: 'halted', reason: s.halt?.reason ?? 'the run halted', haltedAt: s.halt?.task ?? currentId(s) }
+  }
+  if (s?.phase === 'abandoned') {
+    return run
+      ? { outcome: 'halted', reason: REASONS.abandoned, haltedAt: currentId(s) }
+      : { outcome: 'no-plan', reason: REASONS.noPlan, haltedAt: null }
+  }
+  if (s?.phase === 'running' && runningReason) return { outcome: 'halted', reason: runningReason, haltedAt: currentId(s) }
+  return null
+}
+
+// Writes the result for `outcome`. `input` is the hook input (session_id, cwd). Returns true when written.
+function writeOutcome(input, s, outcome, reason = null, { haltedAt = null, planFile = null, allowInactive = false } = {}) {
+  try {
+    const sessionId = input?.session_id
+    const rec = record({ sessionId, s, outcome, reason, haltedAt, planFile, cwd: s?.cwd ?? input?.cwd })
+    return write(sessionId, rec, { allowInactive })
+  } catch {
+    return false
+  }
+}
+
+// Writes the result for a state that has ended (see endOf), once: a state whose `resultWritten` is set is skipped.
+// The caller marks `resultWritten` in the state it saves. Returns true when written.
+function writeEnded(input, s, runningReason = null) {
+  try {
+    if (!s || s.resultWritten) return false
+    const end = endOf(s, runningReason)
+    return end ? writeOutcome(input, s, end.outcome, end.reason, { haltedAt: end.haltedAt }) : false
+  } catch {
+    return false
+  }
+}
+
+// The first sentence of a tierminator note, without its tierminator: lead, as a result's reason.
+const reasonOf = note =>
+  String(note ?? '').replace(/^tierminator:\s*/, '').split(/\.\s/)[0].replace(/\.$/, '').slice(0, 300)
+
+module.exports = { VERSION, FIELDS, OUTCOMES, REASONS, pathFor, currentId, record, write, writeOutcome, writeEnded, reasonOf }
