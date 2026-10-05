@@ -677,7 +677,7 @@ In an unattended session, H5 also guards the drafting phase and turns the final 
 
 On `SessionEnd` it deletes the session's state file, its activation flag, its telemetry cursor and rules
 marker, its saved plan listing and its `<session_id>.plan.md` (a pruned file too, after 7 days). A run does not outlive its session; the tasks that
-finished are already committed. Before deleting, it writes the result file for a run still `running` (see [The result file](#the-result-file)); the result file itself is never deleted.
+finished are already committed. Before deleting, it writes the result file for a run still `running` (see [The result file](#the-result-file)); the result file itself is never deleted, and a `limit` result is never overwritten.
 
 ### H7: limit
 
@@ -917,14 +917,14 @@ Every run that ends writes one JSON file a caller can read after the session is 
 |---|---|---|
 | `version` | number | `1`; a change to the set bumps it. |
 | `sessionId` | string | The session id. |
-| `outcome` | string | `complete`, `halted`, `no-plan`, `declined`, and `limit`, reserved for WP-03. |
+| `outcome` | string | `complete`, `halted`, `limit`, `no-plan` or `declined`. |
 | `planFile` | string or null | The plan file. |
 | `tasksFile` | string or null | The tasks file; null when no run started. |
 | `tasksDone` | string[] | Every task id done, including tasks skipped as committed earlier or by `--from`. |
 | `tasksNotRun` | string[] | The other task ids, in plan order. |
-| `haltedAt` | string or null | The task a halted run stopped at. |
+| `haltedAt` | string or null | The task a halted run stopped at, or the task in flight when a limit or an API error ended a run. |
 | `reason` | string or null | Why, for every outcome but `complete`. |
-| `limit` | null | Reserved for a usage limit as `{detectedAt, resetsAt, raw}`, always null until WP-03. |
+| `limit` | object or null | For outcome `limit`, `{detectedAt, resetsAt, raw}`: `detectedAt` the ISO time H7 saw the limit, `resetsAt` the reset in Unix seconds or null, `raw` the whole `StopFailure` payload. Null for every other outcome. |
 | `headCommit` | string or null | HEAD when the file was written. |
 | `endedAt` | string | ISO time. |
 
@@ -938,10 +938,15 @@ Every run that ends writes one JSON file a caller can read after the session is 
 | `halted` | `the user typed a prompt during the run` | H1, when a typed prompt stops the run. |
 | `halted` | `the run's state could not be saved after an attempt was judged` | H1 or H4, when they end the run. |
 | `halted` | `session ended during run` | H6, when the state still says `running`. |
+| `limit` | `a usage limit ended the session` | H7, on `StopFailure` with `error: "rate_limit"`, in a run, an unattended plan still drafting, or an active session with no state. |
+| `halted` | `an API error ended the session: <message>` | H7, on any other `StopFailure` error, in the same cases. |
+| `complete` or `halted` | as at Stop | H7, for a run that ended before the error, whose Stop never came. |
 | `no-plan` | `the plan was still not valid after 3 tries`, or `planning ended without a valid plan` | H5, in a headless session. |
 | `declined` | The refusal, or `the plan opts out of tiered execution` | H1 for a headless `/tierminator:plan` that cannot start (plan mode, Git, flag or state not writable); H5 when a headless plan opts out, cannot be saved or cannot start. |
 
-The state's top-level `resultWritten` flag records that a file was written, so a later hook (a second Stop, SessionEnd) writes nothing more and a completed run is never overwritten by the SessionEnd record. A hook that writes a `limit` result must set it too. `/tierminator:execute` refusals are not written yet.
+The state's top-level `resultWritten` flag records that a file was written, so a later hook (a second Stop, SessionEnd) writes nothing more and a completed run is never overwritten by the SessionEnd record. H7 sets it too. A `limit` result holds even without the flag: `writeEnded` writes nothing over a `limit` record of the same session written at or after the run was approved (`limitRecorded`), so SessionEnd keeps it when the state could not be saved, while a later run of the same plan still writes its own. `/tierminator:execute` refusals are not written yet.
+
+**After a limit.** `tasksFile` null means the limit came before the run started: rerun from planning. Otherwise the first id in `tasksNotRun` is where `/tierminator:execute <planFile> --from <id>` resumes, and an empty `tasksNotRun` means every task was committed. Tierminator never waits or relaunches itself; see [H7](#h7-limit).
 
 ## Spend telemetry
 
