@@ -91,7 +91,12 @@ test('a named run creates the branch and state', async () => {
   const exclude = fs.readFileSync(path.join(repo, '.git', 'info', 'exclude'), 'utf8')
   assert.ok(exclude.includes('/.grindinator/'))
   assert.equal(helpers.git(repo, 'status', '--porcelain'), '')
-  assert.equal(outLines[outLines.length - 1], 'Every package is done.')
+  assert.ok(outLines.includes('Every package is done.'))
+  assert.equal(outLines[outLines.length - 1], 'Summary: .grindinator/summary.md')
+  for (const p of Object.values(st.packages)) {
+    assert.equal(p.attempts[0].commits, 1)
+    assert.equal(p.attempts[0].gate.status, 'skipped')
+  }
 })
 
 test('without a name the branch comes from the directory and the time', async () => {
@@ -186,6 +191,8 @@ test('a usage limit stops the run with exit 3', async () => {
   assert.equal(st.packages['WP-01'].status, 'pending')
   assert.equal(st.packages['WP-01'].attempts[0].outcome, 'limit')
   assert.equal(st.packages['WP-01'].attempts[0].source, 'stream')
+  const summary = fs.readFileSync(path.join(repo, '.grindinator', 'summary.md'), 'utf8')
+  assert.ok(summary.includes('- Exit code: 3'))
 })
 
 test('SIGINT ends the session, exits 4 and keeps the state', async () => {
@@ -204,6 +211,8 @@ test('SIGINT ends the session, exits 4 and keeps the state', async () => {
   for (const id of ['WP-01', 'WP-02', 'WP-03']) assert.equal(state.isDone(repo, id), false)
   assert.equal(signals.listenerCount('SIGINT'), 0)
   assert.match(errLines[errLines.length - 1], /interrupted/)
+  const summary = fs.readFileSync(path.join(repo, '.grindinator', 'summary.md'), 'utf8')
+  assert.ok(summary.includes('- Exit code: 4'))
 
   assert.equal(await go(), 0)
   const again = state.read(repo)
