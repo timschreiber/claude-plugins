@@ -22,6 +22,7 @@ without an evidence file behind it.
 | `planandtier/` | Do the hooks, `updatedInput` args and per-call `effort` that `docs/tierminator/tierminator-spike-spec.md` relies on (P1–P8) work? | Whether tierminator is built as designed or falls back to hook-driven dispatch | **Run.** `evidence/planandtier-spike-headless-results.json` (22 records) and `planandtier-spike-interactive-results.json` (25). All eight probes answered. See `docs/tierminator/tierminator-spike-findings.md` |
 | `decidinator/` | Do the hook inputs, plan-mode tools, deny delivery and model settings Decidinator's spec assumes hold? | WP-02 onward | **Headless run, interactive pending.** `evidence/decidinator-probe-*` (7 cells) and `decidinator-verification-results.json`. See `docs/decidinator/decidinator-verification.md` |
 | `tierminator/` | Does a headless `claude -p "/plugin:command args"` give hooks the raw text and an `sdk` entrypoint, expand `$ARGUMENTS` and pass `additionalContext` to the model? | The tierminator redesign | **Run.** `evidence/tierminator-headless-probe-*` (1 session). See `docs/tierminator/tierminator-headless-command-findings.md` |
+| `grindinator/` | Do the headless behaviors Grindinator's spec assumes hold: `StopFailure`, stream-json shapes and exit codes, the reset time, `SessionEnd` on a limit, headless `/tierminator:execute`, Decidinator in `-p`, decision-log writes versus the clean tree, permissions, and model resolution? | Grindinator WP-02 onward | **Not run.** See `probes/grindinator/README.md` |
 
 ## Run order
 
