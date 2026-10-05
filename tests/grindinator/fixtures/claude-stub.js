@@ -2,7 +2,8 @@
 // Environment:
 //   GRINDINATOR_STUB_LOG      when set, one JSON line is appended per run: {argv, cwd, env}, where
 //                             env holds TIERMINATOR_RESULT_FILE, DECIDINATOR_MODE,
-//                             DECIDINATOR_CONTEXT, DECIDINATOR_LOG and DECIDINATOR_SIDECAR (null when unset).
+//                             DECIDINATOR_CONTEXT, DECIDINATOR_LOG, DECIDINATOR_SIDECAR, CLAUDECODE and
+//                             CLAUDE_CODE_ENTRYPOINT (null when unset).
 //   GRINDINATOR_STUB_SCENARIO path of a JSON scenario file; without it DEFAULT_SCENARIO runs.
 // Scenario format (all keys optional):
 //   stream     array written to stdout one entry per line: a string as is (so a test can emit a
@@ -38,7 +39,9 @@ function main() {
         DECIDINATOR_MODE: env.DECIDINATOR_MODE ?? null,
         DECIDINATOR_CONTEXT: env.DECIDINATOR_CONTEXT ?? null,
         DECIDINATOR_LOG: env.DECIDINATOR_LOG ?? null,
-        DECIDINATOR_SIDECAR: env.DECIDINATOR_SIDECAR ?? null
+        DECIDINATOR_SIDECAR: env.DECIDINATOR_SIDECAR ?? null,
+        CLAUDECODE: env.CLAUDECODE ?? null,
+        CLAUDE_CODE_ENTRYPOINT: env.CLAUDE_CODE_ENTRYPOINT ?? null
       }
     }
     fs.appendFileSync(env.GRINDINATOR_STUB_LOG, JSON.stringify(entry) + '\n')
