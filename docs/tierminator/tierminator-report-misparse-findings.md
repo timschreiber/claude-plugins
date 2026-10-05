@@ -4,7 +4,7 @@
 message that starts with that field name. A worker that writes `**Verify:** ...` in a summary before its closing
 block therefore has the summary read as its verification result. The run then judges a good attempt as failed,
 resets the tree with `git reset --hard`, and discards the worker's commit. This happened to T16 of the Grindinator
-WP-01 run. The fix is proposed here, not built.
+WP-01 run. The fix is built; see **Fix** below.
 
 Measured on Claude Code 2.1.289 (Windows), 2026-10-05, against `plugins/tierminator/scripts/lib/run.js` as of
 commit `694e33f`.
@@ -69,28 +69,24 @@ function parseReport(text) {
 - **The worker prompt allows it.** The agent files say "End with exactly this block and nothing after it". They do
   not forbid prose before the block, and the block is at the end, as asked.
 
-## Proposed fix
+## Fix
 
-Nothing below is built. Each item has its own commit and test, in the order given.
+It was built in `3c502a3` "Read the worker's closing block, not the first field match", `8498f20` "Halt instead of resetting on a VERIFY value that is not a verdict", `23cc725` "Re-read an unreadable report from the worker transcript" and `d78f390` "Tell workers no line before the report block may start with a field name".
 
-1. **Read the closing block, not the first match.** In `parseReport`, find the last line that matches
-   `STATUS:`, and read `COMMIT`, `VERIFY` and `NOTE` from that line onward. Earlier text is ignored. Keep the
-   case-insensitive match and the tolerated prefixes, so the existing lowercase test still passes.
-2. **Strip emphasis from the value.** After the colon, drop leading `*` and backtick characters, so a worker that
-   writes `**VERIFY:** PASS` is still read as `PASS`.
-3. **Do not reset on a value that is not a verdict.** `VERIFY` should be `PASS`, `FAIL` or `NOT RUN`. If `judge`
-   gets anything else from a `DONE` report, treat it as unreadable: re-read the report from the transcript, and
-   if it is still unreadable, stop the run with a fatal reason (a halt never resets) rather than reset and retry.
-   A real `FAIL` and a real `NOT RUN` keep their current retry behavior.
-4. **Tests.** In `tests/tierminator/run.test.js`:
-   - the T16 report text (a trimmed copy of the evidence) parses to `verify: 'PASS'`;
-   - prose lines that start with `Verify:`, `Note:`, `Commit:` and `Status:` before the block are ignored;
-   - `**VERIFY:** PASS` parses to `PASS`;
-   - a `DONE` report with `VERIFY: maybe` is stopped, not retried, and the tree is not reset.
-
-   In `tests/tierminator/hooks.test.js`, check the same through the hand-back path.
-5. **Tell the worker.** In the four agent files (`agents/*.md`, section "Report"), add one sentence: no line before
-   the block may start with `STATUS:`, `COMMIT:`, `VERIFY:` or `NOTE:`. This is a hint only; the parser must not
+1. **Read the closing block, not the first match.** `parseReport` finds the last line that matches `STATUS:`, and
+   reads `COMMIT`, `VERIFY` and `NOTE` from the lines after it. Earlier text is ignored. The match stays
+   case-insensitive and tolerates the same prefixes.
+2. **Stripped emphasis from the value.** After the colon, leading and trailing `*` and backtick characters are
+   dropped, so `**VERIFY:** PASS` is read as `PASS`.
+3. **Did not reset on a value that is not a verdict.** `verdictOf` maps a `VERIFY` value to `PASS`, `FAIL` or
+   `NOT RUN`; `PASSED` and `FAILED` count as `PASS` and `FAIL`. For a `DONE` report whose value is none of these,
+   the report is treated as unreadable. It is re-read from the worker's transcript (`readReport` in
+   `lib/settle.js`), and if it is still unreadable, `judge` returns a fatal reason, so the run halts and never
+   resets. A real `FAIL` and a real `NOT RUN` keep their retry behavior.
+4. **Tests.** In `tests/tierminator/run.test.js` and `tests/tierminator/hooks.test.js`, added for the parser, for
+   the halt on a value that is not a verdict, and for the hand-back path.
+5. **Told the worker.** In the five agent files (`agents/*.md`, section "Report"), one sentence says no line before
+   the block may start with `STATUS:`, `COMMIT:`, `VERIFY:` or `NOTE:`. This is a hint only; the parser does not
    depend on it.
 
 ## Recovering a reset commit

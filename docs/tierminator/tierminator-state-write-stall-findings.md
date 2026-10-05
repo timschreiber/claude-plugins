@@ -3,7 +3,7 @@
 A tiered run can stop advancing after a background worker finishes. The worker's commit lands, but Claude never
 gets the note that names the next task, so the run sits idle until the user does something. This was seen in
 the Grindinator WP-01 run (T07 finished, T08 was never dispatched) and has left traces in two earlier sessions.
-The fix is proposed here, not built.
+The fix is built; see **Fix** below.
 
 Measured on Claude Code 2.1.289 (Windows), 2026-10-05.
 
@@ -68,29 +68,31 @@ then lose the note without a trace:
   the orphan. The evidence does not show which hook wrote them, or whether those sessions stalled.
 - **Whether other state writes are affected.** `state.write` is used by every hook, not only these two.
 
-## Proposed fix
+## Fix
 
-Nothing below is built. Each item has its own commit and test, in the order given.
+It was built in `a5fce0e` (committed under the title "T01 title"; it is "Retry the state file rename on lock errors"), `1628db1` "Add the lost-state note helpers" and `af10fc5` "Stop the run with a message when a judged attempt cannot be saved".
 
-1. **Retry the rename.** In `state.write`, retry `renameSync` on `EPERM`, `EBUSY` and `EACCES` with the short
-   backoff `lib/git.js` already uses for lock errors (`LOCK_RETRY_MS = [100, 200, 400, 800, 1500]`, line 101),
-   waiting the way its `sleep` does (`Atomics.wait`, synchronous, line 103). Keep the function's contract: it returns `true` when the state was saved.
-2. **Clean up and say so.** When the retries run out, remove the temp file, and record the error code and the
-   state's phase through `debug(...)`, which today logs only successes. Today the failure leaves no log line and
-   no way to tell which write was lost.
-3. **Do not lose the note when a write fails.** In `H1` `handBack`, emit `next.notice` even when `state.write`
-   returns `false`: the claim is held, the attempt is settled, and the only thing lost would be the saved state.
-   Skip the emit only if `settle` produced no notice. In `H4 stop`, when the write fails, the notice cannot reach `H1`,
-   so write it to `<session>.<key>.notice` as a fallback that `awaitNotice` reads, or fail the claim so that `H1` judges
-   the attempt.
-4. **Poll less.** In `awaitNotice`, back off from the 50 ms interval (for example to 50, 100, 200 ms and then
-   steady at 250 ms) so the reader does not hold the file open as often while `H4` settles.
-5. **Tests.** In `tests/tierminator/state.test.js`, force `renameSync` to throw twice and then succeed, and check
-   that `write` returns `true` and leaves no `.tmp`; force it to always throw and check that it returns `false`
-   and leaves no `.tmp`. In `tests/tierminator/hooks.test.js`, check that a failed state write in `handBack` still
-   prints the notice, and that a failed write in `H4 stop` still reaches `H1`.
-6. **Orphan sweep.** `prune` (`state.js`, 7 days) already deletes `.tmp` files by age. Leave it, and use the
-   orphans as the signal when a run stalls (below).
+1. **Retried the rename.** `state.write` retries `renameSync` on `EPERM`, `EBUSY` and `EACCES` with the backoff
+   `lib/git.js` uses for lock errors (`LOCK_RETRY_MS = [100, 200, 400, 800, 1500]`), waiting the way its `sleep`
+   does (`Atomics.wait`, synchronous). Its contract is unchanged: it returns `true` when the state was saved.
+2. **Cleaned up and said so.** When the retries run out, or the error is not a lock error, `write` removes the temp
+   file and logs the error code and the state's phase through `debug(...)`. The line appears only with
+   `TIERMINATOR_DEBUG` set.
+3. **Ended the run when a judged attempt cannot be saved.** This differs from the proposal. Printing the next
+   dispatch after a failed save would be refused by H4 pre, which still sees the attempt in flight. Instead, a
+   failed save of a judged attempt ends the run. In `H1` `handBack`, `endLost` prints `lostText` (or the final
+   notice for a completed or halted run) and deactivates the session. In `H4 stop`, `state.saveLost` writes the same
+   text to `<session>.lost`, and `H1` (hand-back, notification or `awaitNotice`) or `H4 post` delivers it with
+   `state.takeLost` and ends the run. `runNote` and `awaitNotice` print a notice even when clearing it fails. The
+   user resumes with `/tierminator:execute`; committed tasks are skipped.
+4. **Polled less.** `awaitNotice` backs off through 50, 100, 200 and then 250 ms (`NOTICE_POLL_MS`), so the reader
+   holds the file open less often while `H4` settles.
+5. **Tests.** `tests/tierminator/state.test.js` has the retry tests: a rename that fails and then succeeds, one
+   that always fails (no `.tmp` is left), and an error that is not a lock error (not retried).
+   `tests/tierminator/hooks.test.js` has tests that use `tests/tierminator/fixtures/fail-rename.js` to make the state
+   rename fail in the hooks.
+6. **Orphan sweep.** Unchanged: `prune` (`state.js`, 7 days) already deletes `.tmp` files by age, and orphans
+   remain the signal when a run stalls (below).
 
 ## Diagnosing a stall
 
@@ -100,3 +102,5 @@ Nothing below is built. Each item has its own commit and test, in the order give
   `/tierminator:execute "<plan path>" --from Txx`, with `Txx` the first task that has no commit
   (`git log` shows `Tierminator-Task` trailers).
 - **Check the tree first.** The run's own checks require a clean tree and the same branch.
+- **After the fix, check the message.** A stall that ends with "the run's state could not be saved" is the lost-state
+  path, not a lost note. Resume it with `/tierminator:execute`.
