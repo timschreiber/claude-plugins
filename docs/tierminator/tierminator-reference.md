@@ -20,6 +20,7 @@ Tested on Claude Code 2.1.283 (Windows).
 - [The run](#the-run)
 - [Executing a saved plan](#executing-a-saved-plan)
 - [Unattended runs](#unattended-runs)
+- [The result file](#the-result-file)
 - [Spend telemetry](#spend-telemetry)
 - [The sizing review](#the-sizing-review)
 - [Session state](#session-state)
@@ -674,7 +675,7 @@ In an unattended session, H5 also guards the drafting phase and turns the final 
 
 On `SessionEnd` it deletes the session's state file, its activation flag, its telemetry cursor and rules
 marker, its saved plan listing and its `<session_id>.plan.md` (a pruned file too, after 7 days). A run does not outlive its session; the tasks that
-finished are already committed.
+finished are already committed. Before deleting, it writes the result file for a run still `running` (see [The result file](#the-result-file)); the result file itself is never deleted.
 
 ## The run
 
@@ -890,6 +891,44 @@ For headless `claude -p` runs, where no one approves a plan.
   `Verify:` commands and `git commit` on their own: `--permission-mode bypassPermissions` in a sandbox or
   CI, or `acceptEdits` with `--allowedTools` rules.
 
+## The result file
+
+Every run that ends writes one JSON file a caller can read after the session is gone, `lib/result.js`. The session state is deleted at SessionEnd, so without it only the plan, tasks and telemetry files persist. It is written for interactive and headless sessions, only for a session tierminator has activated (one exception: a headless `/tierminator:plan` refused before it activated), atomically (temp file, then rename), and never fails loudly.
+
+**Path.** `TIERMINATOR_RESULT_FILE` when set (a relative value is resolved against the hook's working directory), else `<plan>.result.json` beside the plan file, else `sessions/<session_id>.result.json` beside the session state when there is no plan file. SessionEnd never deletes it (only the 7-day prune removes the last kind). A later run of the same plan overwrites it.
+
+**Fields.**
+
+| Field | Type | Meaning |
+|---|---|---|
+| `version` | number | `1`; a change to the set bumps it. |
+| `sessionId` | string | The session id. |
+| `outcome` | string | `complete`, `halted`, `no-plan`, `declined`, and `limit`, reserved for WP-03. |
+| `planFile` | string or null | The plan file. |
+| `tasksFile` | string or null | The tasks file; null when no run started. |
+| `tasksDone` | string[] | Every task id done, including tasks skipped as committed earlier or by `--from`. |
+| `tasksNotRun` | string[] | The other task ids, in plan order. |
+| `haltedAt` | string or null | The task a halted run stopped at. |
+| `reason` | string or null | Why, for every outcome but `complete`. |
+| `limit` | null | Reserved for a usage limit as `{detectedAt, resetsAt, raw}`, always null until WP-03. |
+| `headCommit` | string or null | HEAD when the file was written. |
+| `endedAt` | string | ISO time. |
+
+**When each outcome is written.**
+
+| Outcome | Reason | Written by |
+|---|---|---|
+| `complete` | null | H5, at the first Stop after the last task is committed. |
+| `halted` | The halt reason, `haltedAt` the halted task. | H5, at the first Stop after H4 halted the run. |
+| `halted` | `tierminator stopped dispatching tasks: ...` | H5, when the guard abandons a run. |
+| `halted` | `the user typed a prompt during the run` | H1, when a typed prompt stops the run. |
+| `halted` | `the run's state could not be saved after an attempt was judged` | H1 or H4, when they end the run. |
+| `halted` | `session ended during run` | H6, when the state still says `running`. |
+| `no-plan` | `the plan was still not valid after 3 tries`, or `planning ended without a valid plan` | H5, in a headless session. |
+| `declined` | The refusal, or `the plan opts out of tiered execution` | H1 for a headless `/tierminator:plan` that cannot start (plan mode, Git, flag or state not writable); H5 when a headless plan opts out, cannot be saved or cannot start. |
+
+The state's top-level `resultWritten` flag records that a file was written, so a later hook (a second Stop, SessionEnd) writes nothing more and a completed run is never overwritten by the SessionEnd record. A hook that writes a `limit` result must set it too. `/tierminator:execute` refusals are not written yet.
+
 ## Spend telemetry
 
 tierminator estimates the tokens and cost of every run: each worker attempt by tier, the main session's
@@ -1092,7 +1131,7 @@ stateDiagram-v2
 | `halted` | H4 | Stopped at a task; see `halt`. | Off | No |
 | `abandoned` | H5, after giving up; H1, when a typed prompt stops the run (the state is then removed) | Claude stopped dispatching, or the user typed a prompt. | Off | No |
 
-State writes are atomic (a temp file, then a rename). Session ids are reduced to letters, digits, `_` and
+State writes are atomic (a temp file, then a rename). The top-level `resultWritten` flag is set on an ended state once its result file is written (see [The result file](#the-result-file)). Session ids are reduced to letters, digits, `_` and
 `-` before being used as file names. A corrupt or unreadable file reads as no state. Each approval and each
 `/tierminator:plan` prunes session files, flags and temp files not modified in 7 days.
 
@@ -1185,6 +1224,7 @@ How the plugin behaves when something goes wrong:
 | `CLAUDE_PLUGIN_DATA` | Set by Claude Code. Parent of the `sessions/` state directory. A value set in the shell is ignored under `--plugin-dir`. |
 | `CLAUDE_PLUGIN_ROOT` | Set by Claude Code. Used to locate the hook scripts and the rules file. |
 | `CLAUDE_CODE_ENTRYPOINT` | Set by Claude Code. A value starting with `sdk` (`sdk-cli` for `claude -p`) makes `/tierminator:plan` start an [unattended run](#unattended-runs); anything else, or unset, plans interactively. |
+| `TIERMINATOR_RESULT_FILE` | When set, the absolute path where a run's [result file](#the-result-file) is written instead of beside the plan. |
 | `CLAUDE_CODE_EFFORT_LEVEL` | If set, overrides the agents' effort. Leave unset. |
 | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` | If set, overrides the agents' models. Leave unset. |
 
@@ -1237,6 +1277,7 @@ plugins/tierminator/
     lib/spend.js                 # what each hook records for telemetry, and the UI text
     lib/telemetry.js             # <plan>.telemetry.jsonl: records, the attempt line, the summary
     lib/usage.js                 # token usage from transcripts: de-duplicated, windowed, by mode
+    lib/result.js                # the result file: path, record, atomic write, what each ended state says
     lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
     lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
     lib/state.js                 # per-session state file, activation flag and telemetry cursor: read, atomic write, remove, activate, prune
@@ -1268,6 +1309,8 @@ file and fails.
 | `tests/tierminator/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt (with and without a plan id), and moving on: next, complete, retry up the ladder, halt; a run started part-way. |
 | `tests/tierminator/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
 | `tests/tierminator/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, the activation flag and the telemetry cursor. |
+| `tests/tierminator/result.test.js` | The result file's schema (version 1, the field set, the outcomes), its path rules, the atomic write, nothing written for an inactive session, an unwritable path, and what each ended state says. |
+| `tests/tierminator/result-hooks.test.js` | The result file as the hooks write it: complete, halted and abandoned at H5's Stop, a typed prompt, SessionEnd (and surviving it), no overwrite, inactive sessions, the environment override, the no-plan fallback path, an unattended no-plan, opt-out and refused plan, and a refused headless start. |
 | `tests/tierminator/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
 | `tests/tierminator/usage.test.js` | De-duplicating repeated message lines, cache writes with and without a 5 m / 1 h split, an `opusplan` session split by mode and priced per model, time windows, unpriced models, unreadable transcripts, and subagents by window and type. |
 | `tests/tierminator/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
