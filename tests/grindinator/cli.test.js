@@ -5,18 +5,20 @@ const { test, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('fs')
 const path = require('path')
-const { spawnSync } = require('child_process')
+const { spawn, spawnSync } = require('child_process')
 
 const helpers = require('./helpers.js')
 const { HELP } = require('../../tools/grindinator/lib/cli.js')
+const state = require('../../tools/grindinator/lib/state.js')
 
 const BIN = path.resolve(__dirname, '../../tools/grindinator/bin/grindinator')
 
-let repo, home
+let repo, home, stubDir
 
 beforeEach(() => {
   repo = fs.realpathSync.native(helpers.makeRepo())
   home = helpers.tempDir('grind-home-')
+  stubDir = helpers.tempDir('grind-stub-')
   helpers.writePackages(path.join(repo, 'wp'), ['WP-01 · One.md', 'WP-02 · Two.md'])
   helpers.git(repo, 'add', '-A')
   helpers.git(repo, 'commit', '-q', '-m', 'packages')
@@ -25,12 +27,13 @@ beforeEach(() => {
 afterEach(() => {
   helpers.remove(repo)
   helpers.remove(home)
+  helpers.remove(stubDir)
 })
 
 const grind = (...args) =>
   spawnSync(process.execPath, [BIN, ...args], {
     cwd: repo,
-    env: { ...process.env, HOME: home, USERPROFILE: home },
+    env: { ...helpers.stubEnv(stubDir, helpers.completeScenario()), HOME: home, USERPROFILE: home },
     encoding: 'utf8',
   })
 
@@ -85,4 +88,19 @@ test('run, status and reset', () => {
   assert.ok(lines.some(l => l.startsWith('WP-02')))
   assert.equal(grind('reset', 'WP-01').status, 0)
   assert.equal(grind('reset').status, 2)
+})
+
+test('SIGINT exits 4 and keeps the state', { skip: process.platform === 'win32' }, async () => {
+  const env = {
+    ...helpers.stubEnv(stubDir, { stream: [helpers.INIT], delayMs: 30000 }),
+    HOME: home,
+    USERPROFILE: home
+  }
+  const child = spawn(process.execPath, [BIN, 'run', 'wp', '--name', 't'], { cwd: repo, env, stdio: 'ignore' })
+  const exited = new Promise(resolve => child.on('close', code => resolve(code)))
+  const streamFile = path.join(repo, '.grindinator', 'runs', 'WP-01', 'attempt-1', 'stream.jsonl')
+  await helpers.waitFor(() => fs.readFileSync(streamFile, 'utf8').includes('init'))
+  child.kill('SIGINT')
+  assert.equal(await exited, 4)
+  assert.equal(state.read(repo).packages['WP-01'].status, 'pending')
 })

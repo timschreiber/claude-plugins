@@ -1,13 +1,15 @@
 // The Grindinator run command's precondition flow: validates the run name, the repository, the
 // configuration, the packages and the working tree, then creates or resumes the run branch and state.
-// It stops there; launching sessions comes later (WP-07). Failures are GrindinatorErrors (exit 2).
+// Then it runs each package that is not done in one headless session (lib/attempt.js), stopping at the first that does not complete. Failures are GrindinatorErrors (exit 2).
 'use strict'
 
 const fs = require('fs')
 const path = require('path')
-const { GrindinatorError } = require('./errors.js')
+const { EXIT, GrindinatorError } = require('./errors.js')
 const { loadStrict } = require('./config.js')
-const { discover, loadPreamble } = require('./packages.js')
+const { discover, loadPreamble, readPackage } = require('./packages.js')
+const { sessionPrompt } = require('./session.js')
+const { runAttempt } = require('./attempt.js')
 const state = require('./state.js')
 const git = require('./git.js')
 
@@ -33,7 +35,7 @@ function defaultRunName(dirAbs, date) {
   return `${slug || 'run'}-${stamp}`
 }
 
-async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now = () => new Date() }) {
+async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now = () => new Date(), env = process.env, signals = process }) {
   if (name !== undefined && name !== null && !validRunName(name)) {
     throw new GrindinatorError(`--name: "${name}" is not a valid run name; ${RUN_NAME_RULE}`)
   }
@@ -51,7 +53,7 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   const rel = path.relative(root, dirAbs)
   const recordedDir = rel.startsWith('..') || path.isAbsolute(rel) ? dirAbs : (rel.split(path.sep).join('/') || '.')
 
-  if (config.preamble) loadPreamble(path.resolve(root, config.preamble))
+  const preambleText = config.preamble ? loadPreamble(path.resolve(root, config.preamble)) : null
 
   git.checkRepo(root)
   git.ensureExcluded(root)
@@ -99,13 +101,45 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   const todo = packages.filter(p => !state.isDone(root, p.id))
   out(`Run ${st.runName} on branch ${st.branch}.`)
   out(`Packages: ${packages.length} (${done.length} done, ${todo.length} to run).`)
-  if (todo.length > 0) {
-    out(`To run: ${todo.map(p => p.id).join(', ')}.`)
-    out('Launching sessions is not built yet (WP-07); stopped after the precondition checks.')
-  } else {
+  if (todo.length === 0) {
     out('Every package is done.')
+    return EXIT.OK
   }
-  return 0
+  out(`To run: ${todo.map(p => p.id).join(', ')}.`)
+
+  const ac = new AbortController()
+  const onSigint = () => ac.abort()
+  signals.on('SIGINT', onSigint)
+  try {
+    for (const pkg of todo) {
+      if (ac.signal.aborted) {
+        err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
+        return EXIT.INTERRUPTED
+      }
+      git.checkClean(root)
+      const n = st.packages[pkg.id].attempts.length + 1
+      out(`${pkg.id}: attempt ${n} started; its stream is in .grindinator/runs/${pkg.id}/attempt-${n}/stream.jsonl.`)
+      const a = await runAttempt({
+        root, st, pkg, prompt: sessionPrompt(preambleText, readPackage(pkg)), config, env, abortSignal: ac.signal, now
+      })
+      out(`${pkg.id}: attempt ${a.n} ended: ${a.outcome}${a.haltedAt ? ` at ${a.haltedAt}` : ''}${a.reason ? ` (${a.reason})` : ''}.`)
+      if (a.outcome === 'complete') continue
+      if (a.outcome === 'interrupted') {
+        err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
+        return EXIT.INTERRUPTED
+      }
+      if (a.outcome === 'limit') {
+        err(`grindinator: ${pkg.id} hit a usage limit; waiting for the reset is not built yet (WP-09), so the run stops. Run it again after the reset.`)
+        return EXIT.LIMIT
+      }
+      err(`grindinator: ${pkg.id} ended ${a.outcome}, so the run stops; see .grindinator/${a.dir}/.`)
+      return EXIT.FAILED
+    }
+  } finally {
+    signals.removeListener('SIGINT', onSigint)
+  }
+  out('Every package is done.')
+  return EXIT.OK
 }
 
 module.exports = { run, defaultRunName, validRunName, RUN_NAME_RULE }

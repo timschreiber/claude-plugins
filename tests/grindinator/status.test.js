@@ -10,6 +10,9 @@ const { run } = require('../../tools/grindinator/lib/run.js')
 const state = require('../../tools/grindinator/lib/state.js')
 const { GrindinatorError } = require('../../tools/grindinator/lib/errors.js')
 
+// A signal source that reports SIGINT as soon as the run listens, so run sets up its state and launches no session.
+const NO_SESSIONS = { on: (_, fn) => fn(), removeListener() {} }
+
 const NAMES = ['WP-01 · One.md', 'WP-02 · Two.md', 'WP-03 · Three.md']
 
 function setup() {
@@ -56,7 +59,7 @@ test('status with a run reports the run and each package', async () => {
   const repo = setup()
   const home = helpers.tempDir('grind-home-')
   try {
-    await run({ cwd: repo, homeDir: home, packagesDir: 'wp', name: 'test', out: () => {}, err: () => {} })
+    await run({ cwd: repo, homeDir: home, packagesDir: 'wp', name: 'test', signals: NO_SESSIONS, out: () => {}, err: () => {} })
     state.markDone(repo, 'WP-02')
     const st = state.read(repo)
     st.packages['WP-03'].status = 'failed'
@@ -82,7 +85,7 @@ test('reset clears the marker and rejects a bad id', async () => {
   const repo = setup()
   const home = helpers.tempDir('grind-home-')
   try {
-    await run({ cwd: repo, homeDir: home, packagesDir: 'wp', name: 'test', out: () => {}, err: () => {} })
+    await run({ cwd: repo, homeDir: home, packagesDir: 'wp', name: 'test', signals: NO_SESSIONS, out: () => {}, err: () => {} })
     state.markDone(repo, 'WP-02')
     const st = state.read(repo)
     st.packages['WP-02'].status = 'done'
