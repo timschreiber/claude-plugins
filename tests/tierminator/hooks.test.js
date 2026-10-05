@@ -2453,6 +2453,7 @@ const HOOKS = [
   ['h5-guard.js', ['pre']],
   ['h5-guard.js', ['stop']],
   ['h6-cleanup.js', ['end']],
+  ['h7-limit.js', []],
 ]
 
 test('every hook exits 0 with no output on empty, malformed and non-object stdin', () => {
@@ -2484,7 +2485,7 @@ test('every hook exits 0 when the data directory is unwritable', () => {
 test('hooks.json is valid, every command names a script that exists, and Agent events go to H4', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 16)
+  assert.equal(commands.length, 17)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)
@@ -2493,6 +2494,7 @@ test('hooks.json is valid, every command names a script that exists, and Agent e
   assert.match(h4('PreToolUse', 'Agent'), /h4-dispatch\.js" pre$/)
   assert.match(h4('PostToolUse', 'Agent'), /h4-dispatch\.js" post$/)
   assert.match(h4('PostToolUseFailure', 'Agent'), /h4-dispatch\.js" failure$/)
+  assert.ok(config.hooks.StopFailure[0].hooks[0].command.endsWith('scripts/h7-limit.js"'), 'StopFailure goes to H7')
   assert.match(h4('PreToolUse', 'SendMessage'), /h4-dispatch\.js" resume-pre$/)
   assert.match(h4('PostToolUse', 'SendMessage'), /h4-dispatch\.js" resume-post$/)
   assert.match(h4('PostToolUseFailure', 'SendMessage'), /h4-dispatch\.js" resume-failure$/)

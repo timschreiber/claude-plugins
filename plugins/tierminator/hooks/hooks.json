@@ -108,6 +108,13 @@
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h6-cleanup.js\" end", "timeout": 15 }
         ]
       }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h7-limit.js\"", "timeout": 15 }
+        ]
+      }
     ]
   }
 }
