@@ -633,6 +633,8 @@ Variables a person or a consumer sets:
 | --- | --- | --- |
 | `DECIDINATOR_MODE` | `session-start.js` | `ask` or `sidecar` (case is ignored): arms every session at start, for `startup`, `resume` and `clear`. Any other non-empty value arms nothing and says so. |
 | `DECIDINATOR_CONTEXT` | `lib/resolution.js` | The context label recorded in `Depends on` and in log entries (a runner sets it to the work package ID). Without it, the label is `session <session id> on <branch>`. White space is collapsed and `;` becomes a comma. |
+| `DECIDINATOR_LOG` | `lib/config.js` | A path (relative to the project root, or absolute) that replaces the `decisionLog` key of every config file. Surrounding white space is trimmed; empty or unset is ignored. |
+| `DECIDINATOR_SIDECAR` | `lib/config.js` | A path (relative to the project root, or absolute) that replaces the `sidecar` key of every config file. Surrounding white space is trimmed; empty or unset is ignored. |
 | `DECIDINATOR_DEBUG` | `lib/debug.js` | `1` logs hook errors and state changes to `decidinator-debug.log` in the operating system's temporary directory. Never to stdout. Any other value logs nothing. |
 
 Every other variable the scripts read (found by searching `plugins/decidinator/scripts` for `process.env`):

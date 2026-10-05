@@ -10,8 +10,15 @@ const config = require('../../plugins/decidinator/scripts/lib/config.js')
 const { DEFAULTS, load, projectDir, forInput, userFile, projectFile } = config
 
 let root, home, project
+const ENV_KEYS = ['DECIDINATOR_LOG', 'DECIDINATOR_SIDECAR']
+let savedEnv
 
 beforeEach(() => {
+  savedEnv = {}
+  for (const k of ENV_KEYS) {
+    savedEnv[k] = process.env[k]
+    delete process.env[k]
+  }
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'decidinator-config-'))
   home = path.join(root, 'home')
   project = path.join(root, 'project')
@@ -22,6 +29,10 @@ beforeEach(() => {
 afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true })
   delete process.env.CLAUDE_PROJECT_DIR
+  for (const k of ENV_KEYS) {
+    if (savedEnv[k] === undefined) delete process.env[k]
+    else process.env[k] = savedEnv[k]
+  }
 })
 
 function write(file, content) {
@@ -163,4 +174,49 @@ test('forInput reads the project file from CLAUDE_PROJECT_DIR', () => {
   process.env.CLAUDE_PROJECT_DIR = project
   writeProject({ mode: 'sidecar' })
   assert.equal(forInput({}).config.mode, 'sidecar')
+})
+
+test('DECIDINATOR_LOG and DECIDINATOR_SIDECAR set the two paths', () => {
+  const side = path.resolve(os.tmpdir(), 'x', 'side.md')
+  process.env.DECIDINATOR_LOG = 'run/decisions.md'
+  process.env.DECIDINATOR_SIDECAR = side
+  const { config: c, warnings } = run()
+  assert.equal(c.decisionLog, 'run/decisions.md')
+  assert.equal(c.sidecar, side)
+  assert.deepEqual(warnings, [])
+})
+
+test('the environment beats a project file', () => {
+  writeProject({ decisionLog: 'a/log.md', sidecar: 'a/side.md' })
+  process.env.DECIDINATOR_LOG = 'env/log.md'
+  process.env.DECIDINATOR_SIDECAR = 'env/side.md'
+  const { config: c, warnings } = run()
+  assert.equal(c.decisionLog, 'env/log.md')
+  assert.equal(c.sidecar, 'env/side.md')
+  assert.deepEqual(warnings, [])
+})
+
+test('empty and whitespace-only values are ignored', () => {
+  process.env.DECIDINATOR_LOG = ''
+  process.env.DECIDINATOR_SIDECAR = '   '
+  const { config: c, warnings } = run()
+  assert.deepEqual(c, defaultsCopy())
+  assert.deepEqual(warnings, [])
+})
+
+test('both variables naming the same file give the defaults and a warning', () => {
+  process.env.DECIDINATOR_LOG = 'same.md'
+  process.env.DECIDINATOR_SIDECAR = 'same.md'
+  const { config: c, warnings } = run()
+  assert.equal(c.decisionLog, DEFAULTS.decisionLog)
+  assert.equal(c.sidecar, DEFAULTS.sidecar)
+  assert.deepEqual(warnings, ['"decisionLog" and "sidecar" must name different files; the defaults are used'])
+})
+
+test('a value with surrounding spaces is trimmed', () => {
+  process.env.DECIDINATOR_LOG = '  run/decisions.md  '
+  process.env.DECIDINATOR_SIDECAR = ' run/side.md '
+  const { config: c } = run()
+  assert.equal(c.decisionLog, 'run/decisions.md')
+  assert.equal(c.sidecar, 'run/side.md')
 })

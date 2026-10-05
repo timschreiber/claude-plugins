@@ -84,6 +84,11 @@ function readFile(file) {
   return { values: parsed, problems: [] }
 }
 
+function applyEnvPath(merged, raw, key) {
+  if (raw === undefined || raw.trim() === '') return
+  merged[key] = raw.trim()
+}
+
 function load({ projectDir: project, homeDir }) {
   const merged = { ...DEFAULTS, rungs: [...DEFAULTS.rungs] }
   const warnings = []
@@ -106,6 +111,9 @@ function load({ projectDir: project, homeDir }) {
       merged[key] = Array.isArray(value) ? [...value] : value
     }
   }
+
+  applyEnvPath(merged, process.env.DECIDINATOR_LOG, 'decisionLog')
+  applyEnvPath(merged, process.env.DECIDINATOR_SIDECAR, 'sidecar')
 
   const norm = s => path.posix.normalize(s.replace(/\\/g, '/'))
   if (norm(merged.decisionLog) === norm(merged.sidecar)) {
