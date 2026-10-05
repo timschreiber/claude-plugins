@@ -45,7 +45,8 @@ about committing, pushing or branching. Follow those files for everything else.
 
 ## Report
 
-End with exactly this block and nothing after it:
+No line before this block may start with `STATUS:`, `COMMIT:`, `VERIFY:` or `NOTE:`, in any case or
+emphasis. End with exactly this block and nothing after it:
 
 ```
 STATUS: DONE | FAILED

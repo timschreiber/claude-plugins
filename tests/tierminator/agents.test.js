@@ -51,6 +51,7 @@ test('the sonnet bodies match each other and the opus bodies match each other, e
     assert.match(body, /git commit -m "<the task's title>" -m "Tierminator-Task: <the task's id>" -m "Tierminator-Plan: <the Plan: line's id>"/, tier)
     assert.match(body, /`Plan:` line/, tier)
     assert.match(body, /STATUS: DONE \| FAILED\nCOMMIT: .*\nVERIFY: .*\nNOTE: /, tier)
+    assert.match(body, /No line before this block may start with `STATUS:`, `COMMIT:`, `VERIFY:` or `NOTE:`/, tier)
     assert.match(body, /Never push/, tier)
     assert.ok(body.startsWith('You execute one task'), `${tier} opening line`)
     assert.ok(!body.includes('You make no design decisions'), tier)
