@@ -32,7 +32,7 @@ function pathFor(sessionId, planFile) {
 const currentId = s => s?.tasks?.[s?.current?.index]?.id ?? null
 
 // The result record, its fields in FIELDS order. `s` is the run state, or null when no run existed.
-function record({ sessionId, s = null, outcome, reason = null, haltedAt = null, planFile = null, cwd = null, now = new Date() }) {
+function record({ sessionId, s = null, outcome, reason = null, haltedAt = null, limit = null, planFile = null, cwd = null, now = new Date() }) {
   const tasks = Array.isArray(s?.tasks) ? s.tasks : []
   const done = Array.isArray(s?.done) ? s.done.map(d => d.id) : []
   return {
@@ -45,7 +45,7 @@ function record({ sessionId, s = null, outcome, reason = null, haltedAt = null, 
     tasksNotRun: tasks.map(t => t.id).filter(id => !done.includes(id)),
     haltedAt,
     reason,
-    limit: null,
+    limit,
     headCommit: typeof cwd === 'string' && cwd ? git.head(cwd) : null,
     endedAt: now.toISOString(),
   }
@@ -86,6 +86,8 @@ const REASONS = {
   sessionEnded: 'session ended during run',
   abandoned: 'tierminator stopped dispatching tasks: Claude stopped without dispatching the next task, or the guard gave up',
   noPlan: 'planning ended without a valid plan',
+  limit: 'a usage limit ended the session',
+  apiError: 'an API error ended the session',
 }
 
 // What an ended state says: {outcome, reason, haltedAt}, or null when it has not ended. A running state counts
@@ -106,21 +108,38 @@ function endOf(s, runningReason) {
 }
 
 // Writes the result for `outcome`. `input` is the hook input (session_id, cwd). Returns true when written.
-function writeOutcome(input, s, outcome, reason = null, { haltedAt = null, planFile = null, allowInactive = false } = {}) {
+function writeOutcome(input, s, outcome, reason = null, { haltedAt = null, planFile = null, allowInactive = false, limit = null } = {}) {
   try {
     const sessionId = input?.session_id
-    const rec = record({ sessionId, s, outcome, reason, haltedAt, planFile, cwd: s?.cwd ?? input?.cwd })
+    const rec = record({ sessionId, s, outcome, reason, haltedAt, limit, planFile, cwd: s?.cwd ?? input?.cwd })
     return write(sessionId, rec, { allowInactive })
   } catch {
     return false
   }
 }
 
+// True when the file this state's result goes to already holds a `limit` record from the same session, written at or
+// after the run was approved (any time, for a state with no approvedAt), so a later writer (SessionEnd) keeps it even
+// when the state could not be marked resultWritten. A limit from an earlier run of the same plan does not count.
+function limitRecorded(sessionId, s) {
+  try {
+    const file = pathFor(sessionId, s?.planFile)
+    if (!file) return false
+    const rec = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (rec?.outcome !== 'limit' || rec?.sessionId !== String(sessionId ?? '')) return false
+    const approved = Date.parse(s?.approvedAt)
+    return Number.isNaN(approved) || Date.parse(rec.endedAt) >= approved
+  } catch {
+    return false
+  }
+}
+
 // Writes the result for a state that has ended (see endOf), once: a state whose `resultWritten` is set is skipped.
-// The caller marks `resultWritten` in the state it saves. Returns true when written.
+// The caller marks `resultWritten` in the state it saves. A limit already recorded for this run (limitRecorded) is
+// never overwritten. Returns true when written.
 function writeEnded(input, s, runningReason = null) {
   try {
-    if (!s || s.resultWritten) return false
+    if (!s || s.resultWritten || limitRecorded(input?.session_id, s)) return false
     const end = endOf(s, runningReason)
     return end ? writeOutcome(input, s, end.outcome, end.reason, { haltedAt: end.haltedAt }) : false
   } catch {
@@ -132,4 +151,4 @@ function writeEnded(input, s, runningReason = null) {
 const reasonOf = note =>
   String(note ?? '').replace(/^tierminator:\s*/, '').split(/\.\s/)[0].replace(/\.$/, '').slice(0, 300)
 
-module.exports = { VERSION, FIELDS, OUTCOMES, REASONS, pathFor, currentId, record, write, writeOutcome, writeEnded, reasonOf }
+module.exports = { VERSION, FIELDS, OUTCOMES, REASONS, pathFor, currentId, endOf, limitRecorded, record, write, writeOutcome, writeEnded, reasonOf }

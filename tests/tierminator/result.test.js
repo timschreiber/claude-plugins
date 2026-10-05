@@ -224,6 +224,57 @@ test('reasonOf', () => {
 })
 
 test('REASONS keys and sessionEnded text', () => {
-  assert.deepEqual(Object.keys(result.REASONS), ['interrupted', 'lost', 'sessionEnded', 'abandoned', 'noPlan'])
+  assert.deepEqual(Object.keys(result.REASONS), ['interrupted', 'lost', 'sessionEnded', 'abandoned', 'noPlan', 'limit', 'apiError'])
   assert.equal(result.REASONS.sessionEnded, 'session ended during run')
+})
+
+test('record carries a limit object, else null', () => {
+  const L = { detectedAt: 'x', resetsAt: 5, raw: {} }
+  assert.deepEqual(result.record({ sessionId: S, outcome: 'limit', limit: L }).limit, L)
+  assert.equal(result.record({ sessionId: S, outcome: 'limit' }).limit, null)
+})
+
+test('writeOutcome: limit writes the limit object and reason', () => {
+  const L = { detectedAt: 'x', resetsAt: 5, raw: {} }
+  assert.equal(result.writeOutcome({ session_id: S }, null, 'limit', result.REASONS.limit, { limit: L }), true)
+  const r = JSON.parse(fs.readFileSync(result.pathFor(S, null), 'utf8'))
+  assert.deepEqual(r.limit, L)
+  assert.equal(r.reason, 'a usage limit ended the session')
+})
+
+test('REASONS.apiError text', () => {
+  assert.equal(result.REASONS.apiError, 'an API error ended the session')
+})
+
+test('limitRecorded', () => {
+  const s = { planFile: path.join(dir, 'p.md'), approvedAt: '2026-10-05T00:00:00.000Z' }
+  const file = path.join(dir, 'p.result.json')
+  const put = o => fs.writeFileSync(file, typeof o === 'string' ? o : JSON.stringify(o))
+  const ok = { outcome: 'limit', sessionId: S, endedAt: '2026-10-05T01:00:00.000Z' }
+  put(ok)
+  assert.equal(result.limitRecorded(S, s), true)
+  put({ ...ok, sessionId: 'other' })
+  assert.equal(result.limitRecorded(S, s), false)
+  put({ ...ok, outcome: 'halted' })
+  assert.equal(result.limitRecorded(S, s), false)
+  put({ ...ok, endedAt: '2026-10-04T00:00:00.000Z' })
+  assert.equal(result.limitRecorded(S, s), false)
+  assert.equal(result.limitRecorded(S, { planFile: s.planFile }), true)
+  fs.rmSync(file)
+  assert.equal(result.limitRecorded(S, s), false)
+  put('not json')
+  assert.equal(result.limitRecorded(S, s), false)
+})
+
+test('writeEnded keeps a recorded limit, overwrites a file from another session', () => {
+  const s = { planFile: path.join(dir, 'p.md'), approvedAt: '2026-10-05T00:00:00.000Z' }
+  const file = path.join(dir, 'p.result.json')
+  const st = { ...s, phase: 'running', tasks: [{ id: 'T01' }], current: { index: 0 }, done: [] }
+  const lim = { outcome: 'limit', sessionId: S, endedAt: '2026-10-05T01:00:00.000Z' }
+  fs.writeFileSync(file, JSON.stringify(lim))
+  assert.equal(result.writeEnded({ session_id: S }, st, 'session ended during run'), false)
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), lim)
+  fs.writeFileSync(file, JSON.stringify({ ...lim, sessionId: 'other' }))
+  assert.equal(result.writeEnded({ session_id: S }, st, 'session ended during run'), true)
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).outcome, 'halted')
 })
