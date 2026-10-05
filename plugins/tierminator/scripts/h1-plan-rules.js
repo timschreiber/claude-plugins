@@ -45,6 +45,7 @@ const { doneLabel } = r
 const { onTurnLimit } = require('./lib/turnlimit.js')
 const { executePlan } = require('./lib/execute.js')
 const spend = require('./lib/spend.js')
+const resultFile = require('./lib/result.js')
 const unattended = require('./lib/unattended.js')
 const { settle, readReport } = require('./lib/settle.js')
 const { subagentsDir } = require('./lib/usage.js')
@@ -75,13 +76,15 @@ async function handBack(input, s) {
     noticeByNotification: false,
     handedBack: [...(s.handedBack ?? []), ...(id ? [id] : [])].slice(-20),
   }
-  if (!state.write(input.session_id, saved)) return endLost(input.session_id, next.phase === 'running' ? r.lostText(next) : next.notice)
+  if (!state.write(input.session_id, saved)) return endLost(input, next.phase === 'running' ? r.lostText(next) : next.notice)
   emitText(next.notice)
 }
 
 // The run's state could not be saved after an attempt was judged, so the run ends here; /tierminator:execute
 // resumes it.
-function endLost(sessionId, text) {
+function endLost(input, text) {
+  const sessionId = input.session_id
+  resultFile.writeEnded(input, state.read(sessionId), resultFile.REASONS.lost)
   emitText(text)
   state.deactivate(sessionId)
   state.remove(sessionId)
@@ -104,7 +107,7 @@ async function awaitNotice(input, key) {
   const until = Date.now() + NOTICE_WAIT_MS
   for (let i = 0; ; i++) {
     const lost = state.takeLost(input.session_id)
-    if (lost) return endLost(input.session_id, lost)
+    if (lost) return endLost(input, lost)
     const s = state.read(input.session_id)
     if (s?.notice && (s.phase !== 'running' || state.attemptKey(s) !== key)) {
       state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
@@ -119,7 +122,7 @@ async function awaitNotice(input, key) {
 // A harness prompt in an active session: deliver H4's notice, or judge a hand-back.
 async function runNote(input) {
   const lost = state.takeLost(input.session_id)
-  if (lost) return endLost(input.session_id, lost)
+  if (lost) return endLost(input, lost)
   const s = state.read(input.session_id)
   if (!s) return
   if (s.notice) {
@@ -156,9 +159,11 @@ const COMMAND = /^\s*\/tierminator:(plan|execute)(?![\w-])/
 // UI, since the run never reaches H5 again (the session is inactive). In every case the session is made
 // inactive and its state removed; its plan listing stays, so /tierminator:execute <number> still works.
 // Returns {note, spent}, nulls when no run was stopped.
+// It writes the result file first (halted, the user typed a prompt during the run), while the session is still active.
 function endRun(input) {
   const id = input.session_id
   const s = state.isActive(id) ? state.read(id) : null
+  resultFile.writeEnded(input, s, resultFile.REASONS.interrupted)
   let note = null
   let spent = null
   if (s?.phase === 'running') {
