@@ -91,6 +91,30 @@ function switchBranch(root, name) {
   if (!r.ok) throw new GrindinatorError(`could not switch to the branch ${name}: ${firstLine(r.stderr)}`)
 }
 
+// The number of commits on HEAD since `from`, or null when `from` is missing or not an ancestor of HEAD.
+function commitsSince(root, from) {
+  if (!from || !git(root, ['merge-base', '--is-ancestor', from, 'HEAD']).ok) return null
+  const r = git(root, ['rev-list', '--count', `${from}..HEAD`])
+  return r.ok && /^\d+$/.test(r.stdout) ? Number(r.stdout) : null
+}
+
+// Discards uncommitted changes on the run branch only (git reset --hard, git clean -fd); excluded paths such as .grindinator/ survive; returns the paths that were dirty.
+function discard(root, runBranch) {
+  if (typeof runBranch !== 'string' || !runBranch.startsWith('grindinator/')) {
+    throw new GrindinatorError(`refusing to discard changes: ${runBranch} is not a Grindinator run branch`)
+  }
+  const current = currentBranch(root)
+  if (current !== runBranch) {
+    throw new GrindinatorError(`refusing to discard changes: the current branch is ${current || 'a detached HEAD'}, not the run branch ${runBranch}`)
+  }
+  const paths = dirtyPaths(root)
+  for (const args of [['reset', '--hard', '-q'], ['clean', '-fd', '-q']]) {
+    const r = git(root, args)
+    if (!r.ok) throw new GrindinatorError(`git ${args[0]} failed while discarding changes: ${firstLine(r.stderr)}`)
+  }
+  return paths
+}
+
 const EXCLUDE_ENTRY = '/.grindinator/'
 
 // Adds EXCLUDE_ENTRY to the repository's local exclude file unless an equivalent line is there.
@@ -123,6 +147,8 @@ module.exports = {
   branchExists,
   createBranch,
   switchBranch,
+  commitsSince,
+  discard,
   EXCLUDE_ENTRY,
   ensureExcluded,
 }

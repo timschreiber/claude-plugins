@@ -98,3 +98,73 @@ test('ensureExcluded appends the entry once and keeps the tree clean', () => {
     h.remove(repo)
   }
 })
+
+test('discard refuses off the run branch', () => {
+  const repo = h.makeRepo()
+  try {
+    h.git(repo, 'branch', 'grindinator/t')
+    fs.writeFileSync(path.join(repo, 'README.md'), 'changed\n')
+    fs.writeFileSync(path.join(repo, 'stray.txt'), 'x\n')
+    assert.throws(() => g.discard(repo, 'grindinator/t'), e => {
+      assert.ok(e instanceof GrindinatorError)
+      assert.equal(e.exitCode, 2)
+      assert.ok(e.message.includes('refusing to discard changes: the current branch is main, not the run branch grindinator/t'))
+      return true
+    })
+    assert.throws(() => g.discard(repo, 'main'), e => {
+      assert.ok(e instanceof GrindinatorError)
+      assert.ok(e.message.includes('main is not a Grindinator run branch'))
+      return true
+    })
+    assert.equal(fs.existsSync(path.join(repo, 'stray.txt')), true)
+    assert.equal(fs.readFileSync(path.join(repo, 'README.md'), 'utf8'), 'changed\n')
+  } finally {
+    h.remove(repo)
+  }
+})
+
+test('discard on the run branch resets, cleans and keeps .grindinator', () => {
+  const repo = h.makeRepo()
+  try {
+    h.git(repo, 'switch', '-q', '-c', 'grindinator/t')
+    g.ensureExcluded(repo)
+    fs.mkdirSync(path.join(repo, '.grindinator'))
+    fs.writeFileSync(path.join(repo, '.grindinator', 'state.json'), '{}')
+    fs.writeFileSync(path.join(repo, 'README.md'), 'changed\n')
+    fs.mkdirSync(path.join(repo, 'dir'))
+    fs.writeFileSync(path.join(repo, 'dir', 'new.txt'), 'x\n')
+    const paths = g.discard(repo, 'grindinator/t')
+    assert.ok(paths.includes('README.md'))
+    assert.ok(paths.includes('dir/'))
+    assert.equal(fs.readFileSync(path.join(repo, 'README.md'), 'utf8'), 'test\n')
+    assert.equal(fs.existsSync(path.join(repo, 'dir')), false)
+    assert.equal(fs.existsSync(path.join(repo, '.grindinator', 'state.json')), true)
+    assert.equal(h.git(repo, 'status', '--porcelain'), '')
+  } finally {
+    h.remove(repo)
+  }
+})
+
+test('commitsSince counts commits since an ancestor', () => {
+  const repo = h.makeRepo()
+  try {
+    const start = g.head(repo)
+    assert.equal(g.commitsSince(repo, start), 0)
+    for (const f of ['a.txt', 'b.txt']) {
+      fs.writeFileSync(path.join(repo, f), 'x\n')
+      h.git(repo, 'add', '-A')
+      h.git(repo, 'commit', '-q', '-m', f)
+    }
+    assert.equal(g.commitsSince(repo, start), 2)
+    assert.equal(g.commitsSince(repo, null), null)
+    h.git(repo, 'switch', '-q', '-c', 'side', start)
+    fs.writeFileSync(path.join(repo, 'c.txt'), 'x\n')
+    h.git(repo, 'add', '-A')
+    h.git(repo, 'commit', '-q', '-m', 'c')
+    const side = g.head(repo)
+    h.git(repo, 'switch', '-q', 'main')
+    assert.equal(g.commitsSince(repo, side), null)
+  } finally {
+    h.remove(repo)
+  }
+})
