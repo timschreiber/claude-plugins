@@ -134,6 +134,40 @@ test('parseReport reads the closing block, fenced or not', () => {
   assert.equal(r.parseReport(undefined), null)
 })
 
+test('parseReport ignores field names in prose before the closing block', () => {
+  const t16 = [
+    '  I wrote the Grindinator verification findings doc and updated both indexes. Both Verify checks passed and the work is committed.',
+    '',
+    '  **Verify:** the V1–V9 row count is 9. A node script found that all 90 `grindinator-*` evidence mentions in the doc exist.',
+    '',
+    '  **Files changed:**',
+    '  - `docs/grindinator/grindinator-verification.md` (new): header, results table, one section per item.',
+    '',
+    '  STATUS: DONE',
+    '  COMMIT: fa87b5dc41a992fa1e372d78f661edfb7a58f6fa',
+    '  VERIFY: PASS',
+    '  NOTE: Wrote docs/grindinator/grindinator-verification.md and updated both indexes.',
+  ].join('\n')
+  assert.deepEqual(r.parseReport(t16), {
+    status: 'DONE',
+    commit: 'fa87b5dc41a992fa1e372d78f661edfb7a58f6fa',
+    verify: 'PASS',
+    note: 'Wrote docs/grindinator/grindinator-verification.md and updated both indexes.',
+  })
+
+  const prose = 'Status: FAILED\nCommit: deadbeef\nVerify: not yet\nNote: earlier\n\n'
+  assert.deepEqual(r.parseReport(prose + 'STATUS: DONE\nCOMMIT: abc1234\nVERIFY: PASS\nNOTE: real'), {
+    status: 'DONE', commit: 'abc1234', verify: 'PASS', note: 'real',
+  })
+
+  const want = { status: 'DONE', commit: 'abc1234', verify: 'PASS', note: 'x' }
+  assert.deepEqual(r.parseReport('**STATUS:** DONE\n**COMMIT:** abc1234\n**VERIFY:** PASS\n**NOTE:** x'), want)
+  assert.deepEqual(r.parseReport('**STATUS**: DONE\n**COMMIT**: abc1234\n**VERIFY**: PASS\n**NOTE**: x'), want)
+  assert.equal(r.parseReport('STATUS: DONE\nVERIFY: `PASS`').verify, 'PASS')
+
+  assert.equal(r.parseReport('Verify: PASS\n\nSTATUS: DONE\nCOMMIT: abc1234\nNOTE: x').verify, 'NOT RUN')
+})
+
 test('judge accepts only DONE with one trailer commit, a clean tree and the same branch', () => {
   const report = { status: 'DONE', commit: 'abc', verify: 'PASS', note: '' }
   const commit = { sha: 'abc123', message: 'Task 2\n\nTierminator-Task: T02' }

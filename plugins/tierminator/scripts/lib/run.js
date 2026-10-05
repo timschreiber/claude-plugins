@@ -158,13 +158,31 @@ function checkDispatch(state, toolInput) {
   return null
 }
 
-// The worker's closing block, read from its final message. null when there is no STATUS line.
+// The worker's closing block, read from its final message. The block is the last STATUS line and the
+// lines after it, so prose before the block (a '**Verify:** ...' summary line) is never read as the
+// report. Emphasis and backticks around field names and values are dropped. null when there is no
+// STATUS line or its value is not DONE or FAILED.
 function parseReport(text) {
-  const s = String(text ?? '')
-  const field = name => new RegExp(`^[ \\t>*\`]*${name}:[ \\t]*(.*)$`, 'im').exec(s)?.[1].replace(/`+$/, '').trim()
-  const status = field('STATUS')?.toUpperCase().match(/^(DONE|FAILED)\b/)?.[1]
+  const lines = String(text ?? '').split(/\r?\n/)
+  const fieldRe = name => new RegExp(`^[ \\t>*\`]*${name}[*\`]*:[ \\t*\`]*(.*)$`, 'i')
+  const valueOf = (re, line) => re.exec(line)?.[1].replace(/[\s*`]+$/, '').trim()
+  const statusRe = fieldRe('STATUS')
+  let at = -1
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (statusRe.test(lines[i])) { at = i; break }
+  }
+  if (at < 0) return null
+  const status = valueOf(statusRe, lines[at]).toUpperCase().match(/^(DONE|FAILED)\b/)?.[1]
   if (!status) return null
-  return { status, commit: field('COMMIT') ?? 'NONE', verify: field('VERIFY') ?? 'NOT RUN', note: field('NOTE') ?? '' }
+  const after = rest => {
+    const re = fieldRe(rest)
+    for (let i = at + 1; i < lines.length; i++) {
+      const v = valueOf(re, lines[i])
+      if (v !== undefined) return v
+    }
+    return undefined
+  }
+  return { status, commit: after('COMMIT') ?? 'NONE', verify: after('VERIFY') ?? 'NOT RUN', note: after('NOTE') ?? '' }
 }
 
 // Judges a finished attempt from its report and the Git facts after it. Returns {ok: true, commit},
