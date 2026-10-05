@@ -219,3 +219,91 @@ test('SIGINT ends the session, exits 4 and keeps the state', async () => {
   assert.equal(again.packages['WP-01'].attempts.length, 2)
   assert.equal(again.packages['WP-01'].attempts[1].dir, 'runs/WP-01/attempt-2')
 })
+
+const readSummary = () => fs.readFileSync(path.join(repo, '.grindinator', 'summary.md'), 'utf8')
+const markers = () => ['WP-01', 'WP-02', 'WP-03'].filter(id => state.isDone(repo, id))
+
+test('a complete package with no new commit fails the run', async () => {
+  const scenario = helpers.completeScenario()
+  scenario.commit = false
+  const env = helpers.stubEnv(stubDir, scenario)
+  assert.equal(await go({ name: 'test', env }), 1)
+  const p = state.read(repo).packages['WP-01']
+  assert.equal(p.status, 'failed')
+  assert.equal(p.attempts[0].outcome, 'unverified')
+  const last = errLines[errLines.length - 1]
+  assert.match(last, /WP-01 was not verified/)
+  assert.match(last, /made no commits/)
+  assert.match(last, /run stops/)
+  assert.equal(helpers.readStubLog(stubDir).length, 1)
+  assert.deepEqual(markers(), [])
+})
+
+test('a failing gate stops the run', async () => {
+  assert.equal(await go({ name: 'test', flags: { gate: helpers.gateCommand('WP-01') } }), 1)
+  const p = state.read(repo).packages['WP-01']
+  assert.equal(p.status, 'failed')
+  assert.equal(p.attempts[0].outcome, 'gate-failed')
+  assert.equal(p.attempts[0].gate.exitCode, 1)
+  assert.ok(fs.existsSync(path.join(repo, '.grindinator', 'runs', 'WP-01', 'attempt-1', 'gate.stdout.txt')))
+  assert.equal(helpers.readStubLog(stubDir).length, 1)
+  assert.deepEqual(markers(), [])
+  assert.match(errLines[errLines.length - 1], /WP-01 failed its gate/)
+})
+
+test('a passing gate writes the marker', async () => {
+  assert.equal(await go({ name: 'test', flags: { gate: helpers.gateCommand() } }), 0)
+  const st = state.read(repo)
+  for (const id of ['WP-01', 'WP-02', 'WP-03']) {
+    assert.equal(st.packages[id].status, 'done')
+    assert.equal(state.isDone(repo, id), true)
+  }
+  assert.equal(st.packages['WP-01'].attempts[0].gate.status, 'passed')
+  assert.ok(outLines.includes('WP-01: gate passed; its output is in .grindinator/runs/WP-01/attempt-1/.'))
+  assert.equal(errLines.some(l => l.includes('no gate is configured')), false)
+})
+
+test('the summary lists every package', async () => {
+  await go({ name: 'test', flags: { gate: helpers.gateCommand('WP-01') } })
+  const summary = readSummary()
+  const title = state.read(repo).packages['WP-01'].title
+  assert.ok(summary.includes('- Exit code: 1'))
+  assert.ok(summary.includes('- Stop reason: WP-01 failed its gate (the gate exited 1)'))
+  assert.ok(summary.includes(`| WP-01 | ${title} | failed | 1 | gate-failed | 1 | failed (exit 1) |`))
+  for (const id of ['WP-02', 'WP-03']) {
+    const row = summary.split('\n').find(l => l.startsWith(`| ${id} |`))
+    assert.ok(row, id)
+    assert.ok(row.includes('| pending |'), row)
+  }
+})
+
+test('onFailure continue runs the rest and exits 1', async () => {
+  const code = await go({ name: 'test', flags: { gate: helpers.gateCommand('WP-02'), 'on-failure': 'continue' } })
+  assert.equal(code, 1)
+  const st = state.read(repo)
+  assert.equal(st.packages['WP-01'].status, 'done')
+  assert.equal(st.packages['WP-02'].status, 'failed')
+  assert.equal(st.packages['WP-03'].status, 'done')
+  assert.equal(helpers.readStubLog(stubDir).length, 3)
+  assert.ok(readSummary().includes('WP-02 failed; onFailure is continue'))
+})
+
+test('onFailure continue discards uncommitted changes', async () => {
+  const scenario = helpers.completeScenario()
+  scenario.resultFile = helpers.resultRecord({ outcome: 'halted', haltedAt: 'T01', reason: 'T01 failed' })
+  scenario.untracked = 'litter.txt'
+  const env = helpers.stubEnv(stubDir, scenario)
+  assert.equal(await go({ name: 'test', env, flags: { 'on-failure': 'continue' } }), 1)
+  const st = state.read(repo)
+  for (const id of ['WP-01', 'WP-02', 'WP-03']) assert.equal(st.packages[id].status, 'failed')
+  assert.equal(helpers.readStubLog(stubDir).length, 3)
+  assert.equal(fs.existsSync(path.join(repo, 'litter.txt')), false)
+  assert.ok(errLines.some(l => /discarded uncommitted changes left by WP-01: litter.txt/.test(l)))
+  assert.equal(branch(), 'grindinator/test')
+  assert.ok(fs.existsSync(path.join(repo, '.grindinator', 'state.json')))
+})
+
+test('no gate configured prints one warning', async () => {
+  await go({ name: 'test' })
+  assert.equal(errLines.filter(l => l.includes('no gate is configured')).length, 1)
+})
