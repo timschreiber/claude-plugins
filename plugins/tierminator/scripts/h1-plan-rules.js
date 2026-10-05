@@ -4,6 +4,7 @@
 //               saves the planning phase and asks Claude to enter plan mode (or, already there, prints the
 //               rules); approving the plan then runs it (H3). In a headless session (lib/unattended.js) it
 //               starts the drafting phase instead and prints the unattended note and the rules.
+//               A headless start it refuses writes a declined result file (lib/result.js) first.
 //             - /tierminator:execute [plan path | list number] [--from Txx] runs a saved plan
 //               (lib/execute.js).
 //             Either command first ends whatever the session was doing: a run in progress stops, and
@@ -190,20 +191,26 @@ function endRun(input) {
 // A headless session's /tierminator:plan: make it active, put it in the drafting phase and give Claude the
 // note and the rules. Nothing starts when the session could not run a plan.
 function headlessStart(input) {
+  // Nothing is active yet, so a refusal is written with allowInactive: the typed command is the activation.
+  const declined = reason => resultFile.writeOutcome(input, null, 'declined', reason, { planFile: unattended.planFileFor(input.session_id), allowInactive: true })
   const id = input.session_id
   if (input.permission_mode === 'plan') {
+    declined('the session is in plan mode, where a headless session has no ExitPlanMode')
     return 'tierminator: unattended run not started: the session is in plan mode, where a headless session has no ExitPlanMode and the workers could not edit anything. Report this and stop: relaunch without --permission-mode plan (for example with --permission-mode bypassPermissions or acceptEdits).'
   }
   const problem = git.problem(input.cwd)
   if (problem) {
+    declined(problem)
     return `tierminator: unattended run not started: ${problem}. It needs a Git repository with a commit, a user name and email, and a clean working tree. Report this and stop; do not do the work yourself.`
   }
   if (!state.activate(id)) {
+    declined('its flag file could not be written')
     return 'tierminator: unattended run not started: its flag file could not be written. Report this and stop.'
   }
   const planFile = unattended.planFileFor(id)
   if (!state.write(id, { phase: 'drafting', planFile, denials: 0, guardDenials: 0 })) {
     state.deactivate(id)
+    declined('its state could not be saved')
     return 'tierminator: unattended run not started: its state could not be saved. Report this and stop.'
   }
   state.prune(PRUNE_DAYS)
