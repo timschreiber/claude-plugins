@@ -53,6 +53,7 @@ const INVALID = {
   effort: ['extreme', '"effort" must be one of low, medium, high, xhigh, max'],
   maxTurns: [0, '"maxTurns" must be null or a whole number of at least 1'],
   maxSessionMinutes: [0, '"maxSessionMinutes" must be a whole number of at least 1'],
+  maxGateMinutes: [0, '"maxGateMinutes" must be a whole number of at least 1'],
   gate: ['  ', '"gate" must be null or a non-empty command'],
   onFailure: ['retry', '"onFailure" must be "stop" or "continue"'],
   maxLimitWaits: [1.5, '"maxLimitWaits" must be a whole number of at least 1'],
@@ -106,6 +107,7 @@ test('errors from both files and a flag are all reported', () => {
 test('fromFlags converts values and load reports a bad integer', () => {
   assert.deepEqual(fromFlags({ 'allowed-tools': ' Read, Bash(git:*) ,,' }), { allowedTools: ['Read', 'Bash(git:*)'] })
   assert.deepEqual(fromFlags({ 'max-turns': '12' }), { maxTurns: 12 })
+  assert.deepEqual(fromFlags({ 'max-gate-minutes': '15' }), { maxGateMinutes: 15 })
   assert.deepEqual(fromFlags({ 'max-turns': 'abc' }), { maxTurns: 'abc' })
   assert.deepEqual(fromFlags({ 'wait-weekly': true }), { waitWeekly: true })
   assert.deepEqual(fromFlags({}), {})
