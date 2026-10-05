@@ -1,0 +1,76 @@
+{
+  "generated": "2026-10-05T03:57:50.173Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "v7-run",
+  "items": [
+    "V7"
+  ],
+  "args": [
+    "-p",
+    "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/grindinator-probe/v7-run/plan.md\"",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\v7-run\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low",
+    "--permission-mode",
+    "bypassPermissions"
+  ],
+  "envSet": [
+    "PROBE_DIRTY_FILE",
+    "PROBE_DIRTY_ON"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 26456,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "6809e8c213d3dae1fa5995f361707da01a20c1bb",
+    "status": "",
+    "commits": [
+      {
+        "sha": "6809e8c213d3dae1fa5995f361707da01a20c1bb",
+        "subject": "Add world.txt",
+        "task": null,
+        "files": [
+          "world.txt"
+        ]
+      },
+      {
+        "sha": "81e46acaa9efc8915505b06e4d013bcb95799e21",
+        "subject": "Add hello.txt",
+        "task": null,
+        "files": [
+          "docs/decisions.md",
+          "hello.txt"
+        ]
+      },
+      {
+        "sha": "676fd091682305f7bcbfdba887a32eac45158b1b",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "docs/decisions.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

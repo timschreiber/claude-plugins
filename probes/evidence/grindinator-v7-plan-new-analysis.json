@@ -1,0 +1,184 @@
+{
+  "common": {
+    "exitCode": 0,
+    "timedOut": false,
+    "resultSubtype": "success",
+    "isError": false,
+    "resultKeys": [
+      "duration_api_ms",
+      "stop_reason",
+      "session_id",
+      "total_cost_usd",
+      "usage",
+      "modelUsage",
+      "permission_denials",
+      "terminal_reason",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "subagent_stats",
+      "is_error",
+      "num_turns",
+      "subtype",
+      "api_error_status",
+      "result",
+      "ttft_ms",
+      "type",
+      "duration_ms",
+      "uuid",
+      "ttft_stream_ms",
+      "time_to_request_ms",
+      "first_content_frame_ms",
+      "queued_turn_count",
+      "result_index"
+    ],
+    "resultText": "The plan is saved but did not run. tierminator needs a clean working tree, and `docs/` has uncommitted changes.\n\n1. Commit or stash the changes in `docs/`.\n2. Then type this to run the saved plan:\n\n`/tierminator:execute \"C:\\Users\\timsc\\.claude\\plans\\tierminator-unattended-20261005-035648-e674ea9f.md\"`\n\nThe plan is one task. It creates `summary.txt` containing `alpha`, the first line of `notes.txt`.",
+    "initKeys": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "sessionIdIn": [
+      "system/hook_started",
+      "system/hook_response",
+      "system/init",
+      "assistant",
+      "rate_limit_event",
+      "user",
+      "system/notification",
+      "result/success"
+    ],
+    "typeCounts": {
+      "system/hook_started": 1,
+      "system/hook_response": 1,
+      "system/init": 1,
+      "assistant": 5,
+      "rate_limit_event": 1,
+      "user": 3,
+      "system/notification": 1,
+      "result/success": 1
+    },
+    "apiRetries": 0,
+    "permissionDenials": [],
+    "hookEventCounts": {
+      "SessionStart": 1,
+      "UserPromptSubmit": 1,
+      "PreToolUse": 1,
+      "DirtyWrite": 1,
+      "PostToolUse": 1,
+      "Stop": 3,
+      "SessionEnd": 1
+    },
+    "stopFailure": [],
+    "sessionEnd": [
+      {
+        "session_id": "e674ea9f-13b0-46d2-a976-1da092d1df55",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-v7-plan-new-repo\\e674ea9f-13b0-46d2-a976-1da092d1df55.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\v7-plan-new\\repo",
+        "prompt_id": "395dc96b-7bf1-452d-afcf-2251096469a5",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      }
+    ],
+    "pluginsLoaded": [
+      {
+        "name": "tierminator",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+        "source": "tierminator@inline"
+      },
+      {
+        "name": "grindinator-probe",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+        "source": "grindinator-probe@inline"
+      },
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      },
+      {
+        "name": "cc-plugin-plugin-authoring",
+        "path": "builtin",
+        "source": "cc-plugin-plugin-authoring@builtin"
+      }
+    ],
+    "duplicatePlugins": []
+  },
+  "cell": {
+    "commits": [
+      {
+        "sha": "eb851b9c82cebc64586029000dcf3cca3424cb2c",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ],
+    "committedTasks": [],
+    "files": {
+      "hello.txt": false,
+      "world.txt": false,
+      "summary.txt": false
+    },
+    "clean": false,
+    "tasksFile": false,
+    "telemetryFile": false,
+    "activated": false,
+    "refusals": {
+      "stdout": [
+        "uncommitted changes",
+        "Tell the user"
+      ],
+      "resultText": [
+        "uncommitted changes"
+      ]
+    },
+    "workerDispatches": [],
+    "unattendedPlanFile": "C:\\Users\\timsc\\.claude\\plans\\tierminator-unattended-20261005-035648-e674ea9f.md",
+    "dirtyWrite": [
+      {
+        "at": "2026-10-05T03:56:50.268Z",
+        "run": "v7-plan-new",
+        "event": "DirtyWrite",
+        "file": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\v7-plan-new\\repo\\docs\\decisions.md",
+        "trigger": "PreToolUse"
+      }
+    ],
+    "dirtyFile": {
+      "exists": true,
+      "tracked": false,
+      "committedIn": [],
+      "hasProbeWrite": true
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "agent_id": "ad0c55d7b98622170",
+    "agent_type": "tierminator:sonnet-low",
+    "effort": {
+      "level": "low"
+    },
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "```\nSTATUS: DONE\nCOMMIT: 76d26e427434e46b641fd30abea049621562e8d0\nVERIFY: PASS\nNOTE: Added summary.txt in the repo root containing the single line \"alpha\", matching the first line of notes.txt.\n```"
+  }
+]

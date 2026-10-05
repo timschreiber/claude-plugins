@@ -1,0 +1,66 @@
+{
+  "generated": "2026-10-05T03:58:12.930Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "v7-excluded",
+  "items": [
+    "V7"
+  ],
+  "args": [
+    "-p",
+    "/tierminator:plan Read notes.txt, then add a file summary.txt whose only line is the first line of notes.txt.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\v7-excluded\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "medium",
+    "--permission-mode",
+    "bypassPermissions"
+  ],
+  "envSet": [
+    "PROBE_DIRTY_FILE",
+    "PROBE_DIRTY_ON"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 19779,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "76d26e427434e46b641fd30abea049621562e8d0",
+    "status": "",
+    "commits": [
+      {
+        "sha": "76d26e427434e46b641fd30abea049621562e8d0",
+        "subject": "Add summary.txt with the first line of notes.txt",
+        "task": null,
+        "files": [
+          "summary.txt"
+        ]
+      },
+      {
+        "sha": "01fa9da09d2bfed3ab59f9a644a25340948d922b",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}
