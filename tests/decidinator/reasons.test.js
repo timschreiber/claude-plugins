@@ -11,6 +11,7 @@ const path = require('path')
 const lib = path.join(__dirname, '..', '..', 'plugins', 'decidinator', 'scripts', 'lib')
 const Q = require(path.join(lib, 'questions.js'))
 const reasons = require(path.join(lib, 'reasons.js'))
+const msg = require(path.join(lib, 'messages.js'))
 const { DEFAULTS } = require(path.join(lib, 'config.js'))
 
 const SNAPSHOT = path.join(__dirname, 'fixtures', 'snapshots', 'deny-reasons.json')
@@ -61,7 +62,12 @@ const rendered = {
   'prompt-rung-2': Q.dispatchPrompt(withVerdict.questions['Q-0007'], 2, cfg),
   'oracle-shell': reasons.oracleShell('it is not one of gh search, gh repo view or gh api'),
   'oracle-monitor': reasons.ORACLE_MONITOR,
-  nudge: reasons.NUDGE
+  nudge: reasons.NUDGE,
+  'opened-headless': reasons.openedHeadless(d),
+  'nudge-headless': reasons.NUDGE_HEADLESS,
+  'headless-rule': msg.HEADLESS_RULE,
+  'armed-headless-ask': msg.envArmedHeadless('ask', []),
+  'armed-headless-sidecar': msg.envArmedHeadless('sidecar', [])
 }
 
 test('deny reasons and dispatch prompts match the snapshot', () => {

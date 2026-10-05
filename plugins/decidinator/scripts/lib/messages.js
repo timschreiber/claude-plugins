@@ -74,7 +74,19 @@ const importFinal = text =>
 const IMPORT_REMIND =
   'decidinator: the import is waiting for oracle judgments that were never dispatched. Make these Agent calls, then end your turn and wait for their reports.'
 
+const envArmedHeadless = (mode, w) =>
+  `decidinator: armed in sidecar mode by DECIDINATOR_MODE (headless session${mode === 'ask' ? ': ask mode needs a person, so sidecar mode is used' : ''}). Open decisions go to the oracle; questions it cannot settle get a provisional answer and wait in the sidecar.` + warnSuffix(w)
+const HEADLESS_RULE = [
+  'decidinator: this is a headless session, so AskUserQuestion is not available and no person will answer a question. Do not ask one and do not wait for one.',
+  'Send every open decision (a choice the task leaves open, or anything you would otherwise ask) to the oracle before you act on it. Call the Agent tool with subagent_type decidinator:oracle-1, in the foreground (run_in_background false), and a prompt of exactly these lines, with the question on one line:',
+  'Decidinator question NEW\nQuestion: <the question>\nOptions:\n- <label>: <what it means>\nContext: <what you were doing and why this question came up>',
+  'Decidinator replies to that call with the numbered dispatch to make: make that call as given. If the oracle sends the question up to a higher rung, dispatch that rung the same way when Decidinator tells you to.',
+  'When the oracle resolves a question, continue on its answer. When it does not, continue on its most confident answer as a provisional answer: Decidinator records it and queues the question in the sidecar for stakeholders. Never stop to wait for a person.'
+].join('\n\n')
+
 module.exports = {
+  envArmedHeadless,
+  HEADLESS_RULE,
   needsArming,
   noPromptId,
   stateFailed,

@@ -1,4 +1,4 @@
-// Deny reasons for the gate, the dispatch check, the guard and the oracle shell allowlist, and the nudge's block reason. Every text the model sees from those hooks is
+// Deny reasons for the gate, the dispatch check, the guard and the oracle shell allowlist, and the nudge's block reason, plus the headless variants of the opened-question and nudge texts. Every text the model sees from those hooks is
 // here, and tests/decidinator/fixtures/snapshots/deny-reasons.json pins each one: change a text and
 // its snapshot together. `d` is a due dispatch {id, rung, agent, prompt}.
 'use strict'
@@ -110,4 +110,13 @@ const ORACLE_MONITOR =
 const NUDGE =
   'decidinator: your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.'
 
-module.exports = { CONTEXT_PLACEHOLDER, oneLine, agentCall, AFTER_DISPATCH, REDISPATCH, held, heldWaiting, guardDue, guardWaiting, stopDue, guardSteppedAside, narrow, settled, sidecar, wrongAgent, missingId, refused, ORACLE_SHELL_RULE, oracleShell, ORACLE_MONITOR, NUDGE }
+const openedHeadless = d =>
+  [
+    `decidinator: question ${d.id} is opened for oracle research. Make this Agent call now, with the prompt as given, in the foreground (run_in_background false), then continue on the oracle's answer. If the call says the oracle is running in the background, end your turn: its report arrives on its own.`,
+    agentCall(d)
+  ].join('\n\n')
+
+const NUDGE_HEADLESS =
+  'decidinator: your last message ends with a question in plain text, and this headless session has no one to answer it. Send it to the oracle instead: call the Agent tool with subagent_type decidinator:oracle-1 in the foreground and a prompt of the lines Decidinator question NEW, Question:, Options: and Context:, then continue on its answer. If it is not a decision you need, end your turn again.'
+
+module.exports = { CONTEXT_PLACEHOLDER, oneLine, agentCall, AFTER_DISPATCH, REDISPATCH, held, heldWaiting, guardDue, guardWaiting, stopDue, guardSteppedAside, narrow, settled, sidecar, wrongAgent, missingId, refused, ORACLE_SHELL_RULE, oracleShell, ORACLE_MONITOR, NUDGE, openedHeadless, NUDGE_HEADLESS }
