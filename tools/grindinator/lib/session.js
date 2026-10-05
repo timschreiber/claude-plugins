@@ -1,6 +1,7 @@
 // Launches one `claude -p` session for a package: builds its arguments, prompt and environment,
 // spawns it with stdout and stderr going to files, enforces a time cap and an abort signal, and
 // ends the whole process tree. launch never rejects; every outcome is in its resolved value.
+// The gate command also runs through launch, with shell: true.
 'use strict'
 
 const fs = require('fs')
@@ -88,7 +89,7 @@ function stopChild(child) {
   } catch { /* never throw */ }
 }
 
-function launch({ command, args, cwd, env, streamFile, stderrFile, capMs, abortSignal }) {
+function launch({ command, args, shell = false, cwd, env, streamFile, stderrFile, capMs, abortSignal }) {
   return new Promise(resolve => {
     const startedAt = Date.now()
     const streamOut = fs.createWriteStream(streamFile)
@@ -124,7 +125,7 @@ function launch({ command, args, cwd, env, streamFile, stderrFile, capMs, abortS
     }
 
     try {
-      child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+      child = spawn(command, args, { cwd, env, shell, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     } catch (e) {
       finish(null, null, e.message)
       return
