@@ -9,18 +9,19 @@ Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/grindinator/G
 Goal: a headless session can run a saved plan, or resume one from a named task, with no approval and a result file at the end.
 
 Depends on: WP-01, WP-02.
-Spec sections: Component requirements (R-T3); Runner contract (Limits and recovery).
+Spec sections: Component requirements (R-T3, R-T1); Runner contract (Result file, Limits and recovery); Open items (O-3).
 
 Scope:
-- Start from WP-01's V5 result. If `/tierminator:execute` already activates and runs headless, limit this package to tests and docs.
-- Otherwise add a headless branch for `/tierminator:execute <plan> [--from Txx]` in `lib/execute.js` and H1: the same preconditions as headless planning (not plan mode, a commit, a commit identity, a clean tree), no approval step, and a result file at the end.
-- A missing plan file, an unknown task ID, or failed preconditions produce a `declined` result with a reason.
+- WP-01 V5 found that `/tierminator:execute <plan path> [--from Txx]` already activates and runs headless with no approval, committing each task and skipping earlier tasks under `--from`. Do not add a headless branch. The package is the result file, tests and docs.
+- Write the result file (WP-02's module) at the end of a headless execute, and a `declined` result with a reason for a missing plan file, an unknown task ID, a dirty tree (an untracked file counts), plan mode, or no commit identity.
+- A list number does not resolve in a fresh session; the runner always passes the plan path. Document that, and do not change it.
+- Workers write `Tierminator-Task:` and `Tierminator-Plan:` as separate `-m` paragraphs, so Git does not read them as trailers. Decide in the plan whether the worker writes both lines in one paragraph, or the docs say to read the message body, and record the decision.
 - Update the README's Unattended runs section and the reference doc.
 
-Out of scope: limit capture (WP-03) and any runner code.
+Out of scope: limit capture (WP-03), a list-number fix, and any runner code.
 
 Acceptance criteria:
-- Tests with a fixture plan: headless execute runs all tasks; `--from` skips earlier tasks; a missing plan and an unknown task ID give `declined`.
+- Tests with a fixture plan: headless execute runs all tasks; `--from` skips earlier tasks; a missing plan, an unknown task ID, a dirty tree and plan mode give `declined`; the result file is written at the end of a headless execute.
 - Interactive `/tierminator:execute` behavior is unchanged, covered by the existing tests.
 - `node --test tests/tierminator/*.test.js` passes.
 
