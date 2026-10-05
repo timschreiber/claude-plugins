@@ -40,7 +40,10 @@ cataloged in `.claude-plugin/marketplace.json`:
   person, and log every decision in the repo. Built package by
   package from `docs/decidinator/Decidinator — Work Packages.md` against
   `docs/decidinator/Decidinator — Specification.md`. Silent until
-  `/decidinator:arm` or `DECIDINATOR_MODE`. Node hook scripts under
+  `/decidinator:arm` or `DECIDINATOR_MODE`. In a headless `claude -p`
+  session it arms in sidecar mode, injects a rule that sends open decisions
+  to `oracle-1`, and `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` move the
+  decision files. Node hook scripts under
   `plugins/decidinator/scripts/`, tested with
   `node --test tests/decidinator/*.test.js`. Its end-to-end scenarios need an
   interactive session, so they run by hand from

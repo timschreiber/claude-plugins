@@ -60,6 +60,23 @@ $env:DECIDINATOR_MODE = 'sidecar'; claude
 
 It works. Oracles research without permission prompts in plan mode, and every rung runs on the session's model.
 
+### Headless sessions (claude -p)
+
+`AskUserQuestion` does not exist in `claude -p`, but Decidinator still works there. Set `DECIDINATOR_MODE` to `sidecar` before starting `claude -p`. `ask` also works, and headless it runs as sidecar.
+
+```bash
+DECIDINATOR_MODE=sidecar claude -p "<request>"
+```
+
+Decidinator tells the session once that `AskUserQuestion` is unavailable and that every open decision goes to `oracle-1`, with a prompt starting `Decidinator question NEW`. The oracle's best answer becomes a provisional answer in the sidecar, and the session never waits for a person.
+
+- Use `DECIDINATOR_CONTEXT` to label the entries.
+- Use `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` (relative to the project root or absolute) to keep the decision files out of a repository tree that must stay clean. They win over the `decisionLog` and `sidecar` keys.
+- Allow WebFetch, WebSearch and the `gh` rules (see "Letting oracles research unattended") so the oracle can research without a prompt.
+- The permission mode must let the oracle read the repository. `acceptEdits` was enough in WP-01.
+- Plain-text questions in the final message are not intercepted, only nudged once.
+- Ask mode is not available headless.
+
 ## The stakeholder workflow
 
 For decisions that belong to other people:
@@ -161,6 +178,8 @@ Environment variables:
 | --- | --- |
 | `DECIDINATOR_MODE` | `ask` or `sidecar`: arms every session at start in that mode. |
 | `DECIDINATOR_CONTEXT` | Labels where questions arose, for runners. Default: the session ID and branch. |
+| `DECIDINATOR_LOG` | Path of the decision log, relative to the project root or absolute. Wins over the `decisionLog` key. |
+| `DECIDINATOR_SIDECAR` | Path of the sidecar, relative to the project root or absolute. Wins over the `sidecar` key. |
 | `DECIDINATOR_DEBUG` | `1` logs hook errors and state changes to `decidinator-debug.log` in the temp directory. |
 
 ## Cost
@@ -169,7 +188,6 @@ On subscription plans, oracle research counts against your usage like any other 
 
 ## Known limitations
 
-- **Headless `claude -p` sessions are out of scope,** because `AskUserQuestion` does not exist there. For unattended work, use sidecar mode in an interactive session.
 - **Rung models are honored only outside plan mode.** In plan mode every rung runs on the session's model, whatever its definition says, so escalation adds a fresh critique but not a different model. The `resolvedModel` field of an `Agent` result shows the definition's model, not the one that ran.
 - **Plain-text questions are only nudged, once.** Questions that still slip through are not intercepted.
 - **The model makes the oracle dispatches.** While a dispatch is due, the guard refuses other tools and a Stop hook refuses to let Claude end its turn. They step aside together after `guardMaxBlocks` blocks, say so once, and let Claude go on, so a lost report never wedges the session.

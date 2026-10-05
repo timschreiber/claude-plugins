@@ -81,7 +81,7 @@ test('the README names every config key, variable, command and key phrase', () =
   const readme = fs.readFileSync(path.join(root, 'plugins', 'decidinator', 'README.md'), 'utf8')
   const required = [
     ...Object.keys(DEFAULTS).map((k) => '`' + k + '`'),
-    'DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_DEBUG',
+    'DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_DEBUG', 'DECIDINATOR_LOG', 'DECIDINATOR_SIDECAR',
     ...['arm', 'disarm', 'status', 'review', 'confirm', 'export', 'import'].map((c) => `/decidinator:${c}`),
     'WebFetch', 'WebSearch', 'Bash(gh search:*)', 'Bash(gh repo view:*)', 'Bash(gh api:*)', 'claude -p', 'plan mode', 'decidinator-reference.md',
   ]
