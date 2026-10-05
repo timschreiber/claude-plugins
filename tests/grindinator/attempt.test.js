@@ -13,14 +13,15 @@ const h = require('./helpers')
 const PROMPT = '/tierminator:plan # P'
 const R = x => ({ type: 'result', subtype: 'success', is_error: false, result: 'done', session_id: 'stub-session', ...x })
 
-async function withAttempt(scenario, fn) {
+async function withAttempt(scenario, fn, configOverrides = {}) {
   const root = fs.realpathSync.native(h.makeRepo())
+  h.git(root, 'switch', '-q', '-c', 'grindinator/t')
   const stubDir = h.tempDir('grind-stub-')
   try {
     const st = state.create({ runName: 't', branch: 'grindinator/t', packagesDir: 'wp', baseCommit: 'x' })
     state.ensurePackages(st, [{ id: 'WP-01', title: 'One', name: 'WP-01 · One.md' }])
     const pkg = { id: 'WP-01' }
-    const config = { ...DEFAULTS }
+    const config = { ...DEFAULTS, ...configOverrides }
     const env = h.stubEnv(stubDir, scenario)
     const run = async (extra = {}) => {
       const attempt = await runAttempt({ root, st, pkg, prompt: PROMPT, config, env, ...extra })
@@ -41,6 +42,10 @@ test('complete: done marker, files and fields', async () => {
     assert.equal(a.source, 'result-file')
     assert.equal(a.sessionId, 'stub-session')
     assert.equal(a.dir, 'runs/WP-01/attempt-1')
+    assert.equal(a.commits, 1)
+    assert.equal(a.sessionOutcome, 'complete')
+    assert.equal(a.gate.status, 'skipped')
+    assert.equal(st.packages['WP-01'].startCommit, a.startCommit)
     assert.equal(st.packages['WP-01'].status, 'done')
     assert.equal(state.isDone(root, 'WP-01'), true)
     const p = attemptPaths(root, 'WP-01', 1)
@@ -137,6 +142,7 @@ test('permission denials are counted', async () => {
   const scenario = {
     stream: [h.INIT, { type: 'system', subtype: 'permission_denied', agent_id: 'a1', session_id: 'stub-session' }, R({})],
     resultFile: h.resultRecord(),
+    commit: true,
     exitCode: 0
   }
   await withAttempt(scenario, async ({ run }) => {

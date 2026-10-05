@@ -1,5 +1,6 @@
 // Runs one attempt of a package: records it in the state, launches the session, maps the outcome
 // and applies it to the package. An attempt is the unit WP-07's scheduler and WP-08's gate build on.
+// A complete session counts only when its commits check out and the gate passes or none is configured.
 'use strict'
 
 const fs = require('fs')
@@ -9,6 +10,8 @@ const { claudeCommand } = require('./claude-bin.js')
 const { buildArgs, buildEnv, launch } = require('./session.js')
 const { readStreamFile } = require('./stream.js')
 const { readResultFile, mapOutcome } = require('./outcome.js')
+const git = require('./git.js')
+const { runGate } = require('./gate.js')
 
 function attemptPaths(root, id, n) {
   const dir = path.join(state.stateDir(root), 'runs', id, `attempt-${n}`)
@@ -24,7 +27,7 @@ function attemptPaths(root, id, n) {
 function applyOutcome(root, st, id, attempt, now = new Date()) {
   const entry = st.packages[id]
   if (attempt.outcome === 'complete') {
-    // WP-08 will put the gate before the marker.
+    // complete here means the commits checked out and the gate passed or was skipped.
     state.markDone(root, id, now)
     entry.status = 'done'
     entry.endedAt = now.toISOString()
@@ -35,6 +38,38 @@ function applyOutcome(root, st, id, attempt, now = new Date()) {
     entry.endedAt = now.toISOString()
   }
   state.write(root, st, now)
+}
+
+// A session that reported complete must have stayed on the run branch, made commits and passed the gate;
+// otherwise the outcome is downgraded.
+async function checkComplete({ root, st, entry, attempt, config, packageId, dir, env, abortSignal, now }) {
+  const short = entry.startCommit ? entry.startCommit.slice(0, 7) : 'unknown'
+  const branch = git.currentBranch(root)
+  if (branch !== st.branch) {
+    attempt.outcome = 'unverified'
+    attempt.reason = `the session reported complete but left the run branch ${st.branch} (now on ${branch || 'a detached HEAD'})`
+    return
+  }
+  if (attempt.commits === null) {
+    attempt.outcome = 'unverified'
+    attempt.reason = `the session reported complete, but HEAD is not a descendant of the package's start commit ${short}`
+    return
+  }
+  if (attempt.commits === 0) {
+    attempt.outcome = 'unverified'
+    attempt.reason = `the session reported complete, but HEAD has not advanced from the package's start commit ${short}, so it made no commits`
+    return
+  }
+  state.write(root, st, now())
+  attempt.gate = await runGate({ root, config, packageId, dir, env, abortSignal })
+  attempt.endedAt = now().toISOString()
+  if (attempt.gate.status === 'interrupted') {
+    attempt.outcome = 'interrupted'
+    attempt.reason = attempt.gate.reason
+  } else if (attempt.gate.status === 'failed') {
+    attempt.outcome = 'gate-failed'
+    attempt.reason = attempt.gate.reason
+  }
 }
 
 async function runAttempt({ root, st, pkg, prompt, config, env = process.env, abortSignal = null, now = () => new Date() }) {
@@ -68,7 +103,13 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
     results: 0,
     permissionDenials: 0,
     malformedLines: 0,
+    startCommit: git.head(root),
+    endCommit: null,
+    commits: null,
+    sessionOutcome: null,
+    gate: null,
   }
+  if (attempt.kind === 'plan') entry.startCommit = attempt.startCommit
   entry.attempts.push(attempt)
   entry.status = 'running'
   if (entry.startedAt === null) entry.startedAt = attempt.startedAt
@@ -111,6 +152,13 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
     permissionDenials: stream.permissionDenials.length,
     malformedLines: stream.malformed,
   })
+
+  attempt.sessionOutcome = m.outcome
+  attempt.endCommit = git.head(root)
+  attempt.commits = git.commitsSince(root, entry.startCommit)
+  if (m.outcome === 'complete') {
+    await checkComplete({ root, st, entry, attempt, config, packageId: pkg.id, dir: p.dir, env, abortSignal, now })
+  }
 
   applyOutcome(root, st, pkg.id, attempt, now())
   return attempt
