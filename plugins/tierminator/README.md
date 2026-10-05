@@ -187,6 +187,10 @@ sets to `sdk-cli` for `claude -p`. Interactive sessions plan in plan mode and ap
   (`bypassPermissions` in a sandbox or CI, or `acceptEdits` with `--allowedTools` rules).
 - **An invalid plan gets three chances and then nothing runs.** It never falls back to untiered work. After
   a compaction the rules are given again.
+- **A result file is written when the run ends:** `<plan>.result.json` beside the plan, or the path in
+  `TIERMINATOR_RESULT_FILE`, with the outcome (`complete`, `halted`, `no-plan` or `declined`), the tasks done and
+  not run, and the reason. A caller reads it after the session is gone; see the
+  [reference](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#the-result-file).
 
 ## The tiers
 

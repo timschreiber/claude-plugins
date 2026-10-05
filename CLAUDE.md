@@ -26,7 +26,8 @@ cataloged in `.claude-plugin/marketplace.json`:
   the plan Claude ends its turn with, with no approval (detected from
   `CLAUDE_CODE_ENTRYPOINT`). Each
   run's estimated token spend (per tier, planning, orchestration) is shown
-  in the UI and written to `<plan>.telemetry.jsonl`; the summary also estimates
+  in the UI and written to `<plan>.telemetry.jsonl`; every run end also writes a result file,
+  `<plan>.result.json` or `TIERMINATOR_RESULT_FILE`, that a caller reads; the summary also estimates
   the tokens and cost had the planning model run the tasks itself, and the
   savings; prices live in
   `scripts/lib/prices.js`, held equal to `probes/evidence/planandtier-pricing.json`.
