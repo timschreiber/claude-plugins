@@ -484,7 +484,8 @@ subagent itself.
   [Commands](#commands)) or runs a saved plan (see [Executing a saved plan](#executing-a-saved-plan)). The
   stop note, if any, comes before the command's note, and a stopped run's spend goes to the UI as
   `systemMessage`. These commands are the only thing H1 handles in an inactive session. Everything below
-  needs the session active.
+  needs the session active. A headless `/tierminator:execute` that does not start writes a `complete` or
+  `declined` result file (see [The result file](#the-result-file)).
 - The rules (the text of `rules/tiering.md`) are shown once per plan-mode stint, and the file
   `sessions/<session_id>.rules`, beside the `.active` flag, records that they were shown. They are shown on
   `/tierminator:plan` typed in plan mode, on `PostToolUse` for `EnterPlanMode` while planning (as
@@ -733,6 +734,8 @@ git add -A
 git commit -m "<title>" -m "Tierminator-Task: T02" -m "Tierminator-Plan: 0123456789abcdef"
 ```
 
+Each `-m` is its own paragraph, and Claude Code adds a `Co-Authored-By` paragraph after them, so Git does not parse `Tierminator-Task` and `Tierminator-Plan` as trailers: `%(trailers)` and `git interpret-trailers` find nothing (Grindinator WP-01 V5). This is deliberate (decided in Grindinator WP-05). Find a task's commit by its message body, as `git.committedTasks()` and `judge()` do, with `git log --fixed-strings --grep="Tierminator-Plan: <id>" --format=%H%x1f%B` and a line match on `^Tierminator-Task: (T\d+)$`. One paragraph would not help, since the `Co-Authored-By` paragraph would still be last, and older commits keep this shape.
+
 It never pushes, amends, resets, stashes, rebases or switches branches. It ends with a report block:
 
 ```
@@ -843,6 +846,8 @@ It then checks, in order:
 | Every task is committed | Nothing runs; the note lists the commits. |
 | Otherwise | Activates the session, saves a `running` state starting at the first task not done, and gives the first dispatch. |
 
+**Headless.** In a headless session H1 calls `executePlan(input, rest, { record: true })`, and the command runs with no approval (WP-01 V5). Always pass the plan path: a list number refers to a list shown earlier in the same session, so in a fresh `claude -p` session it lists plans and runs nothing (unchanged). When the plan does not start, the result file is written: `complete` when every task is already committed (`tasksDone` every task, `tasksFile` null), else `declined` with the note's first sentence as the reason, for every refusal row above, including a plain or opted-out plan (Claude then implements it) and no path or an unresolved number. `planFile` is null until the plan file was read, so then the result goes to `TIERMINATOR_RESULT_FILE` or beside the session state. A run that starts writes its result when it ends.
+
 **Which tasks are done.** `git.committedTasks()` runs `git log HEAD` for commits with this plan's
 `Tierminator-Plan:` line and reads their `Tierminator-Task:` lines. Only commits reachable from HEAD count,
 so another branch's commits do not. The run starts after the leading tasks found there. `--from` overrides
@@ -867,8 +872,8 @@ For headless `claude -p` runs, where no one approves a plan.
   with `sdk` (`lib/unattended.js`, `headless()`). Claude Code sets it to `sdk-cli` for `claude -p`, and
   interactive sessions record `cli`; a missing value counts as interactive (measured; see
   [`tierminator-headless-command-findings.md`](tierminator-headless-command-findings.md)). Only
-  `/tierminator:plan` consults it: a headless session without the command is left alone, like any
-  inactive session.
+  `/tierminator:plan` and `/tierminator:execute` consult it: a headless session without either command is
+  left alone, like any inactive session.
 - **Launch.** Recommended:
   `claude -p --model opus --effort medium --permission-mode bypassPermissions "/tierminator:plan <request>"`.
   The main thread plans and then orchestrates, so `--model` and `--effort` choose the planning model.
@@ -901,13 +906,15 @@ For headless `claude -p` runs, where no one approves a plan.
   which re-injects the note and rules for a session still `drafting`.
 - **Stopping.** A headless run has no one typing, so it ends when it completes, halts or is abandoned by the guard. A later
   `/tierminator:execute` resumes a stopped run like any other.
+- **Resuming.** `claude -p --permission-mode bypassPermissions '/tierminator:execute "<plan file>" --from T03'`;
+  see [Executing a saved plan](#executing-a-saved-plan).
 - **Permissions.** No hook sets `permissionDecision: "allow"`. Workers need permissions to edit, run their
   `Verify:` commands and `git commit` on their own: `--permission-mode bypassPermissions` in a sandbox or
   CI, or `acceptEdits` with `--allowedTools` rules.
 
 ## The result file
 
-Every run that ends writes one JSON file a caller can read after the session is gone, `lib/result.js`. The session state is deleted at SessionEnd, so without it only the plan, tasks and telemetry files persist. It is written for interactive and headless sessions, only for a session tierminator has activated (one exception: a headless `/tierminator:plan` refused before it activated), atomically (temp file, then rename), and never fails loudly.
+Every run that ends writes one JSON file a caller can read after the session is gone, `lib/result.js`. The session state is deleted at SessionEnd, so without it only the plan, tasks and telemetry files persist. It is written for interactive and headless sessions, only for a session tierminator has activated (two exceptions: a headless `/tierminator:plan` refused before it activated, and a headless `/tierminator:execute` that did not start), atomically (temp file, then rename), and never fails loudly.
 
 **Path.** `TIERMINATOR_RESULT_FILE` when set (a relative value is resolved against the hook's working directory), else `<plan>.result.json` beside the plan file, else `sessions/<session_id>.result.json` beside the session state when there is no plan file. SessionEnd never deletes it (only the 7-day prune removes the last kind). A later run of the same plan overwrites it.
 
@@ -933,6 +940,7 @@ Every run that ends writes one JSON file a caller can read after the session is 
 | Outcome | Reason | Written by |
 |---|---|---|
 | `complete` | null | H5, at the first Stop after the last task is committed. |
+| `complete` | null | H1, for a headless `/tierminator:execute` whose tasks are all committed already. |
 | `halted` | The halt reason, `haltedAt` the halted task. | H5, at the first Stop after H4 halted the run. |
 | `halted` | `tierminator stopped dispatching tasks: ...` | H5, when the guard abandons a run. |
 | `halted` | `the user typed a prompt during the run` | H1, when a typed prompt stops the run. |
@@ -942,10 +950,9 @@ Every run that ends writes one JSON file a caller can read after the session is 
 | `halted` | `an API error ended the session: <message>` | H7, on any other `StopFailure` error, in the same cases. |
 | `complete` or `halted` | as at Stop | H7, for a run that ended before the error, whose Stop never came. |
 | `no-plan` | `the plan was still not valid after 3 tries`, or `planning ended without a valid plan` | H5, in a headless session. |
-| `declined` | The refusal, or `the plan opts out of tiered execution` | H1 for a headless `/tierminator:plan` that cannot start (plan mode, Git, flag or state not writable); H5 when a headless plan opts out, cannot be saved or cannot start. |
+| `declined` | The refusal, or `the plan opts out of tiered execution` | H1 for a headless `/tierminator:plan` that cannot start (plan mode, Git, flag or state not writable), and for a headless `/tierminator:execute` that does not start; H5 when a headless plan opts out, cannot be saved or cannot start. |
 
-The state's top-level `resultWritten` flag records that a file was written, so a later hook (a second Stop, SessionEnd) writes nothing more and a completed run is never overwritten by the SessionEnd record. H7 sets it too. A `limit` result holds even without the flag: `writeEnded` writes nothing over a `limit` record of the same session written at or after the run was approved (`limitRecorded`), so SessionEnd keeps it when the state could not be saved, while a later run of the same plan still writes its own. `/tierminator:execute` refusals are not written yet.
-
+The state's top-level `resultWritten` flag records that a file was written, so a later hook (a second Stop, SessionEnd) writes nothing more and a completed run is never overwritten by the SessionEnd record. H7 sets it too. A `limit` result holds even without the flag: `writeEnded` writes nothing over a `limit` record of the same session written at or after the run was approved (`limitRecorded`), so SessionEnd keeps it when the state could not be saved, while a later run of the same plan still writes its own.
 **After a limit.** `tasksFile` null means the limit came before the run started: rerun from planning. Otherwise the first id in `tasksNotRun` is where `/tierminator:execute <planFile> --from <id>` resumes, and an empty `tasksNotRun` means every task was committed. Tierminator never waits or relaunches itself; see [H7](#h7-limit).
 
 ## Spend telemetry
@@ -1332,6 +1339,7 @@ file and fails.
 | `tests/tierminator/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, the activation flag and the telemetry cursor. |
 | `tests/tierminator/result.test.js` | The result file's schema (version 1, the field set, the outcomes), its path rules, the atomic write, nothing written for an inactive session, an unwritable path, what each ended state says, and the limit guard. |
 | `tests/tierminator/result-hooks.test.js` | The result file as the hooks write it: complete, halted and abandoned at H5's Stop, a typed prompt, SessionEnd (and surviving it), no overwrite, inactive sessions, the environment override, the no-plan fallback path, an unattended no-plan, opt-out and refused plan, and a refused headless start. |
+| `tests/tierminator/execute-headless.test.js` | A headless execute with a fixture plan runs every task and writes complete; `--from` skips earlier tasks; a missing plan, an unknown task, a dirty tree, plan mode, no commit identity and a list number give declined; an all-committed plan gives complete; an interactive refusal writes nothing. |
 | `tests/tierminator/limit.test.js` | Telling a limit from another error, reading the reset time from a transcript's tail (OAuth, API key, missing, the last limit line, padding past the tail) and the API-error reason. |
 | `tests/tierminator/limit-hooks.test.js` | H7 as a hook from WP-01's payload samples: a limit with and without a reset time, a 400, inactive sessions, subagents, the environment override, SessionEnd keeping a limit with and without the flag, ended runs, drafting and planning, files left in place. |
 | `tests/tierminator/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
