@@ -1,0 +1,161 @@
+{
+  "common": {
+    "exitCode": 0,
+    "timedOut": false,
+    "resultSubtype": "success",
+    "isError": false,
+    "resultKeys": [
+      "duration_api_ms",
+      "stop_reason",
+      "session_id",
+      "total_cost_usd",
+      "usage",
+      "modelUsage",
+      "permission_denials",
+      "terminal_reason",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "subagent_stats",
+      "is_error",
+      "num_turns",
+      "subtype",
+      "api_error_status",
+      "result",
+      "ttft_ms",
+      "type",
+      "duration_ms",
+      "uuid",
+      "ttft_stream_ms",
+      "time_to_request_ms",
+      "first_content_frame_ms",
+      "queued_turn_count",
+      "result_index"
+    ],
+    "resultText": "tierminator couldn't run the plan because the working tree has uncommitted changes: the untracked file `scratch.txt`.\n\nTo fix it, commit, stash or delete `scratch.txt`. For example, `git stash -u` stashes it. Then type:\n\n`/tierminator:execute \"C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\execute-dirty\\plan.md\"`\n\nSeparately, the Gmail, Google Calendar and Google Drive connectors need authorization. You can do that in your claude.ai connector settings. They're unavailable until then, but this plan doesn't use them.",
+    "initKeys": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "sessionIdIn": [
+      "system/hook_started",
+      "system/hook_response",
+      "system/init",
+      "assistant",
+      "rate_limit_event",
+      "result/success"
+    ],
+    "typeCounts": {
+      "system/hook_started": 1,
+      "system/hook_response": 1,
+      "system/init": 1,
+      "assistant": 1,
+      "rate_limit_event": 1,
+      "result/success": 1
+    },
+    "apiRetries": 0,
+    "permissionDenials": [],
+    "hookEventCounts": {
+      "SessionStart": 1,
+      "UserPromptSubmit": 1,
+      "Stop": 1,
+      "SessionEnd": 1
+    },
+    "stopFailure": [],
+    "sessionEnd": [
+      {
+        "session_id": "8a66bb39-fe81-4a2b-a625-2d32f581b811",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-execute-dirty-repo\\8a66bb39-fe81-4a2b-a625-2d32f581b811.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\execute-dirty\\repo",
+        "prompt_id": "98b59104-8a8d-41b4-802a-93d51564c1d6",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      }
+    ],
+    "pluginsLoaded": [
+      {
+        "name": "tierminator",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+        "source": "tierminator@inline"
+      },
+      {
+        "name": "grindinator-probe",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+        "source": "grindinator-probe@inline"
+      },
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      },
+      {
+        "name": "cc-plugin-plugin-authoring",
+        "path": "builtin",
+        "source": "cc-plugin-plugin-authoring@builtin"
+      }
+    ],
+    "duplicatePlugins": []
+  },
+  "cell": {
+    "commits": [
+      {
+        "sha": "67936449b739045132a7a9c5d3b4323e8cbfbbe5",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ],
+    "committedTasks": [],
+    "files": {
+      "hello.txt": false,
+      "world.txt": false,
+      "summary.txt": false
+    },
+    "clean": false,
+    "tasksFile": false,
+    "telemetryFile": false,
+    "activated": false,
+    "refusals": {
+      "stdout": [
+        "uncommitted changes"
+      ],
+      "resultText": [
+        "uncommitted changes"
+      ]
+    },
+    "workerDispatches": [],
+    "unattendedPlanFile": null
+  }
+}

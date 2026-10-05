@@ -1,0 +1,72 @@
+{
+  "generated": "2026-10-05T03:54:51.610Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "execute-bypass",
+  "items": [
+    "V5",
+    "V8"
+  ],
+  "args": [
+    "-p",
+    "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/grindinator-probe/execute-bypass/plan.md\"",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\execute-bypass\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low",
+    "--permission-mode",
+    "bypassPermissions"
+  ],
+  "envSet": [],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 26498,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "2db6386fb742b63c9af2252ffa847555c9179f17",
+    "status": "",
+    "commits": [
+      {
+        "sha": "2db6386fb742b63c9af2252ffa847555c9179f17",
+        "subject": "Add world.txt",
+        "task": null,
+        "files": [
+          "world.txt"
+        ]
+      },
+      {
+        "sha": "7bf8bc5eead4659578ad764c60c07644eea33a86",
+        "subject": "Add hello.txt",
+        "task": null,
+        "files": [
+          "hello.txt"
+        ]
+      },
+      {
+        "sha": "102ef5fe60c8864eb9582ec3cc5f264e7cfec3e8",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

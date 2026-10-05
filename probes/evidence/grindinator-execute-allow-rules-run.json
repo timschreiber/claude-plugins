@@ -1,0 +1,60 @@
+{
+  "generated": "2026-10-05T03:56:25.352Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "execute-allow-rules",
+  "items": [
+    "V8"
+  ],
+  "args": [
+    "-p",
+    "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/grindinator-probe/execute-allow-rules/plan.md\"",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\execute-allow-rules\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low",
+    "--permission-mode",
+    "acceptEdits",
+    "--allowedTools",
+    "Bash(git:*)",
+    "Bash(node:*)",
+    "PowerShell(git:*)",
+    "PowerShell(node:*)"
+  ],
+  "envSet": [],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 38953,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "a91f26b2e72bde4668451fb716243f9a0ea2004f",
+    "status": "",
+    "commits": [
+      {
+        "sha": "a91f26b2e72bde4668451fb716243f9a0ea2004f",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

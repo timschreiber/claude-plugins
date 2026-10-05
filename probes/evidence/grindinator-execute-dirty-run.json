@@ -1,0 +1,55 @@
+{
+  "generated": "2026-10-05T03:54:14.375Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "execute-dirty",
+  "items": [
+    "V5"
+  ],
+  "args": [
+    "-p",
+    "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/grindinator-probe/execute-dirty/plan.md\"",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\execute-dirty\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\tierminator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low",
+    "--permission-mode",
+    "bypassPermissions"
+  ],
+  "envSet": [],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 4590,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "67936449b739045132a7a9c5d3b4323e8cbfbbe5",
+    "status": "?? scratch.txt\n",
+    "commits": [
+      {
+        "sha": "67936449b739045132a7a9c5d3b4323e8cbfbbe5",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}
