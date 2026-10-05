@@ -104,3 +104,126 @@ test('write failure returns false without throwing', () => {
   process.env.TIERMINATOR_RESULT_FILE = path.join(blocker, 'r.json')
   assert.equal(result.write(S, result.record({ sessionId: S, outcome: 'complete' })), false)
 })
+
+const input = () => ({ session_id: S })
+const read = () => JSON.parse(fs.readFileSync(path.join(dir, 'x.result.json'), 'utf8'))
+const run = (over = {}) => ({
+  phase: 'running', planFile: 'p.md', tasksFile: 't.json', tasks: [{ id: 'T01' }, { id: 'T02' }, { id: 'T03' }],
+  current: { index: 1 }, done: [{ id: 'T01' }], ...over,
+})
+const fixed = () => { process.env.TIERMINATOR_RESULT_FILE = path.join(dir, 'x.result.json') }
+const exists = () => fs.existsSync(path.join(dir, 'x.result.json'))
+
+test('writeEnded: complete state', () => {
+  fixed()
+  const s = run({ phase: 'complete', done: [{ id: 'T01' }, { id: 'T02' }, { id: 'T03' }] })
+  assert.equal(result.writeEnded(input(), s), true)
+  const r = read()
+  assert.equal(r.outcome, 'complete')
+  assert.equal(r.reason, null)
+  assert.equal(r.haltedAt, null)
+  assert.deepEqual(r.tasksDone, ['T01', 'T02', 'T03'])
+  assert.deepEqual(r.tasksNotRun, [])
+  assert.equal(r.limit, null)
+  assert.equal(r.version, 1)
+  assert.equal(r.sessionId, S)
+})
+
+test('writeEnded: halted state, with and without a halt object', () => {
+  fixed()
+  const s = run({ phase: 'halted', halt: { task: 'T02', tried: ['sonnet-medium'], reason: 'boom' } })
+  assert.equal(result.writeEnded(input(), s), true)
+  let r = read()
+  assert.equal(r.outcome, 'halted')
+  assert.equal(r.reason, 'boom')
+  assert.equal(r.haltedAt, 'T02')
+  assert.deepEqual(r.tasksDone, ['T01'])
+  assert.deepEqual(r.tasksNotRun, ['T02', 'T03'])
+
+  assert.equal(result.writeEnded(input(), run({ phase: 'halted' })), true)
+  r = read()
+  assert.equal(r.reason, 'the run halted')
+  assert.equal(r.haltedAt, 'T02')
+})
+
+test('writeEnded: abandoned with and without a run', () => {
+  fixed()
+  assert.equal(result.writeEnded(input(), run({ phase: 'abandoned' })), true)
+  let r = read()
+  assert.equal(r.outcome, 'halted')
+  assert.equal(r.reason, result.REASONS.abandoned)
+  assert.equal(r.haltedAt, 'T02')
+
+  assert.equal(result.writeEnded(input(), { phase: 'abandoned', planFile: 'p.md' }), true)
+  r = read()
+  assert.equal(r.outcome, 'no-plan')
+  assert.equal(r.reason, result.REASONS.noPlan)
+  assert.equal(r.haltedAt, null)
+  assert.deepEqual(r.tasksDone, [])
+  assert.deepEqual(r.tasksNotRun, [])
+})
+
+test('writeEnded: running needs a reason', () => {
+  fixed()
+  assert.equal(result.writeEnded(input(), run(), result.REASONS.sessionEnded), true)
+  const r = read()
+  assert.equal(r.outcome, 'halted')
+  assert.equal(r.reason, 'session ended during run')
+  assert.equal(r.haltedAt, 'T02')
+  fs.rmSync(path.join(dir, 'x.result.json'))
+  assert.equal(result.writeEnded(input(), run()), false)
+  assert.equal(exists(), false)
+})
+
+test('writeEnded: writes nothing for states that have not ended or were written', () => {
+  fixed()
+  const cases = [
+    null,
+    undefined,
+    { phase: 'planning' },
+    { phase: 'drafting' },
+    run({ phase: 'complete', resultWritten: true }),
+  ]
+  for (const s of cases) {
+    assert.equal(result.writeEnded(input(), s), false)
+    assert.equal(exists(), false)
+  }
+  assert.equal(result.writeEnded(input(), run({ resultWritten: true }), 'why'), false)
+  assert.equal(exists(), false)
+})
+
+test('writeOutcome: allowInactive writes beside the plan; without it nothing', () => {
+  const plan = path.join(dir, 'plan.md')
+  const file = path.join(dir, 'plan.result.json')
+  state.deactivate(S)
+  assert.equal(result.writeOutcome(input(), null, 'declined', 'why', { planFile: plan }), false)
+  assert.equal(fs.existsSync(file), false)
+  assert.equal(result.writeOutcome(input(), null, 'declined', 'why', { planFile: plan, allowInactive: true }), true)
+  const r = JSON.parse(fs.readFileSync(file, 'utf8'))
+  assert.equal(r.outcome, 'declined')
+  assert.equal(r.reason, 'why')
+  assert.equal(r.planFile, plan)
+  assert.equal(r.tasksFile, null)
+  assert.deepEqual(r.tasksDone, [])
+})
+
+test('writeOutcome: a cwd that is not a repository leaves headCommit null', () => {
+  fixed()
+  assert.equal(result.writeOutcome({ session_id: S, cwd: dir }, null, 'declined', 'why'), true)
+  assert.equal(read().headCommit, null)
+})
+
+test('reasonOf', () => {
+  assert.equal(
+    result.reasonOf('tierminator: the plan cannot run here: the working tree has uncommitted changes (docs/). Tell the user what to fix.'),
+    'the plan cannot run here: the working tree has uncommitted changes (docs/)',
+  )
+  assert.equal(result.reasonOf('tierminator: just a note'), 'just a note')
+  assert.equal(result.reasonOf(null), '')
+  assert.equal(result.reasonOf('a'.repeat(500)).length, 300)
+})
+
+test('REASONS keys and sessionEnded text', () => {
+  assert.deepEqual(Object.keys(result.REASONS), ['interrupted', 'lost', 'sessionEnded', 'abandoned', 'noPlan'])
+  assert.equal(result.REASONS.sessionEnded, 'session ended during run')
+})
