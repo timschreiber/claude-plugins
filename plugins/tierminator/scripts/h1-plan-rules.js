@@ -7,6 +7,7 @@
 //               A headless start it refuses writes a declined result file (lib/result.js) first.
 //             - /tierminator:execute [plan path | list number] [--from Txx] runs a saved plan
 //               (lib/execute.js).
+//               A headless one that does not start writes a complete or declined result file there.
 //             Either command first ends whatever the session was doing: a run in progress stops, and
 //             Claude is told what is done.
 //             Any other prompt does something only in an active session:
@@ -288,7 +289,7 @@ run(async () => {
   if (typed) {
     const stopped = endRun(input)
     const rest = prompt.slice(typed[0].length)
-    const commandNote = typed[1] === 'plan' ? planNote(input, rest.trim()) : executePlan(input, rest)
+    const commandNote = typed[1] === 'plan' ? planNote(input, rest.trim()) : executePlan(input, rest, { record: unattended.headless() })
     return say([stopped.note, commandNote].filter(Boolean).join('\n\n'), stopped.spent)
   }
 

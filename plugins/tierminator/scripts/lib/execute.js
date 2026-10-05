@@ -7,6 +7,7 @@
 //     not already committed on this branch, and the session is active.
 //   - A plain plan runs without tierminator: Claude implements it as usual.
 //   - A tierminator plan whose tasks cannot be loaded is refused: its prompts are not in the plan.
+//   - In a headless session (opts.record), a plan that does not start writes the result file (lib/result.js).
 'use strict'
 
 const fs = require('fs')
@@ -14,6 +15,7 @@ const os = require('os')
 const path = require('path')
 const state = require('./state.js')
 const git = require('./git.js')
+const resultFile = require('./result.js')
 const { resolvePlan, planIdOf, sidecarPath, writeTasksFile } = require('./sidecar.js')
 const { extractBlock } = require('./tasks.js')
 const { startRun, dispatchText, skippedEntry, doneLabel } = require('./run.js')
@@ -130,7 +132,7 @@ function startPoint(tasks, committed, from) {
 
 // opts.approved: the user has just approved the plan in plan mode (H3), so plan mode is not refused and
 // the note says the user wants it run.
-function executePlan(input, rest, opts = {}) {
+function startPlan(input, rest, opts, seen) {
   const id = input.session_id
   const cwd = input.cwd
   if (!opts.approved && input.permission_mode === 'plan') {
@@ -162,6 +164,7 @@ function executePlan(input, rest, opts = {}) {
   } catch {
     return `${PREFIX} the plan file ${planFile} cannot be read. Tell the user.`
   }
+  seen.planFile = planFile
 
   const result = resolvePlan(text)
   if (result.optOut || result.missingBlock) {
@@ -198,6 +201,7 @@ function executePlan(input, rest, opts = {}) {
   const point = startPoint(result.tasks, committed, args.from)
   if (point.error) return `${PREFIX} the plan in ${planFile} was not started: ${point.error}.`
   if (point.start >= result.tasks.length) {
+    seen.allDone = { tasks: result.tasks, done: point.done }
     return (
       `${PREFIX} every task in ${planFile} is already committed on this branch: ` +
       `${point.done.map(doneLabel).join(', ')}. Nothing was run. Tell the user.`
@@ -241,6 +245,23 @@ function executePlan(input, rest, opts = {}) {
     'Do not implement the plan yourself. ' +
     dispatchText(run)
   )
+}
+
+// opts.record: a headless /tierminator:execute (H1 passes unattended.headless()). A plan that does not start
+// leaves no run to write the result file, so it is written here: complete when every task is already committed,
+// else declined with the note's first sentence. planFile is null until the plan file was read. A run that starts
+// writes its own result when it ends.
+function executePlan(input, rest, opts = {}) {
+  const seen = {}
+  const note = startPlan(input, rest, opts, seen)
+  if (opts.record && state.read(input.session_id)?.phase !== 'running') recordNotStarted(input, note, seen)
+  return note
+}
+
+function recordNotStarted(input, note, seen) {
+  const where = { planFile: seen.planFile ?? null, allowInactive: true }
+  if (seen.allDone) return resultFile.writeOutcome(input, seen.allDone, 'complete', null, where)
+  return resultFile.writeOutcome(input, null, 'declined', resultFile.reasonOf(note), where)
 }
 
 module.exports = { executePlan, parseArgs, recentPlans, startPoint, plansDir }
