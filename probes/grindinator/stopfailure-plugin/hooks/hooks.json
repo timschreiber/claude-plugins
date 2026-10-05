@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/../probe-plugin/scripts/probe.js\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

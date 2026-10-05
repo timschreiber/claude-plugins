@@ -1,0 +1,9 @@
+{
+  "name": "grindinator-probe-stopfailure",
+  "description": "Development-time probe for Grindinator WP-01: registers only the StopFailure hook event, so an unknown event cannot disable the main probe plugin. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
