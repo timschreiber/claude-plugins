@@ -436,7 +436,7 @@ reached). The opt-out line inside a code fence does not count.
 
 ## The hooks
 
-Six scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered in
+Seven scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered in
 [`hooks/hooks.json`](../../plugins/tierminator/hooks/hooks.json). Each runs as
 `node "${CLAUDE_PLUGIN_ROOT}/scripts/<script>.js" [mode]`.
 
@@ -458,6 +458,7 @@ Six scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered i
 | H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `h5-guard.js pre` | 15 s |
 | H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
 | H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
+| H7 Limit | `StopFailure` | none | `h7-limit.js` | 15 s |
 
 Every hook ignores calls made by subagents (any input with an `agent_id`), so workers and other agents are
 never gated, guarded or given the rules. H4's `stop` mode is the exception: `SubagentStop` comes from the
@@ -473,6 +474,7 @@ subagent itself.
 | H4 | Silent in every mode, even for `tierminator:*` agents. `SubagentStop`'s `session_id` is the main session's, so a worker still running when its run was stopped is not judged. |
 | H5 | Silent. |
 | H6 | Still deletes the session's state and flag at `SessionEnd`. |
+| H7 | Silent: writes nothing. |
 
 ### H1: rules
 
@@ -676,6 +678,18 @@ In an unattended session, H5 also guards the drafting phase and turns the final 
 On `SessionEnd` it deletes the session's state file, its activation flag, its telemetry cursor and rules
 marker, its saved plan listing and its `<session_id>.plan.md` (a pruned file too, after 7 days). A run does not outlive its session; the tasks that
 finished are already committed. Before deleting, it writes the result file for a run still `running` (see [The result file](#the-result-file)); the result file itself is never deleted.
+
+### H7: limit
+
+- On `StopFailure`, which Claude Code fires instead of `Stop` when an API error ends the turn, H7 writes the [result file](#the-result-file) once.
+- It writes nothing when `resultWritten` is set or the phase is `planning` (interactive plan mode goes on after the error).
+- A run that already ended (`complete`, `halted`, `abandoned`) gets the outcome its Stop would have written.
+- Otherwise `error: "rate_limit"` writes outcome `limit`, with `limit.detectedAt` (ISO time), `limit.resetsAt` and `limit.raw` (the whole payload). `resetsAt` is `quotaLimits.resetsAt` (Unix seconds) on the last `error: "rate_limit"` line in the last 1 MiB of the transcript at `transcript_path` ([`lib/limit.js`](../../plugins/tierminator/scripts/lib/limit.js)). It is null when that line has none, as on an API-key login, or when the transcript is missing.
+- Any other `error` (`unknown` on a 400) writes `halted` with the reason `an API error ended the session: <first line of last_assistant_message>`.
+- `haltedAt` is the task in flight when a run was running.
+- It marks the state `resultWritten`, deletes nothing (the plan, tasks and telemetry files stay), and prints nothing, since Claude Code ignores StopFailure output. SessionEnd follows with `reason: "other"` and keeps the result.
+- It never waits or relaunches; a caller such as Grindinator does.
+- The payload has no reset field. WP-01 measured all of this against a mock 429 ([V1, V3, V4](../grindinator/grindinator-verification.md)).
 
 ## The run
 
@@ -1258,7 +1272,7 @@ plugins/tierminator/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
   agents/<model>-<effort>.md     # the five tier agents, one shared body
-  hooks/hooks.json               # H1-H6 registrations
+  hooks/hooks.json               # H1-H7 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   skills/plan/SKILL.md           # /tierminator:plan (user-only; H1 starts planning, the body passes $ARGUMENTS)
   skills/execute/SKILL.md        # /tierminator:execute (user-only; H1 starts the plan)
@@ -1269,8 +1283,10 @@ plugins/tierminator/
     h4-dispatch.js
     h5-guard.js
     h6-cleanup.js
+    h7-limit.js
     lib/git.js                   # the Git commands a run needs; never throws
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
+    lib/limit.js                 # usage limits: a limit or another API error, the reset time from the transcript
     lib/execute.js               # /tierminator:execute and H3's approval: arguments, the plan listing, where to start
     lib/prices.js                # per-model prices by token category, from Anthropic's pricing page
     lib/settle.js                # judging a worker's report: the report from a transcript, and settle()
@@ -1309,8 +1325,10 @@ file and fails.
 | `tests/tierminator/run.test.js` | The expected dispatch and prompt, checking a dispatch, parsing reports, judging an attempt (with and without a plan id), and moving on: next, complete, retry up the ladder, halt; a run started part-way. |
 | `tests/tierminator/agents.test.js` | One agent per tier with the right frontmatter, and one shared body. |
 | `tests/tierminator/state.test.js` | Round-trips, missing and corrupt files, id sanitizing, atomic writes, pruning, an unwritable data directory, the temp-directory fallback, the activation flag and the telemetry cursor. |
-| `tests/tierminator/result.test.js` | The result file's schema (version 1, the field set, the outcomes), its path rules, the atomic write, nothing written for an inactive session, an unwritable path, and what each ended state says. |
+| `tests/tierminator/result.test.js` | The result file's schema (version 1, the field set, the outcomes), its path rules, the atomic write, nothing written for an inactive session, an unwritable path, what each ended state says, and the limit guard. |
 | `tests/tierminator/result-hooks.test.js` | The result file as the hooks write it: complete, halted and abandoned at H5's Stop, a typed prompt, SessionEnd (and surviving it), no overwrite, inactive sessions, the environment override, the no-plan fallback path, an unattended no-plan, opt-out and refused plan, and a refused headless start. |
+| `tests/tierminator/limit.test.js` | Telling a limit from another error, reading the reset time from a transcript's tail (OAuth, API key, missing, the last limit line, padding past the tail) and the API-error reason. |
+| `tests/tierminator/limit-hooks.test.js` | H7 as a hook from WP-01's payload samples: a limit with and without a reset time, a 400, inactive sessions, subagents, the environment override, SessionEnd keeping a limit with and without the flag, ended runs, drafting and planning, files left in place. |
 | `tests/tierminator/prices.test.js` | The price table against the pricing evidence, longest-prefix model lookup, per-category costs, US-only inference. |
 | `tests/tierminator/usage.test.js` | De-duplicating repeated message lines, cache writes with and without a 5 m / 1 h split, an `opusplan` session split by mode and priced per model, time windows, unpriced models, unreadable transcripts, and subagents by window and type. |
 | `tests/tierminator/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
