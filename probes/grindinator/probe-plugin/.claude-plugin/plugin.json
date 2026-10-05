@@ -1,0 +1,9 @@
+{
+  "name": "grindinator-probe",
+  "description": "Development-time probe for Grindinator WP-01: logs every hook input, can dirty the tree on cue, and checks Decidinator's arming flag. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
