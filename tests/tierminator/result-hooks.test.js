@@ -121,3 +121,68 @@ test('H5 stop writes a halted result for an abandoned run', () => {
   assert.equal(s.phase, 'abandoned')
   assert.equal(s.resultWritten, true)
 })
+
+test('a typed prompt during a run writes a halted result', () => {
+  state.write(S, runState())
+  hook('h1-plan-rules.js', { session_id: S, cwd: repo, permission_mode: 'default', prompt: 'how is it going?' })
+  const r = readResult()
+  assert.equal(r.outcome, 'halted')
+  assert.equal(r.reason, 'the user typed a prompt during the run')
+  assert.equal(r.haltedAt, 'T01')
+  assert.deepEqual(r.tasksDone, [])
+  assert.deepEqual(r.tasksNotRun, ['T01', 'T02', 'T03'])
+  assert.equal(state.read(S), null)
+  assert.equal(state.isActive(S), false)
+})
+
+test('SessionEnd writes a halted result for a run still running, and the result survives the cleanup', () => {
+  state.write(S, runState({ done: [doneEntry('T01')], current: { ...runState().current, index: 1 } }))
+  hook('h6-cleanup.js', { session_id: S, cwd: repo, hook_event_name: 'SessionEnd' }, ['end'])
+  const r = readResult()
+  assert.equal(r.outcome, 'halted')
+  assert.equal(r.reason, 'session ended during run')
+  assert.equal(r.haltedAt, 'T02')
+  assert.deepEqual(r.tasksDone, ['T01'])
+  assert.equal(fs.existsSync(RESULT()), true)
+  assert.equal(state.read(S), null)
+  assert.equal(state.isActive(S), false)
+})
+
+test('SessionEnd does not overwrite a result already written', () => {
+  state.write(S, runState({ phase: 'complete', done: TASKS.map(t => doneEntry(t.id)), resultWritten: true }))
+  fs.writeFileSync(RESULT(), 'marker')
+  hook('h6-cleanup.js', { session_id: S, cwd: repo, hook_event_name: 'SessionEnd' }, ['end'])
+  assert.equal(fs.readFileSync(RESULT(), 'utf8'), 'marker')
+})
+
+test('SessionEnd writes the complete result when Stop never did', () => {
+  state.write(S, runState({ phase: 'complete', done: TASKS.map(t => doneEntry(t.id)) }))
+  hook('h6-cleanup.js', { session_id: S, cwd: repo, hook_event_name: 'SessionEnd' }, ['end'])
+  assert.equal(readResult().outcome, 'complete')
+})
+
+test('an inactive session writes no result', () => {
+  state.deactivate(S)
+  state.write(S, runState())
+  hook('h6-cleanup.js', { session_id: S, cwd: repo, hook_event_name: 'SessionEnd' }, ['end'])
+  assert.equal(fs.existsSync(RESULT()), false)
+  state.write(S, runState({ phase: 'complete', done: [] }))
+  hook('h5-guard.js', { session_id: S, cwd: repo }, ['stop'])
+  assert.equal(fs.existsSync(RESULT()), false)
+})
+
+test('TIERMINATOR_RESULT_FILE overrides the path', () => {
+  state.write(S, runState())
+  const out = path.join(dir, 'out', 'r.json')
+  hook('h6-cleanup.js', { session_id: S, cwd: repo, hook_event_name: 'SessionEnd' }, ['end'], { TIERMINATOR_RESULT_FILE: out })
+  assert.equal(readResult(out).outcome, 'halted')
+  assert.equal(fs.existsSync(RESULT()), false)
+})
+
+test('with no plan file the result goes beside the session state', () => {
+  state.write(S, runState({ planFile: null }))
+  hook('h6-cleanup.js', { session_id: S, cwd: repo, hook_event_name: 'SessionEnd' }, ['end'])
+  const r = readResult(path.join(dir, 'data', 'sessions', `${S}.result.json`))
+  assert.equal(r.outcome, 'halted')
+  assert.equal(r.planFile, null)
+})
