@@ -206,6 +206,7 @@ The texts the model sees come from [`lib/reasons.js`](../../plugins/decidinator/
 - **Reads:** `DECIDINATOR_MODE` and the configuration (only for its warnings).
 - **Writes:** the arming flag (`by: env`), and prunes session files older than 7 days.
 - **Output:** a `systemMessage`. `decidinator: armed in <mode> mode by DECIDINATOR_MODE.`, with any configuration problems appended; `decidinator: not armed: DECIDINATOR_MODE is "<value>"; use ask or sidecar.` for any other non-empty value (the check ignores case); `decidinator: not armed: its flag file could not be written.` on a write failure. Nothing when the variable is empty or unset.
+- **Headless sessions** (`lib/headless.js`: `CLAUDE_CODE_ENTRYPOINT` starts with `sdk`, or `CLAUDE_CODE_SESSION_ATTENDED` is `0`): an armed headless session is always sidecar mode, so `DECIDINATOR_MODE=ask` arms sidecar mode and the message says so (`lib/messages.js`, `envArmedHeadless`). When it newly arms a headless session for `startup`, `resume` or `clear` (never `compact`), it also adds the headless rule as `additionalContext` once: `AskUserQuestion` is unavailable; every open decision goes to `decidinator:oracle-1` in a prompt starting `Decidinator question NEW` with `Question:`, `Options:` and `Context:` lines; the oracle's best answer becomes a provisional answer and the session continues.
 
 ### `commands.js`
 
@@ -239,6 +240,7 @@ The texts the model sees come from [`lib/reasons.js`](../../plugins/decidinator/
 - **Reads:** session state, the configuration, the call's `subagent_type`, `prompt` and `tool_use_id`.
 - **Writes:** session state: the dispatch (rung, time, `tool_use_id`) and the Context text of the prompt, on the due question; or, for an import judgment, that the judgment was dispatched.
 - **Output:** a deny, or nothing. When a question is due, the Agent call passes only if `subagent_type` is the due rung's agent and the prompt contains the question ID as a word. Otherwise it is denied: `Agent call refused: it starts "<agent>", but <id> is waiting for <agent>` (or `its prompt does not contain <id>`), then `Oracle research for <id> comes first.` and the exact call. When nothing is due, it never denies; an Agent call to the first rung whose prompt contains `Decidinator import judgment` and the ID of a waiting import item is only marked dispatched.
+- **Headless sessions:** only when no question is due, it opens a question from a first-rung dispatch whose prompt starts `Decidinator question NEW` (`lib/headless.js`): it mints the ID, adds the question to the session state, and then runs its normal check. A prompt already carrying the minted ID (a direct dispatch) passes and is recorded; any other is denied once with the exact dispatch (`reasons.openedHeadless`). A question the session already has is denied with `reasons.settled`. The recorder, ladder and guards are unchanged and write the log and sidecar as in an interactive sidecar session.
 
 ### `oracle-shell.js`
 
@@ -280,7 +282,7 @@ The texts the model sees come from [`lib/reasons.js`](../../plugins/decidinator/
 - **Unarmed / subagents:** silent unarmed.
 - **Reads:** `last_assistant_message`, `stop_hook_active`, the configuration and session state.
 - **Writes:** nothing.
-- **Output:** `{"decision": "block", "reason": ...}` or nothing. It blocks when the final message ends with a question in plain text, and not when `stop_hook_active` is true (so it blocks once: the stop that follows a block carries that flag), when `nudgeOnPlainTextQuestions` is `false`, or while an oracle dispatch is due or running (the guard and `stop-guard.js` already cover it). The test is fixed: the last non-blank line, outside fenced code blocks, with inline code spans removed and trailing white space, quotes, asterisks, underscores and closing brackets stripped, ends with `?` (or `？`). The reason: `your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.`
+- **Output:** `{"decision": "block", "reason": ...}` or nothing. It blocks when the final message ends with a question in plain text, and not when `stop_hook_active` is true (so it blocks once: the stop that follows a block carries that flag), when `nudgeOnPlainTextQuestions` is `false`, or while an oracle dispatch is due or running (the guard and `stop-guard.js` already cover it). The test is fixed: the last non-blank line, outside fenced code blocks, with inline code spans removed and trailing white space, quotes, asterisks, underscores and closing brackets stripped, ends with `?` (or `？`). The reason: `your last message ends with a question in plain text. If it is for the user, ask it through the AskUserQuestion tool instead, with options, so Decidinator can research and record it. If it is not for the user, end your turn again.` In a headless session the reason is `reasons.NUDGE_HEADLESS` instead: it sends the question to `decidinator:oracle-1` in a prompt of `Decidinator question NEW`, `Question:`, `Options:` and `Context:` lines. There is no `Stop` check that the log was written (R-D3): the baseline is the headless rule plus this nudge.
 
 ### `stop-guard.js`
 
@@ -679,7 +681,7 @@ Other plugins (an intake, a runner, or anyone's) use Decidinator only through it
 
 ## Limitations
 
-- **Headless `claude -p` sessions are out of scope.** `AskUserQuestion` does not exist in them (verification item 5), so the gate can never fire there. Decidinator serves interactive sessions.
+- **Headless `claude -p` sessions run on the oracle dispatch, not the gate.** `AskUserQuestion` does not exist in them (verification item 5). An armed headless session is always sidecar mode, gets the headless rule once, and opens questions from a `Decidinator question NEW` oracle dispatch (see [`dispatch-check.js`](#dispatch-checkjs)). There is no `Stop` log check (R-D3); live confirmation is runbook scenario 8 (`docs/decidinator/decidinator-e2e-run.md`).
 - **Rung models are honored only outside plan mode.** In plan mode every rung runs on the session's model (see [The ladder](#the-ladder)).
 - **Plain-text questions are only nudged.** The `Stop` hook blocks one stop and asks the model to use `AskUserQuestion`; a question the model still asks in plain text is not intercepted, and the heuristic only looks at the last line of the final message.
 - **The guard and the stop guard step aside after `guardMaxBlocks`.** After that many consecutive blocks for one due dispatch it lets tools run, so a lost report never wedges a session. The question then stays pending until the dispatch is made.

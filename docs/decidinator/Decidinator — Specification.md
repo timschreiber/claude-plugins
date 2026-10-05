@@ -9,7 +9,7 @@ Decidinator is a Claude Code plugin that makes Claude research its own questions
 Goals:
 
 - **Fewer interruptions.** Questions that research can settle never reach the user; the rest arrive with researched options and tradeoffs.
-- **Unattended runs never stall on a question.** A session in sidecar mode always proceeds on the oracle's best answer and queues the question for a person. (Headless `claude -p` sessions are out of scope: see Scope and non-goals.)
+- **Unattended runs never stall on a question.** A session in sidecar mode always proceeds on the oracle's best answer and queues the question for a person.
 - **Every decision is recorded** with who made it, why, and on what sources, in a log that lives in the repo.
 - **A stakeholder workflow.** Unresolved questions collect in a sidecar a PM can take to stakeholders; their answers import back.
 - **Standalone and reusable.** Useful on its own, and the decision layer for the intake and runner plugins, which use it only through its public files.
@@ -21,7 +21,6 @@ In scope: enforcing oracle review of every `AskUserQuestion` call, the oracle la
 Non-goals:
 
 - **Catching every plain-text question.** A `Stop` hook nudges the model toward `AskUserQuestion`; questions that still slip through are not intercepted.
-- **Headless `claude -p` sessions.** `AskUserQuestion` does not exist in them (verification item 5), so the gate can never fire there. Decidinator serves interactive sessions, where one main thread plans and executes and a person can answer.
 - **Changing the project.** Oracles are read-only. Decidinator writes only its own log, sidecar, and state files.
 - **Acting on changed decisions.** Import flags decisions that changed and what depended on them. Re-planning or reworking affected work belongs to the caller (for example, the runner).
 - **Work packages.** Producing and running them belongs to the intake and runner plugins.
@@ -84,9 +83,22 @@ Every question takes the same path until its ladder ends; the mode decides only 
 Rules:
 
 - **Human-only questions** do not escalate. After one rung they go to step 6 or 7, carrying the options that rung researched.
-- **Sidecar mode is the unattended mode.** A runner that wants no question to wait for a person sets `DECIDINATOR_MODE=sidecar`. Headless `claude -p` sessions are out of scope.
+- **Sidecar mode is the unattended mode.** A runner that wants no question to wait for a person sets `DECIDINATOR_MODE=sidecar`.
 - **Several questions in one call** are each dispatched, one question per oracle call, in order. The gate lets a call through in ask mode only with the questions still unresolved.
 - **Duplicates.** If the oracle reports the question duplicates an open sidecar entry or an existing decision, the recorder reuses that entry and adds the new context to its dependents instead of creating another.
+
+## Headless sessions
+
+`AskUserQuestion` does not exist in a headless (`claude -p`) session, so the gate can never fire there. Decidinator opens questions from the oracle dispatch instead.
+
+- **Detection.** A session is headless when `CLAUDE_CODE_ENTRYPOINT` starts with `sdk`, or `CLAUDE_CODE_SESSION_ATTENDED` is `0` (`lib/headless.js`).
+- **Mode.** An armed headless session is always sidecar mode. `DECIDINATOR_MODE=ask` arms sidecar mode, and the start-up message says so.
+- **The rule.** When `session-start.js` newly arms a headless session for `startup`, `resume` or `clear` (never `compact`), it adds the headless rule as `additionalContext` once: `AskUserQuestion` is unavailable; every open decision goes to `decidinator:oracle-1` in a prompt starting `Decidinator question NEW`, with `Question:`, `Options:` and `Context:` lines; the oracle's best answer becomes a provisional answer and the session continues.
+- **Opening a question.** The dispatch check, in a headless session and only when no question is due, opens a question from such a dispatch: it mints the ID, adds the question to the session state, and then runs its normal check. A prompt that already carries the minted ID (a direct dispatch) passes and is recorded; any other is denied once with the exact dispatch (`reasons.openedHeadless`). A question the session already has is denied with `reasons.settled`. The recorder, ladder and guards are unchanged and write the log and sidecar as in an interactive sidecar session (R-D2).
+- **Nudge.** The nudge uses `reasons.NUDGE_HEADLESS` in a headless session.
+- **No Stop log check (R-D3).** There is no `Stop` check that the log was written. The baseline is the rule plus the headless nudge; revisit if a pilot shows few oracle calls on a substantial package.
+- **Log and sidecar paths.** A runner sets `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` to a path hidden by `.git/info/exclude`, so oracle writes never dirty the tree.
+- **Live confirmation** is scenario 8 of the end-to-end runbook (`docs/decidinator/decidinator-e2e-run.md`).
 
 ## Oracle ladder
 
@@ -210,6 +222,8 @@ Environment variables:
 | --- | --- |
 | `DECIDINATOR_MODE` | `ask` or `sidecar`: arms every session at start. |
 | `DECIDINATOR_CONTEXT` | Context label for `Depends on` and log entries. |
+| `DECIDINATOR_LOG` | A path, relative to the project root or absolute. Read after the config files, so it wins over `decisionLog`; used for every read and write of the log and shown to oracles in their prompts. Empty or unset is ignored. |
+| `DECIDINATOR_SIDECAR` | The same, for the sidecar: wins over `sidecar`. |
 | `DECIDINATOR_DEBUG` | `1` logs hook errors and state changes to a temp-directory log. |
 
 Configuration file keys (project file overrides user file, which overrides defaults):
@@ -222,6 +236,8 @@ Configuration file keys (project file overrides user file, which overrides defau
 | `sidecar` | `docs/open-questions.md` |
 | `guardMaxBlocks` | `3` |
 | `nudgeOnPlainTextQuestions` | `true` |
+
+`DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` override `decisionLog` and `sidecar`.
 
 Impact order, used by `/decidinator:confirm`: the number of `Depends on` labels, then flags `cross-cutting` before others, then lowest confidence first.
 
@@ -239,7 +255,7 @@ Safe behavior is the default, not an option, because standalone users may instal
 Integration contract for other plugins (intake, runner, or anyone's):
 
 - The decision log and sidecar formats, including their version markers, are the public API. Consumers read them; only Decidinator writes them.
-- A consumer arms Decidinator with `DECIDINATOR_MODE` and labels its work with `DECIDINATOR_CONTEXT`.
+- A consumer arms Decidinator with `DECIDINATOR_MODE`, labels its work with `DECIDINATOR_CONTEXT`, and may place the log and sidecar with `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR`.
 - Consumers never depend on session state files, hook internals, or agent names beyond the configured rungs.
 
 ## Requirements and verification
@@ -255,7 +271,7 @@ These behaviors were assumed by the design and checked in work package WP-01. Th
 | 1 | Oracle subagents can use WebFetch, web search (built-in or MCP), and `gh` through Bash when the session is in plan mode, both interactive and headless. | Oracles researching during planning |
 | 2 | The `SubagentStop` hook input identifies the agent and gives access to its final reply. | Recorder parsing verdicts |
 | 3 | `PreToolUse` input identifies whether a call comes from a subagent, and which one. | Ignoring subagent questions; oracle Bash allowlist |
-| 4 | A hook can tell whether the session is non-interactive. | Forcing sidecar mode when headless (no longer needed: headless is out of scope) |
+| 4 | A hook can tell whether the session is non-interactive. | Detecting headless sessions: sidecar mode and the headless rule |
 | 5 | A `PreToolUse` deny reason on `AskUserQuestion` and on other tools reaches the model, in plan mode and outside it. | Gate and guard instructions |
 | 6 | Plugin agents with Anthropic-format model IDs and `effort` resolve correctly on Bedrock and on a Pro plan. | Default rungs |
 
@@ -264,8 +280,8 @@ Results of WP-01:
 - **1 passed.** WebFetch, web search and `gh` worked for a subagent in plan and normal mode, interactive and headless.
 - **2 partial.** `SubagentStop` always identifies the agent (`agent_type`), but `last_assistant_message` is missing in some modes. The recorder reads it, then the `SubagentHandback` call, then `agent_transcript_path` (see Architecture, Recorder).
 - **3 passed.**
-- **4 passed, and no longer needed,** because headless is out of scope. If a detection is ever wanted: `CLAUDE_CODE_SESSION_ATTENDED=0` or `CLAUDE_CODE_ENTRYPOINT=sdk-cli`.
-- **5 passed** for interactive sessions in both modes. `AskUserQuestion` is not available headless.
+- **4 passed, and now used** for headless detection: `CLAUDE_CODE_ENTRYPOINT` starting with `sdk` (`sdk-cli`), or `CLAUDE_CODE_SESSION_ATTENDED=0` (see Headless sessions).
+- **5 passed** for interactive sessions in both modes. `AskUserQuestion` is not available headless; the headless path (see Headless sessions) replaces the gate there.
 - **6 partial.** Models and effort resolve on the tested login; Bedrock and Pro are untested. Rung models are honored only outside plan mode (see Oracle ladder).
 
 Fallbacks if an item fails: for 1, the oracles drop the failing tool and the README documents which tools must be allowed; for 3, oracles lose Bash and use WebFetch for GitHub.
