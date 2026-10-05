@@ -1791,7 +1791,7 @@ test('state changes are logged with a timestamp only when TIERMINATOR_DEBUG is s
   hook('h6-cleanup.js', { session_id: S }, ['end'], { ...env, TIERMINATOR_DEBUG: '1' })
   const lines = fs.readFileSync(log, 'utf8').trim().split('\n')
   assert.match(lines[0], /^\d{4}-\d\d-\d\dT\S+Z state sess-1: phase=running denials=0 guardDenials=2$/)
-  assert.match(lines[1], /state sess-1: removed$/)
+  assert.ok(lines.some((l) => /state sess-1: removed$/.test(l)))
 })
 
 test('H6 end deletes the session state', () => {

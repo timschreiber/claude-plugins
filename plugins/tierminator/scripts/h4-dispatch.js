@@ -28,6 +28,7 @@ const state = require('./lib/state.js')
 const git = require('./lib/git.js')
 const r = require('./lib/run.js')
 const spend = require('./lib/spend.js')
+const resultFile = require('./lib/result.js')
 const { settle, readReport } = require('./lib/settle.js')
 const { MAX_TURNS } = require('./lib/tasks.js')
 const { transcriptUsage } = require('./lib/usage.js')
@@ -102,6 +103,7 @@ function post(input, s) {
   if (!ours(input.tool_input?.subagent_type) || !s) return
   const lost = state.takeLost(input.session_id)
   if (lost) {
+    resultFile.writeEnded(input, s, resultFile.REASONS.lost)
     state.deactivate(input.session_id)
     state.remove(input.session_id)
     return context('PostToolUse', lost)
