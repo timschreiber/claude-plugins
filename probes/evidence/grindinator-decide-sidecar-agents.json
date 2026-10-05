@@ -1,0 +1,14 @@
+[
+  {
+    "agent_id": "aba91b86411500dfc",
+    "agent_type": "decidinator:oracle-1",
+    "effort": {
+      "level": "high"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "The spec answers this directly. `C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\decide-sidecar\\repo\\docs\\spec.md` line 3 says: \"The project targets Node 20. Unit tests use node:test, the runner built into Node.\"\n\n- **Decisions:** Neither `docs/decisions.md` nor `docs/open-questions.md` exists yet, so there is no binding decision to apply and no open duplicate question.\n- **Project:** The spec is the governing document, and it names the runner. There is no `package.json`, test code or other Jest setup that contradicts it. `README.md` and `notes.txt` say nothing on testing.\n- **Practice:** `node:test` became stable in Node 20.0.0, the version the project targets. It needs no third-party dependency, so the spec's choice works without extra setup. I skipped web and GitHub research because the spec settles the question.\n\n```decidinator-verdict\n{\n  \"question_id\": \"Q-0001\",\n  \"rung\": 1,\n  \"kind\": \"researchable\",\n  \"status\": \"resolved\",\n  \"answer\": \"Use node:test, the runner built into Node, for the probe project's unit tests.\",\n  \"rationale\": \"The project spec says directly that unit tests use node:test and that the project targets Node 20. node:test is stable in Node 20 and needs no third-party dependency. No decision log entry, code or other document contradicts the spec.\",\n  \"options\": [],\n  \"sources\": [\"docs/spec.md:3\", \"https://nodejs.org/api/test.html\"],\n  \"assumptions\": [],\n  \"confidence\": \"high\",\n  \"flags\": [],\n  \"duplicate_of\": null\n}\n```"
+  }
+]

@@ -1,0 +1,227 @@
+{
+  "common": {
+    "exitCode": 0,
+    "timedOut": false,
+    "resultSubtype": "success",
+    "isError": false,
+    "resultKeys": [
+      "duration_api_ms",
+      "stop_reason",
+      "session_id",
+      "total_cost_usd",
+      "usage",
+      "modelUsage",
+      "permission_denials",
+      "terminal_reason",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "subagent_stats",
+      "is_error",
+      "num_turns",
+      "subtype",
+      "api_error_status",
+      "result",
+      "ttft_ms",
+      "type",
+      "duration_ms",
+      "uuid",
+      "ttft_stream_ms",
+      "time_to_request_ms",
+      "first_content_frame_ms",
+      "queued_turn_count",
+      "result_index"
+    ],
+    "resultText": "DONE",
+    "initKeys": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "sessionIdIn": [
+      "system/hook_started",
+      "system/hook_response",
+      "system/init",
+      "assistant",
+      "rate_limit_event",
+      "system/task_started",
+      "user",
+      "system/task_progress",
+      "system/task_updated",
+      "system/task_notification",
+      "result/success"
+    ],
+    "typeCounts": {
+      "system/hook_started": 2,
+      "system/hook_response": 2,
+      "system/init": 1,
+      "assistant": 6,
+      "rate_limit_event": 1,
+      "system/task_started": 1,
+      "user": 6,
+      "system/task_progress": 4,
+      "system/task_updated": 1,
+      "system/task_notification": 1,
+      "result/success": 1
+    },
+    "apiRetries": 0,
+    "permissionDenials": [],
+    "hookEventCounts": {
+      "SessionStart": 1,
+      "UserPromptSubmit": 1,
+      "ArmedCheck": 1,
+      "PreToolUse": 5,
+      "SubagentStart": 1,
+      "PostToolUse": 5,
+      "SubagentStop": 1,
+      "Stop": 1,
+      "SessionEnd": 1
+    },
+    "stopFailure": [],
+    "sessionEnd": [
+      {
+        "session_id": "ff9b58cd-fbf1-426b-9565-987bacca7b9e",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-decide-strict-repo\\ff9b58cd-fbf1-426b-9565-987bacca7b9e.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\decide-strict\\repo",
+        "prompt_id": "f5fb4906-e42c-4a66-926a-3335e85d9439",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      }
+    ],
+    "pluginsLoaded": [
+      {
+        "name": "decidinator",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\decidinator",
+        "source": "decidinator@inline"
+      },
+      {
+        "name": "grindinator-probe",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+        "source": "grindinator-probe@inline"
+      },
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      },
+      {
+        "name": "cc-plugin-plugin-authoring",
+        "path": "builtin",
+        "source": "cc-plugin-plugin-authoring@builtin"
+      }
+    ],
+    "duplicatePlugins": []
+  },
+  "cell": {
+    "armed": [
+      [
+        {
+          "path": "C:\\Users\\timsc\\.claude\\plugins\\data\\decidinator-inline\\sessions\\ff9b58cd-fbf1-426b-9565-987bacca7b9e.armed",
+          "content": "{\"mode\":\"sidecar\",\"armedAt\":\"2026-10-05T03:53:21.783Z\",\"by\":\"env\"}"
+        }
+      ]
+    ],
+    "armedMessageInStream": true,
+    "oracleDispatches": [
+      {
+        "at": "2026-10-05T03:53:24.781Z",
+        "run": "decide-strict",
+        "event": "PreToolUse",
+        "env": {
+          "CLAUDECODE": "1",
+          "CLAUDE_CODE_CHILD_SESSION": "1",
+          "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+          "CLAUDE_CODE_EXECPATH": "C:\\Users\\timsc\\.local\\bin\\claude.exe",
+          "CLAUDE_CODE_MESSAGING_SOCKET": "\\\\.\\pipe\\LOCAL\\cc-msg-9f4290baaa78dcfe3675e1fde0242b2c",
+          "CLAUDE_CODE_MESSAGING_TOKEN": "<redacted>",
+          "CLAUDE_CODE_SESSION_ATTENDED": "0",
+          "CLAUDE_CODE_SESSION_ID": "ff9b58cd-fbf1-426b-9565-987bacca7b9e",
+          "CLAUDE_EFFORT": "low",
+          "CLAUDE_PID": "2056",
+          "CLAUDE_PLUGIN_DATA": "C:/Users/timsc/.claude/plugins/data/grindinator-probe-inline",
+          "CLAUDE_PLUGIN_ROOT": "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/grindinator/probe-plugin",
+          "CLAUDE_PROJECT_DIR": "C:/Users/timsc/AppData/Local/Temp/grindinator-probe/decide-strict/repo",
+          "SESSIONNAME": "Console",
+          "TERM": "xterm-256color",
+          "WT_SESSION": "4f5e1fae-5b16-4735-98af-c6c6589bfc62"
+        },
+        "input": {
+          "session_id": "ff9b58cd-fbf1-426b-9565-987bacca7b9e",
+          "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-decide-strict-repo\\ff9b58cd-fbf1-426b-9565-987bacca7b9e.jsonl",
+          "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\decide-strict\\repo",
+          "prompt_id": "f5fb4906-e42c-4a66-926a-3335e85d9439",
+          "permission_mode": "acceptEdits",
+          "effort": {
+            "level": "low"
+          },
+          "hook_event_name": "PreToolUse",
+          "tool_name": "Agent",
+          "tool_input": {
+            "description": "oracle",
+            "prompt": "Decidinator question Q-0001\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: Which test runner should the probe project's unit tests use?\nOptions:\n- node:test: the runner built into Node\n- Jest: a third-party runner\nContext: I am adding the first unit test to the probe project.",
+            "subagent_type": "decidinator:oracle-1",
+            "run_in_background": false
+          },
+          "tool_use_id": "toolu_01KKjed9sD3tBkttos4t59Vh"
+        }
+      }
+    ],
+    "report": {
+      "source": "last_assistant_message",
+      "text": "I've decided this one: the probe project's unit tests should use **node:test**.\n\n- **The spec answers it directly.** `docs/spec.md` line 3 says: \"The project targets Node 20. Unit tests use node:test, the runner built into Node.\"\n- **There is no earlier decision or open question on this.** Neither `docs/decisions.md` nor `docs/open-questions.md` exists yet, so this isn't a duplicate and nothing binding conflicts with the answer.\n- **Nothing else in the repo disagrees.** `README.md` and `notes.txt` say nothing about testing, and there is no `package.json` or Jest config.\n- **It fits the Node version.** As I recall Node's documentation, node:test became stable in Node 20.0.0. I didn't fetch the page to check, but the spec settles the question either way.\n\nBecause the spec was enough, I didn't search the web or GitHub for how other projects handle this. Jest would add a third-party dependency for no benefit the spec asks for.\n\nFiles:\n- C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\decide-strict\\repo\\docs\\spec.md\n\n```decidinator-verdict\n{\n  \"question_id\": \"Q-0001\",\n  \"rung\": 1,\n  \"kind\": \"researchable\",\n  \"status\": \"resolved\",\n  \"answer\": \"Use node:test, the test runner built into Node.\",\n  \"rationale\": \"The project spec states directly that unit tests use node:test, the runner built into Node, and that the project targets Node 20. There is no decision log or sidecar entry on this, and nothing in the repo points to Jest. node:test is stable in Node 20, so it fits the target version without adding a dependency.\",\n  \"options\": [],\n  \"sources\": [\"docs/spec.md:3\", \"https://nodejs.org/docs/latest-v20.x/api/test.html\"],\n  \"assumptions\": [],\n  \"confidence\": \"high\",\n  \"flags\": [],\n  \"duplicate_of\": null\n}\n```"
+    },
+    "verdict": {
+      "ok": true,
+      "reason": null,
+      "kind": "researchable",
+      "status": "resolved",
+      "confidence": "high"
+    },
+    "oracle": {
+      "effort": {
+        "level": "high"
+      },
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "resolvedModel": null
+    },
+    "decisionLog": {
+      "exists": false,
+      "head": null
+    },
+    "sidecar": {
+      "exists": false,
+      "head": null
+    },
+    "status": ""
+  }
+}

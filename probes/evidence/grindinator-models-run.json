@@ -1,0 +1,56 @@
+{
+  "generated": "2026-10-05T03:53:00.334Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "models",
+  "items": [
+    "V6",
+    "V9"
+  ],
+  "args": [
+    "-p",
+    "Call the Agent tool five times, one call at a time, with these subagent_type values in order: grindinator-probe:rung-1, grindinator-probe:rung-2, grindinator-probe:rung-3, grindinator-probe:worker-sonnet, grindinator-probe:worker-opus. For each call use the description probe and the prompt: Report your model. Then call ToolSearch with the query select:WebSearch, then call WebSearch with the query node:test runner. Finally reply with one line per agent, copying its reply, and then the line WEBSEARCH: OK if the search returned results, else WEBSEARCH: NOT-AVAILABLE.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\models\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low",
+    "--permission-mode",
+    "acceptEdits",
+    "--allowedTools",
+    "WebSearch"
+  ],
+  "envSet": [],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 44296,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "4a2ef344ffb41febbbb958000ed2d775d3c7106c",
+    "status": "",
+    "commits": [
+      {
+        "sha": "4a2ef344ffb41febbbb958000ed2d775d3c7106c",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

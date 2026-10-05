@@ -1,0 +1,62 @@
+[
+  {
+    "agent_id": "af38d16ac4344f601",
+    "agent_type": "grindinator-probe:rung-1",
+    "effort": {
+      "level": "high"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "MODEL: claude-opus-5-5"
+  },
+  {
+    "agent_id": "a1b67d178e8fcaa1e",
+    "agent_type": "grindinator-probe:rung-2",
+    "effort": {
+      "level": "xhigh"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "MODEL: claude-opus-5-5"
+  },
+  {
+    "agent_id": "a550524145f4d7a3b",
+    "agent_type": "grindinator-probe:rung-3",
+    "effort": {
+      "level": "high"
+    },
+    "models": [
+      "claude-fable-5-1"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "MODEL: claude-fable-5-1"
+  },
+  {
+    "agent_id": "adfe03447867d6d65",
+    "agent_type": "grindinator-probe:worker-sonnet",
+    "effort": {
+      "level": "medium"
+    },
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "MODEL: claude-sonnet-5-5"
+  },
+  {
+    "agent_id": "a3eae6c27908ddd89",
+    "agent_type": "grindinator-probe:worker-opus",
+    "effort": {
+      "level": "medium"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "MODEL: claude-opus-5-5"
+  }
+]

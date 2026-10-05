@@ -1,0 +1,66 @@
+{
+  "generated": "2026-10-05T03:53:19.298Z",
+  "claudeCodeVersion": "2.1.289 (Claude Code)",
+  "cell": "decide-sidecar",
+  "items": [
+    "V6",
+    "V8"
+  ],
+  "args": [
+    "-p",
+    "Call the Agent tool once, with subagent_type \"decidinator:oracle-1\", description \"oracle\", and as its prompt exactly the text between the BEGIN and END lines below, without those two lines.\nDo not research the question yourself. When the agent has finished, reply with the single word DONE and nothing else.\nBEGIN\nDecidinator question Q-0001\nRung: 1\nDecision log: docs/decisions.md\nSidecar: docs/open-questions.md\nQuestion: Which test runner should the probe project's unit tests use?\nOptions:\n- node:test: the runner built into Node\n- Jest: a third-party runner\nContext: I am adding the first unit test to the probe project.\nEND",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--settings",
+    "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\decide-sidecar\\settings.json",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\plugins\\decidinator",
+    "--plugin-dir",
+    "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+    "--model",
+    "sonnet",
+    "--effort",
+    "low",
+    "--permission-mode",
+    "acceptEdits",
+    "--allowedTools",
+    "WebFetch",
+    "WebSearch",
+    "Bash(gh search:*)",
+    "Bash(gh api:*)"
+  ],
+  "envSet": [
+    "DECIDINATOR_MODE",
+    "DECIDINATOR_CONTEXT",
+    "PROBE_ARMED_CHECK"
+  ],
+  "stripped": [
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_CHILD_SESSION"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "timedOut": false,
+  "durationMs": 16994,
+  "spawnError": null,
+  "stderr": "",
+  "git": {
+    "head": "182f068d98b11b95715ce502da5572ed70d37a2e",
+    "status": "",
+    "commits": [
+      {
+        "sha": "182f068d98b11b95715ce502da5572ed70d37a2e",
+        "subject": "fixture",
+        "task": null,
+        "files": [
+          "README.md",
+          "docs/spec.md",
+          "notes.txt"
+        ]
+      }
+    ]
+  }
+}

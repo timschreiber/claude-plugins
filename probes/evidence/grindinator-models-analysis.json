@@ -1,0 +1,193 @@
+{
+  "common": {
+    "exitCode": 0,
+    "timedOut": false,
+    "resultSubtype": "success",
+    "isError": false,
+    "resultKeys": [
+      "duration_api_ms",
+      "stop_reason",
+      "session_id",
+      "total_cost_usd",
+      "usage",
+      "modelUsage",
+      "permission_denials",
+      "terminal_reason",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "subagent_stats",
+      "is_error",
+      "num_turns",
+      "subtype",
+      "api_error_status",
+      "result",
+      "ttft_ms",
+      "type",
+      "duration_ms",
+      "uuid",
+      "ttft_stream_ms",
+      "time_to_request_ms",
+      "first_content_frame_ms",
+      "queued_turn_count",
+      "result_index"
+    ],
+    "resultText": "rung-1: MODEL: claude-opus-5-5\nrung-2: MODEL: claude-opus-5-5\nrung-3: MODEL: claude-fable-5-1\nworker-sonnet: MODEL: claude-sonnet-5-5\nworker-opus: MODEL: claude-opus-5-5\nWEBSEARCH: OK\n\nSources:\n- [node:test runner - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=connor4312.nodejs-testing)\n- [Node.js node:test module](https://bun.com/reference/node/test)\n- [Node.js Test Runner](https://www.w3schools.com/nodejs/nodejs_test_runner.asp)\n- [Test runner](https://nodejs.org/docs/latest-v24.x/api/test.html)\n- [Exploring the Node.js native test runner - LogRocket Blog](h",
+    "initKeys": [
+      "type",
+      "subtype",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "slash_commands",
+      "terminal_slash_commands",
+      "apiKeySource",
+      "claude_code_version",
+      "output_style",
+      "agents",
+      "skills",
+      "plugins",
+      "capabilities",
+      "analytics_disabled",
+      "product_feedback_disabled",
+      "uuid",
+      "memory_paths",
+      "messaging_socket_path",
+      "fast_mode_state",
+      "fast_mode_disabled_reason",
+      "per_turn_effort_active",
+      "view_mode",
+      "powershell_path"
+    ],
+    "sessionIdIn": [
+      "system/hook_started",
+      "system/hook_response",
+      "system/init",
+      "assistant",
+      "rate_limit_event",
+      "system/task_started",
+      "user",
+      "system/task_updated",
+      "system/task_notification",
+      "result/success"
+    ],
+    "typeCounts": {
+      "system/hook_started": 1,
+      "system/hook_response": 1,
+      "system/init": 1,
+      "assistant": 9,
+      "rate_limit_event": 3,
+      "system/task_started": 5,
+      "user": 12,
+      "system/task_updated": 5,
+      "system/task_notification": 5,
+      "result/success": 1
+    },
+    "apiRetries": 0,
+    "permissionDenials": [],
+    "hookEventCounts": {
+      "SessionStart": 1,
+      "UserPromptSubmit": 1,
+      "PreToolUse": 7,
+      "SubagentStart": 5,
+      "SubagentStop": 5,
+      "PostToolUse": 7,
+      "Stop": 1,
+      "SessionEnd": 1
+    },
+    "stopFailure": [],
+    "sessionEnd": [
+      {
+        "session_id": "1ae7788e-26e2-4840-b44f-4a4df2108262",
+        "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-grindinator-probe-models-repo\\1ae7788e-26e2-4840-b44f-4a4df2108262.jsonl",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\models\\repo",
+        "prompt_id": "9f29bb70-6f84-41b9-a194-830492281a47",
+        "hook_event_name": "SessionEnd",
+        "reason": "other"
+      }
+    ],
+    "pluginsLoaded": [
+      {
+        "name": "grindinator-probe",
+        "path": "C:\\Users\\timsc\\Source\\Repos\\GitHub\\timschreiber\\claude-plugins\\probes\\grindinator\\probe-plugin",
+        "source": "grindinator-probe@inline"
+      },
+      {
+        "name": "cc-plugin-agents-md",
+        "path": "builtin",
+        "source": "cc-plugin-agents-md@builtin"
+      },
+      {
+        "name": "cc-plugin-telemetry",
+        "path": "builtin",
+        "source": "cc-plugin-telemetry@builtin"
+      },
+      {
+        "name": "cc-plugin-plugin-authoring",
+        "path": "builtin",
+        "source": "cc-plugin-plugin-authoring@builtin"
+      }
+    ],
+    "duplicatePlugins": []
+  },
+  "cell": {
+    "agents": {
+      "grindinator-probe:rung-1": {
+        "effort": {
+          "level": "high"
+        },
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "resolvedModel": null,
+        "said": "MODEL: claude-opus-5-5"
+      },
+      "grindinator-probe:rung-2": {
+        "effort": {
+          "level": "xhigh"
+        },
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "resolvedModel": null,
+        "said": "MODEL: claude-opus-5-5"
+      },
+      "grindinator-probe:rung-3": {
+        "effort": {
+          "level": "high"
+        },
+        "models": [
+          "claude-fable-5-1"
+        ],
+        "resolvedModel": null,
+        "said": "MODEL: claude-fable-5-1"
+      },
+      "grindinator-probe:worker-sonnet": {
+        "effort": {
+          "level": "medium"
+        },
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "resolvedModel": null,
+        "said": "MODEL: claude-sonnet-5-5"
+      },
+      "grindinator-probe:worker-opus": {
+        "effort": {
+          "level": "medium"
+        },
+        "models": [
+          "claude-opus-5-5"
+        ],
+        "resolvedModel": null,
+        "said": "MODEL: claude-opus-5-5"
+      }
+    },
+    "webSearch": {
+      "called": true,
+      "reported": true
+    }
+  }
+}

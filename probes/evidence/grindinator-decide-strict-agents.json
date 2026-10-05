@@ -1,0 +1,14 @@
+[
+  {
+    "agent_id": "a1e939eff70d38ded",
+    "agent_type": "decidinator:oracle-1",
+    "effort": {
+      "level": "high"
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "resolvedModel": null,
+    "last_assistant_message": "I've decided this one: the probe project's unit tests should use **node:test**.\n\n- **The spec answers it directly.** `docs/spec.md` line 3 says: \"The project targets Node 20. Unit tests use node:test, the runner built into Node.\"\n- **There is no earlier decision or open question on this.** Neither `docs/decisions.md` nor `docs/open-questions.md` exists yet, so this isn't a duplicate and nothing binding conflicts with the answer.\n- **Nothing else in the repo disagrees.** `README.md` and `notes.txt` say nothing about testing, and there is no `package.json` or Jest config.\n- **It fits the Node version.** As I recall Node's documentation, node:test became stable in Node 20.0.0. I didn't fetch the page to check, but the spec settles the question either way.\n\nBecause the spec was enough, I didn't search the web or GitHub for how other projects handle this. Jest would add a third-party dependency for no benefit the spec asks for.\n\nFiles:\n- C:\\Users\\timsc\\AppData\\Local\\Temp\\grindinator-probe\\decide-strict\\repo\\docs\\spec.md\n\n```decidinator-verdict\n{\n  \"question_id\": \"Q-0001\",\n  \"rung\": 1,\n  \"kind\": \"researchable\",\n  \"status\": \"resolved\",\n  \"answer\": \"Use node:test, the test runner built into Node.\",\n  \"rationale\": \"The project spec states directly that unit tests use node:test, the runner built into Node, and that the project targets Node 20. There is no decision log or sidecar entry on this, and nothing in the repo points to Jest. node:test is stable in Node 20, so it fits the target version without adding a dependency.\",\n  \"options\": [],\n  \"sources\": [\"docs/spec.md:3\", \"https://nodejs.org/docs/latest-v20.x/api/test.html\"],\n  \"assumptions\": [],\n  \"confidence\": \"high\",\n  \"flags\": [],\n  \"duplicate_of\": null\n}\n```"
+  }
+]
