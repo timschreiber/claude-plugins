@@ -19,3 +19,6 @@ plugins/orcastrat/scripts/** eol=lf
 plugins/orcastrat/hooks/** eol=lf
 tests/orcastrat/** eol=lf
 scripts/run-bats.sh eol=lf
+# Grindinator runs from a git clone, and its stub and bin file must keep LF.
+tools/grindinator/** text eol=lf
+tests/grindinator/** text eol=lf

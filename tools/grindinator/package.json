@@ -1,0 +1,11 @@
+{
+  "name": "grindinator",
+  "private": true,
+  "description": "Runs a folder of work packages through Tierminator, one headless Claude Code session per package.",
+  "bin": {
+    "grindinator": "bin/grindinator"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
