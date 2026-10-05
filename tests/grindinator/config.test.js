@@ -52,6 +52,7 @@ const INVALID = {
   model: ['two words', '"model" must be a model name with no spaces, such as "opus"'],
   effort: ['extreme', '"effort" must be one of low, medium, high, xhigh, max'],
   maxTurns: [0, '"maxTurns" must be null or a whole number of at least 1'],
+  maxSessionMinutes: [0, '"maxSessionMinutes" must be a whole number of at least 1'],
   gate: ['  ', '"gate" must be null or a non-empty command'],
   onFailure: ['retry', '"onFailure" must be "stop" or "continue"'],
   maxLimitWaits: [1.5, '"maxLimitWaits" must be a whole number of at least 1'],

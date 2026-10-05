@@ -32,6 +32,7 @@ Options for run (they override ~/.claude/grindinator.json and
   --model <model>               Planning model (default: opus)
   --effort <level>              low, medium, high, xhigh or max (default: medium)
   --max-turns <n>               Turn cap per session (default: none)
+  --max-session-minutes <n>     Wall-clock cap per session in minutes (default: 480)
   --gate <command>              Command that must pass before a package is done
   --on-failure <stop|continue>  After a failed package (default: stop)
   --max-limit-waits <n>         Usage-limit waits in a row per package (default: 3)

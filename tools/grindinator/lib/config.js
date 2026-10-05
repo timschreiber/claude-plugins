@@ -16,6 +16,7 @@ const DEFAULTS = Object.freeze({
   model: 'opus',
   effort: 'medium',
   maxTurns: null,
+  maxSessionMinutes: 480,
   gate: null,
   onFailure: 'stop',
   maxLimitWaits: 3,
@@ -29,6 +30,7 @@ const FLAGS = Object.freeze({
   model: Object.freeze({ option: 'model', kind: 'string' }),
   effort: Object.freeze({ option: 'effort', kind: 'string' }),
   maxTurns: Object.freeze({ option: 'max-turns', kind: 'integer' }),
+  maxSessionMinutes: Object.freeze({ option: 'max-session-minutes', kind: 'integer' }),
   gate: Object.freeze({ option: 'gate', kind: 'string' }),
   onFailure: Object.freeze({ option: 'on-failure', kind: 'string' }),
   maxLimitWaits: Object.freeze({ option: 'max-limit-waits', kind: 'integer' }),
@@ -69,6 +71,8 @@ function checkKey(key, value) {
       return value === null || (Number.isInteger(value) && value >= 1)
         ? null
         : '"maxTurns" must be null or a whole number of at least 1'
+    case 'maxSessionMinutes':
+      return Number.isInteger(value) && value >= 1 ? null : '"maxSessionMinutes" must be a whole number of at least 1'
     case 'gate':
       return value === null || (typeof value === 'string' && value.trim() !== '')
         ? null
