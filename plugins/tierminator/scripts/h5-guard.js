@@ -10,6 +10,7 @@
 //         is displayed; a SubagentStop hook's is not, for a background worker.
 // Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
 // forever. Workers are subagents, which every hook ignores.
+// A run that has ended writes its result file at its first Stop (lib/result.js); recordResult marks the state.
 // An unattended session (a headless /tierminator:plan, lib/unattended.js) is "drafting" until its plan is
 // approved by nobody: pre refuses its file edits, and stop takes its final message as the plan. A valid
 // plan is saved to the session's plan file and run; an invalid one is blocked with the errors and the
@@ -22,6 +23,7 @@ const state = require('./lib/state.js')
 const spend = require('./lib/spend.js')
 const { recordPlanning } = spend
 const unattended = require('./lib/unattended.js')
+const resultFile = require('./lib/result.js')
 const sizing = require('./lib/sizing.js')
 const { dispatchText, resumeText } = require('./lib/run.js')
 const { executePlan } = require('./lib/execute.js')
@@ -51,12 +53,21 @@ function spendText(input, current) {
 
 const block = reason => emit({ decision: 'block', reason })
 
+// Writes the result file once for a run that has ended, and marks the state so no later hook writes it again.
+// Returns the state to carry on with.
+function recordResult(input, s) {
+  if (!resultFile.writeEnded(input, s)) return s
+  const marked = { ...s, resultWritten: true }
+  return state.write(input.session_id, marked) ? marked : s
+}
+
 // Stop in an unattended session that is still drafting: the final message is the plan.
 function draftingStop(input, s) {
   const id = input.session_id
   const text = unattended.finalText(input)
   const result = resolvePlan(text)
   if (result.optOut) {
+    resultFile.writeOutcome(input, s, 'declined', 'the plan opts out of tiered execution')
     state.remove(id)
     return block(
       'tierminator: the plan opts out of tiered execution, so tierminator will not run it. Implement it yourself now, as the plan says.'
@@ -83,7 +94,8 @@ function draftingStop(input, s) {
       fs.mkdirSync(path.dirname(s.planFile), { recursive: true })
       fs.writeFileSync(s.planFile, text)
     } catch {
-      state.write(id, { ...s, phase: 'abandoned' })
+      resultFile.writeOutcome(input, s, 'declined', `the unattended plan could not be saved to ${s.planFile}`)
+      state.write(id, { ...s, phase: 'abandoned', resultWritten: true })
       return emit({
         systemMessage: `tierminator: the unattended plan could not be saved to ${s.planFile}, so nothing ran.`,
       })
@@ -91,12 +103,16 @@ function draftingStop(input, s) {
     recordPlanning(input, planIdOf(result, text), s.planFile)
     const note = executePlan(input, JSON.stringify(s.planFile))
     // If executePlan refused (a dirty tree, for example), Claude reports it and the next stop passes.
-    if (state.read(id)?.phase !== 'running') state.remove(id)
+    if (state.read(id)?.phase !== 'running') {
+      resultFile.writeOutcome(input, s, 'declined', resultFile.reasonOf(note))
+      state.remove(id)
+    }
     return block(note)
   }
   const denials = (s.denials ?? 0) + 1
   if (denials > MAX_DENIALS) {
-    state.write(id, { ...s, phase: 'abandoned', denials })
+    resultFile.writeOutcome(input, s, 'no-plan', 'the plan was still not valid after 3 tries')
+    state.write(id, { ...s, phase: 'abandoned', denials, resultWritten: true })
     return emit({ systemMessage: 'tierminator: the unattended plan was still not valid after 3 tries, so nothing ran.' })
   }
   state.write(id, { ...s, denials })
@@ -113,6 +129,7 @@ function draftingStop(input, s) {
 function stop(input, current) {
   if (current?.phase === 'drafting') return draftingStop(input, current)
   let { s, text } = spendText(input, current)
+  s = recordResult(input, s)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })
   // A worker stopped at its turn limit and the resume is not sent yet: Claude's turn must stay open.
   const resumeDue = s?.phase === 'running' && !!s.current?.inFlight && !!s.current.resumePending
@@ -124,8 +141,9 @@ function stop(input, current) {
     // The second consecutive stop: allow it, abandon the run, and show what it spent.
     const abandoned = { ...s, phase: 'abandoned' }
     if (state.write(input.session_id, abandoned)) {
-      const more = spendText(input, abandoned).text
-      text = [text, more].filter(Boolean).join('\n') || null
+      const more = spendText(input, abandoned)
+      recordResult(input, more.s)
+      text = [text, more.text].filter(Boolean).join('\n') || null
     }
     if (text) shown({})
     return
