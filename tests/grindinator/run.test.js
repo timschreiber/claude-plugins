@@ -323,3 +323,116 @@ test('no gate configured prints one warning', async () => {
   await go({ name: 'test' })
   assert.equal(errLines.filter(l => l.includes('no gate is configured')).length, 1)
 })
+
+const R = 1791179511 // 2026-10-05T05:51:51Z
+
+const limitWithPlan = (planFile, resetsAt = R) => ({
+  stream: [
+    helpers.INIT,
+    { type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt }, session_id: 'stub-session' },
+    { type: 'result', subtype: 'success', is_error: true, api_error_status: 429, result: 'limit', session_id: 'stub-session' }
+  ],
+  resultFile: helpers.resultRecord({
+    outcome: 'limit',
+    planFile,
+    tasksFile: planFile.replace(/\.md$/, '.tasks.json'),
+    tasksDone: ['T01'],
+    tasksNotRun: ['T02'],
+    reason: 'a usage limit ended the session',
+    limit: { detectedAt: '2026-10-05T04:51:51.000Z', resetsAt, raw: { error: 'rate_limit' } }
+  }),
+  commit: true,
+  untracked: 'partial.txt',
+  exitCode: 1
+})
+
+const writePlan = () => {
+  const planFile = path.join(stubDir, 'plan.md')
+  fs.writeFileSync(planFile, '# plan\n')
+  return planFile
+}
+
+const sum = xs => xs.reduce((s, ms) => s + ms, 0)
+
+test('a limit then success finishes the package with no failed attempt', async () => {
+  const planFile = writePlan()
+  const clock = helpers.fakeClock('2026-10-05T04:51:51Z')
+  const env = helpers.stubEnv(stubDir, { sequence: [limitWithPlan(planFile), helpers.completeScenario()] })
+  assert.equal(await go({ name: 'test', env, clock }), 0)
+  const st = state.read(repo)
+  const p = st.packages['WP-01']
+  assert.equal(p.status, 'done')
+  assert.deepEqual(p.attempts.map(a => a.outcome), ['limit', 'complete'])
+  assert.deepEqual(p.attempts.map(a => a.kind), ['plan', 'execute'])
+  assert.equal(p.attempts[0].wait.status, 'woke')
+  assert.equal(p.attempts[0].wait.source, 'result-file')
+  assert.equal(p.attempts[0].wait.resetsAt, '2026-10-05T05:51:51.000Z')
+  assert.equal(p.attempts[0].wait.wakeAt, '2026-10-05T05:56:51.000Z')
+  assert.equal(p.attempts[1].commits, 2)
+  assert.equal(p.resume, null)
+  assert.equal(state.isDone(repo, 'WP-01'), true)
+  for (const pkg of Object.values(st.packages)) {
+    assert.equal(pkg.status, 'done')
+    for (const a of pkg.attempts) {
+      assert.equal(['halted', 'crashed', 'gate-failed', 'unverified', 'no-plan', 'declined'].includes(a.outcome), false, a.outcome)
+    }
+  }
+  const log = helpers.readStubLog(stubDir)
+  assert.equal(log.length, 4)
+  assert.equal(log[1].argv[1], `/tierminator:execute "${planFile}" --from T02`)
+  assert.equal(log[1].env.DECIDINATOR_CONTEXT, 'WP-01')
+  for (const ms of clock.sleeps) assert.ok(ms <= 60000, String(ms))
+  assert.equal(sum(clock.sleeps), 3900000)
+  assert.equal(fs.existsSync(path.join(repo, 'partial.txt')), false)
+  assert.ok(errLines.some(l => /discarded uncommitted changes left by WP-01: partial\.txt/.test(l)))
+  const summary = readSummary()
+  assert.ok(summary.includes('## Limit waits'))
+  assert.ok(summary.split('\n').some(l => l.startsWith('- WP-01, attempt 1: waited from ')))
+})
+
+test('a reset more than 24 hours away stops with exit 3', async () => {
+  const planFile = writePlan()
+  const clock = helpers.fakeClock('2026-10-05T04:51:51Z')
+  const env = helpers.stubEnv(stubDir, limitWithPlan(planFile, R + 3 * 86400))
+  assert.equal(await go({ name: 'test', env, clock }), 3)
+  const p = state.read(repo).packages['WP-01']
+  assert.equal(p.attempts[0].wait.status, 'weekly')
+  assert.equal(helpers.readStubLog(stubDir).length, 1)
+  assert.deepEqual(clock.sleeps, [])
+  assert.match(errLines[errLines.length - 1], /more than 24 hours away; pass --wait-weekly/)
+  assert.deepEqual(p.resume, { kind: 'execute', planFile, from: 'T02' })
+  assert.equal(helpers.git(repo, 'status', '--porcelain'), '')
+})
+
+test('--wait-weekly waits out a weekly reset', async () => {
+  const planFile = writePlan()
+  const clock = helpers.fakeClock('2026-10-05T04:51:51Z')
+  const env = helpers.stubEnv(stubDir, { sequence: [limitWithPlan(planFile, R + 3 * 86400), helpers.completeScenario()] })
+  assert.equal(await go({ name: 'test', env, clock, flags: { 'wait-weekly': true } }), 0)
+  assert.equal(sum(clock.sleeps), (3 * 86400 + 3600) * 1000 + 300000)
+})
+
+test('SIGINT during a wait exits 4 and a re-run resumes by phase', async () => {
+  const planFile = writePlan()
+  const signals = new EventEmitter()
+  const clock = helpers.fakeClock('2026-10-05T04:51:51Z', (ms, i) => {
+    if (i === 1) signals.emit('SIGINT')
+    return ms
+  })
+  const env = helpers.stubEnv(stubDir, limitWithPlan(planFile))
+  assert.equal(await go({ name: 'test', env, clock, signals }), 4)
+  const p = state.read(repo).packages['WP-01']
+  assert.equal(p.attempts[0].wait.status, 'interrupted')
+  assert.deepEqual(p.resume, { kind: 'execute', planFile, from: 'T02' })
+  assert.match(errLines[errLines.length - 1], /interrupted while waiting for the usage limit/)
+
+  assert.equal(await go({
+    env: helpers.stubEnv(stubDir, helpers.completeScenario()),
+    clock: helpers.fakeClock('2026-10-05T06:00:00Z')
+  }), 0)
+  const log = helpers.readStubLog(stubDir)
+  assert.equal(log[1].argv[1], `/tierminator:execute "${planFile}" --from T02`)
+  const again = state.read(repo).packages['WP-01']
+  assert.equal(again.attempts.length, 2)
+  assert.equal(again.attempts[1].kind, 'execute')
+})
