@@ -1,6 +1,7 @@
 // The Grindinator run command's precondition flow: validates the run name, the repository, the
 // configuration, the packages and the working tree, then creates or resumes the run branch and state.
 // Then it runs each package that is not done in one headless session (lib/attempt.js). The failure policy: a package that does not complete stops the run (exit 1), unless onFailure is continue, which discards its uncommitted changes and goes on to the next package (exit 1 at the end if any failed).
+// A usage limit waits for the reset (lib/limit.js) and relaunches the package by phase; more than maxLimitWaits limits in a row, or a reset over 24 hours away without --wait-weekly, stops with exit 3.
 // Every run that reaches its packages ends by writing .grindinator/summary.md (lib/summary.js), also when a GrindinatorError (exit 2) is thrown.
 'use strict'
 
@@ -9,7 +10,8 @@ const path = require('path')
 const { EXIT, GrindinatorError } = require('./errors.js')
 const { loadStrict } = require('./config.js')
 const { discover, loadPreamble, readPackage } = require('./packages.js')
-const { sessionPrompt } = require('./session.js')
+const { sessionPrompt, executePrompt } = require('./session.js')
+const limit = require('./limit.js')
 const { runAttempt } = require('./attempt.js')
 const { renderSummary, writeSummary } = require('./summary.js')
 const state = require('./state.js')
@@ -37,7 +39,7 @@ function defaultRunName(dirAbs, date) {
   return `${slug || 'run'}-${stamp}`
 }
 
-async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now = () => new Date(), env = process.env, signals = process }) {
+async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now = () => new Date(), env = process.env, signals = process, clock = limit.realClock }) {
   if (name !== undefined && name !== null && !validRunName(name)) {
     throw new GrindinatorError(`--name: "${name}" is not a valid run name; ${RUN_NAME_RULE}`)
   }
@@ -113,7 +115,7 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   }
   let result
   try {
-    result = await runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err })
+    result = await runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err, clock })
   } catch (e) {
     summarize(e instanceof GrindinatorError ? e.exitCode : EXIT.FAILED, e.message)
     throw e
@@ -122,8 +124,12 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   return result.exitCode
 }
 
+function resumeText(resume) {
+  return `/tierminator:execute ${resume.from ? `--from ${resume.from}` : 'from the first uncommitted task'}`
+}
+
 // Runs the packages still to do, one session each; returns the exit code and why the run ended.
-async function runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err }) {
+async function runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err, clock }) {
   if (todo.length === 0) {
     out('Every package is done.')
     return { exitCode: EXIT.OK, reason: 'every package is done' }
@@ -139,43 +145,53 @@ async function runPackages({ root, st, todo, config, preambleText, env, signals,
   signals.on('SIGINT', onSigint)
   try {
     for (const pkg of todo) {
-      if (ac.signal.aborted) {
-        err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
-        return { exitCode: EXIT.INTERRUPTED, reason: `interrupted by the user before ${pkg.id}` }
+      let limits = 0
+      for (;;) {
+        if (ac.signal.aborted) {
+          err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
+          return { exitCode: EXIT.INTERRUPTED, reason: `interrupted by the user before ${pkg.id}` }
+        }
+        git.checkClean(root)
+        const entry = st.packages[pkg.id]
+        const n = entry.attempts.length + 1
+        const resume = entry.resume ?? null
+        const prompt = resume
+          ? executePrompt(resume.planFile, resume.from)
+          : sessionPrompt(preambleText, readPackage(pkg))
+        out(`${pkg.id}: attempt ${n} started${resume ? ` (${resumeText(resume)})` : ''}; its stream is in .grindinator/runs/${pkg.id}/attempt-${n}/stream.jsonl.`)
+        const a = await runAttempt({
+          root, st, pkg, prompt, config, env, abortSignal: ac.signal, resume, now
+        })
+        out(`${pkg.id}: attempt ${a.n} ended: ${a.outcome}${a.haltedAt ? ` at ${a.haltedAt}` : ''}${a.reason ? ` (${a.reason})` : ''}.`)
+        if (a.gate && a.gate.status !== 'skipped') {
+          out(`${pkg.id}: gate ${a.gate.status}; its output is in .grindinator/${a.dir}/.`)
+        }
+        if (a.outcome === 'limit') {
+          limits++
+          const stop = await afterLimit({ root, st, pkg, a, limits, config, clock, abortSignal: ac.signal, now, out, err })
+          if (stop) return stop
+          continue
+        }
+        if (a.outcome === 'complete') break
+        if (a.outcome === 'interrupted') {
+          err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
+          return { exitCode: EXIT.INTERRUPTED, reason: `interrupted by the user during ${pkg.id}` }
+        }
+        const what = (a.outcome === 'gate-failed'
+          ? `failed its gate (${a.reason})`
+          : a.outcome === 'unverified'
+            ? `was not verified (${a.reason})`
+            : `ended ${a.outcome}`) + (a.haltedAt ? ` at ${a.haltedAt}` : '')
+        failed.push(pkg.id)
+        if (config.onFailure === 'continue') {
+          err(`grindinator: ${pkg.id} ${what}; onFailure is continue, so the run goes on; see .grindinator/${a.dir}/.`)
+          const gone = git.discard(root, st.branch)
+          if (gone.length) err(`grindinator: discarded uncommitted changes left by ${pkg.id}: ${gone.join(', ')}.`)
+          break
+        }
+        err(`grindinator: ${pkg.id} ${what}, so the run stops; see .grindinator/${a.dir}/.`)
+        return { exitCode: EXIT.FAILED, reason: `${pkg.id} ${what}` }
       }
-      git.checkClean(root)
-      const n = st.packages[pkg.id].attempts.length + 1
-      out(`${pkg.id}: attempt ${n} started; its stream is in .grindinator/runs/${pkg.id}/attempt-${n}/stream.jsonl.`)
-      const a = await runAttempt({
-        root, st, pkg, prompt: sessionPrompt(preambleText, readPackage(pkg)), config, env, abortSignal: ac.signal, now
-      })
-      out(`${pkg.id}: attempt ${a.n} ended: ${a.outcome}${a.haltedAt ? ` at ${a.haltedAt}` : ''}${a.reason ? ` (${a.reason})` : ''}.`)
-      if (a.gate && a.gate.status !== 'skipped') {
-        out(`${pkg.id}: gate ${a.gate.status}; its output is in .grindinator/${a.dir}/.`)
-      }
-      if (a.outcome === 'complete') continue
-      if (a.outcome === 'interrupted') {
-        err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
-        return { exitCode: EXIT.INTERRUPTED, reason: `interrupted by the user during ${pkg.id}` }
-      }
-      if (a.outcome === 'limit') {
-        err(`grindinator: ${pkg.id} hit a usage limit; waiting for the reset is not built yet (WP-09), so the run stops. Run it again after the reset.`)
-        return { exitCode: EXIT.LIMIT, reason: `${pkg.id} hit a usage limit` }
-      }
-      const what = (a.outcome === 'gate-failed'
-        ? `failed its gate (${a.reason})`
-        : a.outcome === 'unverified'
-          ? `was not verified (${a.reason})`
-          : `ended ${a.outcome}`) + (a.haltedAt ? ` at ${a.haltedAt}` : '')
-      failed.push(pkg.id)
-      if (config.onFailure === 'continue') {
-        err(`grindinator: ${pkg.id} ${what}; onFailure is continue, so the run goes on; see .grindinator/${a.dir}/.`)
-        const gone = git.discard(root, st.branch)
-        if (gone.length) err(`grindinator: discarded uncommitted changes left by ${pkg.id}: ${gone.join(', ')}.`)
-        continue
-      }
-      err(`grindinator: ${pkg.id} ${what}, so the run stops; see .grindinator/${a.dir}/.`)
-      return { exitCode: EXIT.FAILED, reason: `${pkg.id} ${what}` }
     }
   } finally {
     signals.removeListener('SIGINT', onSigint)
@@ -185,6 +201,32 @@ async function runPackages({ root, st, todo, config, preambleText, env, signals,
   }
   out('Every package is done.')
   return { exitCode: EXIT.OK, reason: 'every package is done' }
+}
+
+// After a limit attempt: discards uncommitted changes at once, so a stop leaves the tree clean, then stops (exit 3) or waits for the reset; returns null to relaunch, else the run's end.
+async function afterLimit({ root, st, pkg, a, limits, config, clock, abortSignal, now, out, err }) {
+  const gone = git.discard(root, st.branch)
+  if (gone.length) err(`grindinator: discarded uncommitted changes left by ${pkg.id}: ${gone.join(', ')}.`)
+  const d = limit.decide({ attempt: a, limits, config, nowMs: clock.now() })
+  a.wait = d.wait
+  state.write(root, st, now())
+  if (d.action === 'stop') {
+    err(`grindinator: ${pkg.id} ${d.reason}, so the run stops; run it again after the reset.`)
+    return { exitCode: EXIT.LIMIT, reason: `${pkg.id} ${d.reason}` }
+  }
+  out(`${pkg.id}: usage limit; waiting until ${a.wait.wakeAt} (reset ${a.wait.resetsAt ?? 'unknown'}, ${limit.SOURCE_TEXT[a.wait.source]}).`)
+  a.wait.startedAt = new Date(clock.now()).toISOString()
+  state.write(root, st, now())
+  const woke = await limit.sleepUntil(Date.parse(a.wait.wakeAt), { clock, abortSignal })
+  a.wait.endedAt = new Date(clock.now()).toISOString()
+  a.wait.status = woke
+  state.write(root, st, now())
+  if (woke === 'interrupted') {
+    err(`grindinator: interrupted while waiting for the usage limit; the state is saved, and the next run resumes ${pkg.id}.`)
+    return { exitCode: EXIT.INTERRUPTED, reason: `interrupted by the user while ${pkg.id} waited for a usage limit` }
+  }
+  out(`${pkg.id}: the wait is over; relaunching ${st.packages[pkg.id].resume ? resumeText(st.packages[pkg.id].resume) : 'from planning'}.`)
+  return null
 }
 
 module.exports = { run, defaultRunName, validRunName, RUN_NAME_RULE }

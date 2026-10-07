@@ -177,22 +177,38 @@ test('a halted package stops the run with exit 1', async () => {
   for (const id of ['WP-01', 'WP-02', 'WP-03']) assert.equal(state.isDone(repo, id), false)
 })
 
-test('a usage limit stops the run with exit 3', async () => {
-  const scenario = {
-    stream: [
-      helpers.INIT,
-      { type: 'result', subtype: 'success', is_error: true, api_error_status: 429, result: 'limit', session_id: 'stub-session' }
-    ],
-    exitCode: 1
-  }
-  const env = helpers.stubEnv(stubDir, scenario)
-  assert.equal(await go({ name: 'test', env }), 3)
+const limitScenario = () => ({
+  stream: [
+    helpers.INIT,
+    { type: 'result', subtype: 'success', is_error: true, api_error_status: 429, result: 'limit', session_id: 'stub-session' }
+  ],
+  exitCode: 1
+})
+
+test('repeated usage limits stop at the cap with exit 3', async () => {
+  const env = helpers.stubEnv(stubDir, limitScenario())
+  const clock = helpers.fakeClock('2026-10-05T00:00:00Z')
+  assert.equal(await go({ name: 'test', env, clock }), 3)
   const st = state.read(repo)
-  assert.equal(st.packages['WP-01'].status, 'pending')
-  assert.equal(st.packages['WP-01'].attempts[0].outcome, 'limit')
-  assert.equal(st.packages['WP-01'].attempts[0].source, 'stream')
-  const summary = fs.readFileSync(path.join(repo, '.grindinator', 'summary.md'), 'utf8')
-  assert.ok(summary.includes('- Exit code: 3'))
+  const p = st.packages['WP-01']
+  assert.equal(p.status, 'pending')
+  assert.deepEqual(p.attempts.map(a => a.outcome), ['limit', 'limit', 'limit', 'limit'])
+  assert.deepEqual(p.attempts.map(a => a.wait.status), ['woke', 'woke', 'woke', 'over-cap'])
+  assert.equal(p.attempts[0].wait.source, 'fallback')
+  const log = helpers.readStubLog(stubDir)
+  assert.equal(log.length, 4)
+  for (const e of log) assert.ok(e.argv[1].startsWith('/tierminator:plan '))
+  assert.equal(clock.sleeps.reduce((s, ms) => s + ms, 0), 3 * 18300000)
+  assert.match(errLines[errLines.length - 1], /WP-01 hit a usage limit 4 times in a row/)
+  assert.equal(st.packages['WP-02'].attempts.length, 0)
+  assert.ok(readSummary().includes('- Exit code: 3'))
+})
+
+test('max-limit-waits 1 stops after one wait', async () => {
+  const env = helpers.stubEnv(stubDir, limitScenario())
+  const clock = helpers.fakeClock('2026-10-05T00:00:00Z')
+  assert.equal(await go({ name: 'test', env, clock, flags: { 'max-limit-waits': '1' } }), 3)
+  assert.equal(state.read(repo).packages['WP-01'].attempts.length, 2)
 })
 
 test('SIGINT ends the session, exits 4 and keeps the state', async () => {
