@@ -90,3 +90,150 @@ What to read:
 
 - The plan file (`planFile` in the attempt's `result.json`).
 - In the scratch repo, the `docs/decisions.md` entry for the empty-name question (Context WP-01), and any provisional entry in `docs/open-questions.md`.
+
+## Step 3: pilot at medium effort
+
+Runs the three pilot packages against the real model, with the planner at medium effort, and checks each gate.
+
+```powershell
+$repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
+$tag = 'firstparty'
+$base = Join-Path $env:TEMP ("grindinator-e2e/pilot-$tag-medium-" + (Get-Date -Format 'yyyyMMddHHmmss'))
+node "$repoRoot/tests/grindinator/e2e/setup.js" pilot $base
+if ($LASTEXITCODE -ne 0) { throw 'setup failed; check $repoRoot' }
+$savedConfigDir = $env:CLAUDE_CONFIG_DIR
+Push-Location "$base/repo"
+try {
+    node "$repoRoot/tools/grindinator/bin/grindinator" run "$base/packages" --name "pilot-$tag-medium" --effort medium --gate 'node --test' --preamble "$repoRoot/tests/grindinator/e2e/packages/preamble.md"
+    $code = $LASTEXITCODE
+} finally {
+    Pop-Location
+    $env:CLAUDE_CONFIG_DIR = $savedConfigDir
+}
+node "$repoRoot/tests/grindinator/e2e/check.js" pilot "$base/repo" --tag "$tag-medium" --exit $code
+```
+
+Expected results:
+
+- Three packages complete in order: WP-01, WP-02, WP-03.
+- Each gate passes.
+- Exit code 0.
+- The last line `PASS: pilot (firstparty-medium)`.
+
+## Step 4: pilot at high effort
+
+The same packages with the planner at high effort.
+
+```powershell
+$repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
+$tag = 'firstparty'
+$base = Join-Path $env:TEMP ("grindinator-e2e/pilot-$tag-high-" + (Get-Date -Format 'yyyyMMddHHmmss'))
+node "$repoRoot/tests/grindinator/e2e/setup.js" pilot $base
+if ($LASTEXITCODE -ne 0) { throw 'setup failed; check $repoRoot' }
+$savedConfigDir = $env:CLAUDE_CONFIG_DIR
+Push-Location "$base/repo"
+try {
+    node "$repoRoot/tools/grindinator/bin/grindinator" run "$base/packages" --name "pilot-$tag-high" --effort high --gate 'node --test' --preamble "$repoRoot/tests/grindinator/e2e/packages/preamble.md"
+    $code = $LASTEXITCODE
+} finally {
+    Pop-Location
+    $env:CLAUDE_CONFIG_DIR = $savedConfigDir
+}
+node "$repoRoot/tests/grindinator/e2e/check.js" pilot "$base/repo" --tag "$tag-high" --exit $code
+```
+
+Expected results are those of step 3, ending `PASS: pilot (firstparty-high)`. Then compare the two runs:
+
+```powershell
+node "$repoRoot/tests/grindinator/e2e/check.js" compare "$repoRoot/tests/grindinator/e2e/results/pilot-$tag-medium/result.json" "$repoRoot/tests/grindinator/e2e/results/pilot-$tag-high/result.json"
+```
+
+## Reading the pilot
+
+- Read each plan (`planFile` in result.json): tasks that still contain decisions mean the planner effort is too low.
+- Read the decision log: WP-03 has two deliberate open decisions. Few oracle calls on it suggest silent deciding; consider the R-D3 Stop check (L-10).
+- Heavy `oracle-3` traffic (Rung 3 entries) points to gaps in the packages.
+- Turn-cap hits or gate failures point to a plan or acceptance-criteria problem.
+- Use the compare table to choose the planner effort.
+
+## Step 5: first unattended batch
+
+Run about 10 real packages in your own project. Set `$project`, `$packages` and `$gate` (your test command).
+
+```powershell
+$repoRoot = 'C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins'
+$tag = 'firstparty'
+$project = 'C:/path/to/your/project'
+$packages = 'C:/path/to/your/packages'
+$gate = 'your test command'
+Push-Location $project
+try {
+    node "$repoRoot/tools/grindinator/bin/grindinator" run $packages --gate $gate
+    $code = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+node "$repoRoot/tests/grindinator/e2e/check.js" batch $project --tag $tag --exit $code
+```
+
+Review gate: before the next batch, read `.grindinator/summary.md`, the decision log, the sidecar and any failed attempt's directory.
+
+Exit 5 and exit 3 are not failures of the tool (see the exit codes in `docs/grindinator/grindinator-reference.md`):
+
+- Exit 5: the run stopped after a package that added open questions, because of `--stop-on-open-questions`. Answer them, then re-run.
+- Exit 3: the run stopped on a limit it would not wait out. Re-run after the reset, or with `--wait-weekly`.
+
+## Other setups
+
+Neither setup has been run: no Pro or Bedrock setup was available (L-2).
+
+### Pro
+
+Sign in with the Pro account. Run the `models` cell and confirm that each rung ran on its model and that `WebSearch` worked:
+
+```powershell
+$env:PROBE_TAG = 'pro'; node probes/grindinator/run.js models; node probes/grindinator/summarize.js
+```
+
+Then run steps 2 and 3 with `$tag = 'pro'`. Rung 3 runs on Fable, which bills usage credits on Pro, so count Rung 3 entries.
+
+### Bedrock
+
+Set `$env:CLAUDE_CODE_USE_BEDROCK = '1'`, `$env:AWS_REGION` and AWS credentials (`AWS_PROFILE`). Run the `models` cell with `PROBE_TAG=bedrock`.
+
+- Model pinning: pass `--model` with a model the account enables. If the `opus` and `sonnet` aliases do not resolve, set Claude Code's `ANTHROPIC_DEFAULT_OPUS_MODEL` and `ANTHROPIC_DEFAULT_SONNET_MODEL` (untested here).
+- Rung 3's `claude-fable-5-1` may not exist there (L-2).
+- `WebSearch` may be missing and no substitute is provided (L-5).
+
+Then run steps 2 and 3 with `$tag = 'bedrock'`.
+
+Permissions on every setup: `bypassPermissions` on the runner branch, in a sandbox or a dedicated clone (L-3).
+
+## When a step fails
+
+| Check | Where to look |
+| --- | --- |
+| `plugins current` | Push and update the plugins. |
+| `result file` | Tierminator (WP-02, WP-05); the attempt's `stream.jsonl` and `result.json`. |
+| `decision logged` | Decidinator's headless consult (WP-04). |
+| `decisions committed` | The runner (WP-10). |
+| `gate passed` and `gates passed` | `gate.stdout.txt` and `gate.stderr.txt` in the attempt directory. |
+| The stub-limit checks | Limit recovery (WP-09). |
+| `clean tree` and `on run branch` | The Git policy (WP-08). |
+| `exit code` and `all done` | `summary.md` Details. |
+
+## Results
+
+| Step | Setup | Date | Claude Code | Result | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| stub-limit | stub | - | - | not run | `tests/grindinator/e2e/results/stub-limit-stub/result.json` |
+| harness | firstparty | - | - | not run | `tests/grindinator/e2e/results/harness-firstparty/result.json` |
+| pilot | firstparty-medium | - | - | not run | `tests/grindinator/e2e/results/pilot-firstparty-medium/result.json` |
+| pilot | firstparty-high | - | - | not run | `tests/grindinator/e2e/results/pilot-firstparty-high/result.json` |
+| batch | firstparty | - | - | not run | `tests/grindinator/e2e/results/batch-firstparty/result.json` |
+| harness | pro | - | - | not run | `tests/grindinator/e2e/results/harness-pro/result.json` |
+| pilot | pro-medium | - | - | not run | `tests/grindinator/e2e/results/pilot-pro-medium/result.json` |
+| harness | bedrock | - | - | not run | `tests/grindinator/e2e/results/harness-bedrock/result.json` |
+| pilot | bedrock-medium | - | - | not run | `tests/grindinator/e2e/results/pilot-bedrock-medium/result.json` |
+
+After each run, fill its row from the check.js output and commit the results directory.
