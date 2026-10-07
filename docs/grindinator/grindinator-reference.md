@@ -716,3 +716,96 @@ Rung 3 runs on Fable, which bills usage credits on Pro.
 Untested (L-2). It needs `CLAUDE_CODE_USE_BEDROCK=1`, `AWS_REGION` and AWS credentials. Pin models with `--model`; if the aliases do not resolve, set Claude Code's `ANTHROPIC_DEFAULT_OPUS_MODEL` and `ANTHROPIC_DEFAULT_SONNET_MODEL`. This is untested. Rung 3's `claude-fable-5-1` may not resolve. `WebSearch` may be missing, and no Serper MCP or other substitute is provided (L-5). Run the `models` cell first, with `PROBE_TAG=bedrock`.
 
 The runbook's [Other setups](grindinator-e2e-run.md#other-setups) gives the steps for running the pilot on each.
+
+## Known limitations
+
+1. **L-1.** A real usage limit is unverified. V1, V3 and V4 used a mock 429, so a real 429's headers, Claude Code's retries on it, and a weekly limit's report are unknown (O-2, O-6).
+2. **L-2.** Pro and Bedrock are untested: model pinning, the rung models (rung 3 on Fable, which bills usage credits on Pro) and `WebSearch`. No setup was available; run the probe's `models` cell first (O-10).
+3. **L-3.** Workers need `bypassPermissions`. A smaller set (`acceptEdits` plus `--add-dir` for the plan directory) is untested, and Grindinator has no flag for `--add-dir` (O-9).
+4. **L-4.** The headless consult path (an open decision reaches `oracle-1`, and the log and sidecar are written under `.grindinator/decisions/`) is unit-tested; its live confirmation is the runbook's harness check, pending until recorded (O-4).
+5. **L-5.** There is no Serper MCP or other web-search substitute. Where `WebSearch` is missing, possibly on Bedrock, the oracles research the repository only (O-10).
+6. **L-6.** Grindinator drives the Tierminator and Decidinator installed from the marketplace, not this repo's `plugins/`. Update the installs after pushing.
+7. **L-7.** It is not standalone: `lib/decisions.js` requires `plugins/decidinator/scripts/lib/` by relative path, so it runs only from a clone of this repo.
+8. **L-8.** On Windows, `claude` must resolve to `claude.exe`. Grindinator spawns it without a shell, so an npm `claude.cmd` shim is not found.
+9. **L-9.** Ctrl+C (exit 4) is tested on POSIX only; the CLI's SIGINT test is skipped on Windows.
+10. **L-10.** No `Stop` check enforces the consult rule (R-D3). A planner that decides silently shows only in the decision log and the plans.
+11. **L-11.** Out of scope by design: parallel packages, pushing to a remote, Interviewinator.
+
+### Open items
+
+| ID | Item | Component | Package | Status |
+| --- | --- | --- | --- | --- |
+| O-1 | No run result a caller can read after the session ends | Tierminator | WP-02 | Closed by WP-02 |
+| O-2 | No usage-limit capture or reset time | Tierminator | WP-03 | Closed by WP-03; a real usage limit is unverified (L-1) |
+| O-3 | Headless `/tierminator:execute <plan> --from Txx` wrote no result file and had no headless tests or docs | Tierminator | WP-01, WP-05 | Closed by WP-05 |
+| O-4 | Decidinator did nothing in headless sessions, so open decisions went unresolved | Decidinator | WP-04 | Closed by WP-04; live confirmation is pending until the runbook's harness check is recorded (L-4) |
+| O-5 | No runner: discovery, state, gates, failure policy, summary | Grindinator | WP-06 to WP-10 | Closed by WP-06 to WP-10 |
+| O-6 | Headless unknowns: `StopFailure` payload, exit codes, stream-json result shape, `SessionEnd` on a limit, oracle dispatch and recorder in `-p` | All | WP-01 | Closed by WP-01, except that the limit items rest on a mock 429 (L-1) |
+| O-7 | Oracle writes to the decision log blocked Tierminator's run start, or landed in an unrelated task commit (WP-01 V7) | Grindinator, Decidinator | WP-01, WP-04, WP-10 | Closed by WP-04 and WP-10 |
+| O-8 | Recovery after an interrupted run needs a discard-and-relaunch policy on a runner-owned branch | Grindinator | WP-08, WP-09 | Closed by WP-09 |
+| O-9 | Headless permissions for workers and oracles | Grindinator | WP-06, WP-11 | Closed by WP-11: `bypassPermissions`, the default, used only on the runner branch in a sandbox or a dedicated clone; a smaller worker set is untested (L-3) |
+| O-10 | Bedrock versus Pro differences: model pinning, rung models, Fable usage credits, web search | All | WP-01, WP-11 | Open: Pro and Bedrock are untested (L-2), and no Serper MCP setup is provided (L-5) |
+| O-11 | Package input contract until Interviewinator exists | Grindinator | WP-06 | Closed by WP-06 |
+| O-12 | Docs: README, reference, e2e runbook, repo `CLAUDE.md` | All | WP-11 | Closed by WP-11 |
+
+### Follow-ups
+
+Found in WP-11, not built:
+
+- a `--add-dir` passthrough for a smaller worker permission set;
+- a web-search substitute for setups without `WebSearch`;
+- resolving an npm `claude.cmd` on Windows;
+- loading the plugins from a directory (`--plugin-dir`) instead of the installed copies;
+- the R-D3 Stop check, if the pilot shows few oracle calls.
+
+## Testing
+
+| Files | Covers |
+| --- | --- |
+| `attempt.test.js` | One attempt: the done marker, result-file outcomes, limits, crashes, denials, malformed stream lines, and the session's prompt and environment |
+| `cli.test.js` | The command line: help, argument and config errors, the untracked-file check, run, status and reset, and SIGINT (exit 4) |
+| `config.test.js` | Configuration: defaults, precedence of user file, project file and flags, invalid and unknown keys, and flag conversion |
+| `decisions.test.js` | Decidinator file paths and seeding: repo paths, hashes, open entries, and run copies |
+| `e2e-check.test.js` | The end-to-end check CLI: arguments, compare, loading a run's files, and writing `result.json` |
+| `e2e-checks.test.js` | The end-to-end checks of each step, their order, metrics and comparison text |
+| `e2e-setup.test.js` | The end-to-end fixture builder: the pilot, harness and stub-limit repositories and the CLI's input checks |
+| `gate.test.js` | The gate: skipped, passing, failing, capped and aborted |
+| `git.test.js` | Git policy: repository and clean-tree checks, branches, the exclude entry, discard and commit counts |
+| `limit.test.js` | Limit recovery: reset-time sources, stale resets, the chunked sleep, clock jumps, abort, the cap and the weekly stop |
+| `outcome.test.js` | Reading the result file and mapping a record and the stream to an outcome |
+| `packages.test.js` | Package discovery: sorting, look-alikes, duplicate ids, missing directories, preamble and prompt |
+| `run-decisions.test.js` | The run's Decidinator integration: variables, seeding, the decision commit, open questions and the stop flag |
+| `run.test.js` | The run: names, branches, state, re-runs, halts and the limit cap |
+| `session.test.js` | Session launch: arguments, prompts, environment, the time cap, abort and a command that cannot start |
+| `state.test.js` | `state.json`: atomic writes, rename retries, bad files, package entries and done markers |
+| `status.test.js` | `status` and `reset`: table formatting and the no-run cases |
+| `stream.test.js` | Stream parsing: init, assistant and result lines, rate-limit resets, denials, malformed lines and CRLF |
+| `stub.test.js` | The stub `claude` itself: scenarios, the argument log, commits, decision files and the gate fixture |
+| `summary.test.js` | `summary.md`: rows, notes, limit waits, and open questions |
+| `fixtures/claude-stub.js` | The stand-in for `claude -p` that the runner tests launch, selected by `GRINDINATOR_CLAUDE_BIN`; scenario files drive its output, exit code, commits and decision files |
+
+Run the tests and the validation:
+
+```bash
+node --test tests/grindinator/*.test.js
+./scripts/Validate-All.ps1
+```
+
+The end-to-end tooling is in `tests/grindinator/e2e/`. `project/` is the small repository the runs work on, and `packages/` holds the work packages (a preamble, the `harness` package and the three `pilot` packages). `setup.js` builds the repository, packages directory and, for `stub-limit`, a plan file and stub scenario. `checks.js` holds the checks for each step, and `check.js` runs them against a finished run, prints each result and writes `result.json` under `results/<tag>/`; it also compares two runs. The scenarios run by hand from [`grindinator-e2e-run.md`](grindinator-e2e-run.md).
+
+## Evidence
+
+| Claim | Document | Evidence |
+| --- | --- | --- |
+| V1: `StopFailure` fires on a usage limit in `-p` | [`grindinator-verification.md`](grindinator-verification.md) | `grindinator-verification-results.json`, `grindinator-limit-*`, `grindinator-error-*` |
+| V2: stream-json shapes and exit codes | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-success-*`, `grindinator-error-*`, `grindinator-limit-oauth-*` |
+| V3: where a reset time can be read | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-limit-oauth-*`, `grindinator-limit-apikey-*`, `grindinator-pass-*` |
+| V4: `SessionEnd` when a limit ends the session | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-limit-oauth-*`, `grindinator-success-*` |
+| V5: headless `/tierminator:execute` | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-execute-bypass-*`, `grindinator-execute-from-*`, `grindinator-execute-number-*`, `grindinator-execute-dirty-*`, `grindinator-execute-plan-mode-*` |
+| V6: Decidinator in `-p` | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-decide-sidecar-*`, `grindinator-models-*` |
+| V7: decision-log writes versus the clean tree | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-v7-*` |
+| V8: minimal headless permissions | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-execute-bypass-*`, `grindinator-execute-accept-edits-*`, `grindinator-execute-allow-rules-*`, `grindinator-decide-strict-*` |
+| V9: model pinning, rung models and web search | `grindinator-verification.md` | `grindinator-verification-results.json`, `grindinator-models-*` |
+| End-to-end runs: stub limit, harness, pilot, batch (pending) | [`grindinator-e2e-run.md`](grindinator-e2e-run.md) | `tests/grindinator/e2e/results/*/result.json` (pending) |
+
+The evidence files are in `probes/evidence/` (`grindinator-<cell>-*` per cell). The probes are in `probes/grindinator/`.
