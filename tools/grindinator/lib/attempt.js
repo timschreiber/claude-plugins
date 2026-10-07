@@ -1,6 +1,7 @@
 // Runs one attempt of a package: records it in the state, launches the session, maps the outcome
 // and applies it to the package. An attempt is the unit WP-07's scheduler and WP-08's gate build on.
-// A complete session counts only when its commits check out and the gate passes or none is configured.
+// A complete session counts only when its commits check out, it leaves a clean tree, its decision files are
+// committed before the gate, and the gate passes or none is configured.
 // A limit attempt records its recovery phase, and a limit session that committed every task counts as complete.
 'use strict'
 
@@ -14,6 +15,7 @@ const { readResultFile, mapOutcome } = require('./outcome.js')
 const git = require('./git.js')
 const { runGate } = require('./gate.js')
 const limit = require('./limit.js')
+const { commitDecisions } = require('./decisions.js')
 
 function attemptPaths(root, id, n) {
   const dir = path.join(state.stateDir(root), 'runs', id, `attempt-${n}`)
@@ -56,7 +58,7 @@ function applyOutcome(root, st, id, attempt, now = new Date()) {
 
 // A session that reported complete must have stayed on the run branch, made commits and passed the gate;
 // otherwise the outcome is downgraded.
-async function checkComplete({ root, st, entry, attempt, config, packageId, dir, env, abortSignal, now }) {
+async function checkComplete({ root, st, entry, attempt, config, packageId, decisions, dir, env, abortSignal, now }) {
   const short = entry.startCommit ? entry.startCommit.slice(0, 7) : 'unknown'
   const branch = git.currentBranch(root)
   if (branch !== st.branch) {
@@ -74,6 +76,24 @@ async function checkComplete({ root, st, entry, attempt, config, packageId, dir,
     attempt.reason = `the session reported complete, but HEAD has not advanced from the package's start commit ${short}, so it made no commits`
     return
   }
+  if (attempt.sessionOutcome === 'limit') {
+    // a limit session that committed every task may leave partial work, which a limit always discards
+    attempt.discarded = git.discard(root, st.branch)
+  }
+  const dirty = git.dirtyPaths(root)
+  if (dirty.length > 0) {
+    attempt.outcome = 'unverified'
+    attempt.reason = `the session reported complete but left uncommitted changes (${dirty.slice(0, 5).join(', ')}${dirty.length > 5 ? ', ...' : ''})`
+    return
+  }
+  if (decisions) {
+    attempt.decisions = commitDecisions({ root, st, repo: decisions, packageId })
+    if (attempt.decisions.status === 'failed') {
+      attempt.outcome = 'unverified'
+      attempt.reason = `the decision files could not be committed: ${attempt.decisions.reason}`
+      return
+    }
+  }
   state.write(root, st, now())
   attempt.gate = await runGate({ root, config, packageId, dir, env, abortSignal })
   attempt.endedAt = now().toISOString()
@@ -86,7 +106,7 @@ async function checkComplete({ root, st, entry, attempt, config, packageId, dir,
   }
 }
 
-async function runAttempt({ root, st, pkg, prompt, config, env = process.env, abortSignal = null, resume = null, now = () => new Date() }) {
+async function runAttempt({ root, st, pkg, prompt, config, env = process.env, abortSignal = null, resume = null, decisions = null, now = () => new Date() }) {
   const entry = st.packages[pkg.id]
   const n = entry.attempts.length + 1
   const p = attemptPaths(root, pkg.id, n)
@@ -125,6 +145,8 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
     gate: null,
     recovery: null,
     wait: null,
+    discarded: [],
+    decisions: null,
   }
   if (attempt.kind === 'plan') entry.startCommit = attempt.startCommit
   entry.attempts.push(attempt)
@@ -181,7 +203,7 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
     }
   }
   if (attempt.outcome === 'complete') {
-    await checkComplete({ root, st, entry, attempt, config, packageId: pkg.id, dir: p.dir, env, abortSignal, now })
+    await checkComplete({ root, st, entry, attempt, config, packageId: pkg.id, decisions, dir: p.dir, env, abortSignal, now })
   }
 
   applyOutcome(root, st, pkg.id, attempt, now())

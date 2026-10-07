@@ -16,6 +16,7 @@ const R = x => ({ type: 'result', subtype: 'success', is_error: false, result: '
 async function withAttempt(scenario, fn, configOverrides = {}) {
   const root = fs.realpathSync.native(h.makeRepo())
   h.git(root, 'switch', '-q', '-c', 'grindinator/t')
+  require('../../tools/grindinator/lib/git').ensureExcluded(root)
   const stubDir = h.tempDir('grind-stub-')
   try {
     const st = state.create({ runName: 't', branch: 'grindinator/t', packagesDir: 'wp', baseCommit: 'x' })
@@ -249,6 +250,54 @@ test('complete off the run branch is unverified', async () => {
   })
 })
 
+test('complete with an untracked file is unverified', async () => {
+  const scenario = { ...h.completeScenario(), untracked: 'stray.txt' }
+  await withAttempt(scenario, async ({ root, st, run }) => {
+    const a = await run()
+    assert.equal(a.outcome, 'unverified')
+    assert.match(a.reason, /uncommitted changes \(stray\.txt\)/)
+    assert.equal(a.gate, null)
+    assert.equal(st.packages['WP-01'].status, 'failed')
+    assert.equal(state.isDone(root, 'WP-01'), false)
+  })
+})
+
+function decisionOption(root) {
+  return {
+    log: { abs: path.join(root, 'docs', 'decisions.md'), rel: 'docs/decisions.md' },
+    sidecar: { abs: path.join(root, 'docs', 'open-questions.md'), rel: 'docs/open-questions.md' }
+  }
+}
+
+test('complete commits the decision files in their own commit', async () => {
+  const scenario = { ...h.completeScenario(), decisionLog: h.logText('x'), sidecar: h.sidecarText([{ id: 'Q-0001', topic: 'First' }]) }
+  await withAttempt(scenario, async ({ root, run }) => {
+    const decisions = decisionOption(root)
+    const a = await run({ decisions })
+    assert.equal(a.outcome, 'complete')
+    assert.equal(a.decisions.status, 'committed')
+    assert.deepEqual(a.decisions.files, [decisions.log.rel, decisions.sidecar.rel])
+    assert.equal(h.git(root, 'log', '-1', '--format=%s'), 'chore(grindinator): decisions for WP-01')
+    assert.equal(h.git(root, 'log', '-1', '--format=%s', 'HEAD~1'), 'stub commit WP-01')
+    assert.equal(a.commits, 1)
+    assert.equal(h.git(root, 'status', '--porcelain'), '')
+  })
+})
+
+test('a halted session copies no decision file', async () => {
+  const scenario = {
+    ...h.completeScenario(),
+    resultFile: h.resultRecord({ outcome: 'halted', haltedAt: 'T02', reason: 'T02 failed' }),
+    sidecar: h.sidecarText([{ id: 'Q-0001', topic: 'First' }])
+  }
+  await withAttempt(scenario, async ({ root, run }) => {
+    const a = await run({ decisions: decisionOption(root) })
+    assert.equal(a.outcome, 'halted')
+    assert.equal(a.decisions, null)
+    assert.equal(fs.existsSync(path.join(root, 'docs', 'open-questions.md')), false)
+  })
+})
+
 test('a passing gate writes the marker', async () => {
   await withAttempt(h.completeScenario(), async ({ root, st, run }) => {
     const a = await run()
@@ -342,6 +391,25 @@ test('limit with every task committed counts as complete', async () => {
       assert.equal(state.isDone(root, 'WP-01'), true)
       assert.equal(st.packages['WP-01'].status, 'done')
       assert.equal(st.packages['WP-01'].resume, null)
+    })
+  } finally {
+    h.remove(dir)
+  }
+})
+
+test('limit with every task committed discards leftovers', async () => {
+  const dir = h.tempDir('grind-plan-')
+  try {
+    const planFile = path.join(dir, 'plan.md')
+    fs.writeFileSync(planFile, '# plan')
+    const scenario = limitScenario(planFile, { tasksDone: ['T01', 'T02'], tasksNotRun: [] })
+    scenario.commit = true
+    scenario.untracked = 'partial.txt'
+    await withAttempt(scenario, async ({ root, run }) => {
+      const a = await run()
+      assert.equal(a.outcome, 'complete')
+      assert.deepEqual(a.discarded, ['partial.txt'])
+      assert.equal(fs.existsSync(path.join(root, 'partial.txt')), false)
     })
   } finally {
     h.remove(dir)
