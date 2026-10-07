@@ -1,6 +1,7 @@
 // Runs one attempt of a package: records it in the state, launches the session, maps the outcome
 // and applies it to the package. An attempt is the unit WP-07's scheduler and WP-08's gate build on.
 // A complete session counts only when its commits check out and the gate passes or none is configured.
+// A limit attempt records its recovery phase, and a limit session that committed every task counts as complete.
 'use strict'
 
 const fs = require('fs')
@@ -12,6 +13,7 @@ const { readStreamFile } = require('./stream.js')
 const { readResultFile, mapOutcome } = require('./outcome.js')
 const git = require('./git.js')
 const { runGate } = require('./gate.js')
+const limit = require('./limit.js')
 
 function attemptPaths(root, id, n) {
   const dir = path.join(state.stateDir(root), 'runs', id, `attempt-${n}`)
@@ -36,6 +38,18 @@ function applyOutcome(root, st, id, attempt, now = new Date()) {
   } else {
     entry.status = 'failed'
     entry.endedAt = now.toISOString()
+  }
+  // resume is where the next attempt relaunches after a usage limit.
+  if (attempt.outcome === 'limit') {
+    entry.resume = attempt.recovery?.phase === 'execute'
+      ? { kind: 'execute', planFile: attempt.recovery.planFile, from: attempt.recovery.from }
+      : null
+  } else if (attempt.outcome === 'interrupted') {
+    // More tasks may have been committed; Tierminator skips them itself.
+    if (attempt.kind === 'execute' && entry.resume) entry.resume = { ...entry.resume, from: null }
+    else entry.resume = null
+  } else {
+    entry.resume = null
   }
   state.write(root, st, now)
 }
@@ -72,7 +86,7 @@ async function checkComplete({ root, st, entry, attempt, config, packageId, dir,
   }
 }
 
-async function runAttempt({ root, st, pkg, prompt, config, env = process.env, abortSignal = null, now = () => new Date() }) {
+async function runAttempt({ root, st, pkg, prompt, config, env = process.env, abortSignal = null, resume = null, now = () => new Date() }) {
   const entry = st.packages[pkg.id]
   const n = entry.attempts.length + 1
   const p = attemptPaths(root, pkg.id, n)
@@ -81,7 +95,8 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
 
   const attempt = {
     n,
-    kind: 'plan',
+    kind: resume && resume.kind === 'execute' ? 'execute' : 'plan',
+    resume: resume ? { ...resume } : null,
     dir: p.rel,
     startedAt: now().toISOString(),
     endedAt: null,
@@ -108,6 +123,8 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
     commits: null,
     sessionOutcome: null,
     gate: null,
+    recovery: null,
+    wait: null,
   }
   if (attempt.kind === 'plan') entry.startCommit = attempt.startCommit
   entry.attempts.push(attempt)
@@ -156,7 +173,14 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
   attempt.sessionOutcome = m.outcome
   attempt.endCommit = git.head(root)
   attempt.commits = git.commitsSince(root, entry.startCommit)
-  if (m.outcome === 'complete') {
+  if (m.outcome === 'limit') {
+    attempt.recovery = limit.recoveryPhase({ attempt, plansDir: limit.plansDir(env) })
+    if (attempt.recovery.phase === 'complete') {
+      attempt.outcome = 'complete'
+      attempt.reason = 'a usage limit ended the session after every task was committed'
+    }
+  }
+  if (attempt.outcome === 'complete') {
     await checkComplete({ root, st, entry, attempt, config, packageId: pkg.id, dir: p.dir, env, abortSignal, now })
   }
 

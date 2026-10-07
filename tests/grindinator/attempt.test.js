@@ -100,6 +100,8 @@ test('limit with a result file', async () => {
     assert.equal(a.limit.resetsAt, 1791179511)
     assert.equal(a.exitCode, 1)
     assert.equal(st.packages['WP-01'].status, 'pending')
+    assert.equal(st.packages['WP-01'].resume, null)
+    assert.equal(a.recovery.phase, 'planning')
   })
 })
 
@@ -119,6 +121,8 @@ test('limit with no result file', async () => {
     assert.equal(a.limit.resetsAt, null)
     assert.equal(a.streamResetsAt, 1791179511)
     assert.equal(st.packages['WP-01'].status, 'pending')
+    assert.equal(st.packages['WP-01'].resume, null)
+    assert.equal(a.recovery.phase, 'planning')
   })
 })
 
@@ -277,5 +281,100 @@ test('commits are counted for a halted session', async () => {
     assert.equal(a.commits, 1)
     assert.equal(a.gate, null)
     assert.equal(a.outcome, 'halted')
+  })
+})
+
+const LIMIT_STREAM = [h.INIT, R({ is_error: true, api_error_status: 429 })]
+const LIMIT = { detectedAt: '2026-10-05T01:00:00.000Z', resetsAt: 1791179511, raw: { error: 'rate_limit' } }
+
+function limitScenario(planFile, overrides) {
+  return {
+    stream: LIMIT_STREAM,
+    resultFile: h.resultRecord({
+      outcome: 'limit', limit: LIMIT, planFile, tasksFile: planFile.replace(/[.]md$/, '.tasks.json'), ...overrides
+    }),
+    exitCode: 1
+  }
+}
+
+test('limit with a saved plan resumes at the first task not run', async () => {
+  const dir = h.tempDir('grind-plan-')
+  try {
+    const planFile = path.join(dir, 'plan.md')
+    fs.writeFileSync(planFile, '# plan')
+    const scenario = limitScenario(planFile, { tasksDone: ['T01'], tasksNotRun: ['T02', 'T03'] })
+    await withAttempt(scenario, async ({ st, run }) => {
+      const a = await run()
+      assert.equal(a.outcome, 'limit')
+      assert.equal(a.kind, 'plan')
+      assert.deepEqual(a.recovery, { phase: 'execute', planFile, from: 'T02' })
+      assert.deepEqual(st.packages['WP-01'].resume, { kind: 'execute', planFile, from: 'T02' })
+      assert.equal(st.packages['WP-01'].status, 'pending')
+    })
+  } finally {
+    h.remove(dir)
+  }
+})
+
+test('limit with every task committed counts as complete', async () => {
+  const dir = h.tempDir('grind-plan-')
+  try {
+    const planFile = path.join(dir, 'plan.md')
+    fs.writeFileSync(planFile, '# plan')
+    const scenario = limitScenario(planFile, { tasksDone: ['T01', 'T02'], tasksNotRun: [] })
+    scenario.commit = true
+    await withAttempt(scenario, async ({ root, st, run }) => {
+      const a = await run()
+      assert.equal(a.outcome, 'complete')
+      assert.equal(a.sessionOutcome, 'limit')
+      assert.equal(a.recovery.phase, 'complete')
+      assert.equal(a.gate.status, 'skipped')
+      assert.equal(state.isDone(root, 'WP-01'), true)
+      assert.equal(st.packages['WP-01'].status, 'done')
+      assert.equal(st.packages['WP-01'].resume, null)
+    })
+  } finally {
+    h.remove(dir)
+  }
+})
+
+test('limit with no result file finds the plan by session id', async () => {
+  const scenario = { stream: LIMIT_STREAM, exitCode: 1 }
+  await withAttempt(scenario, async ({ stubDir, run }) => {
+    const plans = path.join(stubDir, 'claude-config', 'plans')
+    fs.mkdirSync(plans, { recursive: true })
+    const planFile = path.join(plans, 'tierminator-unattended-20261005-010000-stub-ses.md')
+    fs.writeFileSync(planFile, '# plan')
+    const a = await run()
+    assert.equal(a.outcome, 'limit')
+    assert.deepEqual(a.recovery, { phase: 'execute', planFile, from: null })
+  })
+})
+
+test('an execute attempt keeps the start commit', async () => {
+  await withAttempt(h.completeScenario(), async ({ root, st, run }) => {
+    const entry = st.packages['WP-01']
+    entry.startCommit = h.git(root, 'rev-parse', 'HEAD')
+    const start = entry.startCommit
+    const resume = { kind: 'execute', planFile: '/p.md', from: 'T02' }
+    const a = await run({ resume })
+    assert.equal(a.kind, 'execute')
+    assert.deepEqual(a.resume, resume)
+    assert.equal(entry.startCommit, start)
+    assert.equal(a.commits, 1)
+    assert.equal(a.outcome, 'complete')
+    assert.equal(entry.resume, null)
+  })
+})
+
+test('an interrupted execute attempt drops --from', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  await withAttempt(h.completeScenario(), async ({ st, run }) => {
+    const resume = { kind: 'execute', planFile: '/p.md', from: 'T02' }
+    st.packages['WP-01'].resume = { ...resume }
+    const a = await run({ resume, abortSignal: controller.signal })
+    assert.equal(a.outcome, 'interrupted')
+    assert.deepEqual(st.packages['WP-01'].resume, { kind: 'execute', planFile: '/p.md', from: null })
   })
 })
