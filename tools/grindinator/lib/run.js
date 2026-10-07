@@ -2,6 +2,7 @@
 // configuration, the packages and the working tree, then creates or resumes the run branch and state.
 // Then it runs each package that is not done in one headless session (lib/attempt.js). The failure policy: a package that does not complete stops the run (exit 1), unless onFailure is continue, which discards its uncommitted changes and goes on to the next package (exit 1 at the end if any failed).
 // A usage limit waits for the reset (lib/limit.js) and relaunches the package by phase; more than maxLimitWaits limits in a row, or a reset over 24 hours away without --wait-weekly, stops with exit 3.
+// Decidinator's files are seeded before the first package and committed after each complete one (lib/decisions.js); --stop-on-open-questions stops the run with exit 5 once a package adds open questions.
 // Every run that reaches its packages ends by writing .grindinator/summary.md (lib/summary.js), also when a GrindinatorError (exit 2) is thrown.
 'use strict'
 
@@ -16,6 +17,7 @@ const { runAttempt } = require('./attempt.js')
 const { renderSummary, writeSummary } = require('./summary.js')
 const state = require('./state.js')
 const git = require('./git.js')
+const decisionFiles = require('./decisions.js')
 
 const RUN_NAME_RULE = 'use letters, digits, ".", "_" and "-", starting with a letter or digit (at most 100 characters)'
 
@@ -49,6 +51,7 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   if (!root) throw new GrindinatorError(`${cwd} is not inside a Git repository`)
 
   const config = loadStrict({ projectDir: root, homeDir, flags })
+  const repo = config.decidinator ? decisionFiles.repoPaths({ root, homeDir }) : null
 
   const abs = path.resolve(cwd, packagesDir)
   const dirAbs = fs.existsSync(abs) ? fs.realpathSync.native(abs) : abs
@@ -100,6 +103,11 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
     if (state.isDone(root, pkg.id)) st.packages[pkg.id].status = 'done'
   }
   state.write(root, st, now())
+  if (repo) {
+    const seeded = decisionFiles.prepare({ root, st, repo })
+    state.write(root, st, now())
+    for (const rel of seeded) out(`Seeded .grindinator/decisions/ from ${rel}.`)
+  }
 
   const done = packages.filter(p => state.isDone(root, p.id))
   const todo = packages.filter(p => !state.isDone(root, p.id))
@@ -107,7 +115,7 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   out(`Packages: ${packages.length} (${done.length} done, ${todo.length} to run).`)
   const summarize = (exitCode, stopReason) => {
     try {
-      writeSummary(root, renderSummary({ root, st, packages, exitCode, stopReason, now: now() }))
+      writeSummary(root, renderSummary({ root, st, packages, exitCode, stopReason, now: now(), decisions: repo ? { open: decisionFiles.openEntries(root), sidecar: repo.sidecar.rel } : null }))
       out('Summary: .grindinator/summary.md')
     } catch (e) {
       err(`grindinator: could not write the summary: ${e.message}`)
@@ -115,7 +123,7 @@ async function run({ cwd, homeDir, packagesDir, name, flags = {}, out, err, now 
   }
   let result
   try {
-    result = await runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err, clock })
+    result = await runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err, clock, repo })
   } catch (e) {
     summarize(e instanceof GrindinatorError ? e.exitCode : EXIT.FAILED, e.message)
     throw e
@@ -129,7 +137,7 @@ function resumeText(resume) {
 }
 
 // Runs the packages still to do, one session each; returns the exit code and why the run ended.
-async function runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err, clock }) {
+async function runPackages({ root, st, todo, config, preambleText, env, signals, now, out, err, clock, repo }) {
   if (todo.length === 0) {
     out('Every package is done.')
     return { exitCode: EXIT.OK, reason: 'every package is done' }
@@ -144,8 +152,9 @@ async function runPackages({ root, st, todo, config, preambleText, env, signals,
   const onSigint = () => ac.abort()
   signals.on('SIGINT', onSigint)
   try {
-    for (const pkg of todo) {
+    for (const [i, pkg] of todo.entries()) {
       let limits = 0
+      const openBefore = repo ? new Set(decisionFiles.openEntries(root).map(e => e.id)) : null
       for (;;) {
         if (ac.signal.aborted) {
           err(`grindinator: interrupted; the state is saved, and the next run starts at ${pkg.id}.`)
@@ -160,7 +169,7 @@ async function runPackages({ root, st, todo, config, preambleText, env, signals,
           : sessionPrompt(preambleText, readPackage(pkg))
         out(`${pkg.id}: attempt ${n} started${resume ? ` (${resumeText(resume)})` : ''}; its stream is in .grindinator/runs/${pkg.id}/attempt-${n}/stream.jsonl.`)
         const a = await runAttempt({
-          root, st, pkg, prompt, config, env, abortSignal: ac.signal, resume, now
+          root, st, pkg, prompt, config, env, abortSignal: ac.signal, resume, now, decisions: repo
         })
         out(`${pkg.id}: attempt ${a.n} ended: ${a.outcome}${a.haltedAt ? ` at ${a.haltedAt}` : ''}${a.reason ? ` (${a.reason})` : ''}.`)
         if (a.gate && a.gate.status !== 'skipped') {
@@ -191,6 +200,15 @@ async function runPackages({ root, st, todo, config, preambleText, env, signals,
         }
         err(`grindinator: ${pkg.id} ${what}, so the run stops; see .grindinator/${a.dir}/.`)
         return { exitCode: EXIT.FAILED, reason: `${pkg.id} ${what}` }
+      }
+      if (repo && config.stopOnOpenQuestions && i < todo.length - 1) {
+        const added = decisionFiles.openEntries(root).map(e => e.id).filter(id => !openBefore.has(id))
+        if (added.length > 0) {
+          const why = `${pkg.id} added open questions (${added.join(', ')}), and --stop-on-open-questions is set`
+          err(`grindinator: ${why}, so the run stops; answer them (see the summary), then run again.`)
+          if (failed.length) return { exitCode: EXIT.FAILED, reason: `${why}; ${failed.join(', ')} failed` }
+          return { exitCode: EXIT.OPEN_QUESTIONS, reason: why }
+        }
       }
     }
   } finally {
