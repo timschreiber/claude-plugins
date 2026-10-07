@@ -1,0 +1,1 @@
+Before planning, re-read CLAUDE.md and docs/spec.md in full. Plan the work package below as a list of small, mechanical tasks: settle every design decision in the plan, never inside a task. Each task's Verify step runs `node --test` or a named test file.
