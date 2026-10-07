@@ -15,6 +15,9 @@
 //              'claude-stub: commit skipped: not a repository root' goes to stderr. A failing git
 //              command writes 'claude-stub: commit failed: <stderr>' to stderr and the stub carries on.
 //   untracked  a file name; 'litter' is written to it in the working directory and left uncommitted.
+//   decisionLog a string written whole to the file DECIDINATOR_LOG names, when that variable is set. The
+//              path is resolved against the working directory; parent directories are created.
+//   sidecar    the same for DECIDINATOR_SIDECAR.
 //   resultFile object written as JSON to TIERMINATOR_RESULT_FILE (parent directories created),
 //              when that variable is set.
 //   delayMs    wait before setting the exit code. Default 0.
@@ -114,6 +117,12 @@ function main() {
     process.stdout.write((typeof entry === 'string' ? entry : JSON.stringify(entry)) + '\n')
   }
   if (typeof scenario.stderr === 'string') process.stderr.write(scenario.stderr)
+  for (const [key, name] of [['decisionLog', 'DECIDINATOR_LOG'], ['sidecar', 'DECIDINATOR_SIDECAR']]) {
+    if (typeof scenario[key] !== 'string' || !env[name]) continue
+    const file = path.resolve(process.cwd(), env[name])
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, scenario[key])
+  }
   if (scenario.commit === true) commitWork(env)
   if (typeof scenario.untracked === 'string') fs.writeFileSync(path.join(process.cwd(), scenario.untracked), 'litter\n')
   if (scenario.resultFile !== null && typeof scenario.resultFile === 'object' && env.TIERMINATOR_RESULT_FILE) {

@@ -159,6 +159,25 @@ test('commit outside a repository root is skipped', () => {
   }
 })
 
+test('decisionLog and sidecar write the Decidinator files', () => {
+  const dir = h.tempDir('grind-stub-')
+  try {
+    const scenario = path.join(dir, 'scenario.json')
+    fs.writeFileSync(scenario, JSON.stringify({ decisionLog: 'L', sidecar: 'S' }))
+    const log = path.join(dir, 'a', 'log.md')
+    const sidecar = path.join(dir, 'b', 'q.md')
+    const r = runStub({ GRINDINATOR_STUB_SCENARIO: scenario, DECIDINATOR_LOG: log, DECIDINATOR_SIDECAR: sidecar }, [], dir)
+    assert.equal(r.status, 0)
+    assert.equal(fs.readFileSync(log, 'utf8'), 'L')
+    assert.equal(fs.readFileSync(sidecar, 'utf8'), 'S')
+    const r2 = runStub({ GRINDINATOR_STUB_SCENARIO: scenario }, [], dir)
+    assert.equal(r2.status, 0)
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['a', 'b', 'scenario.json'])
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('the gate fixture fails only for the listed packages', () => {
   const run = id => spawnSync(process.execPath, [h.GATE, 'WP-02'], {
     encoding: 'utf8',

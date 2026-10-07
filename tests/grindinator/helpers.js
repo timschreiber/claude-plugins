@@ -98,6 +98,22 @@ function stubEnv(dir, scenario) {
   return env
 }
 
+// A Decidinator sidecar holding the given entries; dependsOn is the list text, such as 'WP-01; WP-02'.
+function sidecarText(entries) {
+  const lines = ['<!-- decidinator-sidecar v1 -->', '', '# Open questions', '']
+  for (const { id, topic, status = 'open', dependsOn = 'WP-01' } of entries) {
+    lines.push(`### ${id} · ${topic}`, '', `- **Question:** What about ${topic}?`, '- **Context:** A test question.',
+      '- **Options:** none', '- **Provisional answer:** Yes.', '- **Provisional decision:** D-0001',
+      `- **Depends on:** ${dependsOn}`, `- **Status:** ${status}`, '- **Answer:**', '')
+  }
+  return lines.join('\n')
+}
+
+// A Decidinator decision log whose body holds the note, so two calls can differ.
+function logText(note = 'none') {
+  return ['<!-- decidinator-log v1 -->', '', '# Decision log', '', `Test note: ${note}.`, ''].join('\n')
+}
+
 // A clock for the limit-wait tests: now() is the fake time in ms; sleep(ms) records ms and advances the
 // time by ms, or by what onSleep(ms, callNumber, signal) returns when that is a number (a jump). It never waits.
 function fakeClock(startIso, onSleep = null) {
@@ -136,5 +152,6 @@ function waitFor(fn, ms = 10000) {
 
 module.exports = {
   tempDir, git, makeRepo, writePackages, remove,
-  STUB, GATE, INIT, resultRecord, completeScenario, gateCommand, stubEnv, readStubLog, waitFor, fakeClock
+  STUB, GATE, INIT, resultRecord, completeScenario, gateCommand, stubEnv, readStubLog, waitFor, fakeClock,
+  sidecarText, logText
 }
