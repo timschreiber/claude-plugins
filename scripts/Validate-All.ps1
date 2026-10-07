@@ -49,6 +49,12 @@ $decidinatorTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/decidinator'
 node --test @decidinatorTests
 if ($LASTEXITCODE -ne 0) { $failed = $true }
 
+Write-Host '== grindinator tests'
+$grindinatorTests = Get-ChildItem -Path (Join-Path $repoRoot 'tests/grindinator') -Filter '*.test.js' |
+    ForEach-Object { $_.FullName }
+node --test @grindinatorTests
+if ($LASTEXITCODE -ne 0) { $failed = $true }
+
 Write-Host '== orcastrat portability'
 $orcastrat  = Join-Path $repoRoot 'plugins/orcastrat'
 $violations = @()
