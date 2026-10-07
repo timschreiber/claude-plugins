@@ -502,3 +502,217 @@ The names are the keys of `EXIT` in `lib/errors.js`.
 | 3 | `LIMIT` | A usage limit stopped the run: `<id> hit a usage limit <n> times in a row, more than maxLimitWaits (<max>)`, or a reset more than 24 hours away without `--wait-weekly`. Run again after the reset. |
 | 4 | `INTERRUPTED` | Ctrl+C during a session, the gate or a usage-limit wait, or before the next launch. The state is saved and the next run resumes. |
 | 5 | `OPEN_QUESTIONS` | `--stop-on-open-questions` is set and a package other than the last added open questions, and no package failed. |
+
+## Files
+
+Everything a run writes is under `.grindinator/` in the project root, except the commits themselves and Tierminator's plan files.
+
+```text
+.grindinator/
+  state.json
+  summary.md
+  done/<id>.done
+  runs/<id>/attempt-<n>/
+    stream.jsonl
+    stderr.txt
+    result.json
+    gate.stdout.txt
+    gate.stderr.txt
+  decisions/decisions.md
+  decisions/open-questions.md
+```
+
+| Path | Holds |
+| --- | --- |
+| `state.json` | The run's state (see below). |
+| `done/<id>.done` | One file per finished package, holding the time it was written. **It is the source of truth for done:** a package is done if and only if its marker exists, whatever `state.json` says. `grindinator reset <id>` deletes it. |
+| `runs/<id>/attempt-<n>/stream.jsonl` | The session's stdout, the `stream-json` messages (see [What `lib/stream.js` reads](#what-libstreamjs-reads)). |
+| `runs/<id>/attempt-<n>/stderr.txt` | The session's stderr. |
+| `runs/<id>/attempt-<n>/result.json` | Tierminator's result file, set through `TIERMINATOR_RESULT_FILE`. A stale one is deleted before the launch. |
+| `runs/<id>/attempt-<n>/gate.stdout.txt`, `gate.stderr.txt` | The gate's stdout and stderr. Present only when a gate ran. |
+| `summary.md` | The run summary (see below). |
+| `decisions/decisions.md`, `decisions/open-questions.md` | The run copies of Decidinator's decision log and sidecar, present only when Decidinator is on (see [Decidinator integration](#decidinator-integration)). |
+
+**Excluded from Git.** `run` adds the line `/.grindinator/` to the repository's local exclude file, `.git/info/exclude` (found with `git rev-parse --git-path info/exclude`), unless a line equal to `.grindinator`, `.grindinator/`, `/.grindinator` or `/.grindinator/` is already there. Nothing in the repository's tracked files changes. This happens before the working-tree check, so the run's own files never make the tree dirty, and `git reset --hard` plus `git clean -fd` leave them alone.
+
+**Atomic writes.** `state.json`, the done markers and `summary.md` are written by writing a temporary file next to the target (`<file>.<pid>.<random>.tmp`) and renaming it over the target, so a crash never leaves a half-written file. On Windows a rename can fail with `EPERM`, `EACCES` or `EBUSY` while another process holds the file; it is retried up to ten times, 20 ms apart, and then the error is raised. The temporary file is deleted when the write fails.
+
+A `state.json` that is not valid JSON, or is not an object with `version: 1` and a `packages` object, stops the command with exit 2 (`<file>: is not valid JSON; delete .grindinator/ to start over` or `<file>: is not a Grindinator state file (version 1); delete .grindinator/ to start over`).
+
+### state.json
+
+`state.json` is written with two-space indentation. It is rewritten at every change: before a session starts, after the session, at each wait, and after each outcome. `updatedAt` is set at every write.
+
+**Top level**
+
+| Field | Meaning |
+| --- | --- |
+| `version` | Always `1`. |
+| `runName` | The run name. |
+| `branch` | The run branch, `grindinator/<run name>`. |
+| `packagesDir` | The packages directory as recorded when the run started (relative to the repository root when inside it). A resumed run must use the same one. |
+| `baseCommit` | The commit the run branch was created from. |
+| `createdAt`, `updatedAt` | ISO 8601 UTC times. |
+| `packages` | An object keyed by package id; one entry per package (below). |
+| `decisions` | Only when Decidinator is on: `{ log: { repo, hash }, sidecar: { repo, hash } }`, the repository path and SHA-256 of each Decidinator file at the last seed or commit (`hash` is null when the file did not exist). |
+
+**Per package**
+
+| Field | Meaning |
+| --- | --- |
+| `title`, `file` | The package's title and file name, refreshed at each start. |
+| `status` | `pending`, `running`, `done` or `failed`. The status shown by `status` and the summary comes from the done marker first (`done`), then this field (`running` and `failed` are kept, anything else reads `pending`). |
+| `attempts` | The list of attempts (below), oldest first. |
+| `startedAt`, `endedAt` | The time of the first attempt's start, and of the last `done` or `failed`; null until then. |
+| `startCommit` | The commit HEAD was on when the last plan launch started; the base for counting the package's commits. Set only by a plan launch. |
+| `resume` | Set after a `limit` that is in the execute phase, and kept through an interrupted execute attempt: `{ kind: "execute", planFile, from }`, where `from` is the first task not run, or null. Null or absent otherwise. The next launch uses it. |
+
+**Per attempt**
+
+| Field | Meaning |
+| --- | --- |
+| `n` | The attempt number, from 1. |
+| `kind` | `plan` or `execute`. |
+| `resume` | The `resume` record the attempt was launched from, or null. |
+| `dir` | The attempt directory relative to `.grindinator/`, `runs/<id>/attempt-<n>`. |
+| `startedAt`, `endedAt` | Times; `endedAt` is null while it runs. |
+| `sessionId` | The session ID from the stream, else from the result file; null if neither. |
+| `exitCode`, `signal` | How the process ended. |
+| `timedOut`, `interrupted` | True when the wall-clock cap stopped it, or Ctrl+C did. |
+| `outcome`, `reason` | The outcome (one of those in [Outcomes](#outcomes)), null while running, and its reason. |
+| `source` | Where the session's outcome came from: `result-file`, `stream` or `runner`. |
+| `haltedAt` | The task a halted session stopped at. |
+| `planFile`, `tasksFile`, `tasksDone`, `tasksNotRun` | From the result file. |
+| `limit` | The result file's limit record, or null. |
+| `streamResetsAt` | The stream's reset time (Unix seconds), or null. |
+| `results`, `permissionDenials`, `malformedLines` | Counts from the stream. |
+| `startCommit`, `endCommit` | HEAD when the attempt started and when the session ended. |
+| `commits` | The number of commits on HEAD since the package's start commit; null when that commit is not an ancestor of HEAD. |
+| `sessionOutcome` | The outcome the session itself gave, before verification, the gate or a limit that finished every task changed it. |
+| `gate` | The gate record, or null when no gate ran: `command`, `status`, `exitCode`, `signal`, `timedOut`, `interrupted`, `durationMs`, `reason`. |
+| `recovery` | For a `limit` outcome: `{ phase, planFile, from }`. |
+| `wait` | For a `limit` outcome that was decided on: `{ source, resetsAt, wakeAt, status, startedAt, endedAt }`. |
+| `discarded` | The paths a limit-after-complete discard removed. |
+| `decisions` | The decision commit record, or null: `{ status, commit, files, reason? }`. |
+
+**Status values**
+
+| Field | Values |
+| --- | --- |
+| Package `status` | `pending`: not started, or stopped by a usage limit or Ctrl+C. `running`: an attempt is in progress, or the runner died during one. `done`: complete, verified, and the gate passed or was skipped. `failed`: any other outcome. |
+| Attempt `outcome` | `complete`, `halted`, `limit`, `no-plan`, `declined`, `crashed`, `interrupted`, `unverified`, `gate-failed`. |
+| `gate.status` | `skipped` (no gate configured), `passed`, `failed`, `interrupted`. |
+| `wait.status` | `waiting` (in the wait), `woke` (the wait ended), `interrupted` (Ctrl+C ended it), `over-cap` (more waits than `maxLimitWaits`, so none was made), `weekly` (reset more than 24 hours away, so none was made). |
+| `recovery.phase` | `planning`, `execute`, `complete` (see [The recovery phase](#the-recovery-phase)). |
+| `decisions.status` | `unchanged` (the run copies matched the repository files; no commit), `committed`, `failed`. |
+
+`wait.source` is `result-file`, `stream` or `fallback`; `source` of an attempt is `result-file`, `stream` or `runner`.
+
+### summary.md
+
+`summary.md` is rewritten at the end of each run that reached its packages (see [The summary](#the-summary)). Its layout:
+
+```text
+# Grindinator run <run name>
+
+- Branch: <branch>
+- Base commit: <sha>
+- Ended: <ISO time>
+- Exit code: <code>
+- Stop reason: <reason>
+
+| Package | Title | Status | Attempts | Outcome | Commits | Gate |
+| --- | --- | --- | --- | --- | --- | --- |
+| WP-01 | <title> | done | 1 | complete | 3 | passed |
+```
+
+One table row per package, in run order. `Status` is the same value as `grindinator status` (the done marker decides). `Outcome` is the last attempt's outcome, with ` at <task>` for a halt, `running` for an attempt with no outcome, or `-` for no attempt. `Commits` is the last attempt's commit count, or `-`. `Gate` is `-` (no gate record), `none configured`, `passed`, `interrupted`, `failed (timed out)` or `failed (exit <code or none>)`. Pipes and line breaks in a cell are escaped.
+
+Optional sections, each present only when it has content:
+
+- **`## Details`**: one line per package whose last attempt has a reason: `- <id>, attempt <n>: <reason>. Logs: .grindinator/<attempt dir>/`.
+- **`## Limit waits`**: one line per attempt with a wait record, `- <id>, attempt <n>: <wait text>` (see [The records](#the-records)).
+- **`## Open questions`**: only when Decidinator is on: `None.`, or one `- <id> · <topic>` line per open entry and the pointer to `/decidinator:export` (see [Open questions](#open-questions)).
+
+### Tierminator's plan files
+
+Tierminator keeps its plan files, task files and telemetry in the plans directory, `~/.claude/plans`, or `$CLAUDE_CONFIG_DIR/plans` when `CLAUDE_CONFIG_DIR` is set. A headless plan is saved as `tierminator-unattended-<...>-<first eight characters of the session ID>.md`. Grindinator reads this directory only to find the plan of a session that ended on a usage limit before its result file named one (see [The recovery phase](#the-recovery-phase)). It never writes there, and `.grindinator/` does not hold copies of the plans.
+
+## Environment variables
+
+| Variable | Set or read by | Effect |
+| --- | --- | --- |
+| `GRINDINATOR_DEBUG` | Read by Grindinator | `1` turns on the debug log (see [Output and debugging](#output-and-debugging)). Any other value leaves it off. |
+| `GRINDINATOR_CLAUDE_BIN` | Read by Grindinator; a test hook | The command that runs instead of `claude` for the sessions (the gate is not affected). A value ending in `.js`, `.cjs` or `.mjs` is a path run under the current Node (resolved to an absolute path); any other value is run as a command. Empty or unset means `claude`. |
+| `GRINDINATOR_PACKAGE` | Set by Grindinator, read by the gate | The package id (`WP-01`), in the gate command's environment only. |
+| `TIERMINATOR_RESULT_FILE` | Set by Grindinator, read by Tierminator | The absolute path of the attempt's `result.json`, where Tierminator writes its result file. Set for every session. |
+| `DECIDINATOR_MODE` | Set by Grindinator, read by Decidinator | `sidecar` when Decidinator is on. Removed from the session's environment otherwise, even if inherited. |
+| `DECIDINATOR_CONTEXT` | Set by Grindinator, read by Decidinator | The package id, when Decidinator is on. Removed otherwise. |
+| `DECIDINATOR_LOG` | Set by Grindinator, read by Decidinator | The path of the run copy of the decision log, `.grindinator/decisions/decisions.md`, when Decidinator is on. Removed otherwise. |
+| `DECIDINATOR_SIDECAR` | Set by Grindinator, read by Decidinator | The path of the run copy of the sidecar, `.grindinator/decisions/open-questions.md`, when Decidinator is on. Removed otherwise. |
+| `CLAUDE_CONFIG_DIR` | Read by Grindinator (and by Claude Code) | Moves the Claude configuration directory, and with it the plans directory Grindinator searches during limit recovery: `$CLAUDE_CONFIG_DIR/plans` instead of `~/.claude/plans`. It passes through to the sessions unchanged. |
+| `CLAUDECODE` | Removed from sessions | Set by an enclosing Claude Code session; a child must not inherit it. |
+| `CLAUDE_CODE_ENTRYPOINT` | Removed from sessions | As above. |
+| `CLAUDE_CODE_SESSION_ATTENDED` | Removed from sessions | As above. |
+| `CLAUDE_CODE_CHILD_SESSION` | Removed from sessions | As above. |
+| `CLAUDE_PLUGIN_ROOT` | Removed from sessions | As above. |
+| `CLAUDE_PLUGIN_DATA` | Removed from sessions | As above. |
+| `CLAUDE_PROJECT_DIR` | Removed from sessions | As above. |
+| `CLAUDE_ENV_FILE` | Removed from sessions | As above. |
+| `CLAUDE_CODE_SSE_PORT` | Removed from sessions | As above. |
+| `GIT_DIR` | Removed from Git calls | Could point Grindinator's Git commands at another repository. |
+| `GIT_WORK_TREE` | Removed from Git calls | As above. |
+| `GIT_INDEX_FILE` | Removed from Git calls | As above. |
+| `GIT_OBJECT_DIRECTORY` | Removed from Git calls | As above. |
+| `GRINDINATOR_STUB_SCENARIO` | Read by the test stub only | The path of a JSON scenario file that tells `tests/grindinator/fixtures/claude-stub.js` what to emit; without it the stub runs its default scenario. Used with `GRINDINATOR_CLAUDE_BIN`. |
+| `GRINDINATOR_STUB_LOG` | Read by the test stub only | When set, the stub appends one JSON line per run (`argv`, `cwd` and the relevant environment) to this file. |
+
+The session variables are removed from the session's environment only; the runner's own environment is unchanged, and the gate gets the runner's environment plus `GRINDINATOR_PACKAGE`. The `GIT_` variables are removed from each Git call Grindinator makes and nowhere else.
+
+## Output and debugging
+
+**stdout and stderr.** Progress goes to stdout and everything a person must act on goes to stderr, so `grindinator run <dir> > run.log` keeps the progress and still shows the problems.
+
+- **stdout:** `help`, the `Seeded ...`, `Run ...`, `Packages: ...`, `To run: ...` and `Every package is done.` lines, the `Switched to <branch>.` line, each package's `attempt <n> started`, `attempt <n> ended`, `gate ...`, `usage limit; waiting` and `the wait is over` lines, `Summary: .grindinator/summary.md`, and the output of `status` and `reset`.
+- **stderr:** every error (`grindinator: <message>`), the look-alike package warnings, the no-gate warning, `grindinator: discarded uncommitted changes left by <id>: <paths>.`, the failure messages (`... so the run stops` and `... so the run goes on`), the interrupt messages, the limit stop messages, `grindinator: could not write the summary: <message>`, and the help text when no command is given.
+
+The exit code is the result; see [Exit codes](#exit-codes).
+
+**`grindinator status` table.** After `Run <run name> on branch <branch>.` (when a run is recorded), one header row and one row per package, in package order. The first three columns are padded to their widest cell, and cells are separated by two spaces, so the `TITLE` column is last and unpadded:
+
+```text
+PACKAGE  STATE    ATTEMPTS  TITLE
+WP-01    done     1         Scaffold
+WP-02    failed   2         Parser
+WP-03    pending  0         Docs
+```
+
+`STATE` is `done` (the done marker exists), `running`, `failed` or `pending` (see [state.json](#statejson)). `ATTEMPTS` is the length of the package's `attempts` list, 0 with no run recorded.
+
+**The debug log.** With `GRINDINATOR_DEBUG=1`, Grindinator appends lines of the form `<ISO time> <message>` to `grindinator-debug.log` in the operating system's temp directory (`os.tmpdir()`: `%TEMP%` on Windows, `/tmp` or `$TMPDIR` elsewhere). It never writes to stdout or stderr and never throws; a log that cannot be written is silently skipped. Today the only thing logged is the stack of an unexpected error (the one reported as `grindinator: unexpected error: <message>`). The session logs, gate output and stream are in the attempt directories, not here.
+
+## Setups and permissions
+
+### Permissions
+
+**O-9, closed in WP-11.** Workers need `bypassPermissions`, which is the default, because under `acceptEdits` they could not read the tasks file outside the repository, so the run halted at T01 (V8 in [`grindinator-verification.md`](grindinator-verification.md)). Use `bypassPermissions` only on the runner branch, in a sandbox or a dedicated clone. `acceptEdits` was enough for repository-only oracles. A smaller worker set (`acceptEdits` plus `--add-dir` for the plan directory) is untested, and Grindinator has no flag that passes `--add-dir` (L-3).
+
+### First-party claude.ai login
+
+Verified by WP-01 (model pinning, rung models and `WebSearch`; V9) and by the runbook once its results are recorded.
+
+### Pro
+
+Untested (L-2). Run the probe's `models` cell first:
+
+```bash
+PROBE_TAG=pro node probes/grindinator/run.js models
+```
+
+Rung 3 runs on Fable, which bills usage credits on Pro.
+
+### Bedrock
+
+Untested (L-2). It needs `CLAUDE_CODE_USE_BEDROCK=1`, `AWS_REGION` and AWS credentials. Pin models with `--model`; if the aliases do not resolve, set Claude Code's `ANTHROPIC_DEFAULT_OPUS_MODEL` and `ANTHROPIC_DEFAULT_SONNET_MODEL`. This is untested. Rung 3's `claude-fable-5-1` may not resolve. `WebSearch` may be missing, and no Serper MCP or other substitute is provided (L-5). Run the `models` cell first, with `PROBE_TAG=bedrock`.
+
+The runbook's [Other setups](grindinator-e2e-run.md#other-setups) gives the steps for running the pilot on each.
