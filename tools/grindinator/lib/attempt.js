@@ -137,7 +137,7 @@ async function runAttempt({ root, st, pkg, prompt, config, env = process.env, ab
     command,
     args: [...args, ...buildArgs(config, prompt)],
     cwd: root,
-    env: buildEnv(env, { root, packageId: pkg.id, resultFile: p.resultFile }),
+    env: buildEnv(env, { root, packageId: pkg.id, resultFile: p.resultFile, decidinator: config.decidinator }),
     streamFile: p.streamFile,
     stderrFile: p.stderrFile,
     capMs: config.maxSessionMinutes * 60000,

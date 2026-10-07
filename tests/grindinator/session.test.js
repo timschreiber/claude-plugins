@@ -73,6 +73,19 @@ test('buildEnv drops session variables and sets the runner variables', () => {
   assert.deepEqual(base, copy)
 })
 
+test('buildEnv sets no Decidinator variable when it is off', () => {
+  const root = path.join(path.sep, 'repo')
+  const base = { KEEP: 'k', DECIDINATOR_MODE: 'ask', DECIDINATOR_CONTEXT: 'x', DECIDINATOR_LOG: 'l.md', DECIDINATOR_SIDECAR: 's.md' }
+  const copy = { ...base }
+  const env = session.buildEnv(base, { root, packageId: 'WP-01', resultFile: 'r.json', decidinator: false })
+  for (const name of ['DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_LOG', 'DECIDINATOR_SIDECAR']) {
+    assert.equal(name in env, false)
+  }
+  assert.equal(env.KEEP, 'k')
+  assert.equal(env.TIERMINATOR_RESULT_FILE, 'r.json')
+  assert.deepEqual(base, copy)
+})
+
 test('launch runs a session and records its stream', async () => {
   const s = setup()
   try {

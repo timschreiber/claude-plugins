@@ -203,6 +203,16 @@ test('the session gets the prompt and the environment', async () => {
   })
 })
 
+test('with Decidinator off the session gets no Decidinator variable', async () => {
+  await withAttempt(h.completeScenario(), async ({ stubDir, run }) => {
+    await run()
+    const entry = h.readStubLog(stubDir)[0]
+    for (const name of ['DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_LOG', 'DECIDINATOR_SIDECAR']) {
+      assert.equal(entry.env[name], null)
+    }
+  }, { decidinator: false })
+})
+
 test('an already-aborted signal is interrupted and the package stays pending', async () => {
   const controller = new AbortController()
   controller.abort()

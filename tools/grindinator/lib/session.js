@@ -57,15 +57,21 @@ function decisionPaths(root) {
   }
 }
 
-function buildEnv(baseEnv, { root, packageId, resultFile }) {
+const DECIDINATOR_VARS = ['DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_LOG', 'DECIDINATOR_SIDECAR']
+
+function buildEnv(baseEnv, { root, packageId, resultFile, decidinator = true }) {
   const env = { ...baseEnv }
   for (const key of SESSION_VARS) delete env[key]
-  const paths = decisionPaths(root)
+  // With Decidinator off, none of its variables reach the session, not even inherited ones.
+  for (const key of DECIDINATOR_VARS) delete env[key]
   env.TIERMINATOR_RESULT_FILE = resultFile
-  env.DECIDINATOR_MODE = 'sidecar'
-  env.DECIDINATOR_CONTEXT = packageId
-  env.DECIDINATOR_LOG = paths.log
-  env.DECIDINATOR_SIDECAR = paths.sidecar
+  if (decidinator) {
+    const paths = decisionPaths(root)
+    env.DECIDINATOR_MODE = 'sidecar'
+    env.DECIDINATOR_CONTEXT = packageId
+    env.DECIDINATOR_LOG = paths.log
+    env.DECIDINATOR_SIDECAR = paths.sidecar
+  }
   return env
 }
 
@@ -158,4 +164,4 @@ function launch({ command, args, shell = false, cwd, env, streamFile, stderrFile
   })
 }
 
-module.exports = { SESSION_VARS, timing, buildArgs, sessionPrompt, executePrompt, decisionPaths, buildEnv, launch, stopChild }
+module.exports = { SESSION_VARS, DECIDINATOR_VARS,timing, buildArgs, sessionPrompt, executePrompt, decisionPaths, buildEnv, launch, stopChild }
