@@ -11,6 +11,7 @@ const dconfig = require('../../../plugins/decidinator/scripts/lib/config.js')
 const sidecarLib = require('../../../plugins/decidinator/scripts/lib/sidecar.js')
 const { GrindinatorError } = require('./errors.js')
 const { decisionPaths } = require('./session.js')
+const git = require('./git.js')
 
 const KINDS = Object.freeze([
   Object.freeze({ kind: 'log', key: 'decisionLog', label: 'decision log' }),
@@ -76,4 +77,53 @@ function openEntries(root) {
     .map(e => ({ id: e.id, topic: e.title, dependsOn: e.question.dependsOn }))
 }
 
-module.exports = { KINDS, repoPaths, fileHash, openEntries }
+// Seeds the run copies from the repo files. Returns the repo rels it seeded. A run copy that already
+// exists must match what was last copied or committed, or it may hold decisions that would be lost.
+function prepare({ root, st, repo }) {
+  const record = { ...(st.decisions ?? {}) }
+  const work = decisionPaths(root)
+  const seeded = []
+  for (const { kind } of KINDS) {
+    const { abs, rel } = repo[kind]
+    if (!fs.existsSync(work[kind])) {
+      if (fs.existsSync(abs)) {
+        fs.mkdirSync(path.dirname(work[kind]), { recursive: true })
+        fs.copyFileSync(abs, work[kind])
+        seeded.push(rel)
+      }
+      record[kind] = { repo: rel, hash: fileHash(abs) }
+    } else {
+      const r = record[kind]
+      if (!r || r.repo !== rel || r.hash !== fileHash(abs)) {
+        const base = path.basename(work[kind])
+        throw new GrindinatorError(`${rel} changed since Grindinator last copied it (for example by /decidinator:import), and .grindinator/decisions/${base} may hold decisions not yet committed; merge them into ${rel} and delete .grindinator/decisions/${base}, or delete it to discard them, then run again`)
+      }
+    }
+  }
+  st.decisions = record
+  return seeded
+}
+
+// Copies changed run copies over the repo files and commits them.
+function commitDecisions({ root, st, repo, packageId }) {
+  const work = decisionPaths(root)
+  const files = []
+  for (const { kind } of KINDS) {
+    const { abs, rel } = repo[kind]
+    if (!fs.existsSync(work[kind])) continue
+    if (fileHash(work[kind]) === fileHash(abs)) continue
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.copyFileSync(work[kind], abs)
+    files.push(rel)
+  }
+  if (files.length === 0) return { status: 'unchanged', commit: null, files: [] }
+  let r = git.git(root, ['add', '--', ...files])
+  if (!r.ok) return { status: 'failed', commit: null, files, reason: `git add failed: ${git.firstLine(r.stderr)}` }
+  r = git.git(root, ['commit', '-q', '-m', `chore(grindinator): decisions for ${packageId}`, '--', ...files])
+  if (!r.ok) return { status: 'failed', commit: null, files, reason: `git commit failed: ${git.firstLine(r.stderr)}` }
+  st.decisions = st.decisions ?? {}
+  for (const { kind } of KINDS) st.decisions[kind] = { repo: repo[kind].rel, hash: fileHash(repo[kind].abs) }
+  return { status: 'committed', commit: git.head(root), files }
+}
+
+module.exports = { KINDS, repoPaths, fileHash, openEntries, prepare, commitDecisions }

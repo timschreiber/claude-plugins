@@ -5,8 +5,9 @@ const assert = require('node:assert/strict')
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
-const { tempDir, remove, sidecarText } = require('./helpers.js')
-const { repoPaths, fileHash, openEntries } = require('../../tools/grindinator/lib/decisions.js')
+const { tempDir, remove, sidecarText, logText, makeRepo, git } = require('./helpers.js')
+const gitLib = require('../../tools/grindinator/lib/git.js')
+const { repoPaths, fileHash, openEntries, prepare, commitDecisions } = require('../../tools/grindinator/lib/decisions.js')
 const { decisionPaths } = require('../../tools/grindinator/lib/session.js')
 const { GrindinatorError } = require('../../tools/grindinator/lib/errors.js')
 
@@ -104,4 +105,99 @@ test('openEntries returns [] with no file and the open entries otherwise', t => 
     { id: 'Q-0002', topic: 'Second', status: 'answered' }
   ]))
   assert.deepEqual(openEntries(root), [{ id: 'Q-0001', topic: 'First', dependsOn: ['WP-01', 'WP-02'] }])
+})
+
+function gitSetup(t) {
+  const root = makeRepo()
+  const home = tempDir('grind-dec-home-')
+  t.after(() => { remove(root); remove(home) })
+  git(root, 'checkout', '-q', '-b', 'grindinator/t')
+  gitLib.ensureExcluded(root)
+  return { root, repo: repoPaths({ root, homeDir: home }) }
+}
+
+function commitFile(root, rel, text) {
+  const abs = path.join(root, rel)
+  fs.mkdirSync(path.dirname(abs), { recursive: true })
+  fs.writeFileSync(abs, text)
+  git(root, 'add', '-A')
+  git(root, 'commit', '-q', '-m', 'add ' + rel)
+}
+
+function writeRun(root, kind, text) {
+  const file = decisionPaths(root)[kind]
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, text)
+  return file
+}
+
+test('prepare seeds an existing repo file and records the hashes', t => {
+  const { root, repo } = gitSetup(t)
+  commitFile(root, 'docs/decisions.md', logText('a'))
+  const st = {}
+  assert.deepEqual(prepare({ root, st, repo }), ['docs/decisions.md'])
+  assert.equal(fs.readFileSync(decisionPaths(root).log, 'utf8'), logText('a'))
+  assert.equal(st.decisions.log.repo, 'docs/decisions.md')
+  assert.equal(st.decisions.log.hash, fileHash(repo.log.abs))
+  assert.equal(st.decisions.sidecar.hash, null)
+  assert.equal(fs.existsSync(decisionPaths(root).sidecar), false)
+})
+
+test('a second prepare keeps an edited run copy', t => {
+  const { root, repo } = gitSetup(t)
+  commitFile(root, 'docs/decisions.md', logText('a'))
+  const st = {}
+  prepare({ root, st, repo })
+  writeRun(root, 'log', logText('edited'))
+  assert.deepEqual(prepare({ root, st, repo }), [])
+  assert.equal(fs.readFileSync(decisionPaths(root).log, 'utf8'), logText('edited'))
+})
+
+test('prepare refuses when the committed repo file changed', t => {
+  const { root, repo } = gitSetup(t)
+  commitFile(root, 'docs/decisions.md', logText('a'))
+  const st = {}
+  prepare({ root, st, repo })
+  const before = JSON.stringify(st.decisions)
+  commitFile(root, 'docs/decisions.md', logText('b'))
+  assert.throws(() => prepare({ root, st, repo }),
+    err => err instanceof GrindinatorError && err.exitCode === 2 && /docs\/decisions\.md changed since Grindinator last copied it/.test(err.message))
+  assert.equal(JSON.stringify(st.decisions), before)
+})
+
+test('prepare refuses a run copy with no record', t => {
+  const { root, repo } = gitSetup(t)
+  writeRun(root, 'log', logText('a'))
+  assert.throws(() => prepare({ root, st: {}, repo }), err => err instanceof GrindinatorError && err.exitCode === 2)
+})
+
+test('commitDecisions with no run copies is unchanged', t => {
+  const { root, repo } = gitSetup(t)
+  assert.deepEqual(commitDecisions({ root, st: {}, repo, packageId: 'WP-01' }), { status: 'unchanged', commit: null, files: [] })
+})
+
+test('commitDecisions commits both changed run copies', t => {
+  const { root, repo } = gitSetup(t)
+  const st = {}
+  writeRun(root, 'log', logText('a'))
+  writeRun(root, 'sidecar', sidecarText([{ id: 'Q-0001', topic: 'First' }]))
+  const r = commitDecisions({ root, st, repo, packageId: 'WP-01' })
+  assert.equal(r.status, 'committed')
+  assert.equal(git(root, 'log', '-1', '--format=%s'), 'chore(grindinator): decisions for WP-01')
+  assert.deepEqual(git(root, 'show', '--name-only', '--format=', 'HEAD').split('\n').sort(), ['docs/decisions.md', 'docs/open-questions.md'])
+  assert.equal(fs.readFileSync(repo.log.abs, 'utf8'), fs.readFileSync(decisionPaths(root).log, 'utf8'))
+  assert.equal(fs.readFileSync(repo.sidecar.abs, 'utf8'), fs.readFileSync(decisionPaths(root).sidecar, 'utf8'))
+  assert.equal(st.decisions.log.hash, fileHash(repo.log.abs))
+  assert.equal(st.decisions.sidecar.hash, fileHash(repo.sidecar.abs))
+  assert.equal(r.commit, git(root, 'rev-parse', 'HEAD'))
+  assert.equal(commitDecisions({ root, st, repo, packageId: 'WP-01' }).status, 'unchanged')
+})
+
+test('commitDecisions reports a git add failure', t => {
+  const { root, repo } = gitSetup(t)
+  commitFile(root, '.gitignore', 'docs/\n')
+  writeRun(root, 'log', logText('a'))
+  const r = commitDecisions({ root, st: {}, repo, packageId: 'WP-01' })
+  assert.equal(r.status, 'failed')
+  assert.match(r.reason, /git add failed/)
 })
