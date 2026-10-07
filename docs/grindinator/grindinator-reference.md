@@ -254,3 +254,251 @@ A byte-order mark at the start of a package or preamble file is removed.
 ```
 
 that is, `/tierminator:plan ` followed by the preamble text with trailing whitespace removed, a blank line, and the package's text. With no preamble, or a preamble that is only whitespace, the prompt is `/tierminator:plan ` followed by the package's text alone.
+
+## The run
+
+After the preconditions (see [`grindinator run`](#grindinator-run)), `run` goes through the packages that are not done, in order, one at a time. If none is left it prints `Every package is done.` and exits 0 without a session. Otherwise it prints `To run: <ids>.` and, when no gate is set, the no-gate warning (see [The gate](#the-gate)).
+
+### The lifecycle of one package
+
+For each package the runner loops until the package completes, fails, or the run stops:
+
+1. **Clean tree.** It checks the working tree is clean (`the working tree has uncommitted changes (...); commit or stash them, then run again`, exit 2). A package never starts on a dirty tree. After a usage limit, or a failure under `onFailure: continue`, the runner first discards the leftovers (see below), so the check passes.
+2. **Launch or relaunch.** The attempt number is the number of attempts already recorded for the package, plus one. The prompt is the plan prompt (see [Work packages](#work-packages)), or, when the package has a `resume` record from a usage limit, the execute prompt (see [Sessions](#sessions)). It prints:
+
+   ```text
+   <id>: attempt <n> started; its stream is in .grindinator/runs/<id>/attempt-<n>/stream.jsonl.
+   <id>: attempt <n> started (/tierminator:execute --from <task>); its stream is in .grindinator/runs/<id>/attempt-<n>/stream.jsonl.
+   ```
+
+   The second form is for a relaunch; with no known task it reads `/tierminator:execute from the first uncommitted task`. The attempt is recorded in `state.json` before the session starts, and a plan launch records the package's `startCommit`, the commit HEAD was on.
+3. **The outcome.** When the session ends, the runner reads the result file, the stream and the process facts and maps them to an outcome (see [Outcomes](#outcomes)). It prints `<id>: attempt <n> ended: <outcome>[ at <task>][ (<reason>)].`.
+4. **After-complete verification.** Only when the outcome is `complete`, in this order; the first check that fails turns the outcome into `unverified` with its reason:
+   1. HEAD is on the run branch.
+   2. HEAD is a descendant of the package's start commit.
+   3. HEAD has advanced from it: the session made at least one commit.
+   4. For a limit session that committed every task, leftover uncommitted changes are discarded first.
+   5. The tree is clean.
+   6. When Decidinator is on, the decision files are committed (next step); a failure is `unverified`.
+5. **The decision commit.** The run copies of the Decidinator log and sidecar that differ from the repository files are copied over them and committed as `chore(grindinator): decisions for <id>` (see [Decidinator integration](#decidinator-integration)). This comes before the gate, so the gate sees a clean tree, and the decisions of a package that fails its gate are still kept.
+6. **The gate.** The configured gate runs (see [The gate](#the-gate)). A failing gate makes the outcome `gate-failed`; an interrupted one, `interrupted`. When a gate ran, it prints `<id>: gate <passed|failed|interrupted>; its output is in .grindinator/runs/<id>/attempt-<n>/.`. A skipped gate prints nothing.
+7. **The done marker.** A `complete` outcome that passed every check above writes the package's done marker, `.grindinator/done/<id>.done`, and sets its status to `done`. The run goes on to the next package.
+
+The package's status after an attempt is `done` for `complete`, `pending` for `limit` and `interrupted`, and `failed` for every other outcome. Its `resume` record is set for a `limit` in the execute phase and cleared otherwise.
+
+### The failure policy
+
+An outcome other than `complete`, `limit` or `interrupted` is a failure: `halted`, `no-plan`, `declined`, `crashed`, `unverified` or `gate-failed`. The package is added to the run's failed list. What happens next depends on `onFailure`:
+
+- **`stop`** (the default). The run stops with exit 1 and prints `grindinator: <id> <what>, so the run stops; see .grindinator/runs/<id>/attempt-<n>/.`, where `<what>` is `failed its gate (<reason>)`, `was not verified (<reason>)` or `ended <outcome>`, followed by ` at <task>` when the session halted at a task. The package's commits stay on the run branch, and its uncommitted changes stay in the tree, so the next `run` stops on the dirty-tree check until the user deals with them.
+- **`continue`.** The runner prints `grindinator: <id> <what>; onFailure is continue, so the run goes on; see .grindinator/runs/<id>/attempt-<n>/.`, discards the uncommitted changes, and goes on to the next package. The discard is `git reset --hard -q` then `git clean -fd -q`; paths excluded from Git, such as `.grindinator/`, survive. It prints `grindinator: discarded uncommitted changes left by <id>: <paths>.` when anything was dirty. The failed package's commits are kept. The discard is refused unless the current branch is the run branch and its name starts with `grindinator/`: `refusing to discard changes: <branch> is not a Grindinator run branch` or `refusing to discard changes: the current branch is <branch or a detached HEAD>, not the run branch <branch>` (exit 2). At the end the run exits 1 with the reason `<ids> failed; onFailure is continue, so the other packages ran`.
+
+A usage limit is not a failure (see [Usage limits](#usage-limits)), and neither is an interrupt.
+
+### Ctrl+C
+
+The runner listens for SIGINT for the length of the package loop. On the first one it aborts a controller. That stops the running session or gate (see [Sessions](#sessions)), or ends a usage-limit wait. The attempt's outcome is `interrupted` and the package stays `pending`. The runner prints `grindinator: interrupted; the state is saved, and the next run starts at <id>.` and exits 4. An interrupt during a wait prints `grindinator: interrupted while waiting for the usage limit; the state is saved, and the next run resumes <id>.` A SIGINT that arrives between attempts is seen at the top of the loop, before the next launch, with the first message and the same exit. After an interrupted execute attempt the package's `resume` keeps its plan file but loses its `--from`, so the next run relaunches `/tierminator:execute` on the plan and Tierminator skips the tasks already committed.
+
+### The summary
+
+`.grindinator/summary.md` is written at the end of every run that reached its packages: when every package was done, when the run stopped, and also when a `GrindinatorError` is thrown after the packages were found. It is not written when a precondition fails before that. It holds the branch, base commit, end time, exit code and stop reason, a table of each package (`Package`, `Title`, `Status`, `Attempts`, `Outcome`, `Commits`, `Gate`), a `Details` list with the last reason of each package that has one and its log directory, a `Limit waits` list, and, when Decidinator is on, `Open questions`. The run prints `Summary: .grindinator/summary.md`, or `grindinator: could not write the summary: <message>` on stderr.
+
+## Sessions
+
+Each attempt is one `claude` process, started from the project root. If `GRINDINATOR_CLAUDE_BIN` is set (a test hook), that command runs instead of `claude`; a value ending in `.js`, `.cjs` or `.mjs` is run with the current Node.
+
+### The command lines
+
+The arguments are built by `lib/session.js` in this order. A plan launch:
+
+```text
+claude -p "/tierminator:plan <preamble>\n\n<package>" --output-format stream-json --verbose --model <model> --effort <effort> --permission-mode <permissionMode> [--max-turns <n>] [--allowedTools <tool> <tool> ...]
+```
+
+An execute relaunch after a usage limit differs only in its prompt, which is always given by plan path:
+
+```text
+claude -p "/tierminator:execute \"<plan file>\" [--from <task>]" --output-format stream-json --verbose --model <model> --effort <effort> --permission-mode <permissionMode> [--max-turns <n>] [--allowedTools <tool> <tool> ...]
+```
+
+`--max-turns` is added only when `maxTurns` is set. `--allowedTools` is last because it takes several values, and is added only when `allowedTools` is not empty.
+
+### Spawn settings and the cap
+
+The process is spawned with the project root as its working directory, with no shell, no stdin (`ignore`) and a hidden window on Windows. Its stdout goes to `stream.jsonl` and its stderr to `stderr.txt` in the attempt directory, `.grindinator/runs/<id>/attempt-<n>/`. `maxSessionMinutes` is the wall-clock cap: when it passes, the process is stopped and the outcome is `crashed` with the reason `the session ran past the <n>-minute cap and was stopped`. A process that cannot start is `crashed` with `claude could not be started: <message>`. The same launch code runs the gate, with the shell turned on and `maxGateMinutes` as the cap.
+
+### Stopping a session
+
+The same stop is used for the cap and for Ctrl+C:
+
+- **Windows:** `taskkill /PID <pid> /T /F`, which ends the whole process tree. If `taskkill` does not succeed, the runner falls back to killing the child only.
+- **POSIX:** `SIGTERM` to the child, then `SIGKILL` after five seconds if it is still running.
+
+### The environment
+
+The session's environment is the runner's, with these changes:
+
+- **Removed first:** `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`, `CLAUDE_PROJECT_DIR`, `CLAUDE_ENV_FILE` and `CLAUDE_CODE_SSE_PORT`. An enclosing Claude Code session sets them, and a child must not inherit them.
+- **Removed next:** `DECIDINATOR_MODE`, `DECIDINATOR_CONTEXT`, `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR`, always, so with `--no-decidinator` not even inherited values reach the session.
+- **Set:** `TIERMINATOR_RESULT_FILE`, the absolute path of `result.json` in the attempt directory (a stale file there is deleted before the launch).
+- **Set when Decidinator is on:** `DECIDINATOR_MODE=sidecar`, `DECIDINATOR_CONTEXT=<package id>`, `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` (the run copies under `.grindinator/decisions/`).
+
+### What `lib/stream.js` reads
+
+The parser reads `stream.jsonl`, one JSON object per line, and never throws on content. A blank line is skipped. A line that is not JSON, or not an object, is counted as malformed. It keeps:
+
+- **The session ID:** from the first `system` message with subtype `init`; if there is none, the first `session_id` on any message.
+- **The `result` messages:** their count, and the last one.
+- **The permission denials:** every `system` message with subtype `permission_denied`.
+- **The reset time:** `rate_limit_info.resetsAt` (Unix seconds, a positive number) on a `rate_limit_event`. A later event replaces an earlier one, with null when its value is unusable. The value kept is the one seen at the last `result`, or, when there is no `result`, the latest one.
+- **Line counts:** the lines read and the malformed ones.
+
+A missing stream file reads as an empty stream.
+
+## Outcomes
+
+Every attempt ends in one outcome. Five come from Tierminator's result file; three come from the runner's own observations; `gate-failed` comes from the gate.
+
+| Outcome | Comes from | Package status | Runner action |
+| --- | --- | --- | --- |
+| `complete` | Result file (every task finished and committed) | `done`, once verified and the gate passes or is skipped | Verify, commit decision files, run the gate, write the done marker |
+| `halted` | Result file (a task failed past its retries, or a worker exceeded its resumes) | `failed` | Failure policy; the task is shown as `at <task>` |
+| `limit` | Result file, or the stream (a last `result` with `is_error: true` and `api_error_status: 429`) | `pending` | Discard uncommitted changes, wait, relaunch by phase (see [Usage limits](#usage-limits)) |
+| `no-plan` | Result file (planning ended without a valid plan after three tries) | `failed` | Failure policy |
+| `declined` | Result file (preconditions failed: dirty tree, plan mode, no commit identity, missing plan file, unknown task id) | `failed` | Failure policy; the result file's `reason` is shown |
+| `crashed` | Runner (see the mapping below) | `failed` | Failure policy |
+| `interrupted` | Runner (Ctrl+C during the session, the gate or a wait) | `pending` | Stop the run, exit 4 |
+| `unverified` | Runner (a `complete` session that failed verification) | `failed` | Failure policy |
+| `gate-failed` | Runner (the gate failed) | `failed` | Failure policy |
+
+### The mapping
+
+`lib/outcome.js` maps a session in this order; the first rule that applies wins:
+
+1. **The run was interrupted:** `interrupted`, reason `interrupted by the user`. This beats everything, including a result file.
+2. **A valid result file:** its `outcome`, `reason`, `haltedAt`, `planFile`, `tasksFile`, `tasksDone`, `tasksNotRun` and `limit`. A result file is valid when it is a JSON object with `version: 1` and an outcome that is one of the five above (a leading byte-order mark is ignored).
+3. **The process could not start:** `crashed`, `claude could not be started: <message>`.
+4. **The wall-clock cap passed:** `crashed`, `the session ran past the <n>-minute cap and was stopped`.
+5. **The last `result` in the stream** has `is_error: true` and `api_error_status: 429`: `limit`, reason `a usage limit ended the session (a 429 result in the stream; no result file)`, with no reset in the limit record (the stream's reset is used instead).
+6. **Otherwise:** `crashed`. The reason is `the result file <problem>` (`could not be read (<code>)`, `is not valid JSON`, `is not a version 1 result file` or `has an unknown outcome "<outcome>"`), or `the session ended without a result file` when there is none. When the last `result` was an error, `; the last result was an API error (<status or no status>)` follows, then `: <first line of its text, up to 200 characters>`. It always ends with `; exit code <code or none>` and, if a signal ended the process, `, signal <signal>`.
+
+### When `unverified` applies
+
+A session whose outcome is `complete` becomes `unverified` when:
+
+- HEAD is not on the run branch: `the session reported complete but left the run branch <branch> (now on <branch or a detached HEAD>)`.
+- HEAD is not a descendant of the package's start commit: `the session reported complete, but HEAD is not a descendant of the package's start commit <short sha>`.
+- HEAD has not advanced: `the session reported complete, but HEAD has not advanced from the package's start commit <short sha>, so it made no commits`.
+- The tree is dirty: `the session reported complete but left uncommitted changes (<up to five paths>, ...)`.
+- The decision files could not be committed: `the decision files could not be committed: <git add failed or git commit failed: git's first error line>`.
+
+### A limit that committed every task
+
+A `limit` session whose recovery phase is `complete` (a tasks file, no task not run, at least one task done) is changed to `complete` with the reason `a usage limit ended the session after every task was committed`. It goes through the same verification as any `complete`, after its uncommitted changes are discarded, because a usage limit can leave partial work behind.
+
+## Usage limits
+
+A `limit` outcome is never a failure. The runner discards uncommitted changes at once, so that a stop leaves the tree clean (it prints `grindinator: discarded uncommitted changes left by <id>: <paths>.` when anything was dirty), and then decides to wait or stop.
+
+### The reset time
+
+The reset time is taken from the first source that has a time in the future:
+
+1. The result file's `limit.resetsAt` (Unix seconds).
+2. The stream's last `rate_limit_event` `resetsAt`.
+3. A fixed five hours from now, when neither is usable.
+
+A reset at or before the current time is stale and skipped to the next source. Sources 1 and 2 exist only on an OAuth login; an API-key login reports no reset, so it always waits the fixed five hours.
+
+### The wait
+
+The wake time is the reset plus a five-minute grace (for the fallback, now plus five hours plus five minutes). The runner sleeps in chunks of at most 60 seconds and reads the clock again after each, so a machine that slept through the reset resumes at the next chunk. It prints:
+
+```text
+<id>: usage limit; waiting until <wake time> (reset <reset time or unknown>, <source>).
+<id>: the wait is over; relaunching <the execute command or from planning>.
+```
+
+where `<source>` is `from the result file`, `from the stream` or `none reported; fixed five-hour wait`. Ctrl+C during the wait ends it with exit 4 and the package stays `pending`; the next run relaunches at once, without waiting.
+
+### The recovery phase
+
+The plan file is the attempt's `planFile` from the result file, or the plan of the attempt being resumed, or, with neither, found by session ID: the plans directory (`$CLAUDE_CONFIG_DIR/plans`, else `~/.claude/plans`) is searched for a file named `tierminator-unattended-*-<first eight characters of the session ID>.md`, and the last by name wins. The phase is then:
+
+| Phase | When | Relaunch |
+| --- | --- | --- |
+| `planning` | No plan file, or it is not on disk | The plan launch again, from the start |
+| `execute` | A plan file exists and tasks remain | `/tierminator:execute "<plan file>" --from <first task not run>`, with no `--from` when that task is unknown, so Tierminator skips the committed ones |
+| `complete` | A tasks file exists, no task is left and at least one is done | Treated as `complete` (see [Outcomes](#outcomes)) |
+
+The relaunch point is the package's `resume` record in `state.json`, which survives a stopped run.
+
+### When the run stops instead
+
+`maxLimitWaits` is the number of waits one package may take in a row, within one run (the count starts again for each package and each run). When the count passes it, the run stops with exit 3: `grindinator: <id> hit a usage limit <n> times in a row, more than maxLimitWaits (<max>), so the run stops; run it again after the reset.`
+
+The weekly rule: a known reset more than 24 hours away stops the run with exit 3 unless `waitWeekly` or `--wait-weekly` is set: `grindinator: <id> hit a usage limit that resets at <time>, more than 24 hours away; pass --wait-weekly to wait for it, so the run stops; run it again after the reset.`
+
+### The records
+
+Each limit attempt's `wait` record holds `source` (`result-file`, `stream` or `fallback`), `resetsAt`, `wakeAt`, `status`, `startedAt` and `endedAt`. The status is `waiting`, then `woke` or `interrupted`; a stop is recorded as `over-cap` or `weekly`. The attempt's `recovery` record holds the phase, plan file and `from`. The `summary.md` section `Limit waits` lists each wait, as `waited from <start> to <end> (reset <time>, <source>)`, `waiting since <start> until <wake> (...)`, `did not wait: over the limit-wait cap (...)` or `did not wait: the reset is more than 24 hours away (...)`.
+
+## Decidinator integration
+
+Decidinator is on unless `--no-decidinator` (or `"decidinator": false`) is set. Off, none of the items below happens: the sessions get no Decidinator variables, nothing is seeded or committed, and `summary.md` has no `Open questions` section.
+
+### The variables
+
+Each session gets `DECIDINATOR_MODE=sidecar`, `DECIDINATOR_CONTEXT=<package id>`, `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` (see [Sessions](#sessions)). The last two point at the run copies, `.grindinator/decisions/decisions.md` and `.grindinator/decisions/open-questions.md`, which are excluded from Git, so a session can write them without dirtying the tree.
+
+### The repository paths
+
+The repository files are Decidinator's own: the `decisionLog` and `sidecar` keys of `~/.claude/decidinator.json`, then `.claude/decidinator.json` (the project file wins; a value that does not pass Decidinator's own check is ignored). The defaults are `docs/decisions.md` and `docs/open-questions.md`. If both keys name the same file, both return to the defaults. A path must lie inside the repository and outside `.git/` and `.grindinator/`; otherwise the run stops before any session (exit 2):
+
+```text
+the Decidinator <decision log|sidecar> "<path>" is outside the repository; Grindinator commits it after each package, so set "<key>" in .claude/decidinator.json to a path inside it, or pass --no-decidinator
+the Decidinator <decision log|sidecar> "<path>" is inside <.git|.grindinator>/; set "<key>" in .claude/decidinator.json to a path Git tracks, or pass --no-decidinator
+```
+
+### Seeding
+
+At each start the runner seeds a run copy that does not exist from its repository file, when that exists, and prints `Seeded .grindinator/decisions/ from <repo path>.` for each one. It records the repository file's hash in `state.json`. A run copy that already exists is kept only if its repository file still has the recorded path and hash, so a change to the repository file is never overwritten. Otherwise the run stops with exit 2:
+
+```text
+<repo path> changed since Grindinator last copied it (for example by /decidinator:import), and .grindinator/decisions/<file> may hold decisions not yet committed; merge them into <repo path> and delete .grindinator/decisions/<file>, or delete it to discard them, then run again
+```
+
+### The decision commit
+
+After a `complete` session and before the gate, each run copy whose hash differs from its repository file is copied over it, and the changed files are committed alone with the message `chore(grindinator): decisions for <id>`. If nothing changed there is no commit. The hashes in `state.json` are then updated. A failure to add or commit makes the outcome `unverified`.
+
+### Open questions
+
+`summary.md` ends with `## Open questions`: `None.`, or one line `<id> · <topic>` (with the entries it depends on in parentheses) for each entry whose status is `open` in the run copy of the sidecar, followed by a pointer to `/decidinator:export`. A package's questions reach the repository sidecar only when the package completes; until then they are only in `.grindinator/decisions/open-questions.md`.
+
+`--stop-on-open-questions` (or `stopOnOpenQuestions`) checks after each package, other than the last, whether it added open entries that were not open before it started. If so the run stops with `grindinator: <id> added open questions (<ids>), and --stop-on-open-questions is set, so the run stops; answer them (see the summary), then run again.` and exits 5; if a package also failed under `onFailure: continue`, the exit is 1 instead.
+
+## The gate
+
+The gate is the `gate` command, run once after a `complete` session has passed verification and its decisions are committed.
+
+- **Where:** through the shell (`cmd.exe` on Windows, `/bin/sh` elsewhere), in the project root, with the runner's environment plus `GRINDINATOR_PACKAGE=<package id>`. The session and Decidinator variable changes do not apply to it.
+- **Cap:** `maxGateMinutes`. When it passes, the gate is stopped the same way as a session.
+- **Output:** `gate.stdout.txt` and `gate.stderr.txt` in the attempt directory, `.grindinator/runs/<id>/attempt-<n>/`.
+- **Pass:** exit code 0. The done marker is written only then, or when no gate is set.
+- **Failure reasons** (the outcome is `gate-failed`): `the gate could not be started: <message>`, `the gate ran past the <n>-minute cap and was stopped`, and `the gate exited <code or with no code>` with ` (signal <signal>)` when one ended it.
+- **Interrupted:** Ctrl+C during the gate gives `the gate was interrupted by the user` and the outcome `interrupted`.
+- **No gate:** at the start of a run that has packages to run, the runner prints `grindinator: no gate is configured, so a package is done once its session completes with new commits; set one with --gate or "gate".` to stderr. A package then counts as done after the checks above.
+
+## Exit codes
+
+The names are the keys of `EXIT` in `lib/errors.js`.
+
+| Code | Name | When |
+| --- | --- | --- |
+| 0 | `OK` | Every package is done (`Every package is done.`). Also every command that succeeds, `help`, `status` and `reset`. |
+| 1 | `FAILED` | A package failed or halted and the run stopped with `grindinator: <id> <what>, so the run stops; see .grindinator/runs/<id>/attempt-<n>/.`. With `onFailure: continue`, at the end of a run in which a package failed, with the reason `<ids> failed; onFailure is continue, so the other packages ran`. `--stop-on-open-questions` when a package also failed. An unexpected error: `grindinator: unexpected error: <message>`. |
+| 2 | `PRECONDITION` | A problem the user must fix, printed as `grindinator: <message>`: every precondition of `run` (see [`grindinator run`](#grindinator-run)); a configuration, package or Decidinator path problem (see [Configuration](#configuration), [Work packages](#work-packages) and [Decidinator integration](#decidinator-integration)); a seed conflict; `<file>: is not valid JSON; delete .grindinator/ to start over` or `<file>: is not a Grindinator state file (version 1); delete .grindinator/ to start over` for a damaged state file; `"<id>" is not a package id such as WP-01`; the refused discard (`refusing to discard changes: ...`); `git status failed: <message>` and `git <reset or clean> failed while discarding changes: <message>`; a bad command line (`unknown command`, a wrong argument count, or an unknown option); and no arguments at all (the help text on stderr). |
+| 3 | `LIMIT` | A usage limit stopped the run: `<id> hit a usage limit <n> times in a row, more than maxLimitWaits (<max>)`, or a reset more than 24 hours away without `--wait-weekly`. Run again after the reset. |
+| 4 | `INTERRUPTED` | Ctrl+C during a session, the gate or a usage-limit wait, or before the next launch. The state is saved and the next run resumes. |
+| 5 | `OPEN_QUESTIONS` | `--stop-on-open-questions` is set and a package other than the last added open questions, and no package failed. |
