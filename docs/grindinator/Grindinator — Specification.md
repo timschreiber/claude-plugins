@@ -73,22 +73,22 @@ To start a run, `cd` to the target project's root and run `grindinator run <pack
 
 ## Open items
 
-Twelve items remain: four code gaps, four that start with verification, three decisions, and one documentation task.
+Twelve items were open when this spec was written. WP-11 closed or listed each one: a closed item names the package that closed it, and an item still open is a known limitation (L-n) in `docs/grindinator/grindinator-reference.md`.
 
-| ID | Item | Component | Kind | Package |
+| ID | Item | Component | Package | Status |
 | --- | --- | --- | --- | --- |
-| O-1 | No run result a caller can read after the session ends | Tierminator | Gap | WP-02 |
-| O-2 | No usage-limit capture or reset time | Tierminator | Gap | WP-03 |
-| O-3 | Headless `/tierminator:execute <plan> --from Txx` runs (WP-01 V5); it still writes no result file and has no headless tests or docs | Tierminator | Gap; closed by WP-05 (the result file, tests and docs) | WP-01, WP-05 |
-| O-4 | Decidinator does nothing in headless sessions, so open decisions go unresolved | Decidinator | Gap; closed by WP-04 (live run pending) | WP-04 |
-| O-5 | No runner: discovery, state, gates, failure policy, summary | Grindinator | Gap; discovery, state and session launch built in WP-06 and WP-07 | WP-06 to WP-10 |
-| O-6 | Headless unknowns: `StopFailure` payload, exit codes, stream-json result shape, `SessionEnd` on a limit, oracle dispatch and recorder in `-p`. Measured by WP-01; the limit items rest on a mock 429, and a real limit is unverified | All | Verify | WP-01 |
-| O-7 | Oracle writes to the decision log during planning block Tierminator's run start, and during a run land in an unrelated task commit (WP-01 V7); a write under an excluded `.grindinator/` path does neither (Decidinator side done in WP-04; runner side done in WP-10) | Grindinator, Decidinator | Gap; closed by WP-10 | WP-01, WP-04, WP-10 |
-| O-8 | Recovery after an interrupted run needs a discard-and-relaunch policy on a runner-owned branch | Grindinator | Decision; closed by WP-09 | WP-08, WP-09 |
-| O-9 | Headless permissions for workers and oracles (`bypassPermissions` in a sandbox, or `acceptEdits` plus allow rules) | Grindinator | Decision | WP-06, WP-11 |
-| O-10 | Bedrock versus Pro differences: Serper MCP, model pinning, Fable usage credits, rung models. WP-01 verified model pinning, rung models and `WebSearch` on a first-party login only; Bedrock and Pro are untested | All | Verify | WP-01, WP-11 |
-| O-11 | Package input contract until Interviewinator exists | Grindinator | Decision; closed by WP-06 | WP-06 |
-| O-12 | Docs: README, reference, e2e runbook, repo `CLAUDE.md` | All | Docs | WP-11 |
+| O-1 | No run result a caller can read after the session ends | Tierminator | WP-02 | Closed by WP-02 |
+| O-2 | No usage-limit capture or reset time | Tierminator | WP-03 | Closed by WP-03; a real usage limit is unverified (L-1) |
+| O-3 | Headless `/tierminator:execute <plan> --from Txx` wrote no result file and had no headless tests or docs | Tierminator | WP-01, WP-05 | Closed by WP-05 |
+| O-4 | Decidinator did nothing in headless sessions, so open decisions went unresolved | Decidinator | WP-04 | Closed by WP-04; live confirmation is pending until the runbook's harness check is recorded (L-4) |
+| O-5 | No runner: discovery, state, gates, failure policy, summary | Grindinator | WP-06 to WP-10 | Closed by WP-06 to WP-10 |
+| O-6 | Headless unknowns: `StopFailure` payload, exit codes, stream-json result shape, `SessionEnd` on a limit, oracle dispatch and recorder in `-p` | All | WP-01 | Closed by WP-01, except that the limit items rest on a mock 429 (L-1) |
+| O-7 | Oracle writes to the decision log blocked Tierminator's run start, or landed in an unrelated task commit (WP-01 V7) | Grindinator, Decidinator | WP-01, WP-04, WP-10 | Closed by WP-04 and WP-10 |
+| O-8 | Recovery after an interrupted run needs a discard-and-relaunch policy on a runner-owned branch | Grindinator | WP-08, WP-09 | Closed by WP-09 |
+| O-9 | Headless permissions for workers and oracles | Grindinator | WP-06, WP-11 | Closed by WP-11: `bypassPermissions`, the default, used only on the runner branch in a sandbox or a dedicated clone; a smaller worker set is untested (L-3) |
+| O-10 | Bedrock versus Pro differences: model pinning, rung models, Fable usage credits, web search | All | WP-01, WP-11 | Open: Pro and Bedrock are untested (L-2), and no Serper MCP setup is provided (L-5) |
+| O-11 | Package input contract until Interviewinator exists | Grindinator | WP-06 | Closed by WP-06 |
+| O-12 | Docs: README, reference, e2e runbook, repo `CLAUDE.md` | All | WP-11 | Closed by WP-11 |
 
 ## Runner contract
 
