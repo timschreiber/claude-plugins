@@ -40,9 +40,12 @@ Options for run (they override ~/.claude/grindinator.json and
   --max-limit-waits <n>         Usage-limit waits in a row per package (default: 3)
   --wait-weekly                 Wait out a reset more than 24 hours away
   --preamble <file>             Text placed before every package prompt
+  --no-decidinator              Do not arm Decidinator in the sessions
+  --stop-on-open-questions      Stop after a package that adds open questions
 
 Exit codes: 0 every package done, 1 a package failed or halted,
-2 preconditions failed, 3 stopped on a usage limit, 4 interrupted.
+2 preconditions failed, 3 stopped on a usage limit, 4 interrupted,
+5 stopped on open questions.
 Set GRINDINATOR_DEBUG=1 for a debug log in the temp directory.
 `
 

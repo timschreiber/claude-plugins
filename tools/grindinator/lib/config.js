@@ -4,6 +4,7 @@
 // Each key is resolved on its own, and an array value is replaced whole, never merged.
 // The loader is strict: every problem (unreadable file, bad JSON, unknown key, invalid value,
 // invalid flag) is collected and reported, and an invalid value is never applied.
+// A flag of kind off (such as --no-decidinator) sets its setting to false.
 'use strict'
 
 const fs = require('fs')
@@ -22,7 +23,9 @@ const DEFAULTS = Object.freeze({
   onFailure: 'stop',
   maxLimitWaits: 3,
   waitWeekly: false,
-  preamble: null
+  preamble: null,
+  decidinator: true,
+  stopOnOpenQuestions: false
 })
 
 const FLAGS = Object.freeze({
@@ -37,7 +40,9 @@ const FLAGS = Object.freeze({
   onFailure: Object.freeze({ option: 'on-failure', kind: 'string' }),
   maxLimitWaits: Object.freeze({ option: 'max-limit-waits', kind: 'integer' }),
   waitWeekly: Object.freeze({ option: 'wait-weekly', kind: 'flag' }),
-  preamble: Object.freeze({ option: 'preamble', kind: 'string' })
+  preamble: Object.freeze({ option: 'preamble', kind: 'string' }),
+  decidinator: Object.freeze({ option: 'no-decidinator', kind: 'off' }),
+  stopOnOpenQuestions: Object.freeze({ option: 'stop-on-open-questions', kind: 'flag' })
 })
 
 const PERMISSION_MODES = ['acceptEdits', 'bypassPermissions', 'default']
@@ -91,6 +96,10 @@ function checkKey(key, value) {
       return value === null || (typeof value === 'string' && value.trim() !== '' && !value.includes('\0'))
         ? null
         : '"preamble" must be null or a non-empty file path'
+    case 'decidinator':
+      return typeof value === 'boolean' ? null : '"decidinator" must be true or false'
+    case 'stopOnOpenQuestions':
+      return typeof value === 'boolean' ? null : '"stopOnOpenQuestions" must be true or false'
     default:
       return null
   }
@@ -121,7 +130,7 @@ function readFile(file) {
 function parseArgsOptions() {
   const options = {}
   for (const { option, kind } of Object.values(FLAGS)) {
-    options[option] = { type: kind === 'flag' ? 'boolean' : 'string' }
+    options[option] = { type: kind === 'flag' || kind === 'off' ? 'boolean' : 'string' }
   }
   return options
 }
@@ -138,6 +147,8 @@ function fromFlags(values) {
       out[key] = /^[0-9]+$/.test(v) ? Number(v) : v
     } else if (kind === 'flag') {
       out[key] = true
+    } else if (kind === 'off') {
+      out[key] = false
     } else {
       out[key] = v
     }

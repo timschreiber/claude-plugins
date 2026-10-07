@@ -2,7 +2,7 @@
 // A GrindinatorError's message is printed as is, and its exitCode becomes the process exit code.
 'use strict'
 
-const EXIT = Object.freeze({ OK: 0, FAILED: 1, PRECONDITION: 2, LIMIT: 3, INTERRUPTED: 4 })
+const EXIT = Object.freeze({ OK: 0, FAILED: 1, PRECONDITION: 2, LIMIT: 3, INTERRUPTED: 4, OPEN_QUESTIONS: 5 })
 
 class GrindinatorError extends Error {
   constructor(message, exitCode = EXIT.PRECONDITION) {

@@ -58,7 +58,9 @@ const INVALID = {
   onFailure: ['retry', '"onFailure" must be "stop" or "continue"'],
   maxLimitWaits: [1.5, '"maxLimitWaits" must be a whole number of at least 1'],
   waitWeekly: ['yes', '"waitWeekly" must be true or false'],
-  preamble: ['a\0b', '"preamble" must be null or a non-empty file path']
+  preamble: ['a\0b', '"preamble" must be null or a non-empty file path'],
+  decidinator: ['no', '"decidinator" must be true or false'],
+  stopOnOpenQuestions: [1, '"stopOnOpenQuestions" must be true or false']
 }
 
 for (const [key, [bad, text]] of Object.entries(INVALID)) {
@@ -118,6 +120,20 @@ test('fromFlags converts values and load reports a bad integer', () => {
 test('parseArgsOptions works with parseArgs', () => {
   const { values } = parseArgs({ args: ['--wait-weekly', '--model', 'sonnet'], options: parseArgsOptions() })
   assert.deepEqual(fromFlags(values), { waitWeekly: true, model: 'sonnet' })
+})
+
+test('the decidinator and stopOnOpenQuestions flags convert and parse', () => {
+  assert.deepEqual(fromFlags({ 'no-decidinator': true }), { decidinator: false })
+  assert.deepEqual(fromFlags({ 'stop-on-open-questions': true }), { stopOnOpenQuestions: true })
+  const { values } = parseArgs({ args: ['--no-decidinator', '--stop-on-open-questions'], options: parseArgsOptions() })
+  assert.deepEqual(fromFlags(values), { decidinator: false, stopOnOpenQuestions: true })
+})
+
+test('a project file can turn decidinator off', () => {
+  write(projectFile(project), { decidinator: false })
+  const { config: c, errors } = load({ projectDir: project, homeDir: home })
+  assert.deepEqual(errors, [])
+  assert.equal(c.decidinator, false)
 })
 
 test('loadStrict throws GrindinatorError for an invalid key and returns the config otherwise', () => {
