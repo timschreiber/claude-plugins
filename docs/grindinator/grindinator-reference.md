@@ -339,7 +339,7 @@ The same stop is used for the cap and for Ctrl+C:
 The session's environment is the runner's, with these changes:
 
 - **Removed first:** `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`, `CLAUDE_PROJECT_DIR`, `CLAUDE_ENV_FILE` and `CLAUDE_CODE_SSE_PORT`. An enclosing Claude Code session sets them, and a child must not inherit them.
-- **Removed next:** `DECIDINATOR_MODE`, `DECIDINATOR_CONTEXT`, `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR`, always, so with `--no-decidinator` not even inherited values reach the session.
+- **Removed next:** `DECIDINATOR_MODE`, `DECIDINATOR_CONTEXT`, `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR`, always, so with `--no-decidinator` not even inherited values reach the session (the list is `DECIDINATOR_VARS` in `lib/session.js`).
 - **Set:** `TIERMINATOR_RESULT_FILE`, the absolute path of `result.json` in the attempt directory (a stale file there is deleted before the launch).
 - **Set when Decidinator is on:** `DECIDINATOR_MODE=sidecar`, `DECIDINATOR_CONTEXT=<package id>`, `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` (the run copies under `.grindinator/decisions/`).
 
