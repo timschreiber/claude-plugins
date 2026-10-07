@@ -70,6 +70,36 @@ test('renders header, rows and notes', () => {
   ]) {
     assert.ok(lines.includes(l), `missing line: ${l}`)
   }
+  assert.ok(!text.includes('## Limit waits'))
+})
+
+test('lists limit waits', () => {
+  const st = build()
+  const S = '2026-10-05T06:00:00.000Z'
+  const E = '2026-10-05T06:30:00.000Z'
+  const W = '2026-10-05T11:00:00.000Z'
+  const waits = [
+    { source: 'stream', resetsAt: '2026-10-05T05:51:51.000Z', wakeAt: '2026-10-05T05:56:51.000Z', status: 'woke', startedAt: '2026-10-05T05:00:00.000Z', endedAt: '2026-10-05T05:56:51.000Z' },
+    { source: 'fallback', resetsAt: null, wakeAt: W, status: 'interrupted', startedAt: S, endedAt: E },
+    { source: 'result-file', status: 'over-cap', startedAt: null, endedAt: null },
+    { source: 'result-file', status: 'weekly' },
+    { source: 'stream', status: 'waiting', startedAt: S, wakeAt: W },
+  ]
+  st.packages['WP-03'].attempts = waits.map((wait, i) => ({
+    n: i + 1, dir: `runs/WP-03/attempt-${i + 1}`, outcome: 'limit', haltedAt: null, reason: null, commits: 0, gate: null, wait,
+  }))
+  const text = render(st)
+  const lines = text.split('\n')
+  assert.ok(lines.includes('## Limit waits'))
+  for (const l of [
+    '- WP-03, attempt 1: waited from 2026-10-05T05:00:00.000Z to 2026-10-05T05:56:51.000Z (reset 2026-10-05T05:51:51.000Z, from the stream)',
+    `- WP-03, attempt 2: waited from ${S}, interrupted at ${E} (reset unknown, none reported; fixed five-hour wait)`,
+    '- WP-03, attempt 3: did not wait: over the limit-wait cap (reset unknown, from the result file)',
+    '- WP-03, attempt 4: did not wait: the reset is more than 24 hours away (reset unknown, from the result file)',
+    `- WP-03, attempt 5: waiting since ${S} until ${W} (reset unknown, from the stream)`,
+  ]) {
+    assert.ok(lines.includes(l), `missing line: ${l}`)
+  }
 })
 
 test('gate and outcome text through rendered rows', () => {

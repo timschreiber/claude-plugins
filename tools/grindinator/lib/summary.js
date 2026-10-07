@@ -1,10 +1,11 @@
 // The run summary, .grindinator/summary.md, written at the end of every run that reached its
 // packages: each package's outcome, attempts, commits and gate result, and why the run stopped
-// (open sidecar questions are WP-10).
+// (open sidecar questions are WP-10), and any usage-limit waits an attempt made.
 'use strict'
 
 const path = require('path')
 const state = require('./state.js')
+const { SOURCE_TEXT } = require('./limit.js')
 
 function summaryPath(root) {
   return path.join(state.stateDir(root), 'summary.md')
@@ -30,6 +31,18 @@ function outcomeText(attempt) {
   return attempt.outcome
 }
 
+function waitText(w) {
+  const reset = `reset ${w.resetsAt ?? 'unknown'}, ${SOURCE_TEXT[w.source] ?? w.source}`
+  switch (w.status) {
+    case 'woke': return `waited from ${w.startedAt} to ${w.endedAt} (${reset})`
+    case 'interrupted': return `waited from ${w.startedAt}, interrupted at ${w.endedAt} (${reset})`
+    case 'waiting': return `waiting since ${w.startedAt ?? 'unknown'} until ${w.wakeAt} (${reset})`
+    case 'over-cap': return `did not wait: over the limit-wait cap (${reset})`
+    case 'weekly': return `did not wait: the reset is more than 24 hours away (${reset})`
+    default: return `${w.status} (${reset})`
+  }
+}
+
 function renderSummary({ root, st, packages, exitCode, stopReason, now = new Date() }) {
   const lines = [
     `# Grindinator run ${st.runName}`,
@@ -44,9 +57,11 @@ function renderSummary({ root, st, packages, exitCode, stopReason, now = new Dat
     '| --- | --- | --- | --- | --- | --- | --- |',
   ]
   const notes = []
+  const waits = []
   for (const { id, title } of packages) {
     const attempts = st.packages[id]?.attempts ?? []
     const last = attempts.length ? attempts[attempts.length - 1] : null
+    for (const a of attempts) if (a.wait) waits.push(`- ${id}, attempt ${a.n}: ${waitText(a.wait)}`)
     lines.push(
       `| ${id} | ${cell(title)} | ${state.statusOf(root, st, id)} | ${attempts.length} | ${cell(outcomeText(last))} | ${last?.commits ?? '-'} | ${gateText(last?.gate ?? null)} |`
     )
@@ -57,6 +72,7 @@ function renderSummary({ root, st, packages, exitCode, stopReason, now = new Dat
     }
   }
   if (notes.length) lines.push('', '## Details', '', ...notes)
+  if (waits.length) lines.push('', '## Limit waits', '', ...waits)
   return lines.join('\n') + '\n'
 }
 
@@ -64,4 +80,4 @@ function writeSummary(root, text) {
   state.writeAtomic(summaryPath(root), text)
 }
 
-module.exports = { summaryPath, renderSummary, writeSummary }
+module.exports = { summaryPath, renderSummary, waitText, writeSummary }
