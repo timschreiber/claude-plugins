@@ -52,6 +52,11 @@ test('sessionPrompt starts with the plan command', () => {
   assert.equal(session.sessionPrompt('Pre', '# P'), '/tierminator:plan Pre' + '\n\n' + '# P')
 })
 
+test('executePrompt quotes the plan path and adds --from when given', () => {
+  assert.equal(session.executePrompt('C:\\plans\\p.md', 'T03'), '/tierminator:execute "C:\\plans\\p.md" --from T03')
+  assert.equal(session.executePrompt('/plans/p.md', null), '/tierminator:execute "/plans/p.md"')
+})
+
 test('buildEnv drops session variables and sets the runner variables', () => {
   const root = path.join(path.sep, 'repo')
   const base = { CLAUDECODE: '1', CLAUDE_CODE_ENTRYPOINT: 'cli', KEEP: 'k', DECIDINATOR_MODE: 'ask' }

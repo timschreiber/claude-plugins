@@ -44,6 +44,11 @@ function sessionPrompt(preambleText, packageText) {
   return '/tierminator:plan ' + buildPrompt(preambleText, packageText)
 }
 
+// The prompt that resumes a saved plan after a usage limit: Tierminator's headless execute, always by path.
+function executePrompt(planFile, from) {
+  return '/tierminator:execute "' + planFile + '"' + (from ? ' --from ' + from : '')
+}
+
 function decisionPaths(root) {
   const dir = path.join(root, '.grindinator', 'decisions')
   return {
@@ -153,4 +158,4 @@ function launch({ command, args, shell = false, cwd, env, streamFile, stderrFile
   })
 }
 
-module.exports = { SESSION_VARS, timing, buildArgs, sessionPrompt, decisionPaths, buildEnv, launch, stopChild }
+module.exports = { SESSION_VARS, timing, buildArgs, sessionPrompt, executePrompt, decisionPaths, buildEnv, launch, stopChild }
