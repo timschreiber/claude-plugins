@@ -93,7 +93,25 @@ function stubEnv(dir, scenario) {
   env.GRINDINATOR_CLAUDE_BIN = STUB
   env.GRINDINATOR_STUB_SCENARIO = file
   env.GRINDINATOR_STUB_LOG = path.join(dir, 'stub-log.jsonl')
+  // Keeps plan lookups (lib/limit.js) out of the real ~/.claude/plans.
+  env.CLAUDE_CONFIG_DIR = path.join(dir, 'claude-config')
   return env
+}
+
+// A clock for the limit-wait tests: now() is the fake time in ms; sleep(ms) records ms and advances the
+// time by ms, or by what onSleep(ms, callNumber, signal) returns when that is a number (a jump). It never waits.
+function fakeClock(startIso, onSleep = null) {
+  const clock = {
+    t: Date.parse(startIso),
+    sleeps: [],
+    now: () => clock.t,
+    sleep: async (ms, signal) => {
+      clock.sleeps.push(ms)
+      const step = onSleep ? onSleep(ms, clock.sleeps.length, signal) : ms
+      clock.t += typeof step === 'number' ? step : ms
+    }
+  }
+  return clock
 }
 
 function readStubLog(dir) {
@@ -118,5 +136,5 @@ function waitFor(fn, ms = 10000) {
 
 module.exports = {
   tempDir, git, makeRepo, writePackages, remove,
-  STUB, GATE, INIT, resultRecord, completeScenario, gateCommand, stubEnv, readStubLog, waitFor
+  STUB, GATE, INIT, resultRecord, completeScenario, gateCommand, stubEnv, readStubLog, waitFor, fakeClock
 }

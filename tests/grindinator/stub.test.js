@@ -100,6 +100,33 @@ test('a bad scenario file exits 99', () => {
   }
 })
 
+test('a sequence scenario plays one entry per run and repeats the last', () => {
+  const dir = h.tempDir('grind-stub-')
+  try {
+    const scenario = path.join(dir, 'scenario.json')
+    fs.writeFileSync(scenario, JSON.stringify({ sequence: [{ exitCode: 3 }, { exitCode: 0, stream: ['second'] }] }))
+    const runs = [1, 2, 3].map(() => runStub({ GRINDINATOR_STUB_SCENARIO: scenario }))
+    assert.deepEqual(runs.map(r => r.status), [3, 0, 0])
+    assert.equal(runs[1].stdout, 'second\n')
+    assert.equal(fs.readFileSync(scenario + '.count', 'utf8').trim(), '3')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('an empty sequence exits 99', () => {
+  const dir = h.tempDir('grind-stub-')
+  try {
+    const scenario = path.join(dir, 'scenario.json')
+    fs.writeFileSync(scenario, JSON.stringify({ sequence: [] }))
+    const r = runStub({ GRINDINATOR_STUB_SCENARIO: scenario })
+    assert.equal(r.status, 99)
+    assert.match(r.stderr, /sequence must be a non-empty array/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('commit makes one commit and untracked leaves a file', () => {
   const repo = h.makeRepo()
   const dir = h.tempDir('grind-stub-')

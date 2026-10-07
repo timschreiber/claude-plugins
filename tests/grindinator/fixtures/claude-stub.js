@@ -19,6 +19,7 @@
 //              when that variable is set.
 //   delayMs    wait before setting the exit code. Default 0.
 //   exitCode   process exit code. Default 0.
+//   sequence   array of scenarios, one per run, in order; the last repeats. The run number is kept in <scenario file>.count.
 // An unreadable or invalid scenario file prints 'claude-stub: bad scenario: <message>' to stderr
 // and exits 99. The stub never calls process.exit, so stdout flushes.
 'use strict'
@@ -92,6 +93,20 @@ function main() {
       process.stderr.write(`claude-stub: bad scenario: ${e.message}\n`)
       process.exitCode = 99
       return
+    }
+    if (Object.prototype.hasOwnProperty.call(scenario ?? {}, 'sequence')) {
+      const seq = scenario.sequence
+      if (!Array.isArray(seq) || seq.length === 0) {
+        process.stderr.write('claude-stub: bad scenario: sequence must be a non-empty array\n')
+        process.exitCode = 99
+        return
+      }
+      const counter = `${env.GRINDINATOR_STUB_SCENARIO}.count`
+      let count = 0
+      try { count = parseInt(fs.readFileSync(counter, 'utf8').trim(), 10) } catch { count = 0 }
+      if (!Number.isInteger(count) || count < 0) count = 0
+      fs.writeFileSync(counter, String(count + 1))
+      scenario = seq[Math.min(count, seq.length - 1)]
     }
   }
 
