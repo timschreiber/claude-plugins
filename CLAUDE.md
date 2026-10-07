@@ -45,10 +45,25 @@ cataloged in `.claude-plugin/marketplace.json`:
   to `oracle-1`, and `DECIDINATOR_LOG` and `DECIDINATOR_SIDECAR` move the
   decision files. Node hook scripts under
   `plugins/decidinator/scripts/`, tested with
-  `node --test tests/decidinator/*.test.js`. Its end-to-end scenarios need an
-  interactive session, so they run by hand from
-  `docs/decidinator/decidinator-e2e-run.md`; `docs/decidinator/decidinator-reference.md`
+  `node --test tests/decidinator/*.test.js`. Its end-to-end scenarios run by hand from
+  `docs/decidinator/decidinator-e2e-run.md` (scenarios 1 to 7 need an interactive session; scenario 8 runs headless); `docs/decidinator/decidinator-reference.md`
   documents every hook, file, key and variable.
+
+`grindinator` is not a plugin. It is a standalone Node 20 command-line tool in
+`tools/grindinator/`, with no `marketplace.json` entry, so Claude Code never
+installs it. It runs a folder of work packages (`WP-NN · Title.md`) unattended,
+one headless `claude -p "/tierminator:plan ..."` session per package on a
+`grindinator/<run name>` branch, with Decidinator armed in sidecar mode, and
+handles gates, failures and usage-limit waits. It drives the installed
+tierminator and decidinator, not `plugins/`, and requires
+`plugins/decidinator/scripts/lib/` at runtime, so run it from a clone
+(`node tools/grindinator/bin/grindinator run <packages dir>` from the target
+project's root, or `npm link` in `tools/grindinator/`). Tests:
+`node --test tests/grindinator/*.test.js`. `docs/grindinator/` holds the
+specification and its work packages, `grindinator-verification.md`,
+`grindinator-reference.md` (every command, flag, key, file, variable, exit code
+and known limitation) and `grindinator-e2e-run.md`, the runbook a person runs
+by hand; its results go in `tests/grindinator/e2e/results/`.
 
 `orcastrat` (formerly `orchestratinator`) lives in `plugins/orcastrat/` but is parked: it is
 listed under `_parked` in `marketplace.json`, not `plugins`, so it is not published. Only
@@ -92,6 +107,9 @@ node --test tests/tierminator/*.test.js
 # Run decidinator's hook and library tests (same glob rule).
 node --test tests/decidinator/*.test.js
 
+# Run grindinator's tests (same glob rule).
+node --test tests/grindinator/*.test.js
+
 # Scaffold a new plugin
 ./scripts/New-Plugin.ps1 -Name denoizinator-python `
                          -DisplayName 'Denoizinator for Python' `
@@ -105,7 +123,7 @@ claude --plugin-dir ./plugins/denoizinator-net
 
 CI (`.github/workflows/validate.yml`) runs `claude plugin validate .`, validates
 each `plugins/*/` directory, runs `Sync-Shared.ps1 -Check`, and runs the
-tierminator and decidinator tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
+tierminator, decidinator and grindinator tests. It does not run Pester — run `CommandSegmentation.Tests.ps1`
 yourself before pushing changes to the segmenter.
 
 There is no build step; plugins are PowerShell scripts + JSON/Markdown consumed
@@ -217,6 +235,7 @@ plugins/<name>/
   scripts/vendor/                 # generated from shared/ -- do not hand-edit
   assets/                         # templates shipped TO consuming repos
 shared/denoizinator-core/         # source of truth for cross-plugin code
+tools/grindinator/                # Grindinator: a standalone Node tool, not a plugin, not in marketplace.json
 probes/                           # dev-time measurement scripts; nothing here ships.
                                   # every claim in docs/ traces to probes/evidence/
 docs/                              # spec + measured findings, see docs/README.md
