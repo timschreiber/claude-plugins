@@ -158,3 +158,75 @@ test('a repo decision file changed between runs stops the next start', async () 
   })
   assert.equal(helpers.readStubLog(stubDir).length, 1)
 })
+
+const readSummary = () => fs.readFileSync(path.join(repo, '.grindinator', 'summary.md'), 'utf8')
+const Q1 = helpers.sidecarText([{ id: 'Q-0001', topic: 'First', dependsOn: 'WP-02' }])
+const withQ = { ...helpers.completeScenario(), sidecar: Q1 }
+
+test('the summary lists open questions and the export command', async () => {
+  const sidecar = helpers.sidecarText([
+    { id: 'Q-0001', topic: 'First' },
+    { id: 'Q-0002', topic: 'Second', status: 'answered' }
+  ])
+  assert.equal(await go({ env: envFor({ ...helpers.completeScenario(), sidecar }) }), 0)
+  const text = readSummary()
+  assert.ok(text.includes('## Open questions'))
+  assert.ok(text.includes('- Q-0001 · First (WP-01)'))
+  assert.ok(text.includes('/decidinator:export'))
+  assert.ok(text.includes('docs/open-questions.md'))
+  assert.equal(text.includes('Q-0002'), false)
+})
+
+test('no open questions says None.', async () => {
+  assert.equal(await go(), 0)
+  assert.ok(readSummary().includes('## Open questions\n\nNone.'))
+})
+
+test('the stop flag stops after the package that adds open questions', async () => {
+  const c = helpers.completeScenario()
+  const code = await go({
+    env: envFor({ sequence: [c, withQ, withQ] }),
+    flags: { 'stop-on-open-questions': true },
+    name: 'test'
+  })
+  assert.equal(code, 5)
+  assert.equal(helpers.readStubLog(stubDir).length, 2)
+  const st = state.read(repo)
+  assert.equal(st.packages['WP-01'].status, 'done')
+  assert.equal(st.packages['WP-02'].status, 'done')
+  assert.equal((st.packages['WP-03']?.attempts ?? []).length, 0)
+  assert.notEqual(st.packages['WP-03']?.status, 'done')
+  assert.match(errLines[errLines.length - 1], /WP-02 added open questions \(Q-0001\)/)
+  assert.ok(readSummary().includes('- Exit code: 5'))
+})
+
+test('without the flag the run goes on', async () => {
+  const c = helpers.completeScenario()
+  assert.equal(await go({ env: envFor({ sequence: [c, withQ, withQ] }), name: 'test' }), 0)
+  assert.equal(helpers.readStubLog(stubDir).length, 3)
+})
+
+test('the stop flag does not stop after the last package', async () => {
+  const c = helpers.completeScenario()
+  const code = await go({
+    env: envFor({ sequence: [c, c, withQ] }),
+    flags: { 'stop-on-open-questions': true },
+    name: 'test'
+  })
+  assert.equal(code, 0)
+  assert.equal(helpers.readStubLog(stubDir).length, 3)
+})
+
+test('disabled mode sets no environment', async () => {
+  commitFile('docs/open-questions.md', Q1)
+  const env = { ...helpers.stubEnv(stubDir, helpers.completeScenario()), DECIDINATOR_MODE: 'ask', DECIDINATOR_LOG: 'x.md' }
+  assert.equal(await go({ env, flags: { 'no-decidinator': true } }), 0)
+  for (const entry of helpers.readStubLog(stubDir)) {
+    for (const key of ['DECIDINATOR_MODE', 'DECIDINATOR_CONTEXT', 'DECIDINATOR_LOG', 'DECIDINATOR_SIDECAR']) {
+      assert.equal(entry.env[key], null, key)
+    }
+  }
+  assert.equal(fs.existsSync(path.join(repo, '.grindinator', 'decisions')), false)
+  assert.equal(readSummary().includes('## Open questions'), false)
+  assert.equal(state.read(repo).decisions, undefined)
+})
