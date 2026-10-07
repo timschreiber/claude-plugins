@@ -44,10 +44,30 @@ function build() {
   return st
 }
 
-const render = (st) =>
+const render = (st, decisions = null) =>
   renderSummary({
-    root, st, packages, exitCode: 1, stopReason: 'WP-02 failed its gate', now: new Date('2026-10-05T12:00:00Z'),
+    root, st, packages, exitCode: 1, stopReason: 'WP-02 failed its gate', now: new Date('2026-10-05T12:00:00Z'), decisions,
   })
+
+test('lists open questions with the export hint', () => {
+  const text = render(build(), {
+    open: [{ id: 'Q-0001', topic: 'A | B', dependsOn: ['WP-01', 'WP-02'] }],
+    sidecar: 'docs/open-questions.md',
+  })
+  assert.ok(text.includes('\n## Open questions\n\n- Q-0001 · A \\| B (WP-01, WP-02)\n'))
+  assert.ok(text.includes('`/decidinator:export`'))
+  assert.ok(text.includes('docs/open-questions.md'))
+})
+
+test('says None when no questions are open', () => {
+  const text = render(build(), { open: [], sidecar: 'docs/open-questions.md' })
+  assert.ok(text.endsWith('## Open questions\n\nNone.\n'))
+  assert.ok(!text.includes('decidinator:export'))
+})
+
+test('omits open questions when Decidinator is off', () => {
+  assert.ok(!render(build()).includes('## Open questions'))
+})
 
 test('renders header, rows and notes', () => {
   const text = render(build())

@@ -1,6 +1,6 @@
 // The run summary, .grindinator/summary.md, written at the end of every run that reached its
 // packages: each package's outcome, attempts, commits and gate result, and why the run stopped
-// (open sidecar questions are WP-10), and any usage-limit waits an attempt made.
+// the open sidecar questions when Decidinator is on, and any usage-limit waits an attempt made.
 'use strict'
 
 const path = require('path')
@@ -43,7 +43,7 @@ function waitText(w) {
   }
 }
 
-function renderSummary({ root, st, packages, exitCode, stopReason, now = new Date() }) {
+function renderSummary({ root, st, packages, exitCode, stopReason, now = new Date(), decisions = null }) {
   const lines = [
     `# Grindinator run ${st.runName}`,
     '',
@@ -73,6 +73,21 @@ function renderSummary({ root, st, packages, exitCode, stopReason, now = new Dat
   }
   if (notes.length) lines.push('', '## Details', '', ...notes)
   if (waits.length) lines.push('', '## Limit waits', '', ...waits)
+  if (decisions !== null) {
+    lines.push('', '## Open questions', '')
+    if (decisions.open.length === 0) {
+      lines.push('None.')
+    } else {
+      for (const q of decisions.open) {
+        const deps = q.dependsOn.length ? ` (${q.dependsOn.join(', ')})` : ''
+        lines.push(`- ${q.id} · ${cell(q.topic)}${deps}`)
+      }
+      lines.push(
+        '',
+        `For a stakeholder copy, run \`/decidinator:export\` in Claude Code in this project. It exports the open questions in ${decisions.sidecar}, which receives a package's questions when the package completes; until then they are only in .grindinator/decisions/open-questions.md.`
+      )
+    }
+  }
   return lines.join('\n') + '\n'
 }
 
