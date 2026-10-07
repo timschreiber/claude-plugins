@@ -1,6 +1,11 @@
 // Grindinator usage-limit recovery for the runner (spec: Limits and recovery): the reset time,
-// whether to wait, and the wait itself.
+// whether to wait, and the wait itself, and the recovery phase (planning, execute or complete)
+// that a retry after the wait starts from.
 'use strict'
+
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
 
 const GRACE_MS = 5 * 60 * 1000
 const FALLBACK_MS = 5 * 60 * 60 * 1000
@@ -87,4 +92,46 @@ async function sleepUntil(wakeAtMs, { clock = realClock, abortSignal = null } = 
   }
 }
 
-module.exports = { GRACE_MS, FALLBACK_MS, WEEKLY_MS, CHUNK_MS, SOURCE_TEXT, resolveReset, decide, realClock, sleepUntil }
+function plansDir(env = process.env, homeDir = os.homedir()) {
+  return path.join(env.CLAUDE_CONFIG_DIR || path.join(homeDir, '.claude'), 'plans')
+}
+
+function findSessionPlan(dir, sessionId) {
+  if (typeof sessionId !== 'string' || sessionId === '') return null
+  const prefix = sessionId.slice(0, 8).replace(/[^A-Za-z0-9_-]/g, '')
+  if (prefix === '') return null
+  let names
+  try {
+    names = fs.readdirSync(dir)
+  } catch {
+    return null
+  }
+  const hits = names.filter(n => n.startsWith('tierminator-unattended-') && n.endsWith(`-${prefix}.md`)).sort()
+  return hits.length ? path.join(dir, hits[hits.length - 1]) : null
+}
+
+function isFile(p) {
+  try {
+    return fs.statSync(p).isFile()
+  } catch {
+    return false
+  }
+}
+
+function recoveryPhase({ attempt, plansDir: dir }) {
+  const planFile = attempt.planFile ?? attempt.resume?.planFile ?? findSessionPlan(dir, attempt.sessionId)
+  // No plan file: planning did not finish, so rerun planning.
+  if (!planFile || !isFile(planFile)) return { phase: 'planning', planFile: null, from: null }
+  const notRun = Array.isArray(attempt.tasksNotRun) ? attempt.tasksNotRun : []
+  const done = Array.isArray(attempt.tasksDone) ? attempt.tasksDone : []
+  // Every task committed: the plan is complete.
+  if (attempt.tasksFile && notRun.length === 0 && done.length > 0) return { phase: 'complete', planFile, from: null }
+  // A saved plan resumes at the first task not run; with no --from when unknown,
+  // Tierminator then skips the committed tasks itself.
+  return { phase: 'execute', planFile, from: /^T\d+$/.test(notRun[0] ?? '') ? notRun[0] : null }
+}
+
+module.exports = {
+  GRACE_MS, FALLBACK_MS, WEEKLY_MS, CHUNK_MS, SOURCE_TEXT, resolveReset, decide, realClock, sleepUntil,
+  plansDir, findSessionPlan, isFile, recoveryPhase
+}

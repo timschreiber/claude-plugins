@@ -3,9 +3,11 @@
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { fakeClock, INIT } = require('./helpers')
+const fs = require('node:fs')
+const path = require('node:path')
+const { fakeClock, INIT, tempDir, remove } = require('./helpers')
 const { parseStream } = require('../../tools/grindinator/lib/stream')
-const { resolveReset, decide, realClock, sleepUntil } = require('../../tools/grindinator/lib/limit')
+const { resolveReset, decide, realClock, sleepUntil, plansDir, findSessionPlan, recoveryPhase } = require('../../tools/grindinator/lib/limit')
 
 const R = 1791179511
 const now = (R - 3600) * 1000
@@ -124,4 +126,63 @@ test('realClock sleep aborts early', async () => {
   await realClock.sleep(60000, ac.signal)
   assert.ok(Date.now() - t0 < 2000)
   assert.equal(typeof realClock.now(), 'number')
+})
+
+test('plansDir follows CLAUDE_CONFIG_DIR', () => {
+  const cfg = path.join('x', 'cfg')
+  const home = path.join('x', 'home')
+  assert.equal(plansDir({ CLAUDE_CONFIG_DIR: cfg }, home), path.join(cfg, 'plans'))
+  assert.equal(plansDir({}, home), path.join(home, '.claude', 'plans'))
+})
+
+test('findSessionPlan picks the newest match', () => {
+  const dir = tempDir('grind-plans-')
+  try {
+    for (const n of [
+      'tierminator-unattended-20261005-010000-abcd1234.md',
+      'tierminator-unattended-20261005-020000-abcd1234.md',
+      'tierminator-unattended-20261005-030000-zzzz9999.md',
+      'other-abcd1234.md'
+    ]) fs.writeFileSync(path.join(dir, n), 'x')
+    assert.equal(findSessionPlan(dir, 'abcd1234-5678'), path.join(dir, 'tierminator-unattended-20261005-020000-abcd1234.md'))
+    assert.equal(findSessionPlan(path.join(dir, 'missing'), 'abcd1234-5678'), null)
+    assert.equal(findSessionPlan(dir, null), null)
+    assert.equal(findSessionPlan(dir, '!!!'), null)
+  } finally {
+    remove(dir)
+  }
+})
+
+test('recovery phase rows', () => {
+  const dir = tempDir('grind-phase-')
+  try {
+    const plans = path.join(dir, 'plans')
+    fs.mkdirSync(plans)
+    const planFile = path.join(dir, 'plan.md')
+    fs.writeFileSync(planFile, 'x')
+    const phase = attempt => recoveryPhase({ attempt, plansDir: plans })
+
+    assert.deepEqual(phase({ planFile: null }), { phase: 'planning', planFile: null, from: null })
+    assert.deepEqual(phase({ planFile: path.join(dir, 'missing.md') }), { phase: 'planning', planFile: null, from: null })
+    assert.deepEqual(
+      phase({ planFile, tasksFile: 't.json', tasksDone: ['T01'], tasksNotRun: ['T02', 'T03'] }),
+      { phase: 'execute', planFile, from: 'T02' })
+    assert.deepEqual(
+      phase({ planFile, tasksFile: 't.json', tasksDone: ['T01', 'T02'], tasksNotRun: [] }),
+      { phase: 'complete', planFile, from: null })
+    assert.deepEqual(
+      phase({ planFile, tasksFile: null, tasksDone: [], tasksNotRun: [] }),
+      { phase: 'execute', planFile, from: null })
+    assert.deepEqual(
+      phase({ planFile: null, resume: { kind: 'execute', planFile, from: 'T02' } }),
+      { phase: 'execute', planFile, from: null })
+    const found = path.join(plans, 'tierminator-unattended-20261005-010000-abcd1234.md')
+    fs.writeFileSync(found, 'x')
+    assert.deepEqual(
+      phase({ planFile: null, sessionId: 'abcd1234-x' }),
+      { phase: 'execute', planFile: found, from: null })
+    assert.equal(phase({ planFile, tasksNotRun: ['bogus'] }).from, null)
+  } finally {
+    remove(dir)
+  }
 })
