@@ -10,7 +10,7 @@ Three components are involved:
 
 - **Grindinator (new tool):** the outer loop. It orders the packages, launches sessions, runs gates, records progress, and sleeps through usage limits.
 - **Tierminator (existing):** plans one package and executes it as tiered, committed tasks. It needs a run-result file, limit capture, and verified headless resume.
-- **Decidinator (existing):** resolves questions through oracle subagents and logs decisions. It needs a headless path, because it does not work in `claude -p` today.
+- **Decidinator (existing):** resolves questions through oracle subagents and logs decisions. It had no headless path when this spec was written; WP-04 added one, so it now works in `claude -p`.
 
 **Decisions already made:** the loop stays an outer script, not nested subagents. Each package gets a fresh session. The limit-handling logic is written in-house, with `agent-limit-retry` used only as a reference. Tierminator and Decidinator stay inert until armed. Workers run on Sonnet and Opus only.
 
@@ -34,8 +34,8 @@ WP-01 then ran the headless rows on Claude Code 2.1.289 (Oct 5, 2026) and correc
 | Run result a caller can read | Missing | Session state is deleted at `SessionEnd`; only the plan, tasks and telemetry files persist |
 | Usage-limit capture (`StopFailure`) | Missing; the event fires headless | No such hook in `hooks.json`, and no limit handling in plugin code. WP-01 V1: `StopFailure` fires in `-p` on a limit with `error: "rate_limit"` and no reset field |
 | Decidinator arming by `DECIDINATOR_MODE`, labels by `DECIDINATOR_CONTEXT` | Exists, verified headless | `session-start.js`, README. WP-01 V6: `DECIDINATOR_MODE=sidecar` arms a `-p` session |
-| Decidinator question interception in headless sessions | Does not work | `AskUserQuestion` does not exist headless; README lists this as out of scope. WP-01 V6: a direct `oracle-1` dispatch through `Agent` runs, `SubagentStop` fires and the verdict parses, but nothing is recorded WP-04 added the headless consult path: a rule at session start, a question opened from a first-rung oracle dispatch, and the recorder writing the log and sidecar; covered by unit tests, live run pending (Decidinator runbook scenario 8). |
-| Decidinator log, sidecar, export, import | Exists; not written headless | Commands and file formats are built. WP-01 V6: the recorder acts only on a question the `AskUserQuestion` gate opened, so a headless session writes no log or sidecar WP-04 added the headless consult path: a rule at session start, a question opened from a first-rung oracle dispatch, and the recorder writing the log and sidecar; covered by unit tests, live run pending (Decidinator runbook scenario 8). |
+| Decidinator question interception in headless sessions | Exists (WP-04); live run pending | `AskUserQuestion` does not exist headless. WP-01 V6: a direct `oracle-1` dispatch through `Agent` runs, `SubagentStop` fires and the verdict parses, but nothing was recorded. WP-04 added the headless consult path: a rule at session start, a question opened from a first-rung oracle dispatch, and the recorder writing the log and sidecar; covered by unit tests, live run pending (Decidinator runbook scenario 8). |
+| Decidinator log, sidecar, export, import | Exists; written headless since WP-04 | Commands and file formats are built. WP-01 V6: the recorder acts only on a question the `AskUserQuestion` gate opened, so a headless session wrote no log or sidecar. WP-04 added the headless consult path: a rule at session start, a question opened from a first-rung oracle dispatch, and the recorder writing the log and sidecar; covered by unit tests, live run pending (Decidinator runbook scenario 8). |
 | Oracle rung models | Honored outside plan mode on a first-party login | WP-01 V6 and V9: each rung ran on its configured model and effort under `acceptEdits`, rung 3 on `claude-fable-5-1`; untested on Bedrock and Pro |
 
 Two integration facts matter for the runner. First, Decidinator writes its decision log and sidecar into the repository, while Tierminator requires a clean working tree at start. Second, Tierminator's own failure cleanup runs `git reset --hard` and `git clean -fd`, which is safe only on a branch the runner owns.
@@ -66,6 +66,7 @@ Grindinator lives in the same repo as the plugins it drives, in its own director
 | Stub `claude` and test fixtures | `tests/grindinator/fixtures/` |
 | Verification probe | `probes/grindinator/` |
 | Probe evidence | `probes/evidence/grindinator-*` |
+| End-to-end runbook tooling, fixture project, packages and recorded results | `tests/grindinator/e2e/` |
 | Spec, verification findings, e2e runbook, reference, work package prompts | `docs/grindinator/` |
 | Runner state in the target project | `.grindinator/`, excluded through `.git/info/exclude` |
 
@@ -229,6 +230,8 @@ Build first, then prove the pipeline attended, then widen to unattended batches;
 4. **First unattended batch.** Run about 10 packages. Gate: review `summary.md`, the decision log, the sidecar and any failures before continuing.
 5. **The rest,** in batches, with a summary skim between them.
 
+The runbook for stages 2 to 4 is `docs/grindinator/grindinator-e2e-run.md` (WP-11); its Results section and `tests/grindinator/e2e/results/` record each run.
+
 Signals to tune on during the pilot and the first batch:
 
 - **Tasks that still contain decisions** mean the planner effort is too low.
@@ -249,6 +252,6 @@ WP-01 ran the headless behaviors this spec rests on (`docs/grindinator/grindinat
 | A runner crash leaves the branch dirty | The next start would be refused | Start refuses a dirty tree and says so; the user discards or commits, then re-runs |
 | Fifty packages hit Pro limits repeatedly | Long wall-clock time and many waits | Cap consecutive waits, stop on weekly limits, and keep `.done` markers so any re-run continues |
 | Fable escalations bill separately on Pro | Cost surprises on the top rung | Watch `oracle-3` traffic during the pilot |
-| Bedrock lacks built-in web search, and rung models are untested on Bedrock and Pro; WP-01 V9 verified them on a first-party login only | Oracle research quality and model resolution | Run the probe's `models` cell on each setup before relying on the rungs there, and the Serper MCP setup documented in WP-11 if `WebSearch` is missing |
+| Bedrock lacks built-in web search, and rung models are untested on Bedrock and Pro; WP-01 V9 verified them on a first-party login only | Oracle research quality and model resolution | Run the probe's `models` cell on each setup before relying on the rungs there. No Serper MCP setup is provided (dropped in WP-11), so without `WebSearch` the oracles research the repository only (L-5 in `docs/grindinator/grindinator-reference.md`) |
 | Broad headless permissions: WP-01 V8 found workers need `bypassPermissions`, because under `acceptEdits` they cannot read the tasks file outside the repository | `bypassPermissions` lets workers run anything | Use it only in a sandbox on the runner branch; `acceptEdits` plus `--add-dir` for the plan directory is an untested alternative |
 | Claude Code changes headless behavior in a later release | Findings go stale | The verification doc records Claude Code 2.1.289; rerun the probe after upgrades |
