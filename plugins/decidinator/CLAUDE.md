@@ -26,7 +26,7 @@ memory.
   file formats, commands, config keys, safety rules.
 - `Decidinator — Work Packages.md` indexes WP-01 to WP-10, and each
   `WP-NN · <title>.md` holds one package's scope and acceptance criteria.
-- `decidinator-reference.md` documents every hook, file format, command, key and variable as built; `decidinator-e2e-run.md` is the end-to-end runbook (it needs a person, so it is not in CI).
+- `decidinator-reference.md` documents every hook, file format, command, key and variable as built; `decidinator-e2e-run.md` is the end-to-end runbook (scenarios 1 to 7 need a person and scenario 8 calls the real model, so it is not in CI).
 - WP-01's probe is in `probes/decidinator/`, its raw evidence in
   `probes/evidence/decidinator-*`, and its findings in
   `docs/decidinator/decidinator-verification.md`.
