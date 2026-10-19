@@ -1002,7 +1002,9 @@ The sources and prices are measured in
 - **Mode:** each message is in plan mode or not by the latest `permission-mode` entry, or user entry's
   `permissionMode`, before it.
 - **Pricing (`lib/prices.js`):** each message is priced at its own `message.model`, category by category:
-  input, 5-minute and 1-hour cache writes, cache reads, and output. `inference_geo: "us"` is 1.1×. A model
+  input, 5-minute and 1-hour cache writes, cache reads, and output. A line with no 5-minute / 1-hour split
+  has its cache writes priced as 1-hour writes, the dearer rate, so an unknown never undercounts.
+  `inference_geo: "us"` is 1.1×. A model
   missing from the table keeps its tokens and is reported as unpriced. Haiku 5.5 is priced per message by
   its prompt length (input plus cache writes plus cache reads): over 100,000 tokens, the message uses the
   higher row. Effort is not modeled: the estimate prices the tokens each transcript records, so a higher

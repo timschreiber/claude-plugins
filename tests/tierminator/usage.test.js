@@ -68,14 +68,14 @@ test('tally takes first and last context and the last model by time, whatever th
   assert.deepEqual([none.firstContext, none.lastContext, none.lastModel], [null, null, null])
 })
 
-test('cache writes without a 5m/1h split count as 5-minute writes; 1-hour writes are priced as such', () => {
+test('cache writes without a 5m/1h split count as 1-hour writes; a split is priced as given', () => {
   const file = write(path.join(dir, 'w.jsonl'), [
     { ...line('a', '2026-09-28T10:00:00Z', {}), message: { id: 'a', model: 'claude-sonnet-5', usage: { cache_creation_input_tokens: 1000 } } },
-    line('b', '2026-09-28T10:00:01Z', { cache_creation_input_tokens: 500, cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 500 } }),
+    line('b', '2026-09-28T10:00:01Z', { cache_creation_input_tokens: 500, cache_creation: { ephemeral_5m_input_tokens: 200, ephemeral_1h_input_tokens: 300 } }),
   ])
   const t = u.transcriptUsage(file)
-  assert.deepEqual([t.tokens.cacheWrite5m, t.tokens.cacheWrite1h], [1000, 500])
-  close(t.costUsd, (1000 * 2.5 + 500 * 4) / 1e6)
+  assert.deepEqual([t.tokens.cacheWrite5m, t.tokens.cacheWrite1h], [200, 1300])
+  close(t.costUsd, (200 * 2.5 + 1300 * 4) / 1e6)
 })
 
 test('an opusplan session is split by mode and priced per message model', () => {
