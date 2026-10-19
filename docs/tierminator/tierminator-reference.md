@@ -1003,7 +1003,11 @@ The sources and prices are measured in
   `permissionMode`, before it.
 - **Pricing (`lib/prices.js`):** each message is priced at its own `message.model`, category by category:
   input, 5-minute and 1-hour cache writes, cache reads, and output. `inference_geo: "us"` is 1.1×. A model
-  missing from the table keeps its tokens and is reported as unpriced.
+  missing from the table keeps its tokens and is reported as unpriced. Haiku 5.5 is priced per message by
+  its prompt length (input plus cache writes plus cache reads): over 100,000 tokens, the message uses the
+  higher row. Effort is not modeled: the estimate prices the tokens each transcript records, so a higher
+  effort appears as more (mostly output) tokens. Anthropic publishes no per-level multiplier, and none is
+  applied.
 
 ### What is recorded
 
@@ -1084,10 +1088,10 @@ context.
 
 The table in `lib/prices.js` is copied from Anthropic's pricing page, with its date in `AS_OF`. To update
 it:
-1. Change the table and `AS_OF` together.
-2. Record the page in `probes/evidence/planandtier-pricing.json`.
+1. Change the table, the `LONG_PROMPT` table and `AS_OF` together.
+2. Record the page in `probes/evidence/planandtier-pricing.json`, including its `longPrompt`.
 
-`prices.test.js` holds the table equal to that evidence file.
+`prices.test.js` holds both tables equal to that evidence file.
 
 ## The sizing review
 
@@ -1467,7 +1471,7 @@ their findings about plan mode, hooks and the dialog still apply.
 
 | Claim | Document | Evidence |
 |---|---|---|
-| A background Agent result carries no usage, so worker usage comes from its transcript; repeated lines of a message need the largest value per field; the main transcript's mode entries separate planning from execution; `meta.json` types each subagent; Opus 5.5 cache reads cost 0.05× input and Sonnet 5 is $2/$10 | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md) | `planandtier-usage-shapes.json`, `planandtier-pricing.json` |
+| A background Agent result carries no usage, so worker usage comes from its transcript; repeated lines of a message need the largest value per field; the main transcript's mode entries separate planning from execution; `meta.json` types each subagent; Opus 5.5 and Sonnet 5.5 cache reads cost 0.05× input and Sonnet 5 is $2/$10 | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md) | `planandtier-usage-shapes.json`, `planandtier-pricing.json` |
 | In a live interactive run: a `SubagentStop` `systemMessage` is not shown for a background worker, a `Stop` one is; the planning of a rejected round is recorded under another plan id; the `sonnet` agents resolved to `claude-sonnet-5-5` | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md#the-first-live-run) | `planandtier-agents-20260928-155438-session-output.txt`, `-telemetry.jsonl`, `-git-log.txt` |
 | With the fixes, in a live run: each attempt's spend line shows at the next Stop, and the summary's planning includes a rejected round | [`tierminator-telemetry-findings.md`](tierminator-telemetry-findings.md#the-fixes-in-a-live-run) | `planandtier-agents-20260928-161554-session-output.txt`, `-telemetry.jsonl`, `-git-log.txt` |
 | Running a saved plan live (measured under the command's earlier name): a plan left unapproved runs in a later session; committed tasks are skipped; planning is counted across sessions; a plain plan runs without tierminator | [`tierminator-agent-dispatch-findings.md`](tierminator-agent-dispatch-findings.md#executing-a-saved-plan-live) | `planandtier-execute*-20260928-162334-partB-*`, `-partC-*`, `-partD-*`, `-telemetry.jsonl` |

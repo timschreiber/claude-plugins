@@ -24,18 +24,22 @@ Evidence:
 
 ## Prices
 
-From Anthropic's pricing page (fetched 2026-09-28), in USD per million tokens:
+From Anthropic's pricing page (fetched 2026-09-28, refetched 2026-10-19), in USD per million tokens:
 
 | Model | Input | 5 m cache write | 1 h cache write | Cache read | Output |
 |---|---|---|---|---|---|
 | `claude-opus-5-5` | 4 | 5 | 8 | **0.20** | 20 |
+| `claude-sonnet-5-5` | 2 | 2.50 | 4 | **0.10** | 10 |
 | `claude-sonnet-5` | 2 | 2.50 | 4 | 0.20 | 10 |
 
-- **Cache reads on Opus 5.5 are 0.05× its input price,** not the usual 0.1×. So the plugin prices each
+- **Cache reads on Opus 5.5 and Sonnet 5.5 are 0.05× their input price,** not the usual 0.1×. So the plugin prices each
   category from the model's own row, not from a multiplier. The evidence file has the other current models.
 - **Sonnet 5 is $2/$10.** The page says the launch price is now the standard price, and the rise to $3/$15
   that had been scheduled for September 1, 2026 will not happen. That resolves the conflict in
   [`tierminator-tier-findings.md`](tierminator-tier-findings.md).
+- **Haiku 5.5 is priced per request by prompt length.** Prompt tokens (input plus cache writes plus cache
+  reads) up to 100,000 pay 0.10 / 0.125 / 0.20 / 0.01 / 0.50 (input, 5 m write, 1 h write, cache read,
+  output); over 100,000 they pay 0.50 / 0.625 / 1 / 0.05 / 2.50. The plugin applies this per message.
 - **US-only inference** (`inference_geo: "us"`) costs 1.1× in every category. Transcripts record
   `inference_geo`; every line here was `not_available`.
 - **Fast mode** costs more (Opus 5.5 at $8/$40), but transcripts do not record it, so it is priced at the
