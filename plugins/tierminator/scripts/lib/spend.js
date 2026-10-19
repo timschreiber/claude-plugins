@@ -62,6 +62,16 @@ function outcomeOf(prev, next) {
 function recordAttempt(input, prev, next, { transcript = input.agent_transcript_path, ran = true, stopReason = null } = {}) {
   return safe(
     () => {
+      // The same attempt still in flight (the worker was asked for its report) is not judged yet: nothing is
+      // written, and its final record covers the whole transcript.
+      if (
+        next.phase === 'running' &&
+        next.current?.inFlight &&
+        next.current.index === prev.current.index &&
+        next.current.attempt === prev.current.attempt
+      ) {
+        return { next, line: null }
+      }
       const file = t.fileFor(prev.planFile, input.session_id)
       const duplicate = t
         .read(file)
@@ -89,6 +99,7 @@ function recordAttempt(input, prev, next, { transcript = input.agent_transcript_
         attempt: prev.current.attempt,
         maxTurns: MAX_TURNS[prev.current.tier] ?? null,
         resumes: prev.current.resumes ?? 0,
+        asked: !!prev.current.asked,
         stopReason,
         agentId: input.agent_id ?? null,
         outcome,

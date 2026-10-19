@@ -131,7 +131,7 @@ function stop(input, current) {
   let { s, text } = spendText(input, current)
   s = recordResult(input, s)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })
-  // A worker stopped at its turn limit and the resume is not sent yet: Claude's turn must stay open.
+  // A resume is due (a worker stopped at its turn limit, or ended without its report) and not sent yet: Claude's turn must stay open.
   const resumeDue = s?.phase === 'running' && !!s.current?.inFlight && !!s.current.resumePending
   if (!s || s.phase !== 'running' || (s.current?.inFlight && !resumeDue)) {
     if (text) shown({})

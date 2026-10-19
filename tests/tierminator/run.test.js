@@ -174,7 +174,8 @@ test('judge accepts only DONE with one trailer commit, a clean tree and the same
   const base = { report, taskId: 'T02', commits: [commit], clean: true, sameBranch: true }
   assert.deepEqual(r.judge(base), { ok: true, commit: 'abc123' })
   assert.match(r.judge({ ...base, sameBranch: false }).fatal, /left the branch/)
-  assert.match(r.judge({ ...base, report: null }).reason, /no STATUS report/)
+  assert.deepEqual(r.judge({ ...base, report: null }), { ok: true, commit: 'abc123', unreported: true })
+  assert.deepEqual(r.judge({ ...base, report: null, commits: [] }), { ok: false, reason: 'the worker returned no STATUS report', unreported: true })
   assert.equal(r.judge({ ...base, report: { ...report, status: 'FAILED', note: 'tests fail' } }).reason, 'tests fail')
   assert.match(r.judge({ ...base, report: { ...report, verify: 'FAIL' } }).reason, /DONE but VERIFY was FAIL/)
   assert.match(r.judge({ ...base, report: r.parseReport('STATUS: DONE\nCOMMIT: abc\nNOTE: x') }).reason, /DONE but VERIFY was NOT RUN/)
@@ -184,16 +185,22 @@ test('judge accepts only DONE with one trailer commit, a clean tree and the same
   assert.match(r.judge({ ...base, clean: false }).reason, /uncommitted changes/)
 })
 
-test('judge halts on a DONE report whose VERIFY is not a verdict, and still retries a real FAIL or NOT RUN', () => {
+test('judge accepts an unreadable VERIFY on its commit, else halts, and still retries a real FAIL or NOT RUN', () => {
   const report = { status: 'DONE', commit: 'abc', verify: 'PASS', note: '' }
   const commit = { sha: 'abc123', message: 'Task 2\n\nTierminator-Task: T02' }
   const base = { report, taskId: 'T02', commits: [commit], clean: true, sameBranch: true }
   const inputs = ['PASS', 'pass - 12 tests', 'PASSED', 'FAIL', 'FAILED: 2', 'NOT RUN', 'not run', 'maybe', '** the V1', undefined]
   assert.deepEqual(inputs.map(r.verdictOf), ['PASS', 'PASS', 'PASS', 'FAIL', 'FAIL', 'NOT RUN', 'NOT RUN', null, null, null])
-  const maybe = r.judge({ ...base, report: { ...report, verify: 'maybe' } })
-  assert.equal(maybe.ok, false)
-  assert.match(maybe.fatal, /not PASS, FAIL or NOT RUN \(maybe\)/)
-  assert.equal(maybe.reason, undefined)
+  const unreadable = { ...report, verify: 'maybe' }
+  assert.deepEqual(r.judge({ ...base, report: unreadable }), { ok: true, commit: 'abc123', unreported: true })
+  for (const over of [{ commits: [] }, { clean: false }, { commits: [{ ...commit, message: 'Task 2' }] }]) {
+    const maybe = r.judge({ ...base, report: unreadable, ...over })
+    assert.equal(maybe.ok, false)
+    assert.equal(maybe.unreported, true)
+    assert.match(maybe.fatal, /not PASS, FAIL or NOT RUN \(maybe\)/)
+    assert.equal(maybe.reason, undefined)
+  }
+  const maybe = r.judge({ ...base, report: unreadable, commits: [] })
   assert.equal(r.judge({ ...base, report: { ...report, verify: 'PASSED' } }).ok, true)
   for (const verify of ['FAIL', 'NOT RUN']) {
     const j = r.judge({ ...base, report: { ...report, verify } })
@@ -332,4 +339,78 @@ test('a retry after a failure is a new worker: agent and resume state are cleare
   assert.equal(action, 'retry')
   const { agentId, resumes, resumePending, turnLimited } = state.current
   assert.deepEqual({ agentId, resumes, resumePending, turnLimited }, { agentId: null, resumes: 0, resumePending: false, turnLimited: null })
+})
+
+// ---- a worker that ended without its report is asked for it once ------------------------
+
+test('judge also needs the plan line before it accepts an unreported attempt on its commit', () => {
+  const noPlan = { sha: 'abc123', message: 'Task 1\n\nTierminator-Task: T01' }
+  const base = { report: null, taskId: 'T01', planId: '0123456789abcdef', commits: [noPlan], clean: true, sameBranch: true }
+  assert.deepEqual(r.judge(base), { ok: false, reason: 'the worker returned no STATUS report', unreported: true })
+  const withPlan = { sha: 'abc123', message: noPlan.message + '\n\nTierminator-Plan: 0123456789abcdef' }
+  assert.deepEqual(r.judge({ ...base, commits: [withPlan] }), { ok: true, commit: 'abc123', unreported: true })
+  assert.match(r.judge({ ...base, commits: [withPlan], sameBranch: false }).fatal, /left the branch/)
+})
+
+test('shouldAsk is true only for an unreported failure of an attempt not yet asked, with a known agent', () => {
+  const failed = { ok: false, reason: 'the worker returned no STATUS report', unreported: true }
+  assert.equal(r.shouldAsk(inFlight(), failed), true)
+  assert.equal(r.shouldAsk(inFlight(), { ok: true, commit: 'abc', unreported: true }), false)
+  assert.equal(r.shouldAsk(inFlight(), { ok: false, reason: 'tests fail' }), false)
+  assert.equal(r.shouldAsk(inFlight({ asked: true }), failed), false)
+  assert.equal(r.shouldAsk(inFlight({ agentId: null }), failed), false)
+  assert.equal(r.shouldAsk(inFlight({ agentId: '' }), failed), false)
+})
+
+test('askForReport keeps the attempt in flight, resets nothing and does not count a resume', () => {
+  const s = inFlight({ resumes: 1 })
+  const out = r.askForReport(s)
+  assert.equal(out.action, 'ask')
+  const { asked, resumePending, resumeFor, resumes, inFlight: flying, attempt, tier } = out.state.current
+  assert.deepEqual({ asked, resumePending, resumeFor, resumes, flying, attempt, tier }, {
+    asked: true, resumePending: true, resumeFor: 'report', resumes: 1, flying: true, attempt: 1, tier: 'sonnet-low',
+  })
+  assert.equal(out.state.phase, 'running')
+  assert.equal(s.current.asked, false)
+})
+
+test('resumeMessage, checkResume and resumed follow what the pending message is for', () => {
+  const asked = r.askForReport(inFlight({ resumes: 1 })).state
+  assert.equal(r.resumeMessage(asked), r.REPORT_MESSAGE)
+  assert.equal(r.resumeMessage(inFlight({ resumePending: true })), r.RESUME_MESSAGE)
+  assert.equal(r.resumeMessage(r.turnLimitStop(inFlight(), 40).state), r.RESUME_MESSAGE)
+  const good = { to: 'agent-1', message: r.REPORT_MESSAGE, summary: 'T01: report' }
+  assert.equal(r.checkResume(asked, good), null)
+  assert.equal(r.checkResume(asked, { ...good, message: r.RESUME_MESSAGE }), 'the message is not the expected one')
+  assert.equal(r.checkResume(r.turnLimitStop(inFlight(), 40).state, good), 'the message is not the expected one')
+  const sent = r.resumed(asked)
+  assert.deepEqual([sent.current.resumePending, sent.current.resumeFor, sent.current.resumes, sent.current.asked], [false, null, 1, true])
+  assert.equal(r.resumed(r.turnLimitStop(inFlight(), 40).state).current.resumes, 1)
+})
+
+test('resumeText for a report names the agent and the exact report message', () => {
+  const text = r.resumeText(r.askForReport(inFlight()).state)
+  assert.match(text, /^tierminator: T01 ended on tierminator:sonnet-low without its report block, and Git does not show it finished\. /)
+  assert.match(text, /to "agent-1", summary "T01: report"/)
+  assert.ok(text.includes('```\n' + r.REPORT_MESSAGE + '\n```\n'))
+  assert.match(text, /Do not do the task yourself\. Then end your turn/)
+})
+
+test('noticeText gives the report request for an ask and marks an unreported task as accepted on its commit', () => {
+  const prev = inFlight()
+  const asked = r.askForReport(prev)
+  assert.equal(r.noticeText(prev, asked.state, 'ask', { ok: false }), r.resumeText(asked.state))
+  const { state, action } = r.advance(prev, { ok: true, commit: 'abc1234def', unreported: true })
+  assert.equal(action, 'next')
+  assert.equal(state.done[0].unreported, true)
+  assert.match(r.noticeText(prev, state, action, {}), /^tierminator: T01 done \(commit abc1234, sonnet-low; no report block, accepted on its commit\)\. /)
+  const plain = r.advance(prev, { ok: true, commit: 'abc1234def' })
+  assert.equal(plain.state.done[0].unreported, undefined)
+  assert.match(r.noticeText(prev, plain.state, plain.action, {}), /^tierminator: T01 done \(commit abc1234, sonnet-low\)\. /)
+})
+
+test('a fresh task and a retry start unasked, with no pending message', () => {
+  assert.deepEqual([start().current.asked, start().current.resumeFor], [false, null])
+  const { state } = r.advance(r.askForReport(inFlight()).state, { ok: false, reason: 'x' })
+  assert.deepEqual([state.current.asked, state.current.resumeFor, state.current.resumePending], [false, null, false])
 })

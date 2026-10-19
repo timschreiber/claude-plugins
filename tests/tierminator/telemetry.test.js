@@ -244,6 +244,25 @@ test('recordAttempt records maxTurns, resumes and the stop reason', () => {
   }
 })
 
+test('recordAttempt records whether the worker was asked for its report', () => {
+  for (const asked of [undefined, true]) {
+    const prev = attemptState()
+    if (asked) prev.current.asked = true
+    const input = { session_id: 's', agent_id: `ag-asked-${!!asked}` }
+    spend.recordAttempt(input, prev, { ...prev, phase: 'halted' }, { ran: false, stopReason: 'report' })
+    const rec = t.read(t.fileFor(prev.planFile, 's')).filter(r => r.agentId === input.agent_id)[0]
+    assert.equal(rec.asked, !!asked)
+  }
+})
+
+test('recordAttempt writes nothing while the same attempt is still in flight', () => {
+  const prev = attemptState()
+  const next = { ...prev, current: { ...prev.current, inFlight: true, asked: true, resumePending: true } }
+  const out = spend.recordAttempt({ session_id: 's', agent_id: 'ag-flying' }, prev, next, { ran: false, stopReason: 'no-report' })
+  assert.deepEqual(out, { next, line: null })
+  assert.deepEqual(t.read(t.fileFor(prev.planFile, 's')).filter(r => r.agentId === 'ag-flying'), [])
+})
+
 test('a second identical recordAttempt appends nothing and leaves the run cost alone', () => {
   const prev = attemptState()
   const input = { session_id: 's', agent_id: 'ag' }

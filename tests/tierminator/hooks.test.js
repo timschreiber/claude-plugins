@@ -1035,14 +1035,49 @@ const attemptRows = () => telemetry.read(path.join(dir, 'plan.telemetry.jsonl'))
 const noticesIn = outputs => (outputs.join('\n').match(/tierminator: T01 (done|failed)/g) ?? []).length
 const handBackInput = text => ({ session_id: S, permission_mode: 'default', prompt: handBackPrompt('worker-1', text) })
 
-test('a DONE hand-back whose VERIFY is not a verdict stops the run and resets nothing', () => {
-  backgroundAttempt()
+test('a DONE hand-back whose VERIFY is not a verdict stops the run and resets nothing, once the worker was asked', () => {
+  const s = backgroundAttempt()
+  state.write(S, { ...s, current: { ...s.current, asked: true } })
   const sha = workerCommits('T01')
+  fs.writeFileSync(path.join(repo, 'loose.txt'), 'x')
   const out = hook('h1-plan-rules.js', handBackInput(`STATUS: DONE\nCOMMIT: ${sha}\nVERIFY: maybe\nNOTE: x`)).stdout
   assert.equal(state.read(S).phase, 'halted')
   assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), sha)
   assert.match(out, /the run stopped at T01/)
   assert.match(out, /not PASS, FAIL or NOT RUN \(maybe\)/)
+})
+
+test('a DONE hand-back whose VERIFY is not a verdict is accepted on its commit', () => {
+  backgroundAttempt()
+  const sha = workerCommits('T01')
+  const out = hook('h1-plan-rules.js', handBackInput(`STATUS: DONE\nCOMMIT: ${sha}\nVERIFY: maybe\nNOTE: x`)).stdout
+  assert.match(out, /T01 done \(commit [0-9a-f]{7}, sonnet-low; no report block, accepted on its commit\)/)
+  assert.deepEqual(state.read(S).done.map(d => [d.id, d.unreported]), [['T01', true]])
+})
+
+test('a hand-back with no report and no commit asks the worker once, and the second leg is still judged', () => {
+  backgroundAttempt()
+  const head = gitIn(repo, 'rev-parse', 'HEAD')
+  const out = hook('h1-plan-rules.js', handBackInput('Task complete.')).stdout
+  assert.match(out, /T01 ended on tierminator:sonnet-low without its report block/)
+  assert.match(out, /to "worker-1", summary "T01: report"/)
+  let s = state.read(S)
+  assert.deepEqual([s.current.inFlight, s.current.asked, s.current.resumePending, s.handedBack ?? []], [true, true, true, []])
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), head)
+  assert.deepEqual(attemptRows(), [])
+  // The SubagentStop of the first leg, and a hand-back, while the ask is due, change nothing.
+  hook('h4-dispatch.js', subStop('Task complete.'), ['stop'])
+  assert.equal(hook('h1-plan-rules.js', handBackInput('Task complete.')).stdout, '')
+  assert.deepEqual(state.read(S), s)
+  // The ask is sent, and the worker's second leg stops with a report and its commit.
+  assert.equal(hook('h4-dispatch.js', sendMessage(resumeCall({ to: 'worker-1', message: runLib.REPORT_MESSAGE })), ['resume-pre']).stdout, '')
+  s = state.read(S)
+  assert.deepEqual([s.current.resumePending, s.current.resumes, s.current.inFlight], [false, 0, true])
+  const sha = workerCommits('T01')
+  hook('h4-dispatch.js', subStop(report('DONE', sha)), ['stop'])
+  s = state.read(S)
+  assert.deepEqual(s.done.map(d => [d.id, d.unreported]), [['T01', undefined]])
+  assert.deepEqual(attemptRows().map(r => [r.task, r.outcome, r.asked]), [['T01', 'done', true]])
 })
 
 test('a hand-back with a bold Verify summary before its block is judged by the block', () => {
@@ -1341,8 +1376,6 @@ test('a DONE report the Git facts do not back up is a failed attempt', () => {
   startTestRun()
   const noCommit = attempt(() => report('DONE', 'abc'))
   assert.match(noCommit, /made 0 commits instead of one/)
-  const noReport = attempt(() => 'All done!')
-  assert.match(noReport, /returned no STATUS report/)
   const noPlanLine = attempt(() => report('DONE', workerCommits('T01', 'T01.txt', null)))
   assert.match(noPlanLine, /no "Tierminator-Plan: feedfacecafebeef" line/)
 })
@@ -1475,12 +1508,44 @@ test('H4 stop with no report and as many turns as its limit is not judged', () =
   assert.deepEqual(s.current.turnLimited, { turns: 40 })
 })
 
-test('H4 stop with no report and fewer turns than its limit is judged as before', () => {
+test('H4 stop with no report and fewer turns than its limit is not a turn limit: the worker is asked for its report', () => {
   startTestRun()
   hook('h4-dispatch.js', agentPre(expected()), ['pre'])
   hook('h4-dispatch.js', subStop('', { agent_transcript_path: turnsTranscript(39) }), ['stop'])
-  assert.equal(state.read(S).current.inFlight, false)
-  assert.match(state.read(S).notice, /T01 failed at sonnet-low: the worker returned no STATUS report/)
+  const s = state.read(S)
+  assert.deepEqual([s.current.inFlight, s.current.resumePending, s.current.asked, s.current.turnLimited], [true, true, true, null])
+  assert.match(s.notice, /T01 ended on tierminator:sonnet-low without its report block/)
+  assert.match(s.notice, /to "worker-1"/)
+  assert.deepEqual(attemptRows(), [])
+})
+
+test('H4 stop with no report and no commit asks first, retries a tier up when the ask gets no report either', () => {
+  startTestRun({ planFile: path.join(dir, 'plan.md') })
+  const base = gitIn(repo, 'rev-parse', 'HEAD')
+  const call = expected()
+  hook('h4-dispatch.js', agentPre(call), ['pre'])
+  fs.writeFileSync(path.join(repo, 'half.txt'), 'x')
+  hook('h4-dispatch.js', subStop('All done!'), ['stop'])
+  assert.equal(fs.existsSync(path.join(repo, 'half.txt')), true, 'the ask resets nothing')
+  assert.equal(state.read(S).current.attempt, 1)
+  hook('h4-dispatch.js', sendMessage(resumeCall({ to: 'worker-1', message: runLib.REPORT_MESSAGE })), ['resume-pre'])
+  hook('h4-dispatch.js', subStop('Still no block'), ['stop'])
+  const s = state.read(S)
+  assert.match(s.notice, /T01 failed at sonnet-low: the worker returned no STATUS report\. Reset to [0-9a-f]{7}/)
+  assert.deepEqual([s.current.attempt, s.current.tier, s.current.asked], [2, 'sonnet-medium', false])
+  assert.equal(gitIn(repo, 'rev-parse', 'HEAD'), base)
+  assert.equal(fs.existsSync(path.join(repo, 'half.txt')), false)
+  assert.deepEqual(attemptRows().map(r => [r.attempt, r.outcome, r.asked]), [[1, 'retry', true]])
+})
+
+test('H4 stop with no report but the task committed on a clean tree is accepted on its commit', () => {
+  startTestRun()
+  hook('h4-dispatch.js', agentPre(expected()), ['pre'])
+  workerCommits('T01')
+  hook('h4-dispatch.js', subStop('Task complete.'), ['stop'])
+  const s = state.read(S)
+  assert.match(s.notice, /T01 done \(commit [0-9a-f]{7}, sonnet-low; no report block, accepted on its commit\)/)
+  assert.deepEqual(s.done.map(d => [d.id, d.unreported]), [['T01', true]])
 })
 
 test('a foreground Agent result that stopped at the turn limit gives the resume text', () => {

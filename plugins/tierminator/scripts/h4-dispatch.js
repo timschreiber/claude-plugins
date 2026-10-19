@@ -8,7 +8,10 @@
 //            run's branch. On a pass it records HEAD, which a retry resets to.
 //   stop     SubagentStop: the worker finished. Judges the attempt against Git and moves the run on
 //            (the next task, a retry one tier up after a reset, completion, or a halt), saving the
-//            notice. Records the attempt's tokens and cost, and queues the line H5 shows the user. When the
+//            notice. A worker that ended without a readable report, when Git does not show the task finished,
+//            is not failed: the attempt stays in flight and Claude is told to ask it once for the report with
+//            SendMessage (settle; a stop while that message is due is ignored). Records the attempt's tokens
+//            and cost, and queues the line H5 shows the user. When the
 //            state cannot be saved, it keeps a lost-state note for H1 or post to give.
 //            An agent whose hand-back H1 already judged (`handedBack`) is ignored: the run has moved on.
 //            The hand-back (H1) and SubagentStop of one attempt arrive close together, in either order, so
@@ -20,7 +23,7 @@
 //   failure  PostToolUseFailure Agent: the call itself failed; it counts as a failed attempt.
 // Agent calls for other agent types are left alone.
 //   resume-pre / resume-post / resume-failure: the SendMessage that resumes a worker stopped at its turn
-//            limit. pre lets only the expected message to the run's worker through (SendMessage to other
+//            limit, or asks one that ended without its report for it. pre lets only the expected message to the run's worker through (SendMessage to other
 //            agents is left alone); post tells Claude to end its turn; failure halts the run, no reset.
 'use strict'
 
@@ -74,6 +77,8 @@ function pre(input, s) {
 function stop(input, s) {
   if (s?.handedBack?.includes(input.agent_id)) return
   if (!ours(input.agent_type) || s?.phase !== 'running' || !s.current.inFlight) return
+  // A stop while a message to the worker is due is the stale stop of the leg before it (the one that led to the ask).
+  if (s.current.resumePending) return
   const report = readReport(input.last_assistant_message, input.agent_transcript_path)
   if (!report) {
     // No report at its turn limit: the worker is not judged. The "stopped at its turn limit" notification
@@ -87,7 +92,8 @@ function stop(input, s) {
   }
   // Only one hook judges an attempt: when H1's hand-back claimed it first, H1 judges it.
   if (!state.claimAttempt(input.session_id, state.attemptKey(s))) return
-  const reported = { ...s, current: { ...s.current, report } }
+  // The agent id is kept so that a worker that ended without a report can be asked for it (settle).
+  const reported = { ...s, current: { ...s.current, report, agentId: s.current.agentId ?? input.agent_id ?? null } }
   // The attempt's tokens and estimated cost go to the plan's telemetry file, and its UI line is queued
   // for the next Stop (H5); Claude's notice is unchanged.
   const { next } = spend.recordAttempt(input, s, settle(reported, s.cwd ?? input.cwd), { stopReason: report ? 'report' : 'no-report' })

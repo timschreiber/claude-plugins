@@ -537,6 +537,9 @@ subagent itself.
   `resumePending` and tells Claude to resume the worker with `SendMessage`; otherwise the run halts (see
   [Judging an attempt](#judging-an-attempt)). Either way it speaks in that same turn, since no later event
   would.
+- A report that arrives as an `<agent-message>` is not judged while a message to the worker is due
+  (`resumePending`). A hand-back with no readable report and no finished commit is answered with the report
+  request, and the agent is not added to `handedBack`, so the worker's next `SubagentStop` is still judged.
 - In a headless session, `/tierminator:plan` starts the drafting phase instead of plan mode, and the
   `SessionStart` hook re-injects the note and rules after a compaction. See
   [Unattended runs](#unattended-runs).
@@ -634,13 +637,19 @@ other agent types are left alone.
   A foreground call (no `isAsync`) whose result says `stopped at its N-turn limit` is a turn-limit stop:
   `SubagentStop` does not fire for it (measured headless), so `post` calls `onTurnLimit()` and gives Claude
   the resume, or the halt, as `additionalContext`.
+- **`stop`** also asks a worker for a missing report (see [Judging an attempt](#judging-an-attempt)): the
+  attempt stays in flight and the notice is the request. A stop that arrives while a message to the worker
+  is due (`resumePending`) is the stale stop of the leg before it, and is ignored.
 - **`failure`** (`PostToolUseFailure`) treats a failed Agent call as a failed attempt, with the error's
   first line as the reason, and gives Claude the result directly.
 - **`resume-pre`**, **`resume-post`** and **`resume-failure`** handle the `SendMessage` that resumes a worker
-  stopped at its turn limit. A `SendMessage` is touched only when it is addressed to the run's worker
+  stopped at its turn limit, or asks one that ended without its report for it. A `SendMessage` is touched
+  only when it is addressed to the run's worker
   (`to` equal to the task's `agentId`) or a resume is pending; any other message is left alone. `resume-pre`
   refuses, with the reason and the expected call, a resume sent when none is due, to another agent, or with a
-  message other than `RESUME_MESSAGE`; on a pass it clears `resumePending` and adds one to `resumes`.
+  message other than the one due (`RESUME_MESSAGE` after a turn limit, `REPORT_MESSAGE` after an unreported
+  stop); on a pass it clears `resumePending` and `resumeFor`, and adds one to `resumes` unless the message
+  asks for a report.
   `resume-post` tells Claude to end its turn. `resume-failure` halts the run without a reset, with the
   error's first line as the reason. The resumed worker runs in the background; its report, or another
   turn-limit notification, arrives as for any worker.
@@ -655,8 +664,8 @@ It never sets `permissionDecision: "allow"`; its only decisions are denials.
 
 Keeps the main thread dispatching while a task is due. Active only while the run is `running` and no task
 is in flight, except that `stop` also blocks while a task is in flight with `resumePending` set: the resume
-`SendMessage` is still due, so the turn must stay open until it is sent, with the resume instruction as the
-reason.
+(or report-request) `SendMessage` is still due, so the turn must stay open until it is sent, with that
+instruction as the reason.
 
 - **`pre`:** denies main-thread `Edit`, `Write` and `NotebookEdit` calls, with a reason that repeats the
   next dispatch. After three denials it steps aside and marks the run `abandoned`. Shell commands are not
@@ -758,6 +767,23 @@ H4's `stop` mode does not take `DONE` on trust. An attempt succeeds only if all 
 A different branch is fatal. Anything else that fails is a failed attempt, with the worker's NOTE or the
 failed check as the reason.
 
+**A worker that ends without a readable report is checked before it is failed.** That means no `STATUS:`
+line, or `DONE` with a `VERIFY` that is no verdict. A worker commits only after its `Verify:` step passes, so
+`judge()` looks at Git alone: exactly one commit with the task's `Tierminator-Task:` line (and the
+`Tierminator-Plan:` line, with a plan id), a clean tree and the run's branch mean the task is finished. The
+attempt is accepted as `done` with `unreported: true`, and the notice says `no report block, accepted on its
+commit`. Without that evidence, and when the worker's `agentId` is known and it has not been asked yet this
+attempt, `settle()` does not fail it. The attempt stays in flight, nothing is reset, and Claude is told to
+send the worker `REPORT_MESSAGE` with `SendMessage` (the text: "tierminator: you ended without your report
+block. Don't redo finished work. If your task's Verify step passed and you committed, end now with your
+report block. Otherwise finish the remaining work, run Verify, commit only if it passes, and end with your
+report block."). This reuses the turn-limit resume path (`resumePending`, with `resumeFor: 'report'`, H4
+`resume-pre`, and H5 keeping the turn open), but it does not count against `MAX_RESUMES`. The attempt key
+gains `-asked`, so the worker's next stop is claimed and judged afresh, and no telemetry row is written until
+then; that row has `asked: true`. If the worker still has no readable report and Git does not show the task
+finished, the old outcome stands: a retry one tier up for a missing report, a halt for an unreadable
+`VERIFY`. A `FAILED` report, and `DONE` with `VERIFY: FAIL` or `NOT RUN`, are failures as before.
+
 **A turn limit is not a failure.** A worker that reaches its `maxTurns` before reporting is not judged as a
 failed attempt: nothing is reset and no tier up is asked for, because a higher tier uses more turns on the
 same task, not fewer (see
@@ -777,6 +803,9 @@ that the task is probably too large for one task: split it and run `/tierminator
 | Failure after 2 retries, or at `opus-high` | The run is `halted`. Nothing is reset: the last attempt's changes and any commit it made stay for the user to inspect. Claude reports the task, each tier tried and the reason, and must not fix it itself. |
 | Turn limit reached, fewer than `MAX_RESUMES` resumes used | The worker is resumed (see above); the task stays in flight on the same attempt and tier. |
 | Turn limit reached after `MAX_RESUMES` resumes | The run is `halted`, without a reset and without a tier up. |
+| No readable report, one task commit on a clean tree | The task is `done` (`unreported`), as for a success; the notice says it was accepted on its commit. |
+| No readable report, no such commit, worker not asked yet | The worker is asked once for its report (see above); the task stays in flight on the same attempt and tier, with no reset. |
+| No readable report after the ask, no such commit | The ordinary failure: a retry one tier up, or a halt for an unreadable `VERIFY`. |
 | A failed attempt's commit is on a remote branch, the reset fails, or the branch changed | The run is `halted` at once, without a reset. |
 
 The reset removes the failed attempt's commits, changes and untracked files. Ignored files are left alone.
@@ -993,7 +1022,7 @@ no plan file known, they go to `sessions/<session_id>.telemetry.jsonl`. Every re
 | `estimate` | H5 or H1, right after orchestration | Nothing | `runId`, `model`, `costUsd`, `total`, `extraCacheRead`, `reason` |
 
 **Turn fields.** On an `attempt` record, `maxTurns` is the tier agent's limit (`MAX_TURNS`), `resumes` the
-resumes sent before the record, and `stopReason` why it was written: `report` (the worker reported),
+resumes sent before the record, `asked` whether the worker was asked for a missing report during the attempt, and `stopReason` why it was written: `report` (the worker reported),
 `no-report` (it stopped without a report), `turn-limit` (the run halted at the limit) or `call-failed` (the
 Agent call itself failed). `messages` is the worker's turn count. An attempt is written once:
 `recordAttempt` skips a record whose `runId`, `task`, `attempt` and `agentId` are already in the file, and
@@ -1102,7 +1131,8 @@ During a run the file looks like this:
     "index": 1, "attempt": 2, "tier": "sonnet-high", "tried": ["sonnet-medium"],
     "head": "<sha recorded at dispatch>", "inFlight": false, "report": null,
     "lastFailure": { "tier": "sonnet-medium", "reason": "..." },
-    "agentId": null, "resumes": 0, "resumePending": false, "turnLimited": null
+    "agentId": null, "resumes": 0, "resumePending": false, "turnLimited": null,
+    "asked": false, "resumeFor": null
   },
   "done": [ { "id": "T01", "tier": "sonnet-low", "commit": "<sha>", "attempts": 1 } ],
   "notice": "<what Claude must be told next, or null>",
@@ -1115,7 +1145,10 @@ During a run the file looks like this:
 In `current`, `agentId` is the worker's agent id (recorded from the background launch's response, or from the
 turn-limit notification), `resumes` counts the resumes sent for this attempt, `resumePending` is true from
 a turn-limit stop until the resume is sent, and `turnLimited` is `{turns}` after a turn-limit stop, else
-`null`. A retry starts these again at `null`, 0, false and `null`. `sizingReviews`, at the top level, counts
+`null`. A retry starts these again at `null`, 0, false and `null`. `asked` is true once the worker has been
+asked for a missing report, and `resumeFor` says what the pending `SendMessage` is for (`'turn-limit'`,
+`'report'`, or `null`); a retry resets both. A finished task's `done` entry has `unreported: true` when it was
+accepted on its commit without a report. `sizingReviews`, at the top level, counts
 the sizing reviews of the plan (see [The sizing review](#the-sizing-review)).
 
 `notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
@@ -1371,6 +1404,9 @@ and type `/tierminator:plan` with a small multi-step change.
 - **Workers see only their prompt**, not the plan or the conversation. A vague prompt gives a vague result.
 - **Orchestration uses model turns.** One Agent call and one short report per attempt reach the main
   session.
+- **The report request can be judged against a stale stop.** If the first leg's `SubagentStop` reaches H4
+  only after Claude has already sent the report request, it is judged as the worker's second leg. The two
+  normally arrive milliseconds apart, well before Claude can act on the notice.
 - **A hand-back's usage is as of the hand-back.** H1 records the worker's spend when it judges the
   hand-back, so tokens the worker uses after handing back are not counted.
 - **A background task's next step waits for its "finished" notification.** That notification arrived after

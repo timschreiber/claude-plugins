@@ -16,7 +16,8 @@
 //               that arrives as an <agent-message> while its attempt is still in flight is judged here, in
 //               the turn it arrives (handBack): the worker's report is read from the prompt, or from its
 //               transcript, the attempt is settled and its spend recorded, and the notice (the next
-//               dispatch, a retry, a halt or completion) is printed at once. The "finished" notification
+//               dispatch, a retry, a halt or completion, or a request to the worker for a missing report) is
+//               printed at once. The "finished" notification
 //               that follows a hand-back is transcript-only and starts no turn, so no later event is
 //               needed, and none is waited for. The worker's SubagentStop (H4) arrives close by, in either
 //               order, so the hand-back first claims the attempt (state.claimAttempt): only the hook that
@@ -58,7 +59,9 @@ const fromHarness = prompt => /^\s*<(agent-message|task-notification)\b/.test(St
 
 // A worker's report arrived as an <agent-message> while its attempt was in flight (SubagentStop had not
 // judged it): judge it now, and give Claude the notice in this same turn. The agent id is remembered in
-// `handedBack`, so the SubagentStop that follows does not touch the run (H4 stop). The attempt is claimed
+// `handedBack`, so the SubagentStop that follows does not touch the run (H4 stop); not when the report is missing
+// and the worker is asked for it instead, since its next stop is judged. No hand-back is judged while a message to
+// the worker is due (resumePending). The attempt is claimed
 // first; when H4's SubagentStop claimed it already, H4 judges it and H1 gives H4's notice (awaitNotice).
 // When the judged state cannot be saved, the dispatch could not be made (H4 pre would still see the attempt in
 // flight), so the run ends with the lost-state note (endLost).
@@ -69,14 +72,17 @@ async function handBack(input, s) {
   const dir = subagentsDir(input.transcript_path)
   const transcript = id && dir ? path.join(dir, `agent-${id}.jsonl`) : null
   const report = readReport(input.prompt, transcript)
-  const reported = { ...s, current: { ...s.current, report } }
+  const reported = { ...s, current: { ...s.current, report, agentId: s.current.agentId ?? id } }
   const settledState = settle(reported, s.cwd ?? input.cwd)
   const { next } = spend.recordAttempt({ ...input, agent_id: id }, s, settledState, { transcript, stopReason: report ? 'report' : 'no-report' })
+  // A report request to the worker (an ask) leaves the attempt in flight: its next stop is still judged, so the
+  // agent is not marked as handed back.
+  const asking = next.phase === 'running' && !!next.current.inFlight && !!next.current.resumePending
   const saved = {
     ...next,
     notice: null,
     noticeByNotification: false,
-    handedBack: [...(s.handedBack ?? []), ...(id ? [id] : [])].slice(-20),
+    handedBack: asking ? (s.handedBack ?? []) : [...(s.handedBack ?? []), ...(id ? [id] : [])].slice(-20),
   }
   if (!state.write(input.session_id, saved)) return endLost(input, next.phase === 'running' ? r.lostText(next) : next.notice)
   emitText(next.notice)
@@ -133,7 +139,7 @@ async function runNote(input) {
     emitText(s.notice)
     return
   }
-  if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) await handBack(input, s)
+  if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight && !s.current.resumePending) await handBack(input, s)
   else if (/^\s*<task-notification\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) turnLimitNote(input, s)
 }
 

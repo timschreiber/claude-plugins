@@ -51,7 +51,9 @@ function readReport(text, transcript) {
 
 // Judges the finished attempt (from its report, or the given failure), moves the run on, and returns
 // the new state with the notice Claude must be told next. Does the Git work: the checks, and the
-// reset before a retry.
+// reset before a retry. A worker that ended without a readable report, when Git does not show the task
+// finished, is not failed yet: the attempt stays in flight and the notice asks Claude to request the
+// report from the worker once (r.askForReport), with no reset.
 function settle(s, cwd, failure) {
   const task = r.currentTask(s)
   const { head } = s.current
@@ -66,6 +68,7 @@ function settle(s, cwd, failure) {
       clean: git.isClean(cwd),
       sameBranch: git.branch(cwd) === s.branch,
     })
+  if (!failure && r.shouldAsk(s, outcome)) return settled(s, r.askForReport(s), outcome)
   let { state: next, action } = r.advance(s, outcome)
 
   if (action === 'retry') {

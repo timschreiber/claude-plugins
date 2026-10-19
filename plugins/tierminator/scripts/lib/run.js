@@ -7,7 +7,9 @@
 //   runId    tells this run's telemetry records from another run of the same plan
 //   spend    {costUsd}: the workers' estimated spend so far (lib/spend.js)
 //   phase    running | halted | complete | abandoned
-//   current  {index, attempt, tier, tried[], head, inFlight, report, lastFailure, dispatchFailures}
+//   current  {index, attempt, tier, tried[], head, inFlight, report, lastFailure, dispatchFailures,
+//             asked, resumeFor}; asked is true once the worker was asked for a missing report, resumeFor
+//             says what the pending SendMessage is for ('turn-limit' | 'report' | null)
 //   done     [{id, tier, commit, attempts, skipped?}]; skipped tasks were finished by an earlier run
 //   notice   what Claude must be told next, set when an attempt is judged and cleared once shown
 'use strict'
@@ -34,6 +36,8 @@ const fresh = (task, index) => ({
   resumes: 0,
   resumePending: false,
   turnLimited: null,
+  asked: false,
+  resumeFor: null,
 })
 
 // The state for a run that has just been approved, or picked up again by /tierminator:execute.
@@ -126,8 +130,10 @@ function noticeText(prev, next, action, outcome) {
   const short = sha => String(sha ?? '').slice(0, 7)
   if (action === 'next') {
     const done = next.done[next.done.length - 1]
-    return `tierminator: ${done.id} done (commit ${short(done.commit)}, ${done.tier}). ${dispatchText(next)}`
+    const how = done.unreported ? `${done.tier}; no report block, accepted on its commit` : done.tier
+    return `tierminator: ${done.id} done (commit ${short(done.commit)}, ${how}). ${dispatchText(next)}`
   }
+  if (action === 'ask') return resumeText(next)
   if (action === 'retry') {
     return (
       `tierminator: ${task.id} failed at ${prev.current.tier}: ${outcome.reason}. Reset to ` +
@@ -196,29 +202,41 @@ function verdictOf(verify) {
   return 'NOT RUN'
 }
 
+// What is wrong with the attempt's commits and tree, else null: exactly one commit with the task's line
+// (and the plan's, with a planId) and a clean tree.
+function commitProblem({ taskId, planId, commits, clean }) {
+  if (commits.length !== 1) return `the worker reported DONE but made ${commits.length} commits instead of one`
+  if (!commits[0].message.includes(`Tierminator-Task: ${taskId}`)) {
+    return `the worker's commit has no "Tierminator-Task: ${taskId}" trailer`
+  }
+  if (planId && !commits[0].message.includes(`Tierminator-Plan: ${planId}`)) {
+    return `the worker's commit has no "Tierminator-Plan: ${planId}" line`
+  }
+  if (!clean) return 'the worker left uncommitted changes'
+  return null
+}
+
 // Judges a finished attempt from its report and the Git facts after it. Returns {ok: true, commit},
 // {ok: false, reason}, or {ok: false, fatal} when the run must stop without a reset. With a planId, the
 // commit must also carry the plan's line. A DONE report counts only when VERIFY says PASS; a VERIFY that
 // is no verdict at all is fatal, so the run halts without a reset rather than retry.
+// A missing report, or a DONE report whose VERIFY is no verdict, is judged on Git alone: the one
+// task commit on a clean tree means the worker finished (it commits only after Verify passes), and the
+// result is ok with `unreported`. Without that evidence the failure carries `unreported` too, so the
+// caller can ask the worker for its report (shouldAsk) before the failure stands.
 function judge({ report, taskId, planId = null, commits, clean, sameBranch }) {
   if (!sameBranch) return { ok: false, fatal: 'the worker left the branch the run started on' }
-  if (!report) return { ok: false, reason: 'the worker returned no STATUS report' }
+  const unreadable = !report || (report.status === 'DONE' && verdictOf(report.verify) === null)
+  if (unreadable) {
+    if (!commitProblem({ taskId, planId, commits, clean })) return { ok: true, commit: commits[0].sha, unreported: true }
+    if (!report) return { ok: false, reason: 'the worker returned no STATUS report', unreported: true }
+    return { ok: false, fatal: `the worker reported DONE but its VERIFY line is not PASS, FAIL or NOT RUN (${String(report.verify).slice(0, 200)}), so its report could not be read; its commit and changes are left in place`, unreported: true }
+  }
   if (report.status !== 'DONE') return { ok: false, reason: report.note || 'the worker reported FAILED' }
   const verdict = verdictOf(report.verify)
-  if (!verdict) {
-    return { ok: false, fatal: `the worker reported DONE but its VERIFY line is not PASS, FAIL or NOT RUN (${String(report.verify).slice(0, 200)}), so its report could not be read; its commit and changes are left in place` }
-  }
   if (verdict !== 'PASS') return { ok: false, reason: `the worker reported DONE but VERIFY was ${report.verify}` }
-  if (commits.length !== 1) {
-    return { ok: false, reason: `the worker reported DONE but made ${commits.length} commits instead of one` }
-  }
-  if (!commits[0].message.includes(`Tierminator-Task: ${taskId}`)) {
-    return { ok: false, reason: `the worker's commit has no "Tierminator-Task: ${taskId}" trailer` }
-  }
-  if (planId && !commits[0].message.includes(`Tierminator-Plan: ${planId}`)) {
-    return { ok: false, reason: `the worker's commit has no "Tierminator-Plan: ${planId}" line` }
-  }
-  if (!clean) return { ok: false, reason: 'the worker left uncommitted changes' }
+  const problem = commitProblem({ taskId, planId, commits, clean })
+  if (problem) return { ok: false, reason: problem }
   return { ok: true, commit: commits[0].sha }
 }
 
@@ -230,7 +248,8 @@ function advance(state, outcome) {
   const tried = [...cur.tried, cur.tier]
 
   if (outcome.ok) {
-    const done = [...state.done, { id: task.id, tier: cur.tier, commit: outcome.commit, attempts: cur.attempt }]
+    const entry = { id: task.id, tier: cur.tier, commit: outcome.commit, attempts: cur.attempt }
+    const done = [...state.done, outcome.unreported ? { ...entry, unreported: true } : entry]
     const index = cur.index + 1
     if (index >= state.tasks.length) {
       return { state: { ...state, done, phase: 'complete', current: { ...cur, inFlight: false, tried } }, action: 'complete' }
@@ -252,6 +271,8 @@ function advance(state, outcome) {
       resumes: 0,
       resumePending: false,
       turnLimited: null,
+      asked: false,
+      resumeFor: null,
     }
     return { state: { ...state, current }, action: 'retry' }
   }
@@ -276,11 +297,48 @@ const RESUME_MESSAGE =
   'Verify step passed and you committed, end now with your report block. Otherwise finish the remaining ' +
   'work, run Verify, commit only if it passes, and end with your report block.'
 
-// What Claude is told when a worker stopped at its turn limit: resume it with SendMessage.
+const REPORT_MESSAGE =
+  "tierminator: you ended without your report block. Don't redo finished work. If your task's Verify step " +
+  'passed and you committed, end now with your report block. Otherwise finish the remaining work, run ' +
+  'Verify, commit only if it passes, and end with your report block.'
+
+// The message the pending resume must carry: the report request after an unreported stop, else the
+// turn-limit resume.
+const resumeMessage = state => (state.current.resumeFor === 'report' ? REPORT_MESSAGE : RESUME_MESSAGE)
+
+// Whether a failed attempt should first be put to its worker: it ended without a readable report and
+// Git did not show it finished, it has not been asked yet this attempt, and its agent id is known.
+const shouldAsk = (state, outcome) =>
+  !outcome.ok &&
+  !!outcome.unreported &&
+  !state.current.asked &&
+  typeof state.current.agentId === 'string' &&
+  state.current.agentId !== ''
+
+// The attempt stays in flight and the worker is asked once for its report; nothing is reset, and the ask
+// is not a resume (it does not count against MAX_RESUMES).
+function askForReport(state) {
+  return {
+    state: { ...state, current: { ...state.current, asked: true, resumePending: true, resumeFor: 'report' } },
+    action: 'ask',
+  }
+}
+
+// What Claude is told when a worker must be sent a message: after a turn limit, to resume it; after an
+// unreported stop, to ask for its report. Both go through SendMessage.
 function resumeText(state) {
-  const { agentId, tier, resumes } = state.current
+  const { agentId, tier, resumes, resumeFor } = state.current
   const id = currentTask(state).id
   const to = agentId ?? "the worker's task-id from the notification"
+  if (resumeFor === 'report') {
+    return (
+      `tierminator: ${id} ended on ${agentName(tier)} without its report block, and Git does not show it finished. ` +
+      `Call the SendMessage tool now with to "${to}", summary "${id}: report", and as its ` +
+      'message exactly the text inside this fence, without the fence lines:\n' +
+      '```\n' + REPORT_MESSAGE + '\n```\n' +
+      'Do not do the task yourself. Then end your turn; tierminator gives the next step when the worker reports.'
+    )
+  }
   return (
     `tierminator: ${id} stopped at its turn limit on ${agentName(tier)} (resume ${resumes + 1} of ${MAX_RESUMES}). ` +
     `Call the SendMessage tool now with to "${to}", summary "${id}: resume after the turn limit", and as its ` +
@@ -295,7 +353,10 @@ function resumeText(state) {
 function turnLimitStop(state, turns) {
   const cur = state.current
   if (cur.resumes < MAX_RESUMES) {
-    return { state: { ...state, current: { ...cur, resumePending: true, turnLimited: { turns } } }, action: 'resume' }
+    return {
+      state: { ...state, current: { ...cur, resumePending: true, resumeFor: 'turn-limit', turnLimited: { turns } } },
+      action: 'resume',
+    }
   }
   return advance(state, {
     ok: false,
@@ -311,14 +372,19 @@ function checkResume(state, toolInput) {
   if (!state.current.inFlight || !state.current.resumePending) return 'no resume is due'
   const { agentId } = state.current
   if (agentId && toolInput?.to !== agentId) return `the resume goes to ${agentId}, not ${toolInput?.to}`
-  if (normalize(toolInput?.message) !== normalize(RESUME_MESSAGE)) return 'the message is not the expected one'
+  if (normalize(toolInput?.message) !== normalize(resumeMessage(state))) return 'the message is not the expected one'
   return null
 }
 
-// The state once the resume has been sent.
+// The state once the resume (or the report request) has been sent; only a resume is counted.
 const resumed = state => ({
   ...state,
-  current: { ...state.current, resumePending: false, resumes: state.current.resumes + 1 },
+  current: {
+    ...state.current,
+    resumePending: false,
+    resumeFor: null,
+    resumes: state.current.resumes + (state.current.resumeFor === 'report' ? 0 : 1),
+  },
 })
 
 function completeText(state) {
@@ -374,6 +440,10 @@ module.exports = {
   turnLimitOf,
   taskIdOf,
   RESUME_MESSAGE,
+  REPORT_MESSAGE,
+  resumeMessage,
+  shouldAsk,
+  askForReport,
   resumeText,
   turnLimitStop,
   checkResume,

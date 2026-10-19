@@ -80,6 +80,13 @@ reported after the second resume, the run stops at that task, and the cause is u
 one worker: split it and run `/tierminator:execute` again. A higher tier would use more turns, not fewer, so
 the task is not retried a tier up.
 
+### When a worker ends without its report
+
+A worker that finishes but forgets its closing report block is not retried at once. If Git shows the task
+done (one commit for the task and a clean working tree), it is accepted on its commit, and the run says so.
+Otherwise the worker is asked once for its report, with nothing reset. Only if it still has no report and no
+finished commit does the task fail and retry a tier up.
+
 ### The sizing review
 
 Before you approve a plan, tierminator may send it back to Claude once or twice because a task looks too

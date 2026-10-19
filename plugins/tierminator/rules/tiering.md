@@ -52,6 +52,8 @@ to `<plan>.tasks.json` and replaced by a task table. To change the tasks, write 
 - A worker that reaches its turn limit is resumed where it stopped, at most twice. If it still has not
   reported, the run stops at that task, leaving its work in place. It is never retried a tier up: a higher
   tier uses more turns, not fewer.
+- A worker that ends without its report is accepted when its commit shows the task done, else asked once
+  for its report, before any retry.
 
 ## Choosing a tier
 

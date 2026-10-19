@@ -234,6 +234,8 @@ test('an attempt is claimed once: the first claim of a key wins, a later one los
 test('the attempt key names the run, the task index and the attempt', () => {
   assert.equal(state.attemptKey({ runId: 'ab12', planId: 'p', current: { index: 2, attempt: 3 } }), 'ab12-2-3')
   assert.equal(state.attemptKey({ planId: 'p', current: { index: 0, attempt: 1 } }), 'p-0-1')
+  assert.equal(state.attemptKey({ runId: 'ab12', current: { index: 0, attempt: 1, asked: true } }), 'ab12-0-1-asked')
+  assert.equal(state.attemptKey({ runId: 'ab12', current: { index: 0, attempt: 1, asked: false } }), 'ab12-0-1')
 })
 
 test('remove clears the session\'s claims and leaves other sessions\' alone', () => {

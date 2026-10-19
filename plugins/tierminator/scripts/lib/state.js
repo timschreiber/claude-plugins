@@ -80,8 +80,10 @@ function remove(sessionId) {
   } catch {}
 }
 
-// The key of the attempt in flight: the run (runId, else planId), the task index and the attempt number.
-const attemptKey = s => `${s?.runId ?? s?.planId ?? 'run'}-${s?.current?.index}-${s?.current?.attempt}`
+// The key of the attempt in flight: the run (runId, else planId), the task index and the attempt number,
+// plus `-asked` once the worker was asked for its report, so its second stop is claimed and judged afresh.
+const attemptKey = s =>
+  `${s?.runId ?? s?.planId ?? 'run'}-${s?.current?.index}-${s?.current?.attempt}${s?.current?.asked ? '-asked' : ''}`
 
 // Claims the judging of an attempt, <session_id>.<key>.claim beside the state: a background worker's
 // hand-back (H1) and its SubagentStop (H4) arrive close together, in either order, and only the hook that
