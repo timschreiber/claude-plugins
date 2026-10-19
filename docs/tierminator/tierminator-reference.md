@@ -1227,7 +1227,7 @@ so an `opus` worker makes routine judgment calls itself and asks only when readi
 task conflicts with the code or a spec. The files an `opus` task names are a starting point, not a limit:
 its worker changes any other file the goal needs, such as a caller, a test or a config entry, and no more,
 and names each one, with why, in its `NOTE:`. Both are told to keep working until the task is done, to make
-independent tool calls together, and to run only narrow checks until the `Verify:` step. The agents differ
+independent tool calls together, to write files with their file tools, never shell heredocs, and to run only narrow checks until the `Verify:` step. The agents differ
 in frontmatter:
 
 | Frontmatter | Value |
