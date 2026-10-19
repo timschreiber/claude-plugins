@@ -30,7 +30,7 @@ test('each agent runs its tier: name, model, effort, maxTurns and no nested agen
     const [model, effort] = tier.split('-')
     const { fields } = read(tier)
     assert.equal(fields.name, tier)
-    assert.equal(fields.model, model, tier)
+    assert.equal(fields.model, tier.startsWith('haiku-') ? 'claude-haiku-5-5' : model, tier)
     assert.equal(fields.effort, effort, tier)
     assert.equal(Number(fields.maxTurns), MAX_TURNS[tier], tier)
     assert.deepEqual(fields.disallowedTools.split(',').map(s => s.trim()).sort(), ['Agent', 'Workflow'])
@@ -56,6 +56,11 @@ test('the sonnet bodies match each other and the opus bodies match each other, e
     assert.ok(body.startsWith('You execute one task'), `${tier} opening line`)
     assert.ok(!body.includes('You make no design decisions'), tier)
   }
+  const haikuBody = read('haiku-high').body
+  assert.ok(haikuBody.includes("run the task's `Verify:` step exactly as written"))
+  const start = haikuBody.indexOf('## Check your work')
+  assert.ok(start >= 0)
+  assert.equal(haikuBody.slice(0, start) + haikuBody.slice(haikuBody.indexOf('## Commit')), read('sonnet-medium').body)
   assert.ok(read(sonnet[0]).body.includes("don't choose"))
   assert.ok(read(opus[0]).body.includes('Make routine judgment calls yourself'))
   assert.ok(read(opus[0]).body.includes('The files it names are a starting point, not a limit'))

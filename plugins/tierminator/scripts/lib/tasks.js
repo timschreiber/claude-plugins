@@ -4,8 +4,11 @@
 
 // Sonnet stops at high, and work harder than sonnet/high goes to opus/medium: with Sonnet 5.5, opus/low
 // scores below sonnet/high and sonnet/xhigh below opus/medium or opus/high, and opus/xhigh adds little
-// over opus/high (tierminator-tier-findings.md). Haiku is not offered.
+// over opus/high (tierminator-tier-findings.md). Haiku 4.5 ignored effort and was dropped. Haiku 5.5 has
+// effort levels and is offered at high only, as the floor for fully given mechanical work (xhigh thinks
+// much longer and can end a turn with no visible text, which would lose the report).
 const ALLOWED = {
+  haiku: ['high'],
   sonnet: ['low', 'medium', 'high'],
   opus: ['medium', 'high'],
 }
@@ -13,6 +16,9 @@ const ALLOWED = {
 // Pairs that are accepted but run as another tier, the next one up (or the top). The rules never offer
 // them; if a plan asks for one anyway, it runs at the tier named here instead of being denied.
 const ALIASES = {
+  'haiku-low': { model: 'haiku', effort: 'high' },
+  'haiku-medium': { model: 'haiku', effort: 'high' },
+  'haiku-xhigh': { model: 'sonnet', effort: 'low' },
   'sonnet-xhigh': { model: 'opus', effort: 'medium' },
   'opus-low': { model: 'opus', effort: 'medium' },
   'opus-xhigh': { model: 'opus', effort: 'high' },
@@ -23,7 +29,7 @@ const ALIASES = {
 const TIERS = Object.entries(ALLOWED).flatMap(([model, efforts]) => efforts.map(e => `${model}-${e}`))
 // Each tier agent's maxTurns (agents/<tier>.md). Higher effort makes more tool calls on the same task,
 // so the limit grows with the tier (tierminator-agent-dispatch-findings.md, turn usage).
-const MAX_TURNS = { 'sonnet-low': 40, 'sonnet-medium': 60, 'sonnet-high': 100, 'opus-medium': 100, 'opus-high': 150 }
+const MAX_TURNS = { 'haiku-high': 50, 'sonnet-low': 40, 'sonnet-medium': 60, 'sonnet-high': 100, 'opus-medium': 100, 'opus-high': 150 }
 const tierOf = task => `${task.model}-${task.effort}`
 const nextTier = tier => {
   const i = TIERS.indexOf(tier)

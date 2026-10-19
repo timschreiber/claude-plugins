@@ -305,7 +305,7 @@ test('H2 denies with the errors and a way out, in the shape the spike proved', (
   assert.deepEqual(Object.keys(out).sort(), ['hookEventName', 'permissionDecision', 'permissionDecisionReason'])
   assert.equal(out.hookEventName, 'PreToolUse')
   assert.equal(out.permissionDecision, 'deny')
-  assert.match(out.permissionDecisionReason, /T01\.model: "fable" is not allowed; use sonnet or opus/)
+  assert.match(out.permissionDecisionReason, /T01\.model: "fable" is not allowed; use haiku, sonnet or opus/)
   assert.match(out.permissionDecisionReason, /call ExitPlanMode again/)
   assert.ok(out.permissionDecisionReason.includes(OPT_OUT))
   assert.ok(!out.permissionDecisionReason.includes('# tierminator: tiered plans'), 'rules only when the block is missing')

@@ -30,7 +30,7 @@ test('a valid plan parses to its tasks', () => {
 
 test('every allowed model/effort pair validates', () => {
   const pairs = [
-    ['sonnet', 'low'], ['sonnet', 'medium'], ['sonnet', 'high'],
+    ['haiku', 'high'], ['sonnet', 'low'], ['sonnet', 'medium'], ['sonnet', 'high'],
     ['opus', 'medium'], ['opus', 'high'],
   ]
   for (const [model, effort] of pairs) {
@@ -38,14 +38,15 @@ test('every allowed model/effort pair validates', () => {
   }
 })
 
-test('sonnet/xhigh and opus/low are accepted but run as opus/medium, and opus/xhigh as opus/high', () => {
+test('sonnet/xhigh and opus/low are accepted but run as opus/medium, opus/xhigh as opus/high, haiku/low and haiku/medium as haiku/high, and haiku/xhigh as sonnet/low', () => {
   const asked = [
     task(1, { effort: 'xhigh' }), task(2, { model: 'opus', effort: 'low' }), task(3, { model: 'opus', effort: 'xhigh' }), task(4),
+    task(5, { model: 'haiku', effort: 'low' }), task(6, { model: 'haiku', effort: 'medium' }), task(7, { model: 'haiku', effort: 'xhigh' }),
   ]
   assert.deepEqual(validate({ tasks: asked }), [])
   const r = parsePlan(plan({ tasks: asked }))
   assert.equal(r.ok, true)
-  assert.deepEqual(r.tasks.map(t => [t.model, t.effort]), [['opus', 'medium'], ['opus', 'medium'], ['opus', 'high'], ['sonnet', 'medium']])
+  assert.deepEqual(r.tasks.map(t => [t.model, t.effort]), [['opus', 'medium'], ['opus', 'medium'], ['opus', 'high'], ['sonnet', 'medium'], ['haiku', 'high'], ['haiku', 'high'], ['sonnet', 'low']])
   const table = renderSection(r.tasks, '/p.tasks.json', '0123456789abcdef').join('\n')
   assert.match(table, /\| T01 \| Task 1 \| opus \| medium \|/)
   assert.match(table, /\| T03 \| Task 3 \| opus \| high \|/)
@@ -53,10 +54,12 @@ test('sonnet/xhigh and opus/low are accepted but run as opus/medium, and opus/xh
 
 test('haiku, fable, max and unknown values are rejected with a message naming the choices', () => {
   const haiku = validate({ tasks: [task(1, { model: 'haiku', effort: 'default' })] })
-  assert.match(haiku[0], /T01\.model: "haiku" is not allowed; use sonnet or opus/)
+  assert.match(haiku[0], /"default" is not allowed for haiku; use high/)
+  const haikuMax = validate({ tasks: [task(1, { model: 'haiku', effort: 'max' })] })
+  assert.match(haikuMax[0], /"max" is not allowed for haiku; use high/)
   assert.match(validate({ tasks: [task(1, { effort: 'default' })] })[0], /"default" is not allowed for sonnet/)
   const fable = validate({ tasks: [task(1, { model: 'fable' })] })
-  assert.match(fable[0], /T01\.model: "fable" is not allowed; use sonnet or opus/)
+  assert.match(fable[0], /not allowed; use haiku, sonnet or opus/)
   assert.match(validate({ tasks: [task(1, { model: 'opus', effort: 'default' })] })[0], /"default" is not allowed for opus/)
   const max = validate({ tasks: [task(1, { effort: 'max' })] })
   assert.match(max[0], /T01\.effort: "max" is not allowed for sonnet; use low, medium or high/)
@@ -96,7 +99,7 @@ test('prompts must be non-empty and contain a Verify: step', () => {
 })
 
 test('all problems are reported together, not one at a time', () => {
-  const errors = validate({ tasks: [task(1, { model: 'haiku', prompt: 'x' }), task(3, { effort: 'max' })] })
+  const errors = validate({ tasks: [task(1, { model: 'gpt', prompt: 'x' }), task(3, { effort: 'max' })] })
   assert.ok(errors.length >= 3, errors.join('\n'))
 })
 
@@ -181,12 +184,14 @@ test('an empty or non-string plan is an error, not a crash', () => {
   }
 })
 
-test('the tier ladder runs sonnet, then opus, each by rising effort', () => {
+test('the tier ladder runs haiku, then sonnet, then opus, each by rising effort', () => {
   assert.deepEqual(TIERS, [
-    'sonnet-low', 'sonnet-medium', 'sonnet-high',
+    'haiku-high', 'sonnet-low', 'sonnet-medium', 'sonnet-high',
     'opus-medium', 'opus-high',
   ])
   assert.equal(tierOf(task(1, { model: 'opus', effort: 'high' })), 'opus-high')
+  assert.equal(nextTier('haiku-high'), 'sonnet-low')
+  assert.equal(nextTier('haiku-medium'), null, 'an alias, not a tier')
   assert.equal(nextTier('sonnet-low'), 'sonnet-medium')
   assert.equal(nextTier('sonnet-high'), 'opus-medium')
   assert.equal(nextTier('sonnet-xhigh'), null, 'an alias, not a tier')
