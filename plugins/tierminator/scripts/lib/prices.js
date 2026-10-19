@@ -1,10 +1,12 @@
 // Model prices for tierminator's spend estimates, in USD per million tokens, per category. Each category
-// has its own price because the multipliers differ by model (cache reads on Opus 5.5 are 0.05x its input
-// price, not the usual 0.1x). From Anthropic's pricing page; see probes/evidence/planandtier-pricing.json.
+// has its own price because the multipliers differ by model (cache reads on Opus 5.5 and Sonnet 5.5 are
+// 0.05x their input price, not the usual 0.1x). Haiku 5.5 is priced per request by prompt length (costOf
+// is called per message, which is one request). From Anthropic's pricing page; see
+// probes/evidence/planandtier-pricing.json.
 // To update: change the table and AS_OF together, and add the new page to the evidence file.
 'use strict'
 
-const AS_OF = '2026-09-28'
+const AS_OF = '2026-10-19'
 const SOURCE = 'https://platform.claude.com/docs/en/about-claude/pricing'
 
 const row = (input, cacheWrite5m, cacheWrite1h, cacheRead, output) => ({ input, cacheWrite5m, cacheWrite1h, cacheRead, output })
@@ -17,32 +19,50 @@ const PRICES = {
   'claude-opus-4-7': row(5, 6.25, 10, 0.5, 25),
   'claude-opus-4-6': row(5, 6.25, 10, 0.5, 25),
   'claude-opus-4-5': row(5, 6.25, 10, 0.5, 25),
-  'claude-sonnet-5-5': row(2, 2.5, 4, 0.2, 10),
+  'claude-sonnet-5-5': row(2, 2.5, 4, 0.1, 10),
   'claude-sonnet-5': row(2, 2.5, 4, 0.2, 10),
   'claude-sonnet-4-6': row(3, 3.75, 6, 0.3, 15),
   'claude-sonnet-4-5': row(3, 3.75, 6, 0.3, 15),
   'claude-haiku-4-5': row(1, 1.25, 2, 0.1, 5),
+  'claude-haiku-5-5': row(0.1, 0.125, 0.2, 0.01, 0.5),
 }
+// Models priced per request by prompt length: a request whose prompt (input + cache writes + cache reads)
+// is over `over` tokens pays `prices`.
+const LONG_PROMPT = { 'claude-haiku-5-5': { over: 100000, prices: row(0.5, 0.625, 1, 0.05, 2.5) } }
 // US-only inference (inference_geo "us") costs 1.1x in every category.
 const GEO_US = 1.1
 
 // The price row for a model id: the longest table key the id starts with, where the next character is
 // not a digit (so "claude-opus-5-5" never matches "claude-opus-5", and a dated id like
 // "claude-haiku-4-5-20251001" matches "claude-haiku-4-5"). null when there is none.
-function priceFor(model) {
+function keyFor(model) {
   const id = String(model ?? '')
   const key = Object.keys(PRICES)
-    .filter(k => id.startsWith(k) && !/\d/.test(id.charAt(k.length)))
+    .filter(k => id.startsWith(k) && !/[0-9]/.test(id.charAt(k.length)))
     .sort((a, b) => b.length - a.length)[0]
+  return key ?? null
+}
+
+function priceFor(model) {
+  const key = keyFor(model)
   return key ? PRICES[key] : null
+}
+
+// True when the model is priced by prompt length.
+function hasPromptTiers(model) {
+  const key = keyFor(model)
+  return key !== null && Object.prototype.hasOwnProperty.call(LONG_PROMPT, key)
 }
 
 // USD for `tokens` ({input, output, cacheWrite5m, cacheWrite1h, cacheRead}) on `model`, or null when the
 // model has no price.
 function costOf(model, tokens, geo = null) {
-  const p = priceFor(model)
-  if (!p) return null
+  const key = keyFor(model)
+  if (!key) return null
+  let p = PRICES[key]
   const t = tokens ?? {}
+  const tier = LONG_PROMPT[key]
+  if (tier && (t.input ?? 0) + (t.cacheWrite5m ?? 0) + (t.cacheWrite1h ?? 0) + (t.cacheRead ?? 0) > tier.over) p = tier.prices
   const usd =
     ((t.input ?? 0) * p.input +
       (t.output ?? 0) * p.output +
@@ -53,4 +73,4 @@ function costOf(model, tokens, geo = null) {
   return geo === 'us' ? usd * GEO_US : usd
 }
 
-module.exports = { AS_OF, SOURCE, PRICES, priceFor, costOf }
+module.exports = { AS_OF, SOURCE, PRICES, LONG_PROMPT, priceFor, hasPromptTiers, costOf }
