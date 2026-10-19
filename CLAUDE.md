@@ -10,7 +10,7 @@ cataloged in `.claude-plugin/marketplace.json`:
 - `denoizinator-net`: a `PreToolUse` hook that rewrites `dotnet`/`msbuild`
   commands in-flight to add quiet flags, so verbose build/test output never
   enters Claude's context.
-- `tierminator`: hooks and five tier agents (`<model>-<effort>`) that turn an
+- `tierminator`: hooks and six tier agents (`<model>-<effort>`, the floor being haiku-high) that turn an
   approved plan-mode plan into serial subagent execution, each task at the
   model and effort chosen during planning and committed by its worker, with
   failed attempts reset and retried a tier up. A worker that reaches its

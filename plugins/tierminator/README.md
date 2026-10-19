@@ -36,6 +36,20 @@ Requirements:
 
 Tested on Claude Code 2.1.283.
 
+### Haiku on Bedrock, Google Cloud and Foundry
+
+The `haiku-high` tier runs Claude Haiku 5.5. Its agent pins the exact model id `claude-haiku-5-5`, because the
+`haiku` alias resolves to Haiku 4.5 on Amazon Bedrock, Google Cloud and Microsoft Foundry.
+
+- **Bedrock and Google Cloud:** Claude Code maps the Anthropic id to the provider id for `--model` and
+  environment variables. That is not documented for subagent frontmatter, and it is not tested here.
+- **Foundry:** add a `modelOverrides` entry to your Claude Code settings:
+  `{"claude-haiku-5-5": "<deployment name>"}`.
+- **If the model does not resolve,** the Agent call fails. That counts as a failed attempt and the task
+  retries on `sonnet-low`, so the tier then only costs a turn.
+- **To check which model ran:** the spend summary shows a `haiku-high` row, and the `models` field in the
+  telemetry file shows the model that ran.
+
 ## How to use
 
 1. **Commit or stash your changes.** Starting to plan, and later approving a tiered plan, need a clean
@@ -67,7 +81,7 @@ Tested on Claude Code 2.1.283.
 
 ### When a task fails
 
-It is retried, twice at most, each time one tier up (`sonnet` from `low` to `high`, then `opus` at
+It is retried, twice at most, each time one tier up (`haiku-high`, then `sonnet` from `low` to `high`, then `opus` at
 `medium` and `high`). Before each retry the working tree is reset to the commit before the
 task, so earlier tasks' commits are kept. If the second retry fails too, or a task fails at `opus` /
 `high`, the run stops, and the last attempt's changes stay in the working tree for you to inspect.
@@ -208,7 +222,8 @@ Task commits carry `Tierminator-Task:` and `Tierminator-Plan:` lines in the mess
 
 | Tier | Meant for |
 |---|---|
-| `sonnet` / `low` | Fully given work: literal find-and-replace edits, a new file with its exact content, or a checked rename |
+| `haiku` / `high` | The floor, for literal mechanical work: find-and-replace pairs, a new file with its exact content, or a checked rename |
+| `sonnet` / `low` | The step a failed `haiku-high` task retries on |
 | `sonnet` / `medium` | The baseline: fully specified work |
 | `sonnet` / `high` | Fully specified but intricate work, including across several files |
 | `opus` / `medium` | The baseline for judgment: work the plan cannot pin down |
@@ -220,7 +235,9 @@ benchmarks for Sonnet 5.5, Opus 5.5 at `low` scores below Sonnet 5.5 at `high` a
 over it to earn a tier. Sonnet 5.5 at `xhigh` scores no better than Opus 5.5 at `medium` or `high` and
 costs as much or more, and Opus at `xhigh` adds little over `high`. A plan that asks for `sonnet` / `xhigh`
 or `opus` / `low` anyway runs it at `opus` / `medium`, and `opus` / `xhigh` runs at `opus` / `high`.
-Haiku is not offered: it doesn't follow instructions reliably enough for coding work.
+A plan that asks for `haiku` at `low` or `medium` runs it at `high`, and at `xhigh` runs it as `sonnet` / `low`.
+The `haiku-high` agent pins the exact model id `claude-haiku-5-5` (Claude Haiku 5.5), not the `haiku` alias,
+because the alias resolves to Haiku 4.5 on Amazon Bedrock, Google Cloud and Microsoft Foundry.
 
 Each tier is its own agent, `tierminator:<model>-<effort>`, with the model and effort set in its
 definition. Workers cannot start agents or workflows.
