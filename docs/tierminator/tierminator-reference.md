@@ -342,13 +342,14 @@ A task can depend only on earlier tasks, so tasks are ordered accordingly.
 
 ## Model and effort tiers
 
-Five tiers are allowed. Each is also the name of the agent that runs it, `tierminator:<model>-<effort>`.
+Six tiers are allowed. Each is also the name of the agent that runs it, `tierminator:<model>-<effort>`.
 The rules tell Claude to favor the smallest model and effort that will get the job done:
 
-1. Pick the model by the kind of work: `sonnet` for fully specified work, `opus` for work that needs
-   judgment or is too intricate and wide for `sonnet`.
-2. Start at `medium` effort, the baseline for both models. For `sonnet`, lower it for a task that is
-   easier or simpler than the baseline, and raise it for one that is harder or more complex. For `opus`,
+1. Pick the model by the kind of work: `haiku` for literal mechanical work, `sonnet` for fully specified
+   work, `opus` for work that needs judgment or is too intricate and wide for `sonnet`.
+2. `haiku` runs only at `high`. Start `sonnet` at `medium` effort, the baseline for both `sonnet` and
+   `opus`: raise it for a task that is harder or more complex. The planner does not choose `sonnet` /
+   `low`, which is the retry rung after `haiku` / `high`, though a plan may still use it. For `opus`,
    raise it to `high` for the hardest work; `opus` has no lower effort.
 3. Past `sonnet` / `high`, go to `opus` / `medium`: `sonnet` stops at `high`, and `opus` starts at
    `medium`.
@@ -358,7 +359,8 @@ than one that is too big.
 
 | Tier | Use for |
 |---|---|
-| `sonnet` / `low` | Easier than the baseline: fully given work, such as literal find-and-replace pairs, a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
+| `haiku` / `high` | The floor: fully given work, such as literal find-and-replace pairs, a new file whose exact content is in the prompt, or a rename whose complete set of references the planner has checked. Full rules below. |
+| `sonnet` / `low` | Retry rung only: the planner does not choose it, and a failed `haiku` / `high` task retries here. A plan may still use it. |
 | `sonnet` / `medium` | **The baseline.** Fully specified work: names, signatures, behavior and test cases are all in the prompt. |
 | `sonnet` / `high` | Harder than the baseline: fully specified but intricate work, such as parsers, state machines, numeric code, many edge cases, including interacting edge cases across several files. |
 | `opus` / `medium` | **The baseline for judgment work.** Judgment the plan cannot pin down: a well-defined change in unfamiliar code that the prompt cannot fully describe, unfamiliar library internals, poorly documented APIs, debugging a known failure. |
@@ -375,27 +377,38 @@ three and gains 2 points on the third for about twice the cost. So `opus-low` an
 dropped, as `sonnet-xhigh` had been against Sonnet 5. The data is Anthropic's own. See
 [`tierminator-tier-findings.md`](tierminator-tier-findings.md).
 
+**Why a Haiku floor.** Literal work, such as find-and-replace pairs or a new file with its exact content,
+leaves the worker nothing to decide, so the cheapest model can do it. Haiku 5.5 at `high` is that floor.
+It can report work done without checking it, so its agent has a "Check your work" section, and the rules
+require its `Verify:` to be one exact command. A failed attempt retries on `sonnet` / `low`.
+
 **Dropped pairs are aliases.** The rules never offer them, but a plan that asks for one is not denied: the
-parser replaces it with the next tier up. `sonnet` / `xhigh` and `opus` / `low` become `opus` / `medium`,
-and `opus` / `xhigh` becomes `opus` / `high`, so the table in the approval dialog, the dispatch and the
+parser replaces it with another tier. `sonnet` / `xhigh` and `opus` / `low` become `opus` / `medium`,
+`opus` / `xhigh` becomes `opus` / `high`, `haiku` / `low` and `haiku` / `medium` become `haiku` / `high`,
+and `haiku` / `xhigh` becomes `sonnet` / `low`, so the table in the approval dialog, the dispatch and the
 retries all use the replacement. Saved tasks files are parsed the same way, so a plan saved before a pair
 was dropped still runs. The aliases are in `ALIASES` in `lib/tasks.js`.
 
-**Not allowed:** Haiku, the `max` effort, and Fable. Haiku was removed because, in the user's experience,
-it does not follow instructions reliably and too often does its own thing on coding work. The published
-coding results agree: 25.5 against Sonnet 5's 88.2 on Scale's SWE-Bench Pro V2, and 17 against Sonnet 5
-at `low`'s 24 on the Artificial Analysis index (`planandtier-tier-research.json`).
+**Haiku 4.5 was removed; Haiku 5.5 is allowed at `high` only.** Haiku 4.5 ignored effort and, in the user's
+experience, did not follow instructions reliably and too often did its own thing on coding work. The
+published coding results agree: 25.5 against Sonnet 5's 88.2 on Scale's SWE-Bench Pro V2, and 17 against
+Sonnet 5 at `low`'s 24 on the Artificial Analysis index (`planandtier-tier-research.json`). Haiku 5.5 has
+effort levels, and `high` is Anthropic's pick for strict instruction following
+(`planandtier-haiku-5-5-docs.json`). `xhigh` is not offered: it thinks long, and it can end a turn with no
+visible text. The `max` effort and Fable are not allowed, nor are the other Haiku efforts.
 
-**The retry ladder** is the table's order: `sonnet` from `low` to `high`, then `opus` at `medium` and
-`high`.
+**The retry ladder** is the table's order: `haiku` at `high`, `sonnet` from `low` to `high`, then `opus` at
+`medium` and `high`. With two retries, a `haiku` task halts after `sonnet` / `medium`.
 
 The allowed tiers are defined in three places that must be kept in step: `ALLOWED` in `lib/tasks.js`,
 which enforces them and derives `TIERS`, the agents in `agents/`, and `rules/tiering.md`, which tells
 Claude about them. `agents.test.js` checks the first two against each other.
 
-### `sonnet` / `low`: fully given work
+### `haiku` / `high`: fully given work
 
-Work whose result is fully written out in the prompt. There are three kinds.
+Work whose result is fully written out in the prompt. There are three kinds. Whatever the kind, the
+task's `Verify:` is one exact command, written out in the prompt, that fails if the task is incomplete
+(a named test run or a repo-wide grep), and the task changes at most 3 files.
 
 **Find-and-replace.** Extremely mechanical work, expressed as one or more literal find-and-replace pairs.
 For each edit, the task's prompt states the exact file, the exact existing text to match (`old_str`), and
@@ -1100,10 +1113,10 @@ it:
 A task that may be too large for one worker is sent back to the planner before the plan is approved
 (`lib/sizing.js`). These are guidelines: a task is flagged when it
 
-- is a `sonnet` task with no `Files to change:` line, or one that lists more than 4 files (`MAX_FILES`).
+- is a `haiku` or `sonnet` task with no `Files to change:` line, or one that lists more than 4 files (`MAX_FILES`).
   An `opus` task's line lists only the files the planner expects, and its worker may change others, so
   neither is checked for it;
-- has a prompt over 4,000 characters for `sonnet` or 5,000 for `opus` (`MAX_PROMPT`);
+- has a prompt over 3,000 characters for `haiku`, 4,000 for `sonnet` or 5,000 for `opus` (`MAX_PROMPT`);
 - has "and", "then" or ";" in its title.
 
 The planner splits a flagged task, or keeps it by adding a line `Keep T03: <why it stays one task>` to the
@@ -1202,12 +1215,14 @@ State writes are atomic (a temp file, then a rename). The top-level `resultWritt
 
 ## The tier agents
 
-[`agents/`](../../plugins/tierminator/agents/) holds five plugin agents, one per tier, named
+[`agents/`](../../plugins/tierminator/agents/) holds six plugin agents, one per tier, named
 `<model>-<effort>` and run as `tierminator:<model>-<effort>`. They share the commit and
-report parts of the body (above) and have two versions of the rest, by model, because the two kinds of task
+report parts of the body (above) and have three versions of the rest, by model, because the kinds of task
 differ. The prompt of a `sonnet` task is a contract (exact names, behavior and test cases), so a `sonnet`
 worker makes only small local choices and reports `FAILED` with a question when a choice would change the
-result materially. The prompt of an `opus` task gives the goal, the constraints and the acceptance criteria,
+result materially. The `haiku` body is the `sonnet` one plus a "Check your work" section: the worker runs
+the `Verify:` step exactly as written, never reports `DONE` without having run it, and names the command
+in its `NOTE:`. The prompt of an `opus` task gives the goal, the constraints and the acceptance criteria,
 so an `opus` worker makes routine judgment calls itself and asks only when readings differ materially or the
 task conflicts with the code or a spec. The files an `opus` task names are a starting point, not a limit:
 its worker changes any other file the goal needs, such as a caller, a test or a config entry, and no more,
@@ -1217,10 +1232,19 @@ in frontmatter:
 
 | Frontmatter | Value |
 |---|---|
-| `model` | `sonnet` or `opus` |
+| `model` | `claude-haiku-5-5` for `haiku` (an id, not the alias; see below), else `sonnet` or `opus` |
 | `effort` | The tier's effort |
-| `maxTurns` | 40, 60 and 100 for `sonnet` at `low`, `medium` and `high`; 100 and 150 for `opus` at `medium` and `high` (`MAX_TURNS` in `lib/tasks.js`) |
+| `maxTurns` | 50 for `haiku` at `high`; 40, 60 and 100 for `sonnet` at `low`, `medium` and `high`; 100 and 150 for `opus` at `medium` and `high` (`MAX_TURNS` in `lib/tasks.js`) |
 | `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows |
+
+### Haiku on Bedrock, Google Cloud and Foundry
+
+The `haiku-high` agent pins `model: claude-haiku-5-5`, not the `haiku` alias, because the `haiku` alias
+resolves to Haiku 4.5 on Bedrock, Google Cloud and Foundry. Claude Code resolves an Anthropic id to the
+provider id on Bedrock and Google Cloud for `--model` and environment variables; this is not documented
+for subagent frontmatter and was not tested here. Foundry needs a `modelOverrides` entry,
+`{"claude-haiku-5-5": "<deployment name>"}`. A model that does not resolve fails the Agent call, which is a
+failed attempt that retries on `sonnet` / `low`.
 
 Workers inherit the session's permission mode and get the project's `CLAUDE.md` automatically. The
 worker's rules replace any git instructions in the project's instruction files for the length of the task.
@@ -1322,7 +1346,7 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 plugins/tierminator/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
-  agents/<model>-<effort>.md     # the five tier agents, one shared body
+  agents/<model>-<effort>.md     # the six tier agents, one shared body
   hooks/hooks.json               # H1-H7 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   skills/plan/SKILL.md           # /tierminator:plan (user-only; H1 starts planning, the body passes $ARGUMENTS)
