@@ -4,7 +4,7 @@
 'use strict'
 
 const MAX_FILES = 4
-const MAX_PROMPT = { sonnet: 4000, opus: 5000 }
+const MAX_PROMPT = { haiku: 3000, sonnet: 4000, opus: 5000 }
 const MAX_REVIEWS = 2
 
 const thousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')

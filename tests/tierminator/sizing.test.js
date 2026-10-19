@@ -23,7 +23,7 @@ const promptOf = len => {
 
 test('the limits', () => {
   assert.equal(MAX_FILES, 4)
-  assert.deepEqual(MAX_PROMPT, { sonnet: 4000, opus: 5000 })
+  assert.deepEqual(MAX_PROMPT, { haiku: 3000, sonnet: 4000, opus: 5000 })
   assert.equal(MAX_REVIEWS, 2)
 })
 
@@ -80,6 +80,21 @@ test('flags: prompt length, at and just over the limit for each model', () => {
       `${model} over the limit`
     )
   }
+})
+
+test('flags: a haiku task over 3000 characters is flagged, at 3000 is not', () => {
+  assert.deepEqual(flags(task(1, { model: 'haiku', prompt: promptOf(3000) })), [])
+  assert.deepEqual(flags(task(1, { model: 'haiku', prompt: promptOf(3001) })), [
+    'has a 3,001-character prompt (guideline: at most 3000 for haiku)',
+  ])
+})
+
+test('flags: a sonnet task of 3001 characters is not flagged for length', () => {
+  assert.deepEqual(flags(task(1, { model: 'sonnet', prompt: promptOf(3001) })), [])
+})
+
+test('flags: a haiku task with no Files to change line', () => {
+  assert.deepEqual(flags(task(1, { model: 'haiku', prompt: 'Do it. Verify: x' })), ['has no "Files to change:" line'])
 })
 
 test('flags: "and", "then" or ";" in the title', () => {
