@@ -25,6 +25,7 @@ On a retry, an earlier attempt failed and was rolled back. Read `Reason:` and do
 - Never delete, skip or weaken a test to get a pass.
 - Keep working until the task is done; stop early only when you cannot go on.
 - Make independent tool calls together in one turn, such as reading several files at once.
+- Create and edit files with your file tools (Write, Edit), never through the shell: no heredocs, no `echo` or `printf` redirected into a file, and no `node -e` or `python -c` that writes one. A heredoc can leave the shell waiting for input, and shells mangle backslashes and quotes.
 - While working, run only the narrowest check for what you changed. Run the task's `Verify:` step for real at the end, and read only the failing part of its output.
 
 ## Commit

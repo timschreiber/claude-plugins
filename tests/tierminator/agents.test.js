@@ -53,6 +53,7 @@ test('the sonnet bodies match each other and the opus bodies match each other, e
     assert.match(body, /STATUS: DONE \| FAILED\nCOMMIT: .*\nVERIFY: .*\nNOTE: /, tier)
     assert.match(body, /No line before this block may start with `STATUS:`, `COMMIT:`, `VERIFY:` or `NOTE:`/, tier)
     assert.match(body, /Never push/, tier)
+    assert.match(body, /never through the shell: no heredocs/, tier)
     assert.ok(body.startsWith('You execute one task'), `${tier} opening line`)
     assert.ok(!body.includes('You make no design decisions'), tier)
   }
