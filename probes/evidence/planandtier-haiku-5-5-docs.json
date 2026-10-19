@@ -1,0 +1,28 @@
+{
+  "generated": "2026-10-19",
+  "sources": [
+    "https://platform.claude.com/docs/en/build-with-claude/effort",
+    "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5",
+    "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+    "https://code.claude.com/docs/en/model-config",
+    "https://code.claude.com/docs/en/sub-agents",
+    "https://www.anthropic.com/claude-haiku-5-5"
+  ],
+  "quotes": [
+    "Claude Haiku 5.5 supports all five effort levels, and `medium` is the default.",
+    "Use `high` for knowledge work, longer agent tasks, and strict instruction following.",
+    "In long agent prompts, the model is more likely to skip a search, stop early, or skip a check at `low`.",
+    "At `low` and `medium` effort, Claude Haiku 5.5 sometimes reports a code change as done without running a check.",
+    "At `xhigh` effort in multi-turn chats, the model sometimes writes its whole answer in its thinking and ends the turn with no visible text.",
+    "Claude Haiku 5.5 is the first Haiku model with effort levels.",
+    "v2.1.293 | `haiku` resolves to Haiku 5.5 on the Anthropic API",
+    "Earlier | ... `haiku` resolves to Haiku 4.5 on every provider",
+    "On Amazon Bedrock, Google Cloud's Agent Platform, and Mantle, an Anthropic model ID with no `modelOverrides` entry resolves to the same provider-specific ID as the `/model` picker row for that version, when the provider supports that version.",
+    "model: Model to use: `sonnet`, `opus`, `haiku`, `fable`, a full model ID such as `claude-opus-5-5`, or `inherit`."
+  ],
+  "notVerified": [
+    "The benchmark figures (Terminal-Bench 4.0: Haiku 5.5 39.2% against Sonnet 5.5 70.6%; FrontierCode 1.1: 46.4% against 52.1%; the Haiku effort used is not stated) came from a summarizing fetch.",
+    "Quote 9 (model ID resolution on Bedrock, Agent Platform and Mantle) is documented for --model and the environment variables, not for subagent frontmatter.",
+    "The Bedrock behavior of a pinned id was not tested."
+  ]
+}

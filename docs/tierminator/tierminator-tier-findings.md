@@ -101,3 +101,29 @@ SWE-Bench Pro V2, Sonnet 5 at `xhigh` scored 88.2 against Opus 5's 98.0.
   so the findings above do not depend on it.
 - **Public benchmarks are long, hard tasks.** tierminator's tasks are smaller and fully specified, where the
   gaps between tiers are usually smaller.
+
+## Haiku 5.5 (2026-10-19)
+
+Haiku 5.5 is the first Haiku model with effort levels. The docs say it supports all five, with `medium` as
+the default. They recommend `high` for knowledge work, longer agent tasks and strict instruction following.
+At `low`, in long agent prompts, it is more likely to skip a search, stop early or skip a check. At `low` and
+`medium` it sometimes reports a code change as done without running a check. At `xhigh` in multi-turn chats it
+sometimes writes its whole answer in its thinking and ends the turn with no visible text. This is desk
+research from the docs, not a measurement of tierminator's own tasks. Evidence, with the verbatim quotes:
+`probes/evidence/planandtier-haiku-5-5-docs.json`.
+
+- **Only `haiku-high` is offered.** The earlier objection to Haiku was that it did not follow instructions
+  reliably, and `high` is the level the docs name for strict instruction following. `xhigh` risks long
+  thinking and an empty reply, and `medium` and `low` skip checks, which tierminator's workers must run
+  before they commit.
+- **The alias moved.** `haiku` resolves to Haiku 5.5 on the Anthropic API from v2.1.293, and to Haiku 4.5 on
+  every provider before that. On Amazon Bedrock, Google Cloud's Agent Platform and Mantle, a model ID with
+  no `modelOverrides` entry resolves to the provider-specific ID of the `/model` picker row for that
+  version, when the provider supports it. The sub-agents docs list `haiku` and a full model ID such as
+  `claude-opus-5-5` as accepted values for `model`. The agent therefore pins the exact id, so an older
+  client or another provider cannot run it as Haiku 4.5. The resolution rule is documented for `--model`
+  and the environment variables, not for subagent frontmatter, and the Bedrock behavior of a pinned id was
+  not tested.
+- **The benchmark gap is large.** A summarizing fetch of the launch page gave Terminal-Bench 4.0 at 39.2%
+  for Haiku 5.5 against 70.6% for Sonnet 5.5, and FrontierCode 1.1 at 46.4% against 52.1%. The Haiku effort
+  used is not stated, and the figures were not read from the page itself, so treat them as indicative.
