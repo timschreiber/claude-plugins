@@ -170,6 +170,16 @@ test('the estimate uses the latest planning record that names a main model', () 
   assert.equal(t.mainAgentEstimate(records, ID).model, OPUS)
 })
 
+test('the estimate is declined for a planning model priced by prompt length', () => {
+  const withMain = mainModel => estRecords().map(r => (r.kind === 'planning' ? { ...r, mainModel } : r))
+  const haiku = t.mainAgentEstimate(withMain('claude-haiku-5-5'), ID)
+  assert.equal(haiku.costUsd, null)
+  assert.match(haiku.reason, /priced by prompt length/)
+  const opus = t.mainAgentEstimate(withMain(OPUS), ID)
+  assert.equal(opus.reason, null)
+  assert.ok(opus.costUsd > 0)
+})
+
 test('the estimate says why it could not be made', () => {
   const why = records => {
     const e = t.mainAgentEstimate(records, ID)

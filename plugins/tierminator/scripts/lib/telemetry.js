@@ -12,7 +12,7 @@
 const fs = require('fs')
 const path = require('path')
 const state = require('./state.js')
-const { AS_OF, costOf, priceFor } = require('./prices.js')
+const { AS_OF, costOf, priceFor, hasPromptTiers } = require('./prices.js')
 const { TIERS } = require('./tasks.js')
 
 // The telemetry file for a plan file, or the session's own when there is no plan file.
@@ -148,6 +148,7 @@ function planningFor(records, { planId, runId }) {
 // added by re-reading its context (the run's start context, plus what earlier tasks added, less what this
 // task's worker started with) on each of the task's messages. Returns {model, costUsd, total,
 // extraCacheRead, reason}; reason is null on success, else a short phrase and the numbers are null.
+// A model priced per request by prompt length is declined, since an attempt's totals cannot show each request's tier.
 function mainAgentEstimate(allRecords, { planId, runId }) {
   const records = dedupe(allRecords)
   const planning = planningFor(records, { planId, runId })
@@ -158,6 +159,7 @@ function mainAgentEstimate(allRecords, { planId, runId }) {
   const model = latest?.mainModel ?? modelsOf(planning)[0] ?? null
   if (!model) return fail(null, 'no planning model')
   if (!priceFor(model)) return fail(model, `${model} is unpriced`)
+  if (hasPromptTiers(model)) return fail(model, `${model} is priced by prompt length, which an attempt's totals cannot show`)
   const run = records.find(r => r.kind === 'run' && r.runId === runId)
   const C = run?.contextTokens
   if (typeof C !== 'number') return fail(model, 'no context size for the run')
