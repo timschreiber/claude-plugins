@@ -3,6 +3,8 @@
 // PROBE_LOG: the log file (default: tierminator-parallel-probe/probe.log in the temp directory).
 // PROBE_BASE: the commit every new worktree starts from.
 // PROBE_WT_DIR: the parent directory of the worktrees.
+// PROBE_WT_MODE: decline makes wt-create fail without creating anything, to see what Claude Code does
+// when a WorktreeCreate hook cannot make the worktree.
 // A WorktreeCreate hook replaces Claude Code's own worktree creation, so wt-create makes the worktree
 // itself with git and must print the new path as the last stdout line. wt-remove only logs (the docs
 // say Claude Code does not run it for subagents).
@@ -46,6 +48,12 @@ async function main() {
   }
 
   if (tag !== 'wt-create') return 0
+
+  if (tag === 'wt-create' && process.env.PROBE_WT_MODE === 'decline') {
+    log({ tag: 'wt-create:declined' })
+    process.stderr.write('probe: declining to create a worktree\n')
+    return 1
+  }
 
   const name = String(input.name || '').replace(/[^A-Za-z0-9._-]/g, '-')
   const base = process.env.PROBE_BASE

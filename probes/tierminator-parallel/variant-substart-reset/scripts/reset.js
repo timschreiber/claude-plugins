@@ -3,6 +3,7 @@
 // before the subagent's first turn.
 // PROBE_LOG: the log file (default: probe.log in the tierminator-parallel-probe temp directory).
 // PROBE_BASE: the commit to reset to. Without it, nothing is touched.
+// PROBE_RESET_DELAY_MS: sleep this long (ms) before the reset, to test whether Claude Code waits for the hook.
 'use strict'
 
 const fs = require('fs')
@@ -62,7 +63,9 @@ async function main() {
 
   const startedAt = new Date().toISOString()
   const before = out(git(cwd, ['rev-parse', 'HEAD']))
-  const r = git(cwd, ['reset', '--hard', '-q', base])
+  const delayMs = Number(process.env.PROBE_RESET_DELAY_MS) || 0
+  if (delayMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs)
+  const r =git(cwd, ['reset', '--hard', '-q', base])
   const after = out(git(cwd, ['rev-parse', 'HEAD']))
   const endedAt = new Date().toISOString()
   log({
@@ -76,6 +79,7 @@ async function main() {
     stderr: r.stderr,
     startedAt,
     endedAt,
+    delayMs,
   })
 }
 
