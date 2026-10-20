@@ -1,5 +1,7 @@
 # WP-16 · Telemetry and display
 
+> **Mostly deferred 2026-10-20.** The one fix needed for correct spend, `recordAttempt` and `outcomeOf` reading the slot instead of `state.current`, moved into WP-09's audit. Spend already attributes by agent id. The run lines, the speed-up summary and the new telemetry fields wait for a later release.
+
 ```text
 Work package WP-16 · Telemetry and display
 Spec: docs/tierminator/tierminator-parallel-spec.md

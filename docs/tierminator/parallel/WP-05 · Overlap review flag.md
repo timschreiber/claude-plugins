@@ -1,5 +1,7 @@
 # WP-05 · Overlap review flag
 
+> **Deferred 2026-10-20: not part of the first release.** With a conflicting pick handled by running the task again serially (spec, "Conflicts"), a missed overlap costs one redo, so the planner review round and the `Files to change:` parsing wait. Kept as written for later.
+
 ```text
 Work package WP-05 · Overlap review flag
 Spec: docs/tierminator/tierminator-parallel-spec.md

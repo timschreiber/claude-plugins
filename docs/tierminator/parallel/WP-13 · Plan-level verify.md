@@ -1,5 +1,7 @@
 # WP-13 · Plan-level verify
 
+> **Partly deferred 2026-10-20.** Running verify after the picks and halting on a failure moved into WP-11 (and `TIERMINATOR_VERIFY_TIMEOUT` is dropped in favor of the hook timeout). What remains here, sending the resolver in once to repair a failed verify, goes with WP-12 and is deferred; it assumed the integration worktree and the resolver.
+
 ```text
 Work package WP-13 · Plan-level verify
 Spec: docs/tierminator/tierminator-parallel-spec.md

@@ -1,5 +1,7 @@
 # WP-12 · Conflict resolver
 
+> **Deferred 2026-10-20: not part of the first release.** The first release has no resolver: a conflicting pick is aborted and the task is run again serially (WP-11, spec "Conflicts"). This package stays as the design for adding one if the conflict count in the summaries shows it would pay off. It was written for an integration worktree that the settled design no longer has; re-plan it before use (the resolver would need a worktree made like the slot worktrees, with the pick in progress, and the `Worktree:` rules of WP-09).
+
 ```text
 Work package WP-12 · Conflict resolver
 Spec: docs/tierminator/tierminator-parallel-spec.md

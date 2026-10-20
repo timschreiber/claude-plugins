@@ -8,7 +8,7 @@ Before planning, re-read CLAUDE.md, AGENTS.md if present, and docs/tierminator/t
 
 Goal: several hook processes can change one session's run state without losing an update.
 
-Depends on: WP-02.
+Depends on: none (the lost-update probe P3b was dropped; the concurrent-process test below proves the race).
 Spec sections: State (the state lock); Judging a task; Risks.
 
 Scope:
