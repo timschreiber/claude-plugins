@@ -320,11 +320,12 @@ asks for permission for a path outside the project, so these cells are not cover
 
 ## Recommendation
 
-**M1, with `worktree.baseRef: "head"` supplied through `--settings`.** Both M1 and M2 pass their rules, and the
-spec prefers M1, so the recommendation is M1. The best passing M1 mechanism is the `--settings` file
-(`m1-baseref-flag`): the plugin `settings.json` mechanism, which would need no user action, did not take effect
-(`m1-baseref-plugin`). M2 also passes and is the fallback and the conflict resolver's route. All of this was
-measured headless under `bypassPermissions`, each cell once.
+**M1, with `worktree.baseRef: "head"` in a settings file the user owns.** Both M1 and M2 pass their rules, and the
+spec prefers M1, so the recommendation is M1. The chosen mechanism is the documented `worktree.baseRef: "head"`
+key in a project settings file (`m1-baseref-local`, `m1-baseref-shared`); the plugin `settings.json` mechanism,
+which would need no user action, did not take effect (`m1-baseref-plugin`). M2 also passes and is the conflict
+resolver's route. All of this was measured headless under `bypassPermissions`; the first-round cells ran once,
+the second-round fallback cells three times each.
 
 The rules. An M1 mechanism passes when all hold: `HEAD_BEFORE` is B and `B_TXT` is `b`; the README edit and
 `probe-abs.txt` are in the worktree and not in the main tree; the worker's commit is the head of a branch in the
@@ -350,25 +351,62 @@ earlier P1 sense (isolation applies to the plugin agent, and the call parameter 
 `updatedInput` applies it), so H4 can add `isolation: "worktree"` and need not deny a call without it. In the M2
 cells no hook field names the worktree (`cwd` is the main tree throughout), so it comes from the `Worktree:` line.
 
-**The M1 mechanism and its preconditions.** `m1-baseref-flag`: a settings file with `worktree.baseRef: "head"`,
-passed to Claude Code with `--settings`, gives the worktree the base B instead of A, `origin/main`. Preference
-order was plugin `settings.json`, then `--settings`, then the `WorktreeCreate` hook, then the `SubagentStart`
-reset; only the first failed. The preconditions:
+**The second-round rules.** Each rule is applied to the table in "Base mechanism: second round". The six checks
+are `baseIsB`, `bTxtPresent`, `mainOnBAndClean`, `editInWorktree`, `mainEditFree` and `commitIsBranchHead`.
 
-- **A user setting.** `--settings` is a flag of the Claude Code process that runs the session, so tierminator
-  would need to check that `worktree.baseRef` is `head` in the running session and refuse to run parallel without
-  it. Only the `--settings` file was measured: that the key works from a project or user `settings.json` is
-  **not determinable** (no cell tried it).
+| Rule | Question | Result | Evidence |
+|---|---|---|---|
+| R1 | A settings file works: `m1-baseref-local` or `m1-baseref-shared` has all six checks true | **PASS**, both cells (6 of 6 each); the user-level file is still pending | `m1-baseref-local.json`, `m1-baseref-shared.json` |
+| R2 | No remote needs nothing: `m1-noremote` has all six checks true | **PASS** (6 of 6, no `baseRef` setting, no remote) | `m1-noremote.json` |
+| R3 | The `SubagentStart` reset is reliable: all three `m1-substart-slow` runs have all six checks true and `resetFinishedBeforeFirstTool` true | **PASS** (3 of 3 runs) | `m1-substart-slow-r1.json`, `-r2.json`, `-r3.json` |
+| R4 | The worker's self-reset is reliable: all three `m1-worker-reset` runs have all six checks true | **PASS** (3 of 3 runs) | `m1-worker-reset-r1.json`, `-r2.json`, `-r3.json` |
+| R5 | A `WorktreeCreate` hook is viable: not viable if `wt-decline` shows the Agent call failing, because a plugin hook would take over every worktree creation in every session and cannot step aside; viable only if Claude Code fell back to its own creation | **FAIL**: the Agent call returned an error (`WorktreeCreate hook failed: ...`), no worker ran and no worktree exists, so Claude Code did not fall back | `wt-decline.json` |
+
+**The primary mechanism: `worktree.baseRef: "head"` in a settings file the user owns (R1).** R1 holds, so the
+documented key is the primary route. The user adds this to a settings file of their own:
+
+```json
+{
+  "worktree": {
+    "baseRef": "head"
+  }
+}
+```
+
+in `.claude/settings.json` in the repo (committed and shared; `m1-baseref-shared`) or in
+`.claude/settings.local.json` (untracked, kept out of the commit with `.git/info/exclude`; `m1-baseref-local`).
+The worktree is then based at the current HEAD, B, instead of `origin/main`, A. A user-level file
+(`~/.claude/settings.json`) is **not determinable**: no cell with evidence tried it. The safety net is
+tierminator's start check, which reads the user, project and local settings and the repo's remote, together with
+the fatal `WORKTREE BASE:` judgment: a worker whose base is not the wave base is judged a failure, never accepted.
+The second case needs no setting: with no remote at all, Claude Code based the worktree on HEAD (R2,
+`m1-noremote`), so a repo without a remote runs parallel M1 without `baseRef`. Which of the two inputs decides
+(no remote or no setting) is not separated by that cell, since it did not run with a remote and without a setting
+(**inferred** from P1). Both routes keep the preconditions the earlier cells showed:
+
 - **`.git/info/exclude`.** Every re-run cell listed `.claude/worktrees/` in `.git/info/exclude`, so the main
   tree's empty status depends on it; without it the main tree shows `?? .claude/` as in P1 and fails
   tierminator's clean-tree check (**inferred** from `git.problem`).
 - **The hook-added isolation.** The `PreToolUse` hook adds `isolation: "worktree"` through `updatedInput` with
   no `permissionDecision`, as in `p1-hook-isolation`.
 
-If a user will not set `baseRef`, the next mechanisms also passed: the `WorktreeCreate` hook (`m1-worktree-hook`,
-which replaces Claude Code's own creation, so the branch name is the hook's choice and no `worktreeBranch` reaches
-`PostToolUse`), then the `SubagentStart` reset (`m1-substart-reset`, where the reset finished before the
-worker's first command in the one run, but whether Claude Code waits for it is **not determinable**).
+**Fallbacks for a user who sets nothing (R3 and R4).** Both passed, and both are weaker than the setting.
+
+- **R3, the `SubagentStart` reset** (`m1-substart-slow`). A hook that resets the worktree to B finished before the
+  worker's first tool call in 3 of 3 runs, even with a 5 s delay (5071, 5098 and 5086 ms), and the worker's own
+  `HEAD_BEFORE` was B each time. Residual risk: the hook ordering is undocumented, and it is measured in 3 runs
+  for one hook, one delay length, a synchronous command hook and `bypassPermissions`; whether Claude Code waits
+  for the hook before the worker's first model turn, or only before its first tool call, is not determinable.
+- **R4, the worker's self-reset** (`m1-worker-reset`). The worker ran `git reset --hard <Base>` as its first step
+  in 3 of 3 runs, with `RESET: ok` and base B in each. Residual risk: it depends on the worker obeying the
+  instruction, and the worktree's base before the reset is not recorded in these files.
+
+**Not viable: the `WorktreeCreate` hook (R5).** `m1-worktree-hook` passed its cell in round one, but a plugin
+hook replaces Claude Code's own creation for every worktree in every session and cannot step aside for a given
+call, and `wt-decline` shows that when it fails the Agent call fails with no fallback. It is not recommended.
+
+**Open decision:** whether a fallback (R3 or R4) runs automatically when the start check finds no `baseRef`
+setting and a remote exists, or the run refuses and tells the user to add the setting. This is not decided here.
 
 **The M2 worker rules, if M2 is used.** Both placements passed, **inside** and **outside**. The worker rules to
 copy are the `m2-worker` agent's (`tierminator-parallel-probe:m2-worker`, quoted in the M2 re-run section): a
@@ -380,15 +418,14 @@ pending).
 
 **Where the conflict resolver runs.** The resolver needs an existing worktree with a pick in progress. It uses M2
 if M2 passes, and M2 does, so it runs in the integration worktree through a `Worktree:` line under the
-`m2-worker` rules. (Had M2 failed, a `WorktreeCreate` hook made from the integration
-tip would have been the route, since that mechanism passed.)
+`m2-worker` rules. (Had M2 failed, there would have been no resolver route: the `WorktreeCreate` hook fails R5.)
 
 **Spec assumptions the evidence refutes**, and the packages to edit (see [`parallel/README.md`](parallel/README.md)):
 
 - **M1 places the worker at the wave base.** [The dispatch of one task](tierminator-parallel-spec.md#the-dispatch-of-one-task)
   and [Concepts](tierminator-parallel-spec.md#concepts) (wave base) assume it; by default Claude Code bases the
-  worktree on `origin/main` (A). It holds only with `worktree.baseRef: "head"` supplied through `--settings`
-  (or one of the hook mechanisms), which tierminator must check. Edit WP-08 (`expectedCall` placement) and WP-09
+  worktree on `origin/main` (A). It holds only with `worktree.baseRef: "head"` in a settings file the user owns
+  (or in a repo with no remote, or one of the fallbacks R3 and R4), which tierminator must check. Edit WP-08 (`expectedCall` placement) and WP-09
   (H4 `pre`, the slot's recorded head).
 - **A `Worktree:` line is enough for M2.** [The dispatch of one task](tierminator-parallel-spec.md#the-dispatch-of-one-task)
   says the worker "must treat it as its working directory"; a lone `cd` does not persist, Bash and relative
