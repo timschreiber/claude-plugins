@@ -1,0 +1,546 @@
+{
+  "generated": "2026-10-20T03:44:02.553Z",
+  "claudeCodeVersion": "2.1.304 (Claude Code)",
+  "cell": "p1-hook-isolation",
+  "mode": "headless",
+  "exitCode": 0,
+  "prompt": "Call the Agent tool once, with subagent_type \"tierminator-parallel-probe:sonnet-low\", description \"worktree probe\", and no isolation parameter, run_in_background false, and this exact prompt:\nProbe cell: p1-hook-isolation\nCommit: yes\nDo not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.",
+  "result": " PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\n  MARKER: main-tree\n  PWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\n  TOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\n  BRANCH: worktree-agent-a007666a493b9b56d\n  HEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\n  REL_WRITE: probe-rel.txt\n  ABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\n  COMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\n  PWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\n  BRANCH_END: worktree-agent-a007666a493b9b56d\n  STATUS_END: clean",
+  "costUsd": 0.1151182,
+  "stderr": "",
+  "summary": {
+    "agentCall": {
+      "description": "worktree probe",
+      "prompt": "Probe cell: p1-hook-isolation\nCommit: yes",
+      "subagent_type": "tierminator-parallel-probe:sonnet-low",
+      "run_in_background": false
+    },
+    "isolationPassed": null,
+    "hookEmitted": {
+      "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "updatedInput": {
+          "description": "worktree probe",
+          "prompt": "Probe cell: p1-hook-isolation\nCommit: yes",
+          "subagent_type": "tierminator-parallel-probe:sonnet-low",
+          "run_in_background": false,
+          "isolation": "worktree"
+        }
+      }
+    },
+    "agentResult": {
+      "status": "completed",
+      "keys": [
+        "status",
+        "prompt",
+        "agentId",
+        "agentType",
+        "harnessNoteCount",
+        "harnessTailCount",
+        "harnessSectionHash",
+        "content",
+        "resolvedModel",
+        "totalDurationMs",
+        "totalTokens",
+        "totalToolUseCount",
+        "usage",
+        "toolStats",
+        "worktreePath",
+        "worktreeBranch",
+        "canContinueAgent"
+      ],
+      "contentText": "PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nBRANCH: worktree-agent-a007666a493b9b56d\nHEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\nREL_WRITE: probe-rel.txt\nABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\nCOMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\nPWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nBRANCH_END: worktree-agent-a007666a493b9b56d\nSTATUS_END: clean",
+      "raw": {
+        "status": "completed",
+        "prompt": "Probe cell: p1-hook-isolation\nCommit: yes",
+        "agentId": "a007666a493b9b56d",
+        "agentType": "tierminator-parallel-probe:sonnet-low",
+        "harnessNoteCount": 0,
+        "harnessTailCount": 0,
+        "harnessSectionHash": "3ea83016f4bdc848",
+        "content": [
+          {
+            "type": "text",
+            "text": "PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nBRANCH: worktree-agent-a007666a493b9b56d\nHEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\nREL_WRITE: probe-rel.txt\nABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\nCOMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\nPWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nBRANCH_END: worktree-agent-a007666a493b9b56d\nSTATUS_END: clean"
+          }
+        ],
+        "resolvedModel": "claude-sonnet-5-5",
+        "totalDurationMs": 14926,
+        "totalTokens": 22535,
+        "totalToolUseCount": 6,
+        "usage": {
+          "output_tokens_details": {
+            "thinking_tokens": 0
+          },
+          "input_tokens": 2,
+          "cache_creation_input_tokens": 172,
+          "cache_read_input_tokens": 21877,
+          "output_tokens": 484,
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 172
+          },
+          "inference_geo": "global",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 484,
+              "cache_read_input_tokens": 21877,
+              "cache_creation_input_tokens": 172,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 172,
+                "ephemeral_1h_input_tokens": 0
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "toolStats": {
+          "readCount": 0,
+          "searchCount": 0,
+          "bashCount": 4,
+          "editFileCount": 2,
+          "linesAdded": 2,
+          "linesRemoved": 0,
+          "otherToolCount": 0
+        },
+        "worktreePath": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "worktreeBranch": "worktree-agent-a007666a493b9b56d",
+        "canContinueAgent": true
+      }
+    },
+    "agentError": null,
+    "subagentStart": {
+      "fired": true,
+      "events": [
+        {
+          "keys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "agent_id",
+            "agent_type",
+            "hook_event_name"
+          ],
+          "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+          "agent_id": "a007666a493b9b56d",
+          "agent_type": "tierminator-parallel-probe:sonnet-low",
+          "agent_transcript_path": null,
+          "last_assistant_message": null
+        }
+      ]
+    },
+    "subagentStop": {
+      "fired": true,
+      "events": [
+        {
+          "keys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "permission_mode",
+            "agent_id",
+            "agent_type",
+            "effort",
+            "hook_event_name",
+            "stop_hook_active",
+            "agent_transcript_path",
+            "last_assistant_message",
+            "background_tasks",
+            "session_crons"
+          ],
+          "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+          "agent_id": "a007666a493b9b56d",
+          "agent_type": "tierminator-parallel-probe:sonnet-low",
+          "agent_transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46\\subagents\\agent-a007666a493b9b56d.jsonl",
+          "last_assistant_message": "PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nBRANCH: worktree-agent-a007666a493b9b56d\nHEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\nREL_WRITE: probe-rel.txt\nABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\nCOMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\nPWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nBRANCH_END: worktree-agent-a007666a493b9b56d\nSTATUS_END: clean"
+        }
+      ]
+    },
+    "toolCwds": [
+      {
+        "at": "2026-10-20T03:43:45.548Z",
+        "tool_name": "Bash",
+        "agent_id": "a007666a493b9b56d",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "target": "pwd"
+      },
+      {
+        "at": "2026-10-20T03:43:47.975Z",
+        "tool_name": "Bash",
+        "agent_id": "a007666a493b9b56d",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "target": "pwd && git rev-parse --show-toplevel && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD"
+      },
+      {
+        "at": "2026-10-20T03:43:49.782Z",
+        "tool_name": "Write",
+        "agent_id": "a007666a493b9b56d",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "target": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d\\probe-rel.txt"
+      },
+      {
+        "at": "2026-10-20T03:43:51.287Z",
+        "tool_name": "Write",
+        "agent_id": "a007666a493b9b56d",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "target": "\\tmp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d\\probe-abs.txt"
+      },
+      {
+        "at": "2026-10-20T03:43:52.581Z",
+        "tool_name": "Bash",
+        "agent_id": "a007666a493b9b56d",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "target": "git add -A && git commit -q -m \"probe commit\" && git rev-parse HEAD"
+      },
+      {
+        "at": "2026-10-20T03:43:54.110Z",
+        "tool_name": "Bash",
+        "agent_id": "a007666a493b9b56d",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d",
+        "target": "pwd && git rev-parse --abbrev-ref HEAD && git status --porcelain"
+      }
+    ],
+    "worktreeMentions": [
+      {
+        "tag": "pre-agent",
+        "keyPath": "tool_input.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "pre-agent:emit",
+        "keyPath": "hookSpecificOutput.updatedInput.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "pre-agent:emit",
+        "keyPath": "hookSpecificOutput.updatedInput.isolation",
+        "value": "worktree"
+      },
+      {
+        "tag": "sub-start",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.stdout",
+        "value": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.stdout",
+        "value": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nC:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nworktree-agent-a007666a493b9b56d\na26bf614291b7cd2dfa07ce2103c9e13698a0aa4"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d\\probe-rel.txt"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d\\probe-rel.txt"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "\\tmp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d\\probe-abs.txt"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "\\tmp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d\\probe-abs.txt"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.filePath",
+        "value": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.stdout",
+        "value": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nworktree-agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "sub-stop",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "sub-stop",
+        "keyPath": "last_assistant_message",
+        "value": "PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isola…(799)"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_input.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_input.isolation",
+        "value": "worktree"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_response.content[0].text",
+        "value": "PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isola…(799)"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_response.worktreePath",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-hook-isolation\\repo\\.claude\\worktrees\\agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_response.worktreeBranch",
+        "value": "worktree-agent-a007666a493b9b56d"
+      },
+      {
+        "tag": "stop",
+        "keyPath": "last_assistant_message",
+        "value": "PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\n  MARKER: main-tree\n  PWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\n  TOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook…(821)"
+      }
+    ],
+    "report": {
+      "PWD_INITIAL": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d",
+      "MARKER": "main-tree",
+      "PWD_NOW": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d",
+      "TOPLEVEL": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d",
+      "BRANCH": "worktree-agent-a007666a493b9b56d",
+      "HEAD_BEFORE": "a26bf614291b7cd2dfa07ce2103c9e13698a0aa4",
+      "REL_WRITE": "probe-rel.txt",
+      "ABS_WRITE": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt",
+      "COMMIT": "5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22",
+      "PWD_END": "/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d",
+      "BRANCH_END": "worktree-agent-a007666a493b9b56d",
+      "STATUS_END": "clean"
+    },
+    "base": {
+      "A": "a26bf614291b7cd2dfa07ce2103c9e13698a0aa4",
+      "A2": "4d62d3ba68784c0c535d8b0dd3ef191fdd169a88",
+      "B": "9d9acf54da3a7c3bc731b2a84c2d105f9904e0c1",
+      "W": null,
+      "basedOn": "origin/main (A)"
+    },
+    "after": {
+      "main": {
+        "branch": "work",
+        "head": "9d9acf54da3a7c3bc731b2a84c2d105f9904e0c1",
+        "headIsB": true,
+        "status": [
+          "?? .claude/"
+        ]
+      },
+      "worktrees": [
+        {
+          "path": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo",
+          "head": "9d9acf54da3a7c3bc731b2a84c2d105f9904e0c1",
+          "branch": "refs/heads/work",
+          "isMain": true,
+          "status": [
+            "?? .claude/"
+          ],
+          "log": [
+            "9d9acf54da3a7c3bc731b2a84c2d105f9904e0c1 probe: B",
+            "4d62d3ba68784c0c535d8b0dd3ef191fdd169a88 probe: A2",
+            "a26bf614291b7cd2dfa07ce2103c9e13698a0aa4 probe: A"
+          ],
+          "probeFiles": []
+        },
+        {
+          "path": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d",
+          "head": "5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22",
+          "branch": "refs/heads/worktree-agent-a007666a493b9b56d",
+          "isMain": false,
+          "status": [],
+          "log": [
+            "5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22 probe commit",
+            "a26bf614291b7cd2dfa07ce2103c9e13698a0aa4 probe: A"
+          ],
+          "probeFiles": [
+            "probe-rel.txt"
+          ]
+        }
+      ],
+      "branches": [
+        "main 4d62d3ba68784c0c535d8b0dd3ef191fdd169a88",
+        "work 9d9acf54da3a7c3bc731b2a84c2d105f9904e0c1",
+        "worktree-agent-a007666a493b9b56d 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22",
+        "origin a26bf614291b7cd2dfa07ce2103c9e13698a0aa4",
+        "origin/main a26bf614291b7cd2dfa07ce2103c9e13698a0aa4"
+      ],
+      "mainProbeFiles": [],
+      "claudeWorktreesDir": [
+        "agent-a007666a493b9b56d"
+      ]
+    }
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T03:43:40.900Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Call the Agent tool once, with subagent_type \\\"tierminator-parallel-probe:sonnet-low\\\", description \\\"worktree probe\\\", and no isolation parameter, run_in_background false, and this exact prompt:\\nProbe cell: p1-hook-isolation\\nCommit: yes\\nDo not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:43.154Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: p1-hook-isolation\\nCommit: yes\",\"subagent_type\":\"tierminator-parallel-probe:sonnet-low\",\"run_in_background\":false},\"tool_use_id\":\"toolu_01QwNqy2AM1GBDZgxaLqyGXH\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:43.156Z",
+      "tag": "pre-agent:emit",
+      "stdin": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: p1-hook-isolation\\nCommit: yes\",\"subagent_type\":\"tierminator-parallel-probe:sonnet-low\",\"run_in_background\":false,\"isolation\":\"worktree\"}}}"
+    },
+    {
+      "at": "2026-10-20T03:43:43.815Z",
+      "tag": "sub-start",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"hook_event_name\":\"SubagentStart\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:45.548Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd\"},\"tool_use_id\":\"toolu_01WPpZYabJyVuJY1mKDkum7A\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:46.746Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd\"},\"tool_response\":{\"stdout\":\"/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01WPpZYabJyVuJY1mKDkum7A\",\"duration_ms\":1051}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:47.975Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --show-toplevel && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD\"},\"tool_use_id\":\"toolu_012rSENrVuenX8yVV17FsFZU\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:48.264Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --show-toplevel && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD\"},\"tool_response\":{\"stdout\":\"/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nC:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nworktree-agent-a007666a493b9b56d\\na26bf614291b7cd2dfa07ce2103c9e13698a0aa4\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_012rSENrVuenX8yVV17FsFZU\",\"duration_ms\":157}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:49.782Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\\\\probe-rel.txt\",\"content\":\"rel\"},\"tool_use_id\":\"toolu_012ME748RZeSthKZSoGUgFJE\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:49.911Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\\\\probe-rel.txt\",\"content\":\"rel\"},\"tool_response\":{\"type\":\"create\",\"filePath\":\"probe-rel.txt\",\"content\":\"rel\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false},\"tool_use_id\":\"toolu_012ME748RZeSthKZSoGUgFJE\",\"duration_ms\":19}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:51.287Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"\\\\tmp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\\\\probe-abs.txt\",\"content\":\"abs\"},\"tool_use_id\":\"toolu_017tEc8mAU7Tapr3oRiNxB8q\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:51.410Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"\\\\tmp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\\\\probe-abs.txt\",\"content\":\"abs\"},\"tool_response\":{\"type\":\"create\",\"filePath\":\"/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\",\"content\":\"abs\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false},\"tool_use_id\":\"toolu_017tEc8mAU7Tapr3oRiNxB8q\",\"duration_ms\":17}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:52.581Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git add -A && git commit -q -m \\\"probe commit\\\" && git rev-parse HEAD\"},\"tool_use_id\":\"toolu_01HcpEDTwTCt8WNbhLvJGLze\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:52.903Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git add -A && git commit -q -m \\\"probe commit\\\" && git rev-parse HEAD\"},\"tool_response\":{\"stdout\":\"5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01HcpEDTwTCt8WNbhLvJGLze\",\"duration_ms\":202}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:54.110Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --abbrev-ref HEAD && git status --porcelain\"},\"tool_use_id\":\"toolu_01SmmJo2Jy6BvBZ6YtAL48xK\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:54.351Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --abbrev-ref HEAD && git status --porcelain\"},\"tool_response\":{\"stdout\":\"/tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nworktree-agent-a007666a493b9b56d\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01SmmJo2Jy6BvBZ6YtAL48xK\",\"duration_ms\":133}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:57.878Z",
+      "tag": "sub-stop",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a007666a493b9b56d\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"SubagentStop\",\"stop_hook_active\":false,\"agent_transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46\\\\subagents\\\\agent-a007666a493b9b56d.jsonl\",\"last_assistant_message\":\"PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nMARKER: main-tree\\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nBRANCH: worktree-agent-a007666a493b9b56d\\nHEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\\nREL_WRITE: probe-rel.txt\\nABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\\nCOMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\\nPWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nBRANCH_END: worktree-agent-a007666a493b9b56d\\nSTATUS_END: clean\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:58.197Z",
+      "tag": "post-agent",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: p1-hook-isolation\\nCommit: yes\",\"subagent_type\":\"tierminator-parallel-probe:sonnet-low\",\"run_in_background\":false,\"isolation\":\"worktree\"},\"tool_response\":{\"status\":\"completed\",\"prompt\":\"Probe cell: p1-hook-isolation\\nCommit: yes\",\"agentId\":\"a007666a493b9b56d\",\"agentType\":\"tierminator-parallel-probe:sonnet-low\",\"harnessNoteCount\":0,\"harnessTailCount\":0,\"harnessSectionHash\":\"3ea83016f4bdc848\",\"content\":[{\"type\":\"text\",\"text\":\"PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nMARKER: main-tree\\nPWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nBRANCH: worktree-agent-a007666a493b9b56d\\nHEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\\nREL_WRITE: probe-rel.txt\\nABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\\nCOMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\\nPWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\nBRANCH_END: worktree-agent-a007666a493b9b56d\\nSTATUS_END: clean\"}],\"resolvedModel\":\"claude-sonnet-5-5\",\"totalDurationMs\":14926,\"totalTokens\":22535,\"totalToolUseCount\":6,\"usage\":{\"output_tokens_details\":{\"thinking_tokens\":0},\"input_tokens\":2,\"cache_creation_input_tokens\":172,\"cache_read_input_tokens\":21877,\"output_tokens\":484,\"server_tool_use\":{\"web_search_requests\":0,\"web_fetch_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":172},\"inference_geo\":\"global\",\"iterations\":[{\"input_tokens\":2,\"output_tokens\":484,\"cache_read_input_tokens\":21877,\"cache_creation_input_tokens\":172,\"cache_creation\":{\"ephemeral_5m_input_tokens\":172,\"ephemeral_1h_input_tokens\":0},\"type\":\"message\"}],\"speed\":\"standard\",\"fallback_credit\":null},\"toolStats\":{\"readCount\":0,\"searchCount\":0,\"bashCount\":4,\"editFileCount\":2,\"linesAdded\":2,\"linesRemoved\":0,\"otherToolCount\":0},\"worktreePath\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\\\\.claude\\\\worktrees\\\\agent-a007666a493b9b56d\",\"worktreeBranch\":\"worktree-agent-a007666a493b9b56d\",\"canContinueAgent\":true},\"tool_use_id\":\"toolu_01QwNqy2AM1GBDZgxaLqyGXH\",\"duration_ms\":14926}\n"
+    },
+    {
+      "at": "2026-10-20T03:44:02.183Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"3ba2ab92-0a29-4d5a-84ab-56eeef308d46\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-hook-isolation-repo\\\\3ba2ab92-0a29-4d5a-84ab-56eeef308d46.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-hook-isolation\\\\repo\",\"prompt_id\":\"a7dec66e-b16b-4cc8-9a56-15b331d539b0\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"PWD_INITIAL: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\n  MARKER: main-tree\\n  PWD_NOW: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\n  TOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\n  BRANCH: worktree-agent-a007666a493b9b56d\\n  HEAD_BEFORE: a26bf614291b7cd2dfa07ce2103c9e13698a0aa4\\n  REL_WRITE: probe-rel.txt\\n  ABS_WRITE: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d/probe-abs.txt\\n  COMMIT: 5d194a5eaf90c93988e8c0d9ab0863ccfec9ff22\\n  PWD_END: /tmp/tierminator-parallel-p1-hook-isolation/repo/.claude/worktrees/agent-a007666a493b9b56d\\n  BRANCH_END: worktree-agent-a007666a493b9b56d\\n  STATUS_END: clean\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}

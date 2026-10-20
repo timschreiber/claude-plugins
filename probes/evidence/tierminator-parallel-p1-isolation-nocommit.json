@@ -1,0 +1,500 @@
+{
+  "generated": "2026-10-20T03:43:35.376Z",
+  "claudeCodeVersion": "2.1.304 (Claude Code)",
+  "cell": "p1-isolation-nocommit",
+  "mode": "headless",
+  "exitCode": 0,
+  "prompt": "Call the Agent tool once, with subagent_type \"tierminator-parallel-probe:sonnet-low\", description \"worktree probe\", isolation \"worktree\", run_in_background false, and this exact prompt:\nProbe cell: p1-isolation-nocommit\nCommit: no\nDo not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.",
+  "result": " I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\n  PWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\n  MARKER: main-tree\n  PWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\n  TOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\n  BRANCH: worktree-agent-ac435601ec3b21c4a\n  HEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\n  REL_WRITE: File created successfully at: probe-rel.txt\n  ABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\n  COMMIT: NONE\n  PWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\n  BRANCH_END: worktree-agent-ac435601ec3b21c4a\n  STATUS_END: ?? probe-rel.txt",
+  "costUsd": 0.11611530000000002,
+  "stderr": "",
+  "summary": {
+    "agentCall": {
+      "description": "worktree probe",
+      "prompt": "Probe cell: p1-isolation-nocommit\nCommit: no",
+      "subagent_type": "tierminator-parallel-probe:sonnet-low",
+      "run_in_background": false,
+      "isolation": "worktree"
+    },
+    "isolationPassed": "worktree",
+    "hookEmitted": null,
+    "agentResult": {
+      "status": "completed",
+      "keys": [
+        "status",
+        "prompt",
+        "agentId",
+        "agentType",
+        "harnessNoteCount",
+        "harnessTailCount",
+        "harnessSectionHash",
+        "content",
+        "resolvedModel",
+        "totalDurationMs",
+        "totalTokens",
+        "totalToolUseCount",
+        "usage",
+        "toolStats",
+        "worktreePath",
+        "worktreeBranch",
+        "canContinueAgent"
+      ],
+      "contentText": "I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\nPWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nBRANCH: worktree-agent-ac435601ec3b21c4a\nHEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\nREL_WRITE: File created successfully at: probe-rel.txt\nABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\nCOMMIT: NONE\nPWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nBRANCH_END: worktree-agent-ac435601ec3b21c4a\nSTATUS_END: ?? probe-rel.txt",
+      "raw": {
+        "status": "completed",
+        "prompt": "Probe cell: p1-isolation-nocommit\nCommit: no",
+        "agentId": "ac435601ec3b21c4a",
+        "agentType": "tierminator-parallel-probe:sonnet-low",
+        "harnessNoteCount": 0,
+        "harnessTailCount": 0,
+        "harnessSectionHash": "5359a63c5fbda3a6",
+        "content": [
+          {
+            "type": "text",
+            "text": "I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\nPWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nBRANCH: worktree-agent-ac435601ec3b21c4a\nHEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\nREL_WRITE: File created successfully at: probe-rel.txt\nABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\nCOMMIT: NONE\nPWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nBRANCH_END: worktree-agent-ac435601ec3b21c4a\nSTATUS_END: ?? probe-rel.txt"
+          }
+        ],
+        "resolvedModel": "claude-sonnet-5-5",
+        "totalDurationMs": 16598,
+        "totalTokens": 22634,
+        "totalToolUseCount": 5,
+        "usage": {
+          "output_tokens_details": {
+            "thinking_tokens": 37
+          },
+          "input_tokens": 2,
+          "cache_creation_input_tokens": 189,
+          "cache_read_input_tokens": 21794,
+          "output_tokens": 649,
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 189
+          },
+          "inference_geo": "global",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 649,
+              "cache_read_input_tokens": 21794,
+              "cache_creation_input_tokens": 189,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 189,
+                "ephemeral_1h_input_tokens": 0
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "toolStats": {
+          "readCount": 0,
+          "searchCount": 0,
+          "bashCount": 3,
+          "editFileCount": 2,
+          "linesAdded": 2,
+          "linesRemoved": 0,
+          "otherToolCount": 0
+        },
+        "worktreePath": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+        "worktreeBranch": "worktree-agent-ac435601ec3b21c4a",
+        "canContinueAgent": true
+      }
+    },
+    "agentError": null,
+    "subagentStart": {
+      "fired": true,
+      "events": [
+        {
+          "keys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "agent_id",
+            "agent_type",
+            "hook_event_name"
+          ],
+          "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+          "agent_id": "ac435601ec3b21c4a",
+          "agent_type": "tierminator-parallel-probe:sonnet-low",
+          "agent_transcript_path": null,
+          "last_assistant_message": null
+        }
+      ]
+    },
+    "subagentStop": {
+      "fired": true,
+      "events": [
+        {
+          "keys": [
+            "session_id",
+            "transcript_path",
+            "cwd",
+            "prompt_id",
+            "permission_mode",
+            "agent_id",
+            "agent_type",
+            "effort",
+            "hook_event_name",
+            "stop_hook_active",
+            "agent_transcript_path",
+            "last_assistant_message",
+            "background_tasks",
+            "session_crons"
+          ],
+          "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+          "agent_id": "ac435601ec3b21c4a",
+          "agent_type": "tierminator-parallel-probe:sonnet-low",
+          "agent_transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\10bbba71-390b-4307-90a4-aa1ae0cd5682\\subagents\\agent-ac435601ec3b21c4a.jsonl",
+          "last_assistant_message": "I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\nPWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nMARKER: main-tree\nPWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nBRANCH: worktree-agent-ac435601ec3b21c4a\nHEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\nREL_WRITE: File created successfully at: probe-rel.txt\nABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\nCOMMIT: NONE\nPWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nBRANCH_END: worktree-agent-ac435601ec3b21c4a\nSTATUS_END: ?? probe-rel.txt"
+        }
+      ]
+    },
+    "toolCwds": [
+      {
+        "at": "2026-10-20T03:43:17.354Z",
+        "tool_name": "Bash",
+        "agent_id": "ac435601ec3b21c4a",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+        "target": "pwd"
+      },
+      {
+        "at": "2026-10-20T03:43:19.575Z",
+        "tool_name": "Bash",
+        "agent_id": "ac435601ec3b21c4a",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+        "target": "pwd && git rev-parse --show-toplevel && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD"
+      },
+      {
+        "at": "2026-10-20T03:43:21.534Z",
+        "tool_name": "Write",
+        "agent_id": "ac435601ec3b21c4a",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+        "target": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a\\probe-rel.txt"
+      },
+      {
+        "at": "2026-10-20T03:43:23.060Z",
+        "tool_name": "Write",
+        "agent_id": "ac435601ec3b21c4a",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+        "target": "\\tmp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a\\probe-abs.txt"
+      },
+      {
+        "at": "2026-10-20T03:43:26.239Z",
+        "tool_name": "Bash",
+        "agent_id": "ac435601ec3b21c4a",
+        "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a",
+        "target": "pwd && git rev-parse --abbrev-ref HEAD && git status --porcelain"
+      }
+    ],
+    "worktreeMentions": [
+      {
+        "tag": "pre-agent",
+        "keyPath": "tool_input.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "pre-agent",
+        "keyPath": "tool_input.isolation",
+        "value": "worktree"
+      },
+      {
+        "tag": "sub-start",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.stdout",
+        "value": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.stdout",
+        "value": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nC:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nworktree-agent-ac435601ec3b21c4a\n4cfcf58f8aa2961081b0886ea5280f3b33590e9f"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a\\probe-rel.txt"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a\\probe-rel.txt"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "\\tmp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a\\probe-abs.txt"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_input.file_path",
+        "value": "\\tmp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a\\probe-abs.txt"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.filePath",
+        "value": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt"
+      },
+      {
+        "tag": "pre-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-tool",
+        "keyPath": "tool_response.stdout",
+        "value": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\nworktree-agent-ac435601ec3b21c4a\n?? probe-rel.txt"
+      },
+      {
+        "tag": "sub-stop",
+        "keyPath": "cwd",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "sub-stop",
+        "keyPath": "last_assistant_message",
+        "value": "I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\nPWD_INITIAL: /tmp/tierminator-…(1124)"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_input.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_input.isolation",
+        "value": "worktree"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_response.content[0].text",
+        "value": "I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\nPWD_INITIAL: /tmp/tierminator-…(1124)"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_response.worktreePath",
+        "value": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p1-isolation-nocommit\\repo\\.claude\\worktrees\\agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "post-agent",
+        "keyPath": "tool_response.worktreeBranch",
+        "value": "worktree-agent-ac435601ec3b21c4a"
+      },
+      {
+        "tag": "stop",
+        "keyPath": "last_assistant_message",
+        "value": "I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\n\n  PWD_INITIAL: /tmp/tierminato…(1148)"
+      }
+    ],
+    "report": {
+      "PWD_INITIAL": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a",
+      "MARKER": "main-tree",
+      "PWD_NOW": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a",
+      "TOPLEVEL": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a",
+      "BRANCH": "worktree-agent-ac435601ec3b21c4a",
+      "HEAD_BEFORE": "4cfcf58f8aa2961081b0886ea5280f3b33590e9f",
+      "REL_WRITE": "File created successfully at: probe-rel.txt",
+      "ABS_WRITE": "File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt",
+      "COMMIT": "NONE",
+      "PWD_END": "/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a",
+      "BRANCH_END": "worktree-agent-ac435601ec3b21c4a",
+      "STATUS_END": "?? probe-rel.txt"
+    },
+    "base": {
+      "A": "4cfcf58f8aa2961081b0886ea5280f3b33590e9f",
+      "A2": "3e36fe0bf3013684c20058bece7361cd5bb04e5c",
+      "B": "89052409887a0ac38ac886da70aa669af7362ace",
+      "W": null,
+      "basedOn": "origin/main (A)"
+    },
+    "after": {
+      "main": {
+        "branch": "work",
+        "head": "89052409887a0ac38ac886da70aa669af7362ace",
+        "headIsB": true,
+        "status": [
+          "?? .claude/"
+        ]
+      },
+      "worktrees": [
+        {
+          "path": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo",
+          "head": "89052409887a0ac38ac886da70aa669af7362ace",
+          "branch": "refs/heads/work",
+          "isMain": true,
+          "status": [
+            "?? .claude/"
+          ],
+          "log": [
+            "89052409887a0ac38ac886da70aa669af7362ace probe: B",
+            "3e36fe0bf3013684c20058bece7361cd5bb04e5c probe: A2",
+            "4cfcf58f8aa2961081b0886ea5280f3b33590e9f probe: A"
+          ],
+          "probeFiles": []
+        },
+        {
+          "path": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a",
+          "head": "4cfcf58f8aa2961081b0886ea5280f3b33590e9f",
+          "branch": "refs/heads/worktree-agent-ac435601ec3b21c4a",
+          "isMain": false,
+          "status": [
+            "?? probe-rel.txt"
+          ],
+          "log": [
+            "4cfcf58f8aa2961081b0886ea5280f3b33590e9f probe: A"
+          ],
+          "probeFiles": [
+            "probe-rel.txt"
+          ]
+        }
+      ],
+      "branches": [
+        "main 3e36fe0bf3013684c20058bece7361cd5bb04e5c",
+        "work 89052409887a0ac38ac886da70aa669af7362ace",
+        "worktree-agent-ac435601ec3b21c4a 4cfcf58f8aa2961081b0886ea5280f3b33590e9f",
+        "origin 4cfcf58f8aa2961081b0886ea5280f3b33590e9f",
+        "origin/main 4cfcf58f8aa2961081b0886ea5280f3b33590e9f"
+      ],
+      "mainProbeFiles": [],
+      "claudeWorktreesDir": [
+        "agent-ac435601ec3b21c4a"
+      ]
+    }
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T03:43:12.392Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Call the Agent tool once, with subagent_type \\\"tierminator-parallel-probe:sonnet-low\\\", description \\\"worktree probe\\\", isolation \\\"worktree\\\", run_in_background false, and this exact prompt:\\nProbe cell: p1-isolation-nocommit\\nCommit: no\\nDo not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:14.490Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: p1-isolation-nocommit\\nCommit: no\",\"subagent_type\":\"tierminator-parallel-probe:sonnet-low\",\"run_in_background\":false,\"isolation\":\"worktree\"},\"tool_use_id\":\"toolu_012PZovWvA8hQtQR772NSSCe\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:15.177Z",
+      "tag": "sub-start",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"hook_event_name\":\"SubagentStart\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:17.354Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd\"},\"tool_use_id\":\"toolu_01PVRnfVDQVxSu1wSnWKLCk3\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:18.457Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd\"},\"tool_response\":{\"stdout\":\"/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01PVRnfVDQVxSu1wSnWKLCk3\",\"duration_ms\":995}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:19.575Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --show-toplevel && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD\"},\"tool_use_id\":\"toolu_01X5ip1HL5rz49i9aqgoGgQz\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:19.903Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --show-toplevel && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD\"},\"tool_response\":{\"stdout\":\"/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nC:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nworktree-agent-ac435601ec3b21c4a\\n4cfcf58f8aa2961081b0886ea5280f3b33590e9f\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01X5ip1HL5rz49i9aqgoGgQz\",\"duration_ms\":190}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:21.534Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\\\\probe-rel.txt\",\"content\":\"rel\"},\"tool_use_id\":\"toolu_01QfKi3kXViUDFZ7JQYkc3yH\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:21.679Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\\\\probe-rel.txt\",\"content\":\"rel\"},\"tool_response\":{\"type\":\"create\",\"filePath\":\"probe-rel.txt\",\"content\":\"rel\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false},\"tool_use_id\":\"toolu_01QfKi3kXViUDFZ7JQYkc3yH\",\"duration_ms\":11}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:23.060Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"\\\\tmp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\\\\probe-abs.txt\",\"content\":\"abs\"},\"tool_use_id\":\"toolu_018EB2v3vvUhF6nNDm4eFVM6\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:23.251Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"\\\\tmp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\\\\probe-abs.txt\",\"content\":\"abs\"},\"tool_response\":{\"type\":\"create\",\"filePath\":\"/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\",\"content\":\"abs\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false},\"tool_use_id\":\"toolu_018EB2v3vvUhF6nNDm4eFVM6\",\"duration_ms\":44}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:26.239Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --abbrev-ref HEAD && git status --porcelain\"},\"tool_use_id\":\"toolu_011eGXA8vf46ibb851smZ1M4\"}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:26.493Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pwd && git rev-parse --abbrev-ref HEAD && git status --porcelain\"},\"tool_response\":{\"stdout\":\"/tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nworktree-agent-ac435601ec3b21c4a\\n?? probe-rel.txt\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_011eGXA8vf46ibb851smZ1M4\",\"duration_ms\":135}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:30.868Z",
+      "tag": "sub-stop",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ac435601ec3b21c4a\",\"agent_type\":\"tierminator-parallel-probe:sonnet-low\",\"effort\":{\"level\":\"low\"},\"hook_event_name\":\"SubagentStop\",\"stop_hook_active\":false,\"agent_transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682\\\\subagents\\\\agent-ac435601ec3b21c4a.jsonl\",\"last_assistant_message\":\"I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\\n\\nPWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nMARKER: main-tree\\nPWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nBRANCH: worktree-agent-ac435601ec3b21c4a\\nHEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\\nREL_WRITE: File created successfully at: probe-rel.txt\\nABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\\nCOMMIT: NONE\\nPWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nBRANCH_END: worktree-agent-ac435601ec3b21c4a\\nSTATUS_END: ?? probe-rel.txt\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:31.202Z",
+      "tag": "post-agent",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: p1-isolation-nocommit\\nCommit: no\",\"subagent_type\":\"tierminator-parallel-probe:sonnet-low\",\"run_in_background\":false,\"isolation\":\"worktree\"},\"tool_response\":{\"status\":\"completed\",\"prompt\":\"Probe cell: p1-isolation-nocommit\\nCommit: no\",\"agentId\":\"ac435601ec3b21c4a\",\"agentType\":\"tierminator-parallel-probe:sonnet-low\",\"harnessNoteCount\":0,\"harnessTailCount\":0,\"harnessSectionHash\":\"5359a63c5fbda3a6\",\"content\":[{\"type\":\"text\",\"text\":\"I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\\n\\nPWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nMARKER: main-tree\\nPWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nTOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nBRANCH: worktree-agent-ac435601ec3b21c4a\\nHEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\\nREL_WRITE: File created successfully at: probe-rel.txt\\nABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\\nCOMMIT: NONE\\nPWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\nBRANCH_END: worktree-agent-ac435601ec3b21c4a\\nSTATUS_END: ?? probe-rel.txt\"}],\"resolvedModel\":\"claude-sonnet-5-5\",\"totalDurationMs\":16598,\"totalTokens\":22634,\"totalToolUseCount\":5,\"usage\":{\"output_tokens_details\":{\"thinking_tokens\":37},\"input_tokens\":2,\"cache_creation_input_tokens\":189,\"cache_read_input_tokens\":21794,\"output_tokens\":649,\"server_tool_use\":{\"web_search_requests\":0,\"web_fetch_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":189},\"inference_geo\":\"global\",\"iterations\":[{\"input_tokens\":2,\"output_tokens\":649,\"cache_read_input_tokens\":21794,\"cache_creation_input_tokens\":189,\"cache_creation\":{\"ephemeral_5m_input_tokens\":189,\"ephemeral_1h_input_tokens\":0},\"type\":\"message\"}],\"speed\":\"standard\",\"fallback_credit\":null},\"toolStats\":{\"readCount\":0,\"searchCount\":0,\"bashCount\":3,\"editFileCount\":2,\"linesAdded\":2,\"linesRemoved\":0,\"otherToolCount\":0},\"worktreePath\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\\\\.claude\\\\worktrees\\\\agent-ac435601ec3b21c4a\",\"worktreeBranch\":\"worktree-agent-ac435601ec3b21c4a\",\"canContinueAgent\":true},\"tool_use_id\":\"toolu_012PZovWvA8hQtQR772NSSCe\",\"duration_ms\":16598}\n"
+    },
+    {
+      "at": "2026-10-20T03:43:34.966Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"10bbba71-390b-4307-90a4-aa1ae0cd5682\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p1-isolation-nocommit-repo\\\\10bbba71-390b-4307-90a4-aa1ae0cd5682.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p1-isolation-nocommit\\\\repo\",\"prompt_id\":\"6aeed75d-3127-4dcd-9ced-d99cdadad833\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"I merged steps 4 and 5 into a single Bash call, so PWD_NOW comes from that call. Step 3 didn't apply because no `Worktree:` line was given. Step 9 shows only `probe-rel.txt` as untracked, and `probe-abs.txt` is missing from the status output. I didn't investigate why.\\n\\n  PWD_INITIAL: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\n  MARKER: main-tree\\n  PWD_NOW: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\n  TOPLEVEL: C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\n  BRANCH: worktree-agent-ac435601ec3b21c4a\\n  HEAD_BEFORE: 4cfcf58f8aa2961081b0886ea5280f3b33590e9f\\n  REL_WRITE: File created successfully at: probe-rel.txt\\n  ABS_WRITE: File created successfully at: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a/probe-abs.txt\\n  COMMIT: NONE\\n  PWD_END: /tmp/tierminator-parallel-p1-isolation-nocommit/repo/.claude/worktrees/agent-ac435601ec3b21c4a\\n  BRANCH_END: worktree-agent-ac435601ec3b21c4a\\n  STATUS_END: ?? probe-rel.txt\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}
