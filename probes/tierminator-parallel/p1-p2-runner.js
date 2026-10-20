@@ -126,6 +126,257 @@ function probeEnv(ctx) {
   return env
 }
 
+const parse = e => {
+  try {
+    return JSON.parse(e.stdin)
+  } catch {
+    return {}
+  }
+}
+const cut = (v, n = 1500) => (typeof v === 'string' && v.length > n ? `${v.slice(0, n)}…(${v.length})` : v)
+const deep = v => JSON.parse(JSON.stringify(v ?? null), (k, x) => cut(x))
+const textOf = resp => {
+  const c = resp?.content
+  if (Array.isArray(c)) return c.filter(b => b?.type === 'text').map(b => b.text).join('\n')
+  return typeof c === 'string' ? c : null
+}
+const safe = fn => {
+  try {
+    return fn()
+  } catch (e) {
+    return { error: String(e && e.message ? e.message : e) }
+  }
+}
+const lines = s => s.split('\n').map(l => l.replace(/\r$/, '')).filter(Boolean)
+
+function gitAfter(ctx) {
+  const probeFilesIn = dir => ['probe-rel.txt', 'probe-abs.txt'].filter(f => fs.existsSync(path.join(dir, f)))
+  const out = {}
+  out.main = safe(() => {
+    const head = git(ctx.repo, 'rev-parse', 'HEAD')
+    return {
+      branch: git(ctx.repo, 'rev-parse', '--abbrev-ref', 'HEAD'),
+      head,
+      headIsB: head === ctx.shas.B,
+      status: lines(git(ctx.repo, 'status', '--porcelain')),
+    }
+  })
+  out.worktrees = safe(() => {
+    const blocks = git(ctx.repo, 'worktree', 'list', '--porcelain').split(/\r?\n\r?\n/).filter(b => b.trim())
+    return blocks.map((block, i) => {
+      const w = { path: null, head: null, branch: null, isMain: i === 0 }
+      for (const l of lines(block)) {
+        if (l.startsWith('worktree ')) w.path = l.slice('worktree '.length)
+        else if (l.startsWith('HEAD ')) w.head = l.slice('HEAD '.length)
+        else if (l.startsWith('branch ')) w.branch = l.slice('branch '.length)
+        else if (l === 'detached') w.branch = 'detached'
+      }
+      w.status = safe(() => lines(git(w.path, 'status', '--porcelain')))
+      w.log = safe(() => lines(git(w.path, 'log', '-3', '--format=%H %s')))
+      w.probeFiles = safe(() => probeFilesIn(w.path))
+      return w
+    })
+  })
+  out.branches = safe(() => lines(git(ctx.repo, 'branch', '-a', '--format=%(refname:short) %(objectname)')))
+  out.mainProbeFiles = safe(() => probeFilesIn(ctx.repo))
+  out.claudeWorktreesDir = safe(() => {
+    const d = path.join(ctx.repo, '.claude', 'worktrees')
+    return fs.existsSync(d) ? fs.readdirSync(d) : null
+  })
+  return out
+}
+
+function assistantTextsOf(file) {
+  const texts = []
+  if (!file || !fs.existsSync(file)) return texts
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim()) continue
+    let rec
+    try {
+      rec = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (rec.type !== 'assistant' || !Array.isArray(rec.message?.content)) continue
+    for (const b of rec.message.content) if (b.type === 'text' && typeof b.text === 'string') texts.push(b.text)
+  }
+  return texts
+}
+
+function worktreeMentions(entries) {
+  const found = []
+  const re = /worktree/i
+  const walk = (tag, keyPath, key, v) => {
+    if (keyPath === 'prompt' && tag === 'ups') return
+    if (keyPath === 'tool_input.prompt') return
+    const isStr = typeof v === 'string'
+    if ((key !== null && re.test(key)) || (isStr && re.test(v))) {
+      found.push({ tag, keyPath, value: cut(isStr ? v : JSON.stringify(v), 300) })
+    }
+    if (Array.isArray(v)) v.forEach((x, i) => walk(tag, `${keyPath}[${i}]`, null, x))
+    else if (v && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) walk(tag, keyPath ? `${keyPath}.${k}` : k, k, x)
+    }
+  }
+  for (const e of entries) {
+    const s = parse(e)
+    for (const [k, x] of Object.entries(s)) walk(e.tag, k, k, x)
+  }
+  return found
+}
+
+function summary(ctx, entries) {
+  const tagged = tag => entries.filter(e => e.tag === tag)
+  const preAgent = tagged('pre-agent')[0]
+  const agentCall = preAgent ? deep(parse(preAgent).tool_input) : null
+  const emit = tagged('pre-agent:emit')[0]
+  const postAgent = tagged('post-agent')[0]
+  const resp = postAgent ? parse(postAgent).tool_response : null
+  const agentResult = postAgent
+    ? {
+        status: resp?.status ?? null,
+        keys: resp && typeof resp === 'object' ? Object.keys(resp) : null,
+        contentText: cut(textOf(resp)),
+        raw: deep(resp),
+      }
+    : null
+  const failEntry = tagged('post-fail').find(e => /^(Agent|Task)$/.test(parse(e).tool_name ?? ''))
+  const subEvents = tag =>
+    tagged(tag).map(e => {
+      const s = parse(e)
+      return {
+        keys: Object.keys(s),
+        cwd: s.cwd ?? null,
+        agent_id: s.agent_id ?? null,
+        agent_type: s.agent_type ?? null,
+        agent_transcript_path: s.agent_transcript_path ?? null,
+        last_assistant_message: cut(s.last_assistant_message ?? null),
+      }
+    })
+  const subStart = subEvents('sub-start')
+  const subStop = subEvents('sub-stop')
+
+  const toolCwds = tagged('pre-tool').map(e => {
+    const s = parse(e)
+    return {
+      at: e.at,
+      tool_name: s.tool_name,
+      agent_id: s.agent_id ?? null,
+      cwd: s.cwd,
+      target: s.tool_input?.command ?? s.tool_input?.file_path,
+    }
+  })
+
+  // The report text: the last sub-stop message that has it, else the Agent result, else the agent transcript.
+  const KEY = 'PWD_INITIAL:'
+  const fullStops = tagged('sub-stop').map(e => parse(e))
+  let text = null
+  const stopWith = fullStops.filter(s => typeof s.last_assistant_message === 'string' && s.last_assistant_message.includes(KEY)).pop()
+  if (stopWith) text = stopWith.last_assistant_message
+  else if (agentResult && agentResult.contentText && agentResult.contentText.includes(KEY)) text = textOf(resp)
+  else {
+    for (const s of fullStops) {
+      const t = assistantTextsOf(s.agent_transcript_path).filter(x => x.includes(KEY)).pop()
+      if (t) text = t
+    }
+  }
+  let report = null
+  if (text) {
+    report = {}
+    const re = /^(PWD_INITIAL|MARKER|PWD_NOW|TOPLEVEL|BRANCH|HEAD_BEFORE|REL_WRITE|ABS_WRITE|COMMIT|PWD_END|BRANCH_END|STATUS_END):\s*(.*)$/
+    for (const l of text.split('\n')) {
+      const m = re.exec(l.replace(/\r$/, ''))
+      if (m) report[m[1]] = m[2]
+    }
+  }
+  const { A, A2, B, W } = ctx.shas
+  let basedOn = null
+  if (report) {
+    const h = report.HEAD_BEFORE
+    basedOn = h === B ? 'HEAD of work (B)' : h === A2 ? 'local main (A2)' : h === A ? 'origin/main (A)' : W && h === W ? 'runner worktree commit (W)' : 'other'
+  }
+
+  return {
+    agentCall,
+    isolationPassed: agentCall && typeof agentCall === 'object' ? agentCall.isolation ?? null : null,
+    hookEmitted: emit ? parse(emit) : null,
+    agentResult,
+    agentError: failEntry ? cut(parse(failEntry).error) : null,
+    subagentStart: { fired: subStart.length > 0, events: subStart },
+    subagentStop: { fired: subStop.length > 0, events: subStop },
+    toolCwds,
+    worktreeMentions: worktreeMentions(entries),
+    report,
+    base: { ...ctx.shas, basedOn },
+    after: gitAfter(ctx),
+  }
+}
+
+function writeEvidence(ctx, mode, run) {
+  fs.mkdirSync(evidenceDir, { recursive: true })
+  const entries = fs.existsSync(ctx.log)
+    ? fs.readFileSync(ctx.log, 'utf8').split('\n').filter(Boolean).map(l => {
+        try {
+          return JSON.parse(l)
+        } catch {
+          return { raw: l }
+        }
+      })
+    : []
+  const events = run ? run.streamEvents : []
+  const final = events.filter(e => e.type === 'result').pop()
+  const version = spawnSync('claude', ['--version'], { encoding: 'utf8' }).stdout?.trim() ?? null
+  const file = path.join(evidenceDir, `tierminator-parallel-${ctx.cell}${mode === 'interactive' ? '-interactive' : ''}.json`)
+  const doc = {
+    generated: new Date().toISOString(),
+    claudeCodeVersion: version,
+    cell: ctx.cell,
+    mode,
+    exitCode: run ? run.exitCode : null,
+    prompt: mainPrompt(ctx, mode === 'interactive'),
+    result: final ? final.result ?? null : null,
+    costUsd: final ? final.total_cost_usd ?? null : null,
+    stderr: run ? (run.stderr ?? '').slice(0, 4000) : '',
+    summary: summary(ctx, entries),
+    hookLog: entries,
+  }
+  fs.writeFileSync(file, JSON.stringify(doc, null, 2) + '\n')
+  console.log(`${ctx.cell}: exit ${doc.exitCode}; ${entries.length} hook events; wrote ${file}`)
+}
+
+function runHeadless(name) {
+  const ctx = setupCell(name)
+  const r = spawnSync(
+    'claude',
+    [
+      '-p', mainPrompt(ctx, false),
+      '--plugin-dir', plugin,
+      '--model', 'sonnet',
+      '--permission-mode', 'bypassPermissions',
+      '--output-format', 'stream-json', '--verbose',
+    ],
+    { cwd: ctx.repo, env: probeEnv(ctx), encoding: 'utf8', timeout: 540000, maxBuffer: 64 * 1024 * 1024 }
+  )
+  const streamEvents = (r.stdout ?? '').split('\n').filter(Boolean).map(l => {
+    try {
+      return JSON.parse(l)
+    } catch {
+      return null
+    }
+  }).filter(Boolean)
+  const stderr = (r.stderr ?? '') + (r.error ? `\n[spawn error] ${r.error.message}` : '')
+  writeEvidence(ctx, 'headless', { exitCode: r.status, stderr, streamEvents })
+}
+
+function collect(name) {
+  const file = path.join(os.tmpdir(), 'tierminator-parallel-' + name, 'ctx.json')
+  if (!fs.existsSync(file)) {
+    process.stderr.write(`no ctx.json at ${file}; run --prepare ${name} first\n`)
+    process.exit(2)
+  }
+  writeEvidence(JSON.parse(fs.readFileSync(file, 'utf8')), 'interactive', null)
+}
+
 function usage() {
   process.stderr.write(
     [
@@ -159,15 +410,13 @@ function main(argv) {
       console.log(`Afterwards: node ${__filename} --collect ${name}`)
       console.log(JSON.stringify({ cell: ctx.cell, repo: ctx.repo, worktree: ctx.worktree, log: ctx.log }))
     }
-    // part 2: --collect
+    else collect(name)
     return
   }
   if (argv.some(a => a.startsWith('--'))) usage()
   const names = argv.length ? argv : Object.keys(CELLS)
   for (const n of names) if (!Object.prototype.hasOwnProperty.call(CELLS, n)) usage()
-  // part 2: headless run of each cell and evidence
-  void evidenceDir
-  void probeEnv
+  for (const n of names) runHeadless(n)
 }
 
 if (require.main === module) main(process.argv.slice(2))
