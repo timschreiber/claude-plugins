@@ -150,6 +150,71 @@ Evidence, one file per cell, each with the same fields as the P1 files:
   a slower reset was not tried. The reset moved the worktree's branch `worktree-agent-<id>` from A to B, and
   the branch's log afterwards starts with the probe commit, then B.
 
+## M2 re-run: the cd-prefix rules
+
+Two more headless cells, run on 2026-10-20 (04:15 UTC) with Claude Code 2.1.304 on Windows, $0.23 in all, each
+one try to make the worker's commit land on `probe/p2` with the main tree left alone. They use the same
+throwaway repo, runner-made worktree (on `probe/p2` at W, based on B; `inside` at `repo/.claude/worktrees/p2`,
+`outside` at `<base>/wt-p2`) and main-session prompt as P2, with a new probe agent,
+`tierminator-parallel-probe:m2-worker`. What changed from the first P2: the worker may now put a `cd` in front of
+Bash commands, where P2 forbade any `cd` but one lone `cd`. The agent's rules:
+
+```
+- Start every Bash command with `cd "<WT>" && ` followed by the command. No Bash command may run without it.
+- Every file-tool call (Read, Write, Edit) takes an absolute path that starts with WT. Never a relative path.
+- Never build a path from `pwd` output: on this machine `pwd` prints `/tmp/...` paths that the file tools resolve to the wrong place.
+```
+
+The fixed steps are: (0) `MARKER_GIVEN`, the `CLAUDE-MARKER:` text of the `CLAUDE.md` the worker was given at the
+start, read from no file; (1) one Bash `cd "<WT>" && pwd && git rev-parse --show-toplevel && …` for `PWD_CD`,
+`TOPLEVEL`, `BRANCH` and `HEAD_BEFORE`; (2) a Read of `<WT>/CLAUDE.md` for `READ_MARKER`; (3) a Read of
+`<WT>/b.txt` (committed at B only) for `B_TXT`; (4) a Read and then an Edit of `<WT>/README.md`, replacing the line
+`probe` with `probe edited`; (5) a Write of `<WT>/probe-abs.txt`; (6) a Bash `cd "<WT>" && git add -A && git
+commit …`; (7) a Bash `cd "<WT>" && git rev-parse --abbrev-ref HEAD && git status --porcelain`. The prompt is fenced:
+the `Probe cell:`, `Commit: yes` and `Worktree: <drive-letter path>` lines sit between two lines of three dashes,
+and the main session is told to pass them exactly. The call has no `isolation` parameter. In both cells the runner
+added `.claude/worktrees/` to `.git/info/exclude`, so a clean main tree in `inside` does not show what it looks
+like without that entry. Each cell ran once.
+
+Evidence, one file per cell, each with the same fields as the P1 files:
+`probes/evidence/tierminator-parallel-m2-cd-inside.json` and
+`probes/evidence/tierminator-parallel-m2-cd-outside.json`.
+
+| Question | Inside (`repo/.claude/worktrees/p2`) | Outside (`<base>/wt-p2`) | Evidence |
+|---|---|---|---|
+| Did every Bash command's cwd and `pwd` end in the worktree (`PWD_CD`, `TOPLEVEL`)? | **Yes for what each command saw.** `PWD_CD` is `/tmp/…/repo/.claude/worktrees/p2` (Git Bash's form of the worktree) and `TOPLEVEL` is the worktree (`C:/…/repo/.claude/worktrees/p2`). The later `git rev-parse --abbrev-ref HEAD` and `git status` ran after the same `cd` prefix and reported `probe/p2` and clean. **No** for the hook's `cwd` field: it is the main tree `repo` on all eight tool calls, because the shell never kept a `cd`. | **Yes**, the same: `PWD_CD` `/tmp/…/wt-p2`, `TOPLEVEL` `C:/…/wt-p2`. The hook `cwd` is `repo` on all eight tool calls. | both: `summary.report.PWD_CD`, `TOPLEVEL`, `BRANCH_END`, `summary.toolCwds` |
+| Which `CLAUDE.md` was the worker given at the start (`MARKER_GIVEN`), and which one did a Read of the worktree's showed (`READ_MARKER`)? | `MARKER_GIVEN: main-tree`; `READ_MARKER: worktree`. The two differ, so the worker's start-of-run instructions come from the main tree and the Read reached the worktree's file. | The same: `main-tree` and `worktree`. | both: `summary.report.MARKER_GIVEN`, `READ_MARKER`; `post-tool` `tool_response.file.content` (`CLAUDE-MARKER: worktree`) |
+| `B_TXT` | `b`. The worktree has the file that exists only at B. | `b`. | both: `summary.report.B_TXT`, `summary.checks.bTxtPresent` (true) |
+| Did Read and Edit work with absolute paths, and where did the edit land? | **Yes.** Reads of `CLAUDE.md`, `b.txt` and `README.md` and the Edit all used `C:\…\.claude\worktrees\p2\…` and none failed (`EDIT: ok`, no `post-fail` event). `README.md` is edited in the worktree (`readmeEdited: true`) and not in the main tree (`readmeEdited: false`). | **Yes**, with `C:\…\wt-p2\…`; `EDIT: ok`. `README.md` edited in the worktree, not in the main tree. | both: `summary.report.EDIT`, `summary.toolCwds` (the targets), `summary.after.worktrees[*].readmeEdited`, `summary.after.main.readmeEdited`, `summary.checks.editInWorktree`, `mainEditFree` |
+| Where the written file landed | **The worktree** (`probe-abs.txt` in `worktrees[1].probeFiles`, committed: worktree status empty). Not in the main tree (`mainProbeFiles` empty). `WRITE: ok`. | **The worktree**, the same. | both: `summary.report.WRITE`, `summary.after.worktrees[1].probeFiles`, `summary.after.mainProbeFiles` |
+| The branch the commit landed on, and is it the head of `probe/p2`? | **`probe/p2`.** The commit `6155431` is the head of `probe/p2` (`worktrees[1].head`, `branches`), directly on W (`170ac9b`); `BRANCH_END: probe/p2`. | **`probe/p2`.** The commit `3d2d487` is its head, directly on W (`ce2254e`). | both: `summary.report.COMMIT`, `BRANCH_END`, `summary.after.branches`, `summary.after.worktrees[1].log`, `summary.checks.commitIsBranchHead` (true) |
+| Main tree: branch and status | `work` at B (`d5ab082`), status empty; `work`'s log is B, A2, A (no probe commit). | `work` at B (`eaf4cd8`), status empty; the same log. | both: `summary.after.main`, `summary.checks.mainOnBAndClean` (true) |
+| Permission or path errors? | **None recorded.** No `post-fail` event; the hook log has 8 `pre-tool` and 8 `post-tool` events and no failed tool call; `agentError` is null. Headless under `bypassPermissions` only, so a default-mode permission prompt for the outside path is **not determinable**. | **None recorded**, the same. | both: `hookLog` tag counts (`pre-tool`, `post-tool`), `summary.agentError` |
+
+### Details
+
+- **Every Bash command had the prefix.** Each cell has three Bash calls (`toolCwds`: steps 1, 6 and 7), and all
+  three begin with `cd "C:/…/<worktree>" && `, in drive-letter form with forward slashes. No Bash call ran
+  without it, and no `git -C` was used. The other five calls were Read (three), Edit and Write, each with a
+  backslashed absolute drive-letter path that starts with the worktree path.
+- **`HEAD_BEFORE` is W, not B.** The worktree was made by the runner on W (based on B), so the cell's
+  `summary.checks.baseIsB: false` only says the worktree's HEAD is not B itself. `HEAD_BEFORE` equals W in both
+  cells (`170ac9b`, `ce2254e`), which is the expected state for this setup and not a failure.
+- **`pwd` was reported in the `/tmp/…` form and was not used.** `PWD_CD` is the Git Bash path, as in P1 and P2.
+  The worker built none of its file-tool paths from it: every Read, Edit and Write target in `toolCwds` is the
+  drive-letter path from the `Worktree:` line.
+- **The hook `cwd` is the main tree throughout.** `SubagentStart` and `SubagentStop` `cwd`, and `cwd` on all
+  eight tool-hook events in each cell, are the main tree `repo`, as in P2. No hook input names the worktree
+  except the prompt, so a hook that needs the worktree reads it from the `Worktree:` line (**inferred** from the
+  same absence as in P2).
+- **The main session added no extra line to the worker's prompt.** `summary.agentCall.prompt` is exactly the
+  fenced three lines in both cells, unlike `p2-outside`.
+- **Inside's clean main tree depends on the exclude entry.** The runner listed `.claude/worktrees/` in
+  `.git/info/exclude`; without it the main tree would show `?? .claude/` as in P1 (**inferred**). `outside` has no
+  such directory (`claudeWorktreesDir: null`).
+- **Cost.** $0.116 (`inside`) and $0.111 (`outside`); each cell ran once, so nothing here shows run-to-run
+  variation.
+
 ## Pending: interactive cells
 
 Interactive dispatch runs in the background and in the user's permission mode, and P2's outside placement
