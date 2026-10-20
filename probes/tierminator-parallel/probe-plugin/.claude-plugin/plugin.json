@@ -1,0 +1,9 @@
+{
+  "name": "tierminator-parallel-probe",
+  "description": "Development-time probe for tierminator parallel execution (P1, P2): logs hook inputs while a plugin agent is placed in a Git worktree. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
