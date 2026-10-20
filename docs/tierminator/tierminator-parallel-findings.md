@@ -1,9 +1,10 @@
 # tierminator parallel: placing a subagent in a Git worktree
 
 Probes P1 and P2 of [`tierminator-parallel-spec.md`](tierminator-parallel-spec.md#probes) and their re-runs
-(M1 with four ways to fix the base, M2 with `cd` prefixes), run on 2026-10-19 and 2026-10-20 (03:43 to 04:15 UTC
-on 2026-10-20) with Claude Code 2.1.304 on Windows, headless, eleven cells, $1.32 in all ($0.61 for the five P1
-and P2 cells, $0.48 for the four M1 cells, $0.23 for the two M2 cells). The re-runs changed the runner's prompt:
+(M1 with four ways to fix the base, M2 with `cd` prefixes) and a second round on the base mechanism (four single
+runs and six repeat runs), run on 2026-10-19 and 2026-10-20 (03:43 to 04:42 UTC on 2026-10-20) with Claude Code
+2.1.304 on Windows, headless, 21 runs, $2.39 in all ($0.61 for the five P1 and P2 cells, $0.48 for the four M1
+cells, $0.23 for the two M2 cells, $1.08 for the ten second-round runs). The re-runs changed the runner's prompt:
 the main session is now told to pass the prompt that sits between two lines of three dashes exactly, which the P1
 and P2 cells did not have (`p2-outside` shows the main session adding a line).
 
@@ -41,6 +42,16 @@ Evidence, one file per cell:
 - `probes/evidence/tierminator-parallel-m2-cd-inside.json`: M2 with a `cd` prefix on every Bash command, the
   worktree at `repo/.claude/worktrees/p2`.
 - `probes/evidence/tierminator-parallel-m2-cd-outside.json`: the same with the worktree at `<base>/wt-p2`.
+- `probes/evidence/tierminator-parallel-m1-baseref-local.json`: M1 with `worktree.baseRef: "head"` in an
+  untracked `.claude/settings.local.json`.
+- `probes/evidence/tierminator-parallel-m1-baseref-shared.json`: M1 with the same setting in a committed
+  `.claude/settings.json`.
+- `probes/evidence/tierminator-parallel-m1-noremote.json`: M1 in a repo with no remote and no setting.
+- `probes/evidence/tierminator-parallel-wt-decline.json`: a `WorktreeCreate` hook that exits 1 and creates nothing.
+- `probes/evidence/tierminator-parallel-m1-substart-slow-r1.json`, `-r2.json`, `-r3.json`: three runs of the
+  `SubagentStart` reset with a 5 s delay.
+- `probes/evidence/tierminator-parallel-m1-worker-reset-r1.json`, `-r2.json`, `-r3.json`: three runs of the
+  worker resetting itself to the `Base:` line.
 
 Each file holds the hook log, a `summary` (the Agent call, the hook output, `SubagentStart` and
 `SubagentStop`, every tool call's `cwd`, the agent's report, the base commits and the Git state afterwards)
@@ -317,6 +328,7 @@ asks for permission for a path outside the project, so these cells are not cover
 | `p1-isolation-commit` | Interactive Agent calls run in the background ([dispatch findings](tierminator-agent-dispatch-findings.md#interactive-sessions-always-in-the-background)). Unknown: whether `PostToolUse` (which returns `async_launched` at once) still carries `worktreePath`/`worktreeBranch`, and whether isolation behaves the same in the user's permission mode. | 1. `node probes/tierminator-parallel/p1-p2-runner.js --prepare p1-isolation-commit` 2. Run the printed lines in a new pwsh terminal. 3. Paste the printed prompt. 4. Wait for the background report. 5. `/exit`. 6. `node probes/tierminator-parallel/p1-p2-runner.js --collect p1-isolation-commit` 7. Commit `probes/evidence/tierminator-parallel-p1-isolation-commit-interactive.json` and update this doc. |
 | `p1-hook-isolation` | Whether `updatedInput` with no `permissionDecision` still applies the isolation, and asks for no extra permission, outside `bypassPermissions`. | The same steps with `p1-hook-isolation`; commit `probes/evidence/tierminator-parallel-p1-hook-isolation-interactive.json`. |
 | `p2-outside` | Writing to a worktree outside the project directory asks for permission in the default mode, which a headless `bypassPermissions` run cannot show. | The same steps with `p2-outside`; commit `probes/evidence/tierminator-parallel-p2-outside-interactive.json`. |
+| `m1-baseref-user` | `worktree.baseRef: "head"` in the user's own `~/.claude/settings.json` is untested, and the key must be in that file, which the probe will not edit for you. | 1. `node probes/tierminator-parallel/p1-p2-runner.js --prepare m1-baseref-user` 2. Add `{"worktree":{"baseRef":"head"}}` to `~/.claude/settings.json` (merge it into the file's existing object). 3. Run the printed lines in a new pwsh terminal and paste the printed prompt. 4. Wait for the report. 5. `/exit`. 6. Remove the key again. 7. `node probes/tierminator-parallel/p1-p2-runner.js --collect m1-baseref-user` 8. Commit `probes/evidence/tierminator-parallel-m1-baseref-user-interactive.json` and update this doc (pass condition: all six checks true). |
 
 ## Recommendation
 
@@ -448,6 +460,14 @@ if M2 passes, and M2 does, so it runs in the integration worktree through a `Wor
 
 - **The interactive cells** (see Pending above): background dispatch, the user's permission mode, and
   permission prompts for an outside worktree. None of the M1 or M2 re-run cells ran interactively.
+- **The user-level settings file** (`~/.claude/settings.json` with `worktree.baseRef: "head"`): pending above
+  as `m1-baseref-user`.
+- **A project settings file that Claude Code treats as untrusted.** Headless runs under `bypassPermissions` skip
+  any trust prompt, so no cell could show it.
+- **How the start check sees a `--settings` flag a headless caller passed.** Tierminator cannot read a process
+  argument, so a caller must say so, for example with an environment variable. That is a design point for
+  WP-10, not measured.
+- **`fresh` fetching `origin/HEAD`** when it was last fetched over 24 hours ago: documented, not measured.
 - **PowerShell-tool workers.** Every worker ran its commands through the Bash tool. The Claude Code documentation
   says the `cd` reset applies to the PowerShell tool too, but no cell used it.
 - **The `SubagentStart` cwd of non-isolated agents.** In the M2 cells the worker was not isolated and the hook's
