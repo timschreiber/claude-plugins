@@ -1,0 +1,9 @@
+{
+  "name": "tierminator-parallel-probe-substart-reset",
+  "description": "Development-time probe variant for tierminator parallel execution: a SubagentStart hook that resets an isolated worktree to a given base. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}

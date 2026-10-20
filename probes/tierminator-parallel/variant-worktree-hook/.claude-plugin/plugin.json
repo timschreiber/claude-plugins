@@ -1,0 +1,9 @@
+{
+  "name": "tierminator-parallel-probe-worktree-hook",
+  "description": "Development-time probe variant for tierminator parallel execution: WorktreeCreate and WorktreeRemove hooks that log, and make the worktree at a given base. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}

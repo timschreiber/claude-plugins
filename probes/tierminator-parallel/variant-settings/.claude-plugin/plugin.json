@@ -1,0 +1,9 @@
+{
+  "name": "tierminator-parallel-probe-settings",
+  "description": "Development-time probe variant for tierminator parallel execution: ships a settings.json with worktree.baseRef. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
