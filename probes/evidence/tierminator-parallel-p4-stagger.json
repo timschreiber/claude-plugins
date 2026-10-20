@@ -1,0 +1,661 @@
+{
+  "generated": "2026-10-20T21:09:19.474Z",
+  "claudeCodeVersion": "2.1.305 (Claude Code)",
+  "cell": "p4-stagger",
+  "setup": {
+    "stagger": [
+      0,
+      1000,
+      2000
+    ],
+    "workers": [
+      {
+        "id": "W1",
+        "stagger": 0,
+        "command": "node \"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\" \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\" W1 3 0 \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\""
+      },
+      {
+        "id": "W2",
+        "stagger": 1000,
+        "command": "node \"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\" \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\" W2 3 1000 \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\""
+      },
+      {
+        "id": "W3",
+        "stagger": 2000,
+        "command": "node \"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\" \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\" W3 3 2000 \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\""
+      }
+    ]
+  },
+  "mode": "headless",
+  "prompt": "Call the Agent tool three times in one message, once for each block below. Use subagent_type \"tierminator-parallel-probe:cmd-worker\", run_in_background true, the description given for the block, and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do any of the work yourself. The reports arrive later, in the background. Each time one or more reports reach you, reply with one line per report in that message, GOT <its WORKER value>, and end your turn. Once you have all three, add a last line ALL DONE.\n\nBlock W1 (description \"worker W1\"):\n---\nWorker: W1\nCommand: node \"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\" \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\" W1 3 0 \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\"\n---\n\nBlock W2 (description \"worker W2\"):\n---\nWorker: W2\nCommand: node \"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\" \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\" W2 3 1000 \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\"\n---\n\nBlock W3 (description \"worker W3\"):\n---\nWorker: W3\nCommand: node \"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\" \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\" W3 3 2000 \"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\"\n---",
+  "exitCode": 0,
+  "elapsedSeconds": 19.937,
+  "costUsd": 0.095328365,
+  "result": "GOT W3\nALL DONE",
+  "stderr": "",
+  "analysis": {
+    "summary": {
+      "prompts": 4,
+      "byKind": {
+        "user": 1,
+        "task-notification": 3
+      },
+      "promptsNamingSeveralWorkers": 1,
+      "barrierSpreadMs": 1970,
+      "subagentStopSpreadMs": 3139,
+      "stops": 3,
+      "resultEvents": 4,
+      "gotLines": [
+        "GOT W1",
+        "GOT W2",
+        "GOT W3"
+      ]
+    },
+    "prompts": [
+      {
+        "at": "2026-10-20T21:09:00.804Z",
+        "kind": "user",
+        "workers": [
+          "W1",
+          "W2",
+          "W3"
+        ],
+        "head": "Call the Agent tool three times in one message, once for each block below. Use subagent_type \"tierminator-parallel-probe:cmd-worker\", run_in_background true, the description given for the block, and pass the text between the two lines of three dashes exactly as written, with nothing added or removed"
+      },
+      {
+        "at": "2026-10-20T21:09:14.178Z",
+        "kind": "task-notification",
+        "workers": [
+          "W1"
+        ],
+        "head": "<task-notification>\n<task-id>a126dc345cf9652ca</task-id>\n<tool-use-id>toolu_012dtqZWWWmUenCpUeyehK9g</tool-use-id>\n<output-file>C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\tasks\\a126dc345cf9652ca"
+      },
+      {
+        "at": "2026-10-20T21:09:14.316Z",
+        "kind": "task-notification",
+        "workers": [
+          "W2"
+        ],
+        "head": "<task-notification>\n<task-id>a2c6fe93c4d8804f6</task-id>\n<tool-use-id>toolu_012ABeEbMJtfHbptg8t9HhhD</tool-use-id>\n<output-file>C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\tasks\\a2c6fe93c4d8804f6"
+      },
+      {
+        "at": "2026-10-20T21:09:17.316Z",
+        "kind": "task-notification",
+        "workers": [
+          "W3"
+        ],
+        "head": "<task-notification>\n<task-id>ad7845cc42ecb5f55</task-id>\n<tool-use-id>toolu_01B7NPPUSJKDP1i9DkVWwBww</tool-use-id>\n<output-file>C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\tasks\\ad7845cc42ecb5f55"
+      }
+    ],
+    "stops": [
+      {
+        "at": "2026-10-20T21:09:13.997Z",
+        "stopHookActive": false
+      },
+      {
+        "at": "2026-10-20T21:09:17.176Z",
+        "stopHookActive": false
+      },
+      {
+        "at": "2026-10-20T21:09:19.098Z",
+        "stopHookActive": false
+      }
+    ],
+    "subagentStarts": [
+      {
+        "at": "2026-10-20T21:09:05.343Z",
+        "agentId": "a126dc345cf9652ca"
+      },
+      {
+        "at": "2026-10-20T21:09:06.680Z",
+        "agentId": "a2c6fe93c4d8804f6"
+      },
+      {
+        "at": "2026-10-20T21:09:07.836Z",
+        "agentId": "ad7845cc42ecb5f55"
+      }
+    ],
+    "subagentStops": [
+      {
+        "at": "2026-10-20T21:09:11.598Z",
+        "agentId": "a126dc345cf9652ca",
+        "worker": "W1",
+        "hasLastMessage": true
+      },
+      {
+        "at": "2026-10-20T21:09:13.081Z",
+        "agentId": "a2c6fe93c4d8804f6",
+        "worker": "W2",
+        "hasLastMessage": true
+      },
+      {
+        "at": "2026-10-20T21:09:14.737Z",
+        "agentId": "ad7845cc42ecb5f55",
+        "worker": "W3",
+        "hasLastMessage": true
+      }
+    ],
+    "postAgent": [
+      {
+        "at": "2026-10-20T21:09:05.351Z",
+        "status": "async_launched",
+        "isAsync": true
+      },
+      {
+        "at": "2026-10-20T21:09:06.691Z",
+        "status": "async_launched",
+        "isAsync": true
+      },
+      {
+        "at": "2026-10-20T21:09:07.841Z",
+        "status": "async_launched",
+        "isAsync": true
+      }
+    ],
+    "barrier": [
+      {
+        "id": "W1",
+        "readyAt": "2026-10-20T21:09:09.122Z",
+        "releasedAt": "2026-10-20T21:09:10.150Z",
+        "endedAt": "2026-10-20T21:09:10.150Z",
+        "timedOut": false
+      },
+      {
+        "id": "W2",
+        "readyAt": "2026-10-20T21:09:09.122Z",
+        "releasedAt": "2026-10-20T21:09:10.149Z",
+        "endedAt": "2026-10-20T21:09:11.155Z",
+        "timedOut": false
+      },
+      {
+        "id": "W3",
+        "readyAt": "2026-10-20T21:09:10.118Z",
+        "releasedAt": "2026-10-20T21:09:10.119Z",
+        "endedAt": "2026-10-20T21:09:12.120Z",
+        "timedOut": false
+      }
+    ],
+    "timeline": [
+      {
+        "at": "2026-10-20T21:09:00.804Z",
+        "event": "prompt:user"
+      },
+      {
+        "at": "2026-10-20T21:09:05.343Z",
+        "event": "subagent-start"
+      },
+      {
+        "at": "2026-10-20T21:09:05.351Z",
+        "event": "post-agent:async_launched"
+      },
+      {
+        "at": "2026-10-20T21:09:06.680Z",
+        "event": "subagent-start"
+      },
+      {
+        "at": "2026-10-20T21:09:06.691Z",
+        "event": "post-agent:async_launched"
+      },
+      {
+        "at": "2026-10-20T21:09:07.836Z",
+        "event": "subagent-start"
+      },
+      {
+        "at": "2026-10-20T21:09:07.841Z",
+        "event": "post-agent:async_launched"
+      },
+      {
+        "at": "2026-10-20T21:09:10.150Z",
+        "event": "barrier-end:W1"
+      },
+      {
+        "at": "2026-10-20T21:09:11.155Z",
+        "event": "barrier-end:W2"
+      },
+      {
+        "at": "2026-10-20T21:09:11.598Z",
+        "event": "subagent-stop:W1"
+      },
+      {
+        "at": "2026-10-20T21:09:12.120Z",
+        "event": "barrier-end:W3"
+      },
+      {
+        "at": "2026-10-20T21:09:13.081Z",
+        "event": "subagent-stop:W2"
+      },
+      {
+        "at": "2026-10-20T21:09:13.997Z",
+        "event": "stop"
+      },
+      {
+        "at": "2026-10-20T21:09:14.178Z",
+        "event": "prompt:task-notification"
+      },
+      {
+        "at": "2026-10-20T21:09:14.316Z",
+        "event": "prompt:task-notification"
+      },
+      {
+        "at": "2026-10-20T21:09:14.737Z",
+        "event": "subagent-stop:W3"
+      },
+      {
+        "at": "2026-10-20T21:09:17.176Z",
+        "event": "stop"
+      },
+      {
+        "at": "2026-10-20T21:09:17.316Z",
+        "event": "prompt:task-notification"
+      },
+      {
+        "at": "2026-10-20T21:09:19.098Z",
+        "event": "stop"
+      }
+    ],
+    "stream": [
+      {
+        "type": "system",
+        "subtype": "hook_started",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "hook_response",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "init",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "tool_use Agent"
+      },
+      {
+        "type": "system",
+        "subtype": "background_tasks_changed",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "task_started",
+        "text": ""
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "text": "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\nagentId: a126dc345cf9652ca (internal ID - do not mention to user. Use SendMessage with to: 'a126dc345cf9652ca', summary: '<5-10 wor"
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "tool_use Agent"
+      },
+      {
+        "type": "system",
+        "subtype": "background_tasks_changed",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "task_started",
+        "text": ""
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "text": "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\nagentId: a2c6fe93c4d8804f6 (internal ID - do not mention to user. Use SendMessage with to: 'a2c6fe93c4d8804f6', summary: '<5-10 wor"
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "tool_use Agent"
+      },
+      {
+        "type": "system",
+        "subtype": "background_tasks_changed",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "task_started",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "tool_use Bash"
+      },
+      {
+        "type": "system",
+        "subtype": "task_progress",
+        "text": ""
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "text": "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\nagentId: ad7845cc42ecb5f55 (internal ID - do not mention to user. Use SendMessage with to: 'ad7845cc42ecb5f55', summary: '<5-10 wor"
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "tool_use Bash"
+      },
+      {
+        "type": "system",
+        "subtype": "task_progress",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "tool_use Bash"
+      },
+      {
+        "type": "system",
+        "subtype": "task_progress",
+        "text": ""
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "text": "released W1 2026-10-20T21:09:10.150Z"
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "text": "released W2 2026-10-20T21:09:11.155Z"
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "WORKER: W1\nEXIT: 0\nOUTPUT: released W1 2026-10-20T21:09:10.150Z"
+      },
+      {
+        "type": "system",
+        "subtype": "task_updated",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "task_notification",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "background_tasks_changed",
+        "text": ""
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "text": "released W3 2026-10-20T21:09:12.120Z"
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "WORKER: W2\nEXIT: 0\nOUTPUT: released W2 2026-10-20T21:09:11.155Z"
+      },
+      {
+        "type": "system",
+        "subtype": "task_updated",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "task_notification",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "background_tasks_changed",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "All three workers (W1, W2, W3) are running in the background. I'm waiting for their reports."
+      },
+      {
+        "type": "system",
+        "subtype": "init",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "init",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "WORKER: W3\nEXIT: 0\nOUTPUT: released W3 2026-10-20T21:09:12.120Z"
+      },
+      {
+        "type": "system",
+        "subtype": "task_updated",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "task_notification",
+        "text": ""
+      },
+      {
+        "type": "system",
+        "subtype": "background_tasks_changed",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "GOT W1\nGOT W2"
+      },
+      {
+        "type": "result",
+        "subtype": "success",
+        "text": "All three workers (W1, W2, W3) are running in the background. I'm waiting for their reports."
+      },
+      {
+        "type": "result",
+        "subtype": "success",
+        "text": ""
+      },
+      {
+        "type": "result",
+        "subtype": "success",
+        "text": "GOT W1\nGOT W2"
+      },
+      {
+        "type": "system",
+        "subtype": "init",
+        "text": ""
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "text": "GOT W3\nALL DONE"
+      },
+      {
+        "type": "result",
+        "subtype": "success",
+        "text": "GOT W3\nALL DONE"
+      }
+    ]
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T21:09:00.804Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Call the Agent tool three times in one message, once for each block below. Use subagent_type \\\"tierminator-parallel-probe:cmd-worker\\\", run_in_background true, the description given for the block, and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do any of the work yourself. The reports arrive later, in the background. Each time one or more reports reach you, reply with one line per report in that message, GOT <its WORKER value>, and end your turn. Once you have all three, add a last line ALL DONE.\\n\\nBlock W1 (description \\\"worker W1\\\"):\\n---\\nWorker: W1\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W1 3 0 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\\n---\\n\\nBlock W2 (description \\\"worker W2\\\"):\\n---\\nWorker: W2\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W2 3 1000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\\n---\\n\\nBlock W3 (description \\\"worker W3\\\"):\\n---\\nWorker: W3\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W3 3 2000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\\n---\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:05.167Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worker W1\",\"prompt\":\"Worker: W1\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W1 3 0 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_use_id\":\"toolu_012dtqZWWWmUenCpUeyehK9g\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:05.343Z",
+      "tag": "sub-start",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"agent_id\":\"a126dc345cf9652ca\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"hook_event_name\":\"SubagentStart\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:05.351Z",
+      "tag": "post-agent",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worker W1\",\"prompt\":\"Worker: W1\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W1 3 0 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_response\":{\"isAsync\":true,\"status\":\"async_launched\",\"agentId\":\"a126dc345cf9652ca\",\"description\":\"worker W1\",\"resolvedModel\":\"claude-haiku-5-5\",\"prompt\":\"Worker: W1\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W1 3 0 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"outputFile\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\tasks\\\\a126dc345cf9652ca.output\",\"canReadOutputFile\":true,\"canContinueAgent\":true},\"tool_use_id\":\"toolu_012dtqZWWWmUenCpUeyehK9g\",\"duration_ms\":9}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:06.512Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worker W2\",\"prompt\":\"Worker: W2\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W2 3 1000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_use_id\":\"toolu_012ABeEbMJtfHbptg8t9HhhD\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:06.680Z",
+      "tag": "sub-start",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"agent_id\":\"a2c6fe93c4d8804f6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"hook_event_name\":\"SubagentStart\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:06.691Z",
+      "tag": "post-agent",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worker W2\",\"prompt\":\"Worker: W2\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W2 3 1000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_response\":{\"isAsync\":true,\"status\":\"async_launched\",\"agentId\":\"a2c6fe93c4d8804f6\",\"description\":\"worker W2\",\"resolvedModel\":\"claude-haiku-5-5\",\"prompt\":\"Worker: W2\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W2 3 1000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"outputFile\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\tasks\\\\a2c6fe93c4d8804f6.output\",\"canReadOutputFile\":true,\"canContinueAgent\":true},\"tool_use_id\":\"toolu_012ABeEbMJtfHbptg8t9HhhD\",\"duration_ms\":4}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:07.660Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worker W3\",\"prompt\":\"Worker: W3\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W3 3 2000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_use_id\":\"toolu_01B7NPPUSJKDP1i9DkVWwBww\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:07.836Z",
+      "tag": "sub-start",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"agent_id\":\"ad7845cc42ecb5f55\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"hook_event_name\":\"SubagentStart\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:07.841Z",
+      "tag": "post-agent",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worker W3\",\"prompt\":\"Worker: W3\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W3 3 2000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_response\":{\"isAsync\":true,\"status\":\"async_launched\",\"agentId\":\"ad7845cc42ecb5f55\",\"description\":\"worker W3\",\"resolvedModel\":\"claude-haiku-5-5\",\"prompt\":\"Worker: W3\\nCommand: node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W3 3 2000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"outputFile\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\tasks\\\\ad7845cc42ecb5f55.output\",\"canReadOutputFile\":true,\"canContinueAgent\":true},\"tool_use_id\":\"toolu_01B7NPPUSJKDP1i9DkVWwBww\",\"duration_ms\":6}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:07.981Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a126dc345cf9652ca\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W1 3 0 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"description\":\"Run barrier script for worker W1\"},\"tool_use_id\":\"toolu_01GR5ocGBgZhUAt2YFyLD3Y2\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:08.816Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a2c6fe93c4d8804f6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W2 3 1000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"description\":\"Run barrier probe script for worker W2\"},\"tool_use_id\":\"toolu_01TKB7S4R5CWTLe99rbAHCPE\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:09.972Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ad7845cc42ecb5f55\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W3 3 2000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"description\":\"Run barrier script for worker W3\"},\"tool_use_id\":\"toolu_01E8379TmY6Xp7NyPoPEDU2G\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:10.150Z",
+      "tag": "barrier",
+      "id": "W1",
+      "pid": 26856,
+      "readyAt": "2026-10-20T21:09:09.122Z",
+      "releasedAt": "2026-10-20T21:09:10.150Z",
+      "endedAt": "2026-10-20T21:09:10.150Z",
+      "timedOut": false
+    },
+    {
+      "at": "2026-10-20T21:09:10.268Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a126dc345cf9652ca\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W1 3 0 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"description\":\"Run barrier script for worker W1\"},\"tool_response\":{\"stdout\":\"released W1 2026-10-20T21:09:10.150Z\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01GR5ocGBgZhUAt2YFyLD3Y2\",\"duration_ms\":2152}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:11.155Z",
+      "tag": "barrier",
+      "id": "W2",
+      "pid": 25860,
+      "readyAt": "2026-10-20T21:09:09.122Z",
+      "releasedAt": "2026-10-20T21:09:10.149Z",
+      "endedAt": "2026-10-20T21:09:11.155Z",
+      "timedOut": false
+    },
+    {
+      "at": "2026-10-20T21:09:11.281Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a2c6fe93c4d8804f6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W2 3 1000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"description\":\"Run barrier probe script for worker W2\"},\"tool_response\":{\"stdout\":\"released W2 2026-10-20T21:09:11.155Z\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01TKB7S4R5CWTLe99rbAHCPE\",\"duration_ms\":2345}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:11.598Z",
+      "tag": "sub-stop",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a126dc345cf9652ca\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"SubagentStop\",\"stop_hook_active\":false,\"agent_transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\subagents\\\\agent-a126dc345cf9652ca.jsonl\",\"last_assistant_message\":\"WORKER: W1\\nEXIT: 0\\nOUTPUT: released W1 2026-10-20T21:09:10.150Z\",\"background_tasks\":[{\"id\":\"a126dc345cf9652ca\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W1\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"},{\"id\":\"a2c6fe93c4d8804f6\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W2\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"},{\"id\":\"ad7845cc42ecb5f55\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W3\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"}],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:12.120Z",
+      "tag": "barrier",
+      "id": "W3",
+      "pid": 25400,
+      "readyAt": "2026-10-20T21:09:10.118Z",
+      "releasedAt": "2026-10-20T21:09:10.119Z",
+      "endedAt": "2026-10-20T21:09:12.120Z",
+      "timedOut": false
+    },
+    {
+      "at": "2026-10-20T21:09:12.238Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ad7845cc42ecb5f55\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"node \\\"C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/probes/tierminator-parallel/probe-plugin/scripts/barrier.js\\\" \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/barrier\\\" W3 3 2000 \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-p4-stagger/probe.log\\\"\",\"description\":\"Run barrier script for worker W3\"},\"tool_response\":{\"stdout\":\"released W3 2026-10-20T21:09:12.120Z\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01E8379TmY6Xp7NyPoPEDU2G\",\"duration_ms\":2145}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:13.081Z",
+      "tag": "sub-stop",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"a2c6fe93c4d8804f6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"SubagentStop\",\"stop_hook_active\":false,\"agent_transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\subagents\\\\agent-a2c6fe93c4d8804f6.jsonl\",\"last_assistant_message\":\"WORKER: W2\\nEXIT: 0\\nOUTPUT: released W2 2026-10-20T21:09:11.155Z\",\"background_tasks\":[{\"id\":\"a2c6fe93c4d8804f6\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W2\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"},{\"id\":\"ad7845cc42ecb5f55\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W3\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"}],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:13.997Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"5a747d66-2dcc-4bb2-ae51-b0e74ebb2c79\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"All three workers (W1, W2, W3) are running in the background. I'm waiting for their reports.\",\"background_tasks\":[{\"id\":\"ad7845cc42ecb5f55\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W3\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"}],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:14.178Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"8bc5c1a3-a55b-4d7e-88ce-7312936534fc\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"<task-notification>\\n<task-id>a126dc345cf9652ca</task-id>\\n<tool-use-id>toolu_012dtqZWWWmUenCpUeyehK9g</tool-use-id>\\n<output-file>C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\tasks\\\\a126dc345cf9652ca.output</output-file>\\n<status>completed</status>\\n<summary>Agent \\\"worker W1\\\" finished</summary>\\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\\n<result>WORKER: W1\\nEXIT: 0\\nOUTPUT: released W1 2026-10-20T21:09:10.150Z</result>\\n<usage><subagent_tokens>19206</subagent_tokens><tool_uses>1</tool_uses><duration_ms>6440</duration_ms></usage>\\n</task-notification>\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:14.316Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"78803832-c649-4571-8b82-9bfb7729dccc\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"<task-notification>\\n<task-id>a2c6fe93c4d8804f6</task-id>\\n<tool-use-id>toolu_012ABeEbMJtfHbptg8t9HhhD</tool-use-id>\\n<output-file>C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\tasks\\\\a2c6fe93c4d8804f6.output</output-file>\\n<status>completed</status>\\n<summary>Agent \\\"worker W2\\\" finished</summary>\\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\\n<result>WORKER: W2\\nEXIT: 0\\nOUTPUT: released W2 2026-10-20T21:09:11.155Z</result>\\n<usage><subagent_tokens>19306</subagent_tokens><tool_uses>1</tool_uses><duration_ms>6562</duration_ms></usage>\\n</task-notification>\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:14.737Z",
+      "tag": "sub-stop",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"78803832-c649-4571-8b82-9bfb7729dccc\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"ad7845cc42ecb5f55\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"SubagentStop\",\"stop_hook_active\":false,\"agent_transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\subagents\\\\agent-ad7845cc42ecb5f55.jsonl\",\"last_assistant_message\":\"WORKER: W3\\nEXIT: 0\\nOUTPUT: released W3 2026-10-20T21:09:12.120Z\",\"background_tasks\":[{\"id\":\"ad7845cc42ecb5f55\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"worker W3\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"}],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:17.176Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"78803832-c649-4571-8b82-9bfb7729dccc\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"GOT W1\\nGOT W2\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:17.316Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"91ad1b2e-628f-4599-9882-65e44ccd1afe\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"<task-notification>\\n<task-id>ad7845cc42ecb5f55</task-id>\\n<tool-use-id>toolu_01B7NPPUSJKDP1i9DkVWwBww</tool-use-id>\\n<output-file>C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba\\\\tasks\\\\ad7845cc42ecb5f55.output</output-file>\\n<status>completed</status>\\n<summary>Agent \\\"worker W3\\\" finished</summary>\\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\\n<result>WORKER: W3\\nEXIT: 0\\nOUTPUT: released W3 2026-10-20T21:09:12.120Z</result>\\n<usage><subagent_tokens>19397</subagent_tokens><tool_uses>1</tool_uses><duration_ms>7063</duration_ms></usage>\\n</task-notification>\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:19.098Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"7e103c25-0c07-47e4-85fb-fdba46e425ba\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p4-stagger-repo\\\\7e103c25-0c07-47e4-85fb-fdba46e425ba.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p4-stagger\\\\repo\",\"prompt_id\":\"91ad1b2e-628f-4599-9882-65e44ccd1afe\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"GOT W3\\nALL DONE\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}
