@@ -16,6 +16,8 @@
 //   c-haiku-guard, c-sonnet-guard  a PreToolUse hook on the Agent call makes the worktrees (concurrently, one
 //                                  hook process per call) and a guard hook denies tool calls that would reach
 //                                  the main tree.
+//   p3-slow-hooks                  c-haiku-guard with each worktree hook made 3 s slower (probe P3).
+//   p3-bg                          p3-slow-hooks dispatched in the background (probe P3).
 'use strict'
 
 const fs = require('fs')
@@ -50,6 +52,9 @@ const CELLS = {
   'c-sonnet-guard-default': { agent: 'sonnet-medium', guard: true, mkwt: true, perm: 'default' },
   'c-haiku-norules': { agent: 'haiku-high', guard: false, mkwt: false, rules: false },
   'c-haiku-norules-guard': { agent: 'haiku-high', guard: true, mkwt: false, rules: false },
+  // Probe P3: c-haiku-guard with each worktree hook made 3 s slower, and the same dispatched in the background.
+  'p3-slow-hooks': { agent: 'haiku-high', guard: true, mkwt: true, mkwtDelayMs: 3000 },
+  'p3-bg': { agent: 'haiku-high', guard: true, mkwt: true, mkwtDelayMs: 3000, background: true },
 }
 
 const PARALLEL = `## Parallel
@@ -194,7 +199,7 @@ function slotBlock(ctx, s) {
 
 function mainPrompt(ctx, interactive) {
   const parts = [
-    'Call the Agent tool three times in one message, once for each block below. Use subagent_type "' + AGENT_PREFIX + ctx.agent + '", ' + (CELLS[ctx.cell].isolation ? 'isolation "worktree", ' : '') + (interactive ? '' : 'run_in_background false, ') + 'the description given for the block, and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do any of the work yourself. If a call fails, reply with the error verbatim. When all three have finished' + (interactive ? ' (their reports arrive in the background: wait for all three before you reply)' : '') + ', reply with each agent\'s report verbatim, labeled with its task id.',
+    'Call the Agent tool three times in one message, once for each block below. Use subagent_type "' + AGENT_PREFIX + ctx.agent + '", ' + (CELLS[ctx.cell].isolation ? 'isolation "worktree", ' : '') + (interactive ? '' : CELLS[ctx.cell].background ? 'run_in_background true, ' : 'run_in_background false, ') + 'the description given for the block, and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do any of the work yourself. If a call fails, reply with the error verbatim. When all three have finished' + (interactive || CELLS[ctx.cell].background ? ' (their reports arrive in the background: wait for all three before you reply)' : '') + ', reply with each agent\'s report verbatim, labeled with its task id.',
   ]
   for (const s of ctx.slots) parts.push('', 'Block ' + s.id + ' (description "task ' + s.id + '"):', '---', slotBlock(ctx, s), '---')
   return parts.join('\n')
@@ -214,6 +219,7 @@ function probeEnv(ctx) {
   env.PROBE_WT_ROOT = ctx.root
   env.PROBE_GUARD = cell.guard ? '1' : '0'
   env.PROBE_MK_WT = cell.mkwt ? '1' : '0'
+  if (cell.mkwtDelayMs) env.PROBE_MKWT_DELAY_MS = String(cell.mkwtDelayMs)
   if (cell.perm === 'default' && cell.permAllow !== false) env.PROBE_PERM_ALLOW = '1'
   return env
 }
@@ -305,7 +311,7 @@ function analyze(ctx, entries) {
     }
   }
 
-  const mkwt = tagged('mkwt').map(e => ({ task: e.task, pid: e.pid, status: e.status, stderr: e.stderr, startedAt: e.startedAt, endedAt: e.endedAt }))
+  const mkwt = tagged('mkwt').map(e => ({ task: e.task, pid: e.pid, status: e.status, stderr: e.stderr, startedAt: e.startedAt, endedAt: e.endedAt, delayMs: e.delayMs ?? null }))
   const permissionRequests = tagged('perm-request').map(e => {
     const s = parse(e.stdin)
     const ti = s.tool_input ?? {}
@@ -318,7 +324,31 @@ function analyze(ctx, entries) {
   })
   const permissionByTool = {}
   for (const p of permissionRequests) permissionByTool[p.tool] = (permissionByTool[p.tool] ?? 0) + 1
-  return { agents, overlap, perSlot, mkwt, mkwtSkipped: tagged('mkwt:skipped').length, permissionRequests, permissionByTool }
+  const sorted = [...mkwt].sort((x, y) => Date.parse(x.startedAt) - Date.parse(y.startedAt))
+  const iv = sorted.map(m => ({ s: Date.parse(m.startedAt), e: Date.parse(m.endedAt) }))
+  let anyOverlap = false
+  for (let i = 0; i < iv.length; i++) for (let j = i + 1; j < iv.length; j++) if (iv[i].s < iv[j].e && iv[j].s < iv[i].e) anyOverlap = true
+  const subagentStartAfterHookEndMs = {}
+  for (const m of sorted) {
+    const a = Object.values(agents).find(v => v.slot === m.task)
+    subagentStartAfterHookEndMs[m.task] = a && a.startAt ? Date.parse(a.startAt) - Date.parse(m.endedAt) : null
+  }
+  const mkwtTiming = {
+    durationsMs: iv.map(x => x.e - x.s),
+    gapsMs: iv.map((x, i) => (i === 0 ? null : x.s - iv[i - 1].e)).slice(1),
+    overlap: anyOverlap,
+    subagentStartAfterHookEndMs,
+  }
+  const postAgent = tagged('post-agent').map(e => {
+    const tr = parse(e.stdin).tool_response ?? {}
+    return { at: e.at, status: tr.status ?? null, isAsync: tr.isAsync ?? null }
+  })
+  const prompts = tagged('ups').map(e => {
+    const p = String(parse(e.stdin).prompt ?? '')
+    const kind = p.includes('<task-notification') ? 'task-notification' : p.includes('<agent-message') ? 'agent-message' : 'user'
+    return { at: e.at, kind, head: p.slice(0, 300) }
+  })
+  return { agents, overlap, perSlot, mkwt, mkwtSkipped: tagged('mkwt:skipped').length, permissionRequests, permissionByTool, mkwtTiming, postAgent, prompts }
 }
 
 function gitChecks(ctx) {

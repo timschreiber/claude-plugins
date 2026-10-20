@@ -2,7 +2,8 @@
 // the Agent tool. With PROBE_MK_WT=1 it reads the Worktree: and Task: lines of the call's prompt and runs
 // `git worktree add -b probe/<task> <Worktree> $PROBE_BASE` in the call's cwd before the worker starts, which is
 // what tierminator's H4 `pre` would do for a slot. It logs pid, start and end times and git's status, and it
-// never prints anything, so it changes no tool input and decides no permission.
+// never prints anything, so it changes no tool input and decides no permission. PROBE_MKWT_DELAY_MS
+// (milliseconds) waits before the git command, to make the hook slow (probe P3).
 'use strict'
 
 const fs = require('fs')
@@ -44,6 +45,8 @@ async function main() {
   if (!wt || !task || !process.env.PROBE_BASE) return log({ tag: 'mkwt:skipped', hasWorktree: Boolean(wt), hasTask: Boolean(task) })
 
   const startedAt = new Date().toISOString()
+  const delayMs = Number(process.env.PROBE_MKWT_DELAY_MS) || 0
+  if (delayMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs)
   const r = spawnSync('git', ['worktree', 'add', '-q', '-b', 'probe/' + task[1].toLowerCase(), wt[1], process.env.PROBE_BASE], {
     cwd: input.cwd,
     encoding: 'utf8',
@@ -53,6 +56,7 @@ async function main() {
     pid: process.pid,
     task: task[1],
     worktree: wt[1],
+    delayMs,
     status: r.status,
     stderr: (r.stderr ?? '').slice(0, 800),
     startedAt,
