@@ -6,8 +6,25 @@
 //   node probes/tierminator-parallel/p1-p2-runner.js --collect <cell>
 //
 // Each cell builds a throwaway git repo (with a bare origin) in the temp directory, loads
-// probes/tierminator-parallel/probe-plugin, and has the main session dispatch the probe agent once.
-// stdout and stderr are kept apart.
+// probes/tierminator-parallel/probe-plugin (plus any variant plugin the cell names), and has the main
+// session dispatch the probe agent once. stdout and stderr are kept apart.
+//
+// Cells:
+//   p1-isolation-commit, p1-isolation-nocommit  Agent call with isolation "worktree"; the worker commits or not.
+//   p1-hook-isolation                           a hook adds isolation to the Agent call.
+//   p2-inside, p2-outside                       no isolation; the worker works in a runner-made worktree
+//                                               inside or outside the repo.
+//   m1-baseref-flag                             hook-added isolation with --settings {worktree.baseRef: head}:
+//                                               does the worktree start from the work branch HEAD (B)?
+//   m1-baseref-plugin                           isolation "worktree" with variant-settings loaded: does a
+//                                               plugin's settings set the baseRef?
+//   m1-worktree-hook                            isolation "worktree" with variant-worktree-hook loaded: does a
+//                                               WorktreeCreate hook make the worktree at PROBE_BASE (B)?
+//   m1-substart-reset                           isolation "worktree" with variant-substart-reset loaded: does a
+//                                               SubagentStart hook reset the worktree to PROBE_BASE (B)?
+//   m2-cd-inside, m2-cd-outside                 no isolation; the m2-worker moves into a runner-made worktree
+//                                               (inside or outside the repo) with cd.
+// The m1 and m2 cells use the m1-worker and m2-worker agents; all cells exclude .claude/worktrees/ from git.
 'use strict'
 
 const fs = require('fs')
@@ -15,9 +32,8 @@ const os = require('os')
 const path = require('path')
 const { spawnSync } = require('child_process')
 
-const plugin = path.join(__dirname, 'probe-plugin')
 const evidenceDir = process.env.PROBE_EVIDENCE_DIR || path.join(__dirname, '..', 'evidence')
-const AGENT = 'tierminator-parallel-probe:sonnet-low'
+const AGENT_PREFIX = 'tierminator-parallel-probe:'
 
 const CELLS = {
   'p1-isolation-commit': { isolation: 'call', commit: true, worktree: null },
@@ -25,6 +41,16 @@ const CELLS = {
   'p1-hook-isolation': { isolation: 'hook', commit: true, worktree: null },
   'p2-inside': { isolation: 'none', commit: true, worktree: 'inside' },
   'p2-outside': { isolation: 'none', commit: true, worktree: 'outside' },
+  'm1-baseref-flag': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], settings: true, exclude: true },
+  'm1-baseref-plugin': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-settings'], exclude: true },
+  'm1-worktree-hook': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-worktree-hook'], exclude: true },
+  'm1-substart-reset': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-substart-reset'], exclude: true },
+  'm2-cd-inside': { isolation: 'none', commit: true, worktree: 'inside', agent: 'm2-worker', plugins: ['probe-plugin'], exclude: true },
+  'm2-cd-outside': { isolation: 'none', commit: true, worktree: 'outside', agent: 'm2-worker', plugins: ['probe-plugin'], exclude: true },
+}
+
+function cellOf(name) {
+  return { agent: 'sonnet-low', plugins: ['probe-plugin'], settings: false, exclude: false, ...CELLS[name] }
 }
 
 function git(cwd, ...args) {
@@ -36,7 +62,7 @@ function git(cwd, ...args) {
 }
 
 function setupCell(name) {
-  const cell = CELLS[name]
+  const cell = cellOf(name)
   const base = path.join(os.tmpdir(), 'tierminator-parallel-' + name)
   fs.rmSync(base, { recursive: true, force: true })
   fs.mkdirSync(base, { recursive: true })
@@ -69,13 +95,22 @@ function setupCell(name) {
   git(repo, 'commit', '-q', '-m', 'probe: B')
   const B = git(repo, 'rev-parse', 'HEAD')
 
+  if (cell.exclude || cell.worktree === 'inside') {
+    fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/worktrees/\n')
+  }
+
+  let settingsFile = null
+  if (cell.settings) {
+    settingsFile = path.join(base, 'settings.json')
+    fs.writeFileSync(settingsFile, JSON.stringify({ worktree: { baseRef: 'head' } }, null, 2) + '\n')
+  }
+
   let worktree = null
   let W = null
   if (cell.worktree) {
     let wt
     if (cell.worktree === 'inside') {
-      fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/worktrees/\n')
-      wt = path.join(repo, '.claude', 'worktrees', 'p2')
+      wt =path.join(repo, '.claude', 'worktrees', 'p2')
     } else {
       wt = path.join(base, 'wt-p2')
     }
@@ -89,27 +124,30 @@ function setupCell(name) {
 
   const log = path.join(base, 'probe.log')
   const mode = cell.isolation === 'hook' ? 'add-isolation' : 'observe'
-  const ctx = { cell: name, base, repo, origin, log, worktree, mode, shas: { A, A2, B, W } }
+  const plugins = cell.plugins.map(p => path.join(__dirname, p))
+  const ctx = { cell: name, base, repo, origin, log, worktree, mode, shas: { A, A2, B, W }, plugins, agent: cell.agent, settingsFile }
   fs.writeFileSync(path.join(base, 'ctx.json'), JSON.stringify(ctx, null, 2))
   return ctx
 }
 
 function agentPromptLines(ctx) {
-  const cell = CELLS[ctx.cell]
+  const cell = cellOf(ctx.cell)
   const lines = ['Probe cell: ' + ctx.cell, 'Commit: ' + (cell.commit ? 'yes' : 'no')]
   if (ctx.worktree) lines.push('Worktree: ' + ctx.worktree)
   return lines
 }
 
 function mainPrompt(ctx, interactive) {
-  const cell = CELLS[ctx.cell]
-  let call = 'Call the Agent tool once, with subagent_type "' + AGENT + '", description "worktree probe"'
+  const cell = cellOf(ctx.cell)
+  let call = 'Call the Agent tool once, with subagent_type "' + AGENT_PREFIX + ctx.agent + '", description "worktree probe"'
   call += cell.isolation === 'call' ? ', isolation "worktree"' : ', and no isolation parameter'
   if (!interactive) call += ', run_in_background false'
-  call += ', and this exact prompt:'
+  call += ', and pass the prompt that sits between the two lines of three dashes below exactly as written, with nothing added or removed.'
   return [
     call,
+    '---',
     ...agentPromptLines(ctx),
+    '---',
     'Do not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.',
   ].join('\n')
 }
@@ -123,6 +161,8 @@ function probeEnv(ctx) {
   }
   env.PROBE_LOG = ctx.log
   env.PROBE_MODE = ctx.mode
+  env.PROBE_BASE = ctx.shas.B
+  env.PROBE_WT_DIR = path.join(ctx.base, 'wt-hook')
   return env
 }
 
@@ -350,7 +390,8 @@ function runHeadless(name) {
     'claude',
     [
       '-p', mainPrompt(ctx, false),
-      '--plugin-dir', plugin,
+      ...ctx.plugins.flatMap(p => ['--plugin-dir', p]),
+      ...(ctx.settingsFile ? ['--settings', ctx.settingsFile] : []),
       '--model', 'sonnet',
       '--permission-mode', 'bypassPermissions',
       '--output-format', 'stream-json', '--verbose',
@@ -404,7 +445,9 @@ function main(argv) {
       console.log(`cd "${ctx.repo}"`)
       console.log(`$env:PROBE_LOG='${ctx.log}'`)
       console.log(`$env:PROBE_MODE='${ctx.mode}'`)
-      console.log(`claude --plugin-dir "${plugin}"`)
+      console.log(
+        'claude ' + ctx.plugins.map(p => `--plugin-dir "${p}"`).join(' ') + (ctx.settingsFile ? ` --settings "${ctx.settingsFile}"` : '')
+      )
       console.log('Paste this prompt:')
       console.log(mainPrompt(ctx, true))
       console.log(`Afterwards: node ${__filename} --collect ${name}`)
