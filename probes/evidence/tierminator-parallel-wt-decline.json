@@ -1,0 +1,183 @@
+{
+  "generated": "2026-10-20T04:38:57.904Z",
+  "claudeCodeVersion": "2.1.304 (Claude Code)",
+  "cell": "wt-decline",
+  "mode": "headless",
+  "exitCode": 0,
+  "prompt": "Call the Agent tool once, with subagent_type \"tierminator-parallel-probe:m1-worker\", description \"worktree probe\", isolation \"worktree\", run_in_background false, and pass the prompt that sits between the two lines of three dashes below exactly as written, with nothing added or removed.\n---\nProbe cell: wt-decline\nCommit: yes\n---\nDo not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.",
+  "result": "WorktreeCreate hook failed: node \"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\" wt-create: probe: declining to create a worktree",
+  "costUsd": 0.0591018,
+  "stderr": "",
+  "summary": {
+    "settingsFlag": false,
+    "plugins": [
+      "probe-plugin",
+      "variant-worktree-hook"
+    ],
+    "agent": "m1-worker",
+    "variantEvents": [
+      {
+        "tag": "wt-create",
+        "at": "2026-10-20T04:38:55.614Z",
+        "data": {
+          "session_id": "18326e76-4a5b-4721-aae7-6c80b556f660",
+          "transcript_path": "C:\\Users\\timsc\\.claude\\projects\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-wt-decline-repo\\18326e76-4a5b-4721-aae7-6c80b556f660.jsonl",
+          "cwd": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-wt-decline\\repo",
+          "prompt_id": "87313b73-591f-4b3a-abf0-54277661198f",
+          "hook_event_name": "WorktreeCreate",
+          "name": "agent-a88308cca16dedcc1"
+        }
+      },
+      {
+        "tag": "wt-create:declined",
+        "at": "2026-10-20T04:38:55.615Z",
+        "data": {}
+      }
+    ],
+    "checks": {
+      "baseIsB": null,
+      "bTxtPresent": null,
+      "mainOnBAndClean": null,
+      "editInWorktree": null,
+      "mainEditFree": null,
+      "commitIsBranchHead": null,
+      "resetFinishedBeforeFirstTool": null
+    },
+    "agentCall": {
+      "description": "worktree probe",
+      "prompt": "Probe cell: wt-decline\nCommit: yes",
+      "subagent_type": "tierminator-parallel-probe:m1-worker",
+      "run_in_background": false,
+      "isolation": "worktree"
+    },
+    "isolationPassed": "worktree",
+    "hookEmitted": null,
+    "agentResult": null,
+    "agentError": "WorktreeCreate hook failed: node \"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\" wt-create: probe: declining to create a worktree",
+    "subagentStart": {
+      "fired": false,
+      "events": []
+    },
+    "subagentStop": {
+      "fired": false,
+      "events": []
+    },
+    "toolCwds": [],
+    "firstWorkerToolAt": null,
+    "subagentStartAt": null,
+    "firstWorkerToolDelayMs": null,
+    "resetTimings": null,
+    "settingsSource": "none",
+    "remote": true,
+    "worktreeMentions": [
+      {
+        "tag": "pre-agent",
+        "keyPath": "tool_input.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "pre-agent",
+        "keyPath": "tool_input.isolation",
+        "value": "worktree"
+      },
+      {
+        "tag": "wt-create",
+        "keyPath": "hook_event_name",
+        "value": "WorktreeCreate"
+      },
+      {
+        "tag": "post-fail",
+        "keyPath": "tool_input.description",
+        "value": "worktree probe"
+      },
+      {
+        "tag": "post-fail",
+        "keyPath": "tool_input.isolation",
+        "value": "worktree"
+      },
+      {
+        "tag": "post-fail",
+        "keyPath": "error",
+        "value": "WorktreeCreate hook failed: node \"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\" wt-create: probe: declining to create a worktree"
+      },
+      {
+        "tag": "stop",
+        "keyPath": "last_assistant_message",
+        "value": "WorktreeCreate hook failed: node \"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\" wt-create: probe: declining to create a worktree"
+      }
+    ],
+    "report": null,
+    "base": {
+      "A": "2ac2692d442b8f6be9b7bdf98e2805e304bc3248",
+      "A2": "a73d38e1098945bd4ed86539daa6f6a4e482ef2a",
+      "B": "45c2ceb8a5132a91bd23cc60f5b2cbeb5e68547e",
+      "W": null,
+      "basedOn": null
+    },
+    "after": {
+      "main": {
+        "readmeEdited": false,
+        "branch": "work",
+        "head": "45c2ceb8a5132a91bd23cc60f5b2cbeb5e68547e",
+        "headIsB": true,
+        "status": []
+      },
+      "worktrees": [
+        {
+          "path": "C:/Users/timsc/AppData/Local/Temp/tierminator-parallel-wt-decline/repo",
+          "head": "45c2ceb8a5132a91bd23cc60f5b2cbeb5e68547e",
+          "branch": "refs/heads/work",
+          "isMain": true,
+          "status": [],
+          "log": [
+            "45c2ceb8a5132a91bd23cc60f5b2cbeb5e68547e probe: B",
+            "a73d38e1098945bd4ed86539daa6f6a4e482ef2a probe: A2",
+            "2ac2692d442b8f6be9b7bdf98e2805e304bc3248 probe: A"
+          ],
+          "probeFiles": [],
+          "readmeEdited": false
+        }
+      ],
+      "branches": [
+        "main a73d38e1098945bd4ed86539daa6f6a4e482ef2a",
+        "work 45c2ceb8a5132a91bd23cc60f5b2cbeb5e68547e",
+        "origin 2ac2692d442b8f6be9b7bdf98e2805e304bc3248",
+        "origin/main 2ac2692d442b8f6be9b7bdf98e2805e304bc3248"
+      ],
+      "headLogOfBranches": {},
+      "mainProbeFiles": [],
+      "claudeWorktreesDir": null
+    }
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T04:38:53.119Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"18326e76-4a5b-4721-aae7-6c80b556f660\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-wt-decline-repo\\\\18326e76-4a5b-4721-aae7-6c80b556f660.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-wt-decline\\\\repo\",\"prompt_id\":\"87313b73-591f-4b3a-abf0-54277661198f\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Call the Agent tool once, with subagent_type \\\"tierminator-parallel-probe:m1-worker\\\", description \\\"worktree probe\\\", isolation \\\"worktree\\\", run_in_background false, and pass the prompt that sits between the two lines of three dashes below exactly as written, with nothing added or removed.\\n---\\nProbe cell: wt-decline\\nCommit: yes\\n---\\nDo not do the steps yourself. If the call fails, reply with the error verbatim. When the agent has finished, reply with its report verbatim and nothing else.\"}\n"
+    },
+    {
+      "at": "2026-10-20T04:38:55.481Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"18326e76-4a5b-4721-aae7-6c80b556f660\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-wt-decline-repo\\\\18326e76-4a5b-4721-aae7-6c80b556f660.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-wt-decline\\\\repo\",\"prompt_id\":\"87313b73-591f-4b3a-abf0-54277661198f\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: wt-decline\\nCommit: yes\",\"subagent_type\":\"tierminator-parallel-probe:m1-worker\",\"run_in_background\":false,\"isolation\":\"worktree\"},\"tool_use_id\":\"toolu_01CaE5eoJKehSah945uKCRko\"}\n"
+    },
+    {
+      "at": "2026-10-20T04:38:55.614Z",
+      "tag": "wt-create",
+      "stdin": "{\"session_id\":\"18326e76-4a5b-4721-aae7-6c80b556f660\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-wt-decline-repo\\\\18326e76-4a5b-4721-aae7-6c80b556f660.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-wt-decline\\\\repo\",\"prompt_id\":\"87313b73-591f-4b3a-abf0-54277661198f\",\"hook_event_name\":\"WorktreeCreate\",\"name\":\"agent-a88308cca16dedcc1\"}\n"
+    },
+    {
+      "at": "2026-10-20T04:38:55.615Z",
+      "tag": "wt-create:declined"
+    },
+    {
+      "at": "2026-10-20T04:38:55.722Z",
+      "tag": "post-fail",
+      "stdin": "{\"session_id\":\"18326e76-4a5b-4721-aae7-6c80b556f660\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-wt-decline-repo\\\\18326e76-4a5b-4721-aae7-6c80b556f660.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-wt-decline\\\\repo\",\"prompt_id\":\"87313b73-591f-4b3a-abf0-54277661198f\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUseFailure\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"worktree probe\",\"prompt\":\"Probe cell: wt-decline\\nCommit: yes\",\"subagent_type\":\"tierminator-parallel-probe:m1-worker\",\"run_in_background\":false,\"isolation\":\"worktree\"},\"tool_use_id\":\"toolu_01CaE5eoJKehSah945uKCRko\",\"error\":\"WorktreeCreate hook failed: node \\\"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\\\" wt-create: probe: declining to create a worktree\",\"is_interrupt\":false,\"duration_ms\":111}\n"
+    },
+    {
+      "at": "2026-10-20T04:38:57.198Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"18326e76-4a5b-4721-aae7-6c80b556f660\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-wt-decline-repo\\\\18326e76-4a5b-4721-aae7-6c80b556f660.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-wt-decline\\\\repo\",\"prompt_id\":\"87313b73-591f-4b3a-abf0-54277661198f\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"WorktreeCreate hook failed: node \\\"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\\\" wt-create: probe: declining to create a worktree\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}
