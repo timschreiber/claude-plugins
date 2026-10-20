@@ -524,9 +524,9 @@ these. None rests on a new measurement, except where noted:
    the engine, and waves give a plan-order history and one base per wave, which is what makes the main-tree check
    possible. It remains a possible later optimization.
 4. **Plan-level verify halts on failure and nothing repairs it.** It still guards against picks that apply cleanly
-   and break together. `TIERMINATOR_VERIFY_TIMEOUT` is dropped in favor of the hook timeout (P5). Proposed, to
-   confirm (spec O8): the picks stay on the run branch, since each passed its own `Verify:`; the alternative is a
-   `reset --hard` to the wave base, which needs the slot branches re-picked on resume.
+   and break together. `TIERMINATOR_VERIFY_TIMEOUT` is dropped in favor of the hook timeout (P5). Decided
+   (spec O8, the user delegated the call): the picks stay on the run branch, since each passed its own `Verify:`;
+   the alternative, a `reset --hard` to the wave base, would need the slot branches re-picked on resume.
 5. **The overlap review flag is deferred** (WP-05): with item 1 a missed overlap costs one redo.
 6. **First release:** WP-01 to WP-04, WP-06 to WP-11, WP-14, and a trimmed WP-17 (eight scenarios). Deferred: WP-05,
    WP-12, WP-13's repair half, WP-15 (the limit rule for other slots, the result fields, P8) and WP-16's display
