@@ -24,6 +24,13 @@
 //                                               SubagentStart hook reset the worktree to PROBE_BASE (B)?
 //   m2-cd-inside, m2-cd-outside                 no isolation; the m2-worker moves into a runner-made worktree
 //                                               (inside or outside the repo) with cd.
+//   m1-baseref-local                            hook-added isolation; .claude/settings.local.json (untracked) sets baseRef head.
+//   m1-baseref-shared                           hook-added isolation; a committed .claude/settings.json sets baseRef head.
+//   m1-noremote                                 hook-added isolation in a repo with no remote at all.
+//   m1-substart-slow                            like m1-substart-reset, with PROBE_RESET_DELAY_MS=5000 delaying the reset.
+//   m1-worker-reset                             hook-added isolation; the m1-reset-worker agent is told the base (B) and resets itself.
+//   wt-decline                                  isolation "worktree" with variant-worktree-hook in PROBE_WT_MODE=decline.
+//   m1-baseref-user                             interactive only: baseRef head in the USER settings file; refused headless.
 // The m1 and m2 cells use the m1-worker and m2-worker agents; all cells exclude .claude/worktrees/ from git.
 'use strict'
 
@@ -47,10 +54,29 @@ const CELLS = {
   'm1-substart-reset': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-substart-reset'], exclude: true },
   'm2-cd-inside': { isolation: 'none', commit: true, worktree: 'inside', agent: 'm2-worker', plugins: ['probe-plugin'], exclude: true },
   'm2-cd-outside': { isolation: 'none', commit: true, worktree: 'outside', agent: 'm2-worker', plugins: ['probe-plugin'], exclude: true },
+  'm1-baseref-local': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, projectSettings: 'local' },
+  'm1-baseref-shared': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, projectSettings: 'shared' },
+  'm1-noremote': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, remote: false },
+  'm1-substart-slow': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-substart-reset'], exclude: true, env: { PROBE_RESET_DELAY_MS: '5000' } },
+  'm1-worker-reset': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-reset-worker', plugins: ['probe-plugin'], exclude: true, baseLine: true },
+  'wt-decline': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-worktree-hook'], exclude: true, env: { PROBE_WT_MODE: 'decline' } },
+  'm1-baseref-user': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, userSettings: true, interactiveOnly: true },
 }
 
 function cellOf(name) {
-  return { agent: 'sonnet-low', plugins: ['probe-plugin'], settings: false, exclude: false, ...CELLS[name] }
+  return {
+    agent: 'sonnet-low',
+    plugins: ['probe-plugin'],
+    settings: false,
+    exclude: false,
+    remote: true,
+    projectSettings: null,
+    baseLine: false,
+    env: {},
+    interactiveOnly: false,
+    userSettings: false,
+    ...CELLS[name],
+  }
 }
 
 function git(cwd, ...args) {
@@ -67,9 +93,12 @@ function setupCell(name) {
   fs.rmSync(base, { recursive: true, force: true })
   fs.mkdirSync(base, { recursive: true })
 
-  const origin = path.join(base, 'origin.git')
-  fs.mkdirSync(origin)
-  git(origin, 'init', '-q', '--bare')
+  let origin = null
+  if (cell.remote !== false) {
+    origin = path.join(base, 'origin.git')
+    fs.mkdirSync(origin)
+    git(origin, 'init', '-q', '--bare')
+  }
 
   const repo = path.join(base, 'repo')
   fs.mkdirSync(repo)
@@ -79,12 +108,18 @@ function setupCell(name) {
   git(repo, 'config', 'core.autocrlf', 'false')
   fs.writeFileSync(path.join(repo, 'CLAUDE.md'), 'CLAUDE-MARKER: main-tree\n')
   fs.writeFileSync(path.join(repo, 'README.md'), 'probe\n')
+  if (cell.projectSettings === 'shared') {
+    fs.mkdirSync(path.join(repo, '.claude'), { recursive: true })
+    fs.writeFileSync(path.join(repo, '.claude', 'settings.json'), JSON.stringify({ worktree: { baseRef: 'head' } }, null, 2) + '\n')
+  }
   git(repo, 'add', '-A')
   git(repo, 'commit', '-q', '-m', 'probe: A')
   const A = git(repo, 'rev-parse', 'HEAD')
-  git(repo, 'remote', 'add', 'origin', origin)
-  git(repo, 'push', '-q', 'origin', 'main')
-  git(repo, 'remote', 'set-head', 'origin', 'main')
+  if (origin) {
+    git(repo, 'remote', 'add', 'origin', origin)
+    git(repo, 'push', '-q', 'origin', 'main')
+    git(repo, 'remote', 'set-head', 'origin', 'main')
+  }
   fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n')
   git(repo, 'add', '-A')
   git(repo, 'commit', '-q', '-m', 'probe: A2')
@@ -94,6 +129,12 @@ function setupCell(name) {
   git(repo, 'add', '-A')
   git(repo, 'commit', '-q', '-m', 'probe: B')
   const B = git(repo, 'rev-parse', 'HEAD')
+
+  if (cell.projectSettings === 'local') {
+    fs.mkdirSync(path.join(repo, '.claude'), { recursive: true })
+    fs.writeFileSync(path.join(repo, '.claude', 'settings.local.json'), JSON.stringify({ worktree: { baseRef: 'head' } }, null, 2) + '\n')
+    fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/settings.local.json\n')
+  }
 
   if (cell.exclude || cell.worktree === 'inside') {
     fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/worktrees/\n')
@@ -125,7 +166,7 @@ function setupCell(name) {
   const log = path.join(base, 'probe.log')
   const mode = cell.isolation === 'hook' ? 'add-isolation' : 'observe'
   const plugins = cell.plugins.map(p => path.join(__dirname, p))
-  const ctx = { cell: name, base, repo, origin, log, worktree, mode, shas: { A, A2, B, W }, plugins, agent: cell.agent, settingsFile }
+  const ctx = { cell: name, base, repo, origin, log, worktree, mode, shas: { A, A2, B, W }, plugins, agent: cell.agent, settingsFile, env: cell.env }
   fs.writeFileSync(path.join(base, 'ctx.json'), JSON.stringify(ctx, null, 2))
   return ctx
 }
@@ -133,6 +174,7 @@ function setupCell(name) {
 function agentPromptLines(ctx) {
   const cell = cellOf(ctx.cell)
   const lines = ['Probe cell: ' + ctx.cell, 'Commit: ' + (cell.commit ? 'yes' : 'no')]
+  if (cell.baseLine) lines.push('Base: ' + ctx.shas.B)
   if (ctx.worktree) lines.push('Worktree: ' + ctx.worktree)
   return lines
 }
@@ -163,6 +205,7 @@ function probeEnv(ctx) {
   env.PROBE_MODE = ctx.mode
   env.PROBE_BASE = ctx.shas.B
   env.PROBE_WT_DIR = path.join(ctx.base, 'wt-hook')
+  for (const [k, v] of Object.entries(ctx.env ?? {})) env[k] = v
   return env
 }
 
@@ -429,6 +472,10 @@ function writeEvidence(ctx, mode, run) {
 }
 
 function runHeadless(name) {
+  if (cellOf(name).interactiveOnly) {
+    process.stderr.write(`cell ${name} is interactive only; use --prepare ${name} and --collect ${name}\n`)
+    process.exit(2)
+  }
   const ctx = setupCell(name)
   const r = spawnSync(
     'claude',
@@ -486,9 +533,13 @@ function main(argv) {
     if (argv.length !== 2 || !Object.prototype.hasOwnProperty.call(CELLS, name)) usage()
     if (argv[0] === '--prepare') {
       const ctx = setupCell(name)
+      if (cellOf(name).userSettings) {
+        console.log('BEFORE you start: add {"worktree":{"baseRef":"head"}} to your USER settings file (~/.claude/settings.json), and remove it again after the session.')
+      }
       console.log(`cd "${ctx.repo}"`)
       console.log(`$env:PROBE_LOG='${ctx.log}'`)
       console.log(`$env:PROBE_MODE='${ctx.mode}'`)
+      for (const [k, v] of Object.entries(ctx.env ?? {})) console.log(`$env:${k}='${v}'`)
       console.log(
         'claude ' + ctx.plugins.map(p => `--plugin-dir "${p}"`).join(' ') + (ctx.settingsFile ? ` --settings "${ctx.settingsFile}"` : '')
       )
@@ -501,7 +552,7 @@ function main(argv) {
     return
   }
   if (argv.some(a => a.startsWith('--'))) usage()
-  const names = argv.length ? argv : Object.keys(CELLS)
+  const names = argv.length ? argv : Object.keys(CELLS).filter(n => !cellOf(n).interactiveOnly)
   for (const n of names) if (!Object.prototype.hasOwnProperty.call(CELLS, n)) usage()
   for (const n of names) runHeadless(n)
 }
