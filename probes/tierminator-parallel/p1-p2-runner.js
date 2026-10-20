@@ -1,6 +1,7 @@
 // Probes P1 and P2 of docs/tierminator/tierminator-parallel-spec.md.
 //
-//   node probes/tierminator-parallel/p1-p2-runner.js [cell ...]   headless; no cell = all
+//   node probes/tierminator-parallel/p1-p2-runner.js [--runs N] [cell ...]   headless; no cell = all;
+//                                                    --runs N runs each cell N times (evidence files get -r<k>)
 //   node probes/tierminator-parallel/p1-p2-runner.js --list
 //   node probes/tierminator-parallel/p1-p2-runner.js --prepare <cell>
 //   node probes/tierminator-parallel/p1-p2-runner.js --collect <cell>
@@ -381,7 +382,7 @@ function summary(ctx, entries) {
   let report = null
   if (text) {
     report = {}
-    const re = /^(MARKER|MARKER_GIVEN|PWD_INITIAL|PWD_CD|PWD_NOW|TOPLEVEL|BRANCH|HEAD_BEFORE|B_TXT|READ_MARKER|REL_WRITE|ABS_WRITE|EDIT|WRITE|COMMIT|PWD_END|BRANCH_END|STATUS_END):\s*(.*)$/
+    const re = /^(MARKER|MARKER_GIVEN|PWD_INITIAL|PWD_CD|PWD_NOW|TOPLEVEL|BRANCH|HEAD_BEFORE|RESET|B_TXT|READ_MARKER|REL_WRITE|ABS_WRITE|EDIT|WRITE|COMMIT|PWD_END|BRANCH_END|STATUS_END):\s*(.*)$/
     for (const l of text.split('\n')) {
       const m = re.exec(l.replace(/\r$/, ''))
       if (m) report[m[1]] = m[2]
@@ -394,13 +395,31 @@ function summary(ctx, entries) {
     basedOn = h === B ? 'HEAD of work (B)' : h === A2 ? 'local main (A2)' : h === A ? 'origin/main (A)' : W && h === W ? 'runner worktree commit (W)' : 'other'
   }
 
-  const VARIANT_TAGS = ['wt-create', 'wt-create:made', 'wt-create:failed', 'wt-remove', 'sub-reset:input', 'sub-reset', 'sub-reset:skipped']
+  const VARIANT_TAGS = ['wt-create', 'wt-create:made', 'wt-create:failed', 'wt-remove', 'sub-reset:input', 'sub-reset', 'sub-reset:skipped', 'wt-create:declined']
   const variantEvents = entries
     .filter(e => VARIANT_TAGS.includes(e.tag))
     .map(e => {
       const { at, tag, ...rest } = e
       return { tag, at, data: typeof e.stdin === 'string' ? parse(e) : rest }
     })
+
+  const workerTools = toolCwds.filter(t => t.agent_id !== null)
+  const firstWorkerToolAt = workerTools.length ? workerTools.map(t => t.at).reduce((a, b) => (b < a ? b : a)) : null
+  const subStartEntry = tagged('sub-start')[0]
+  const subagentStartAt = subStartEntry ? subStartEntry.at : null
+  const firstWorkerToolDelayMs = firstWorkerToolAt && subagentStartAt ? Date.parse(firstWorkerToolAt) - Date.parse(subagentStartAt) : null
+  const resetEvent = variantEvents.find(v => v.tag === 'sub-reset')
+  const resetTimings = resetEvent
+    ? {
+        startedAt: resetEvent.data.startedAt,
+        endedAt: resetEvent.data.endedAt,
+        before: resetEvent.data.before,
+        after: resetEvent.data.after,
+        delayMs: resetEvent.data.delayMs,
+      }
+    : null
+  const cellDef = cellOf(ctx.cell)
+  const settingsSource = cellDef.settings ? 'flag' : cellDef.projectSettings ? 'project-' + cellDef.projectSettings : cellDef.userSettings ? 'user' : 'none'
 
   const after = gitAfter(ctx)
   const nonMain = Array.isArray(after.worktrees) ? after.worktrees.filter(w => !w.isMain) : []
@@ -416,6 +435,7 @@ function summary(ctx, entries) {
     commitIsBranchHead: report
       ? Boolean(report.COMMIT) && branchLogs && typeof branchLogs === 'object' && Object.values(branchLogs).some(l => Array.isArray(l) && l.length > 0 && l[0].split(' ')[0] === report.COMMIT)
       : null,
+    resetFinishedBeforeFirstTool: resetTimings && firstWorkerToolAt ? resetTimings.endedAt <= firstWorkerToolAt : null,
   }
 
   return {
@@ -432,12 +452,20 @@ function summary(ctx, entries) {
     subagentStart: { fired: subStart.length > 0, events: subStart },
     subagentStop: { fired: subStop.length > 0, events: subStop },
     toolCwds,
+    firstWorkerToolAt,
+    subagentStartAt,
+    firstWorkerToolDelayMs,
+    resetTimings,
+    settingsSource,
+    remote: cellDef.remote !== false,
     worktreeMentions: worktreeMentions(entries),
     report,
     base: { ...ctx.shas, basedOn },
     after,
   }
 }
+
+let runSuffix = ''
 
 function writeEvidence(ctx, mode, run) {
   fs.mkdirSync(evidenceDir, { recursive: true })
@@ -453,7 +481,7 @@ function writeEvidence(ctx, mode, run) {
   const events = run ? run.streamEvents : []
   const final = events.filter(e => e.type === 'result').pop()
   const version = spawnSync('claude', ['--version'], { encoding: 'utf8' }).stdout?.trim() ?? null
-  const file = path.join(evidenceDir, `tierminator-parallel-${ctx.cell}${mode === 'interactive' ? '-interactive' : ''}.json`)
+  const file = path.join(evidenceDir, `tierminator-parallel-${ctx.cell}${mode === 'interactive' ? '-interactive' : ''}${runSuffix}.json`)
   const doc = {
     generated: new Date().toISOString(),
     claudeCodeVersion: version,
@@ -512,7 +540,7 @@ function collect(name) {
 function usage() {
   process.stderr.write(
     [
-      'usage: node probes/tierminator-parallel/p1-p2-runner.js [cell ...]',
+      'usage: node probes/tierminator-parallel/p1-p2-runner.js [--runs N] [cell ...]',
       '       node probes/tierminator-parallel/p1-p2-runner.js --list',
       '       node probes/tierminator-parallel/p1-p2-runner.js --prepare <cell>',
       '       node probes/tierminator-parallel/p1-p2-runner.js --collect <cell>',
@@ -524,6 +552,14 @@ function usage() {
 }
 
 function main(argv) {
+  let runs = 1
+  const ri = argv.indexOf('--runs')
+  if (ri !== -1) {
+    const v = argv[ri + 1]
+    if (v === undefined || !/^[1-9]\d*$/.test(v)) usage()
+    runs = Number(v)
+    argv = [...argv.slice(0, ri), ...argv.slice(ri + 2)]
+  }
   if (argv[0] === '--list') {
     console.log(Object.keys(CELLS).join('\n'))
     return
@@ -554,7 +590,13 @@ function main(argv) {
   if (argv.some(a => a.startsWith('--'))) usage()
   const names = argv.length ? argv : Object.keys(CELLS).filter(n => !cellOf(n).interactiveOnly)
   for (const n of names) if (!Object.prototype.hasOwnProperty.call(CELLS, n)) usage()
-  for (const n of names) runHeadless(n)
+  for (const n of names) {
+    for (let k = 1; k <= runs; k++) {
+      runSuffix = runs > 1 ? `-r${k}` : ''
+      runHeadless(n)
+    }
+  }
+  runSuffix = ''
 }
 
 if (require.main === module) main(process.argv.slice(2))
