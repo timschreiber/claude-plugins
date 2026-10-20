@@ -1,8 +1,11 @@
 # tierminator parallel: placing a subagent in a Git worktree
 
-Probes P1 and P2 of [`tierminator-parallel-spec.md`](tierminator-parallel-spec.md#probes), run on
-2026-10-19 (03:43 to 03:45 UTC on 2026-10-20) with Claude Code 2.1.304 on Windows, headless, five cells, $0.61
-in all.
+Probes P1 and P2 of [`tierminator-parallel-spec.md`](tierminator-parallel-spec.md#probes) and their re-runs
+(M1 with four ways to fix the base, M2 with `cd` prefixes), run on 2026-10-19 and 2026-10-20 (03:43 to 04:15 UTC
+on 2026-10-20) with Claude Code 2.1.304 on Windows, headless, eleven cells, $1.32 in all ($0.61 for the five P1
+and P2 cells, $0.48 for the four M1 cells, $0.23 for the two M2 cells). The re-runs changed the runner's prompt:
+the main session is now told to pass the prompt that sits between two lines of three dashes exactly, which the P1
+and P2 cells did not have (`p2-outside` shows the main session adding a line).
 
 Each cell is made by `probes/tierminator-parallel/p1-p2-runner.js`. It builds a throwaway repo in the temp
 directory with a bare `origin`: `main` at commit A is pushed to `origin`, then local `main` moves on to A2 and
@@ -27,6 +30,17 @@ Evidence, one file per cell:
   `repo/.claude/worktrees/p2` (listed in `.git/info/exclude`).
 - `probes/evidence/tierminator-parallel-p2-outside.json`: the same with the worktree beside the repo,
   at `<base>/wt-p2`.
+- `probes/evidence/tierminator-parallel-m1-baseref-flag.json`: M1 with `worktree.baseRef: "head"` in a
+  `--settings` file.
+- `probes/evidence/tierminator-parallel-m1-baseref-plugin.json`: M1 with the same setting in a plugin's
+  `settings.json`.
+- `probes/evidence/tierminator-parallel-m1-worktree-hook.json`: M1 with a `WorktreeCreate` hook that makes the
+  worktree from B.
+- `probes/evidence/tierminator-parallel-m1-substart-reset.json`: M1 with a `SubagentStart` hook that resets the
+  worktree to B.
+- `probes/evidence/tierminator-parallel-m2-cd-inside.json`: M2 with a `cd` prefix on every Bash command, the
+  worktree at `repo/.claude/worktrees/p2`.
+- `probes/evidence/tierminator-parallel-m2-cd-outside.json`: the same with the worktree at `<base>/wt-p2`.
 
 Each file holds the hook log, a `summary` (the Agent call, the hook output, `SubagentStart` and
 `SubagentStop`, every tool call's `cwd`, the agent's report, the base commits and the Git state afterwards)
@@ -228,59 +242,80 @@ asks for permission for a path outside the project, so these cells are not cover
 
 ## Recommendation
 
-**Neither, as measured.** By the rule set for this probe, M1 and M2 both fail one condition each, and the
-spec's [Probes](tierminator-parallel-spec.md#probes) section says the feature does not proceed when both fail.
-WP-02 to WP-17 should not be run until one of the re-runs below passes.
+**M1, with `worktree.baseRef: "head"` supplied through `--settings`.** Both M1 and M2 pass their rules, and the
+spec prefers M1, so the recommendation is M1. The best passing M1 mechanism is the `--settings` file
+(`m1-baseref-flag`): the plugin `settings.json` mechanism, which would need no user action, did not take effect
+(`m1-baseref-plugin`). M2 also passes and is the fallback and the conflict resolver's route. All of this was
+measured headless under `bypassPermissions`, each cell once.
 
-M1 (the Agent tool's `isolation: "worktree"`):
+The rules. An M1 mechanism passes when all hold: `HEAD_BEFORE` is B and `B_TXT` is `b`; the README edit and
+`probe-abs.txt` are in the worktree and not in the main tree; the worker's commit is the head of a branch in the
+worktree; the main tree is on B with empty status; and a hook sees the worktree path. M2 passes when all hold:
+`PWD_CD` and `TOPLEVEL` are the worktree; `READ_MARKER` is `worktree`; the commit is the head of `probe/p2`; the
+main tree is on B with empty status; and the edit and `probe-abs.txt` are in the worktree.
 
-| Condition | Result |
-|---|---|
-| Isolation applies to the plugin agent | Holds (all three `p1-*` files). |
-| The call parameter or the hook applies it | Holds: **both** do (`p1-isolation-*`, `p1-hook-isolation`), so H4 could add it with `updatedInput` and need not deny a call without it. |
-| The path or branch reaches a hook | Holds: `PostToolUse` on Agent, `tool_response.worktreePath` and `tool_response.worktreeBranch`; and `SubagentStart`/`SubagentStop` `cwd`, from which the branch `worktree-agent-<agent_id>` can be derived (**inferred** naming rule). |
-| The base is B | **Fails.** The worktree was based on A, `origin/main`, in all three cells. A wave's base is the run branch's local HEAD, which is usually not pushed, so every worker would start from stale code. |
-| A worktree holding a commit survives with its branch | Holds (`p1-isolation-commit`, `p1-hook-isolation`). |
+| Mechanism and cell | Base is B (`HEAD_BEFORE`, `B_TXT`) | Edit and write in the worktree only | Commit is the head of a branch in the worktree | Main tree on B, status empty | A hook sees the worktree path | Verdict |
+|---|---|---|---|---|---|---|
+| M1 `m1-baseref-flag` (`--settings`) | PASS: B, `b` | PASS | PASS | PASS | PASS: `PostToolUse` on Agent `tool_response.worktreePath`; `cwd` on `SubagentStart` | **PASS** |
+| M1 `m1-baseref-plugin` (plugin `settings.json`) | **FAIL**: A, `B_TXT` missing | PASS | PASS | PASS | PASS: same fields | **FAIL** |
+| M1 `m1-worktree-hook` (`WorktreeCreate`) | PASS: B, `b` | PASS | PASS | PASS | PASS: `tool_response.worktreePath` and `cwd` on `SubagentStart` (no `worktreeBranch`) | **PASS** |
+| M1 `m1-substart-reset` (`SubagentStart` reset) | PASS: B, `b` | PASS | PASS | PASS | PASS: `tool_response.worktreePath` and `worktreeBranch`; `cwd` on `SubagentStart` | **PASS** |
 
-M2 (worktrees made by tierminator, with a `Worktree:` line):
+| Mechanism and cell | `PWD_CD`, `TOPLEVEL` are the worktree | `READ_MARKER` is `worktree` | Commit is the head of `probe/p2` | Main tree on B, status empty | Edit and `probe-abs.txt` in the worktree only | Verdict |
+|---|---|---|---|---|---|---|
+| M2 `m2-cd-inside` (`repo/.claude/worktrees/p2`) | PASS | PASS | PASS (`6155431`) | PASS | PASS | **PASS** |
+| M2 `m2-cd-outside` (`<base>/wt-p2`) | PASS | PASS | PASS (`3d2d487`) | PASS | PASS | **PASS** |
 
-| Condition | Result |
-|---|---|
-| Absolute-path writes land in the worktree | Holds, inside and outside, when the path is in drive-letter form (`p2-*`). |
-| The commit lands on `probe/p2` with the main tree clean | **Fails.** The commit landed on `work`, the main tree's branch, which moved off B, in both cells, because the lone `cd` did not persist and the probe forbade `cd` prefixes and `git -C`. |
+For the M1 cells the hook field that carries the worktree path is `tool_response.worktreePath` on `PostToolUse`
+for the Agent call, and `cwd` on `SubagentStart` and `SubagentStop`. The three passing M1 cells also pass in the
+earlier P1 sense (isolation applies to the plugin agent, and the call parameter or a `PreToolUse` hook's
+`updatedInput` applies it), so H4 can add `isolation: "worktree"` and need not deny a call without it. In the M2
+cells no hook field names the worktree (`cwd` is the main tree throughout), so it comes from the `Worktree:` line.
 
-**What would change it.** Both failures have a likely fix that this run did not test (**inferred**):
+**The M1 mechanism and its preconditions.** `m1-baseref-flag`: a settings file with `worktree.baseRef: "head"`,
+passed to Claude Code with `--settings`, gives the worktree the base B instead of A, `origin/main`. Preference
+order was plugin `settings.json`, then `--settings`, then the `WorktreeCreate` hook, then the `SubagentStart`
+reset; only the first failed. The preconditions:
 
-- **M2 with a `cd` prefix.** A P2 cell whose worker puts `cd "<Worktree path>" &&` in front of every Bash
-  command (or uses `git -C "<Worktree path>"`) and writes only drive-letter absolute paths. If its commit lands
-  on `probe/p2` and the main tree stays on B, M2 holds with these worker rules: a `cd "<Worktree>" &&` prefix
-  on every Bash command, absolute drive-letter paths for every file tool (relative paths land in the main
-  tree), and never a path built from Git Bash's `/tmp/…` form of `pwd`. Placement would be **inside**
-  (`<repo>/.claude/worktrees/…`, with that directory in `.git/info/exclude`): it behaved the same as outside
-  headless and needs no permission for a path outside the project, which outside has not been shown to avoid.
-- **M1 with the base fixed.** Either a first worker step `git reset --hard <wave base>` in its worktree
-  (checked by the judge against the slot's recorded base), or a `WorktreeCreate` hook that makes the worktree
-  from the wave base itself (not tried, see below). M1 would also need `.claude/worktrees/` in
-  `.git/info/exclude`, since the main tree otherwise shows `?? .claude/` and fails tierminator's clean-tree
-  check (**inferred** from `git.problem`).
+- **A user setting.** `--settings` is a flag of the Claude Code process that runs the session, so tierminator
+  would need to check that `worktree.baseRef` is `head` in the running session and refuse to run parallel without
+  it. Only the `--settings` file was measured: that the key works from a project or user `settings.json` is
+  **not determinable** (no cell tried it).
+- **`.git/info/exclude`.** Every re-run cell listed `.claude/worktrees/` in `.git/info/exclude`, so the main
+  tree's empty status depends on it; without it the main tree shows `?? .claude/` as in P1 and fails
+  tierminator's clean-tree check (**inferred** from `git.problem`).
+- **The hook-added isolation.** The `PreToolUse` hook adds `isolation: "worktree"` through `updatedInput` with
+  no `permissionDecision`, as in `p1-hook-isolation`.
 
-Because M2's failure is a direct result of the probe's own ban on `cd` prefixes, the M2 re-run is the cheaper
-and more likely route; the spec prefers M1, so the M1 re-run decides whether the preference can stand.
+If a user will not set `baseRef`, the next mechanisms also passed: the `WorktreeCreate` hook (`m1-worktree-hook`,
+which replaces Claude Code's own creation, so the branch name is the hook's choice and no `worktreeBranch` reaches
+`PostToolUse`), then the `SubagentStart` reset (`m1-substart-reset`, where the reset finished before the
+worker's first command in the one run, but whether Claude Code waits for it is **not determinable**).
 
-**Where the conflict resolver runs.** P2 did not hold, so, by the spec's rule, the resolver cannot be pointed
-at the integration worktree by a `Worktree:` line alone. With M1 also failing, it has no place as measured.
-If the M2 re-run passes, it runs in the integration worktree through a `Worktree:` line under the same worker
-rules (a `cd` prefix on every Bash command, so `git add` and `git cherry-pick --continue` run there). If only
-M1 passes, it runs in its own M1 worktree and the hook fast-forwards the integration branch to its result.
+**The M2 worker rules, if M2 is used.** Both placements passed, **inside** and **outside**. The worker rules to
+copy are the `m2-worker` agent's (`tierminator-parallel-probe:m2-worker`, quoted in the M2 re-run section): a
+`cd "<Worktree>" && ` prefix on every Bash command, an absolute drive-letter path that starts with the worktree
+for every file tool (relative paths land in the main tree), and never a path built from Git Bash's `/tmp/…`
+form of `pwd`. Inside (`<repo>/.claude/worktrees/…`, with that directory in `.git/info/exclude`) needs no
+permission for a path outside the project, which outside has not been shown to avoid (the interactive cells are
+pending).
+
+**Where the conflict resolver runs.** The resolver needs an existing worktree with a pick in progress. It uses M2
+if M2 passes, and M2 does, so it runs in the integration worktree through a `Worktree:` line under the
+`m2-worker` rules. (Had M2 failed, a `WorktreeCreate` hook made from the integration
+tip would have been the route, since that mechanism passed.)
 
 **Spec assumptions the evidence refutes**, and the packages to edit (see [`parallel/README.md`](parallel/README.md)):
 
 - **M1 places the worker at the wave base.** [The dispatch of one task](tierminator-parallel-spec.md#the-dispatch-of-one-task)
-  and [Concepts](tierminator-parallel-spec.md#concepts) (wave base) assume it; Claude Code bases the worktree on
-  `origin/main` (A). Edit WP-08 (`expectedCall` placement) and WP-09 (H4 `pre`, the slot's recorded head).
+  and [Concepts](tierminator-parallel-spec.md#concepts) (wave base) assume it; by default Claude Code bases the
+  worktree on `origin/main` (A). It holds only with `worktree.baseRef: "head"` supplied through `--settings`
+  (or one of the hook mechanisms), which tierminator must check. Edit WP-08 (`expectedCall` placement) and WP-09
+  (H4 `pre`, the slot's recorded head).
 - **A `Worktree:` line is enough for M2.** [The dispatch of one task](tierminator-parallel-spec.md#the-dispatch-of-one-task)
   says the worker "must treat it as its working directory"; a lone `cd` does not persist, Bash and relative
-  file paths stay in the main tree, and the commit lands on the run branch. This also breaks
+  file paths stay in the main tree, and the commit lands on the run branch. The `m2-worker` rules (a `cd` prefix
+  on every Bash command, absolute drive-letter file paths) fix that. This also breaks
   [Setup](tierminator-parallel-spec.md#setup) (setup would run in the main tree) and
   [Judging a task](tierminator-parallel-spec.md#judging-a-task) (the "worker still on its own branch" check
   must read the worktree's HEAD, not the main tree's). Edit WP-09 (the tier agents' Parallel section must
@@ -289,8 +324,6 @@ M1 passes, it runs in its own M1 worktree and the hook fast-forwards the integra
   branch) and [Integration](tierminator-parallel-spec.md#integration) step 5 rely on it; under M1 the
   `.claude/worktrees/` directory shows as untracked unless it is excluded. Edit WP-06 (worktree helpers: add
   the exclude entry) and WP-10 (starting waves).
-- **The resolver can work in the integration worktree.** [The conflict resolver](tierminator-parallel-spec.md#the-conflict-resolver)
-  ("Where") holds only with the `cd`-prefix rule. Edit WP-12.
 - **Not refuted, but to keep in mind:** under M2 the worker is given the main tree's `CLAUDE.md`, not the
   worktree's, and under M1 `SubagentStop`'s `cwd` is the worktree, not the project. H4 already prefers the
   state's recorded `cwd` (`s.cwd ?? input.cwd`), so it is not misled (**inferred** from
@@ -298,13 +331,14 @@ M1 passes, it runs in its own M1 worktree and the hook fast-forwards the integra
 
 ## Not measured
 
-- **The interactive cells** above: background dispatch, the user's permission mode, and permission prompts for
-  an outside worktree.
-- **`WorktreeCreate` and `WorktreeRemove` hooks.** The probe plugin registers neither on purpose (a
-  `WorktreeCreate` hook replaces Claude Code's own worktree creation, which P1 measured), so whether one could
-  set the base or the path is unknown.
-- **M2 with a `cd` prefix or `git -C`**, and M1 with a reset to the wave base: the re-runs the recommendation
-  depends on.
+- **The interactive cells** (see Pending above): background dispatch, the user's permission mode, and
+  permission prompts for an outside worktree. None of the M1 or M2 re-run cells ran interactively.
+- **PowerShell-tool workers.** Every worker ran its commands through the Bash tool. The Claude Code documentation
+  says the `cd` reset applies to the PowerShell tool too, but no cell used it.
+- **The `SubagentStart` cwd of non-isolated agents.** In the M2 cells the worker was not isolated and the hook's
+  `cwd` was the main tree; that this holds for every non-isolated agent was not tried.
+- **The `WorktreeRemove` hook.** It was registered in `m1-worktree-hook` and did not fire, so whether it would on
+  cleanup is unknown.
 - **Whether Claude Code removes an isolated worktree that has no changes at all**; the no-commit worker left an
   untracked file.
 - **Several isolated Agent calls at once** (concurrent worktree creation), which belongs to P3 and P6.
