@@ -1,0 +1,727 @@
+{
+  "generated": "2026-10-20T21:19:41.952Z",
+  "claudeCodeVersion": "2.1.305 (Claude Code)",
+  "cell": "p5-ups-t600-s400",
+  "setup": {
+    "event": "UserPromptSubmit",
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 600,
+        "sleep": 400
+      },
+      {
+        "name": "fast",
+        "timeout": 600,
+        "sleep": 0
+      }
+    ]
+  },
+  "hooksJson": {
+    "hooks": {
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" slow 400 UserPromptSubmit",
+              "timeout": 600
+            },
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" fast 0 UserPromptSubmit",
+              "timeout": 600
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "validate": {
+    "status": 0,
+    "output": "Validating plugin manifest: C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t600-s400\\slow-plugin\\.claude-plugin\\plugin.json\n\n⚠ Found 1 warning:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n\nPlugin directory checks for C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t600-s400\\slow-plugin. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.\n\n✘ Found 1 problem the plugin directory refuses a submission for:\n\n  ❯ README.md: README missing (README_MISSING). This plugin has no README.md. People who install it and the directory's automated review read the README to learn what it does; the first line of a README in the plugin folder also stands in as the listing summary when plugin.json has no description.\n    Fix: Add a README.md to the plugin folder describing what the plugin does, how to use it, and any setup it needs, in at least 40 words. A README at the repository root also counts for a plugin in a sub-folder.\n\n⚠ Found 1 plugin directory warning:\n\n  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.\n    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.\n\nThese plugin directory checks do not change the result below. To fail on problems the directory refuses a submission for, run this command with --profile directory.\n\nThe directory also runs a safety scan and a policy review that this command does not.\n\n✔ Validation passed with"
+  },
+  "mode": "headless",
+  "prompt": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.",
+  "exitCode": 0,
+  "elapsedSeconds": 408.68,
+  "costUsd": 0.05704,
+  "result": "p5\nP5-MARKER-fast P5-MARKER-slow",
+  "stderr": "",
+  "analysis": {
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 600,
+        "sleep": 400,
+        "started": true,
+        "pid": 21720,
+        "startAt": "2026-10-20T21:12:54.684Z",
+        "endAt": "2026-10-20T21:19:34.698Z",
+        "lastSeenAt": "2026-10-20T21:19:34.698Z",
+        "ranS": 400.014,
+        "beats": 79,
+        "completed": true,
+        "ranPastTimeout": false
+      },
+      {
+        "name": "fast",
+        "timeout": 600,
+        "sleep": 0,
+        "started": true,
+        "pid": 6604,
+        "startAt": "2026-10-20T21:12:54.684Z",
+        "endAt": "2026-10-20T21:12:54.690Z",
+        "lastSeenAt": "2026-10-20T21:12:54.690Z",
+        "ranS": 0.006,
+        "beats": 0,
+        "completed": true,
+        "ranPastTimeout": false
+      }
+    ],
+    "mainTools": [
+      {
+        "at": "2026-10-20T21:19:37.066Z",
+        "command": "echo p5"
+      }
+    ],
+    "workerTools": [],
+    "ups": [
+      {
+        "at": "2026-10-20T21:12:54.704Z"
+      }
+    ],
+    "subStart": [],
+    "subStop": [],
+    "stop": [
+      {
+        "at": "2026-10-20T21:19:41.300Z"
+      }
+    ],
+    "postAgent": [],
+    "afterSlowStartS": {
+      "postAgent": null,
+      "mainTool": 402.382,
+      "afterAgentTool": null,
+      "stop": 406.616
+    },
+    "fastStartDelayMs": 0,
+    "markers": [
+      "P5-MARKER-fast",
+      "P5-MARKER-slow"
+    ],
+    "prompts": [
+      {
+        "at": "2026-10-20T21:12:54.704Z",
+        "kind": "user",
+        "head": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE."
+      }
+    ],
+    "timeoutMentions": []
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T21:12:54.684Z",
+      "tag": "slow:start",
+      "name": "slow",
+      "pid": 21720,
+      "sleepS": 400,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:12:54.684Z",
+      "tag": "slow:start",
+      "name": "fast",
+      "pid": 6604,
+      "sleepS": 0,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:12:54.690Z",
+      "tag": "slow:end",
+      "name": "fast",
+      "pid": 6604,
+      "elapsedS": 0.006
+    },
+    {
+      "at": "2026-10-20T21:12:54.704Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"ae2bb4da-55c6-4a15-8e4c-d71d53cee196\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s400-repo\\\\ae2bb4da-55c6-4a15-8e4c-d71d53cee196.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s400\\\\repo\",\"prompt_id\":\"ff3b1ccf-5518-4b23-995d-51f69ed0dbfd\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:12:59.699Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 5.015
+    },
+    {
+      "at": "2026-10-20T21:13:04.705Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 10.02
+    },
+    {
+      "at": "2026-10-20T21:13:09.716Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 15.031
+    },
+    {
+      "at": "2026-10-20T21:13:14.720Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 20.035
+    },
+    {
+      "at": "2026-10-20T21:13:19.728Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 25.043
+    },
+    {
+      "at": "2026-10-20T21:13:24.729Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 30.044
+    },
+    {
+      "at": "2026-10-20T21:13:29.729Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 35.045
+    },
+    {
+      "at": "2026-10-20T21:13:34.737Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 40.052
+    },
+    {
+      "at": "2026-10-20T21:13:39.738Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 45.054
+    },
+    {
+      "at": "2026-10-20T21:13:44.747Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 50.062
+    },
+    {
+      "at": "2026-10-20T21:13:49.752Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 55.068
+    },
+    {
+      "at": "2026-10-20T21:13:54.755Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 60.07
+    },
+    {
+      "at": "2026-10-20T21:13:59.762Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 65.077
+    },
+    {
+      "at": "2026-10-20T21:14:04.773Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 70.088
+    },
+    {
+      "at": "2026-10-20T21:14:09.778Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 75.093
+    },
+    {
+      "at": "2026-10-20T21:14:14.787Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 80.103
+    },
+    {
+      "at": "2026-10-20T21:14:19.792Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 85.108
+    },
+    {
+      "at": "2026-10-20T21:14:24.806Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 90.121
+    },
+    {
+      "at": "2026-10-20T21:14:29.809Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 95.124
+    },
+    {
+      "at": "2026-10-20T21:14:34.823Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 100.139
+    },
+    {
+      "at": "2026-10-20T21:14:39.829Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 105.145
+    },
+    {
+      "at": "2026-10-20T21:14:44.829Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 110.145
+    },
+    {
+      "at": "2026-10-20T21:14:49.833Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 115.149
+    },
+    {
+      "at": "2026-10-20T21:14:54.839Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 120.155
+    },
+    {
+      "at": "2026-10-20T21:14:59.840Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 125.155
+    },
+    {
+      "at": "2026-10-20T21:15:04.851Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 130.166
+    },
+    {
+      "at": "2026-10-20T21:15:09.851Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 135.166
+    },
+    {
+      "at": "2026-10-20T21:15:14.861Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 140.176
+    },
+    {
+      "at": "2026-10-20T21:15:19.867Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 145.182
+    },
+    {
+      "at": "2026-10-20T21:15:24.877Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 150.192
+    },
+    {
+      "at": "2026-10-20T21:15:29.887Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 155.203
+    },
+    {
+      "at": "2026-10-20T21:15:34.902Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 160.217
+    },
+    {
+      "at": "2026-10-20T21:15:39.911Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 165.226
+    },
+    {
+      "at": "2026-10-20T21:15:44.923Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 170.238
+    },
+    {
+      "at": "2026-10-20T21:15:49.936Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 175.251
+    },
+    {
+      "at": "2026-10-20T21:15:54.936Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 180.252
+    },
+    {
+      "at": "2026-10-20T21:15:59.937Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 185.252
+    },
+    {
+      "at": "2026-10-20T21:16:04.944Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 190.259
+    },
+    {
+      "at": "2026-10-20T21:16:09.953Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 195.269
+    },
+    {
+      "at": "2026-10-20T21:16:14.963Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 200.279
+    },
+    {
+      "at": "2026-10-20T21:16:19.967Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 205.283
+    },
+    {
+      "at": "2026-10-20T21:16:24.984Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 210.299
+    },
+    {
+      "at": "2026-10-20T21:16:29.989Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 215.304
+    },
+    {
+      "at": "2026-10-20T21:16:34.993Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 220.309
+    },
+    {
+      "at": "2026-10-20T21:16:40.006Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 225.321
+    },
+    {
+      "at": "2026-10-20T21:16:45.007Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 230.322
+    },
+    {
+      "at": "2026-10-20T21:16:50.014Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 235.329
+    },
+    {
+      "at": "2026-10-20T21:16:55.020Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 240.335
+    },
+    {
+      "at": "2026-10-20T21:17:00.030Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 245.346
+    },
+    {
+      "at": "2026-10-20T21:17:05.040Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 250.355
+    },
+    {
+      "at": "2026-10-20T21:17:10.048Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 255.364
+    },
+    {
+      "at": "2026-10-20T21:17:15.058Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 260.373
+    },
+    {
+      "at": "2026-10-20T21:17:20.068Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 265.383
+    },
+    {
+      "at": "2026-10-20T21:17:25.070Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 270.385
+    },
+    {
+      "at": "2026-10-20T21:17:30.081Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 275.397
+    },
+    {
+      "at": "2026-10-20T21:17:35.085Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 280.401
+    },
+    {
+      "at": "2026-10-20T21:17:40.090Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 285.405
+    },
+    {
+      "at": "2026-10-20T21:17:45.102Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 290.417
+    },
+    {
+      "at": "2026-10-20T21:17:50.110Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 295.425
+    },
+    {
+      "at": "2026-10-20T21:17:55.122Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 300.437
+    },
+    {
+      "at": "2026-10-20T21:18:00.122Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 305.437
+    },
+    {
+      "at": "2026-10-20T21:18:05.133Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 310.449
+    },
+    {
+      "at": "2026-10-20T21:18:10.141Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 315.457
+    },
+    {
+      "at": "2026-10-20T21:18:15.151Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 320.467
+    },
+    {
+      "at": "2026-10-20T21:18:20.154Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 325.469
+    },
+    {
+      "at": "2026-10-20T21:18:25.163Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 330.478
+    },
+    {
+      "at": "2026-10-20T21:18:30.165Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 335.481
+    },
+    {
+      "at": "2026-10-20T21:18:35.174Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 340.49
+    },
+    {
+      "at": "2026-10-20T21:18:40.186Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 345.502
+    },
+    {
+      "at": "2026-10-20T21:18:45.188Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 350.503
+    },
+    {
+      "at": "2026-10-20T21:18:50.193Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 355.509
+    },
+    {
+      "at": "2026-10-20T21:18:55.203Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 360.519
+    },
+    {
+      "at": "2026-10-20T21:19:00.214Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 365.529
+    },
+    {
+      "at": "2026-10-20T21:19:05.221Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 370.536
+    },
+    {
+      "at": "2026-10-20T21:19:10.229Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 375.544
+    },
+    {
+      "at": "2026-10-20T21:19:15.231Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 380.546
+    },
+    {
+      "at": "2026-10-20T21:19:20.235Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 385.551
+    },
+    {
+      "at": "2026-10-20T21:19:25.243Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 390.558
+    },
+    {
+      "at": "2026-10-20T21:19:30.250Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 395.566
+    },
+    {
+      "at": "2026-10-20T21:19:34.698Z",
+      "tag": "slow:end",
+      "name": "slow",
+      "pid": 21720,
+      "elapsedS": 400.013
+    },
+    {
+      "at": "2026-10-20T21:19:37.066Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"ae2bb4da-55c6-4a15-8e4c-d71d53cee196\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s400-repo\\\\ae2bb4da-55c6-4a15-8e4c-d71d53cee196.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s400\\\\repo\",\"prompt_id\":\"ff3b1ccf-5518-4b23-995d-51f69ed0dbfd\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Print p5\"},\"tool_use_id\":\"toolu_011ERcapUT3thtNY6AZ4G6vG\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:19:38.235Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"ae2bb4da-55c6-4a15-8e4c-d71d53cee196\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s400-repo\\\\ae2bb4da-55c6-4a15-8e4c-d71d53cee196.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s400\\\\repo\",\"prompt_id\":\"ff3b1ccf-5518-4b23-995d-51f69ed0dbfd\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Print p5\"},\"tool_response\":{\"stdout\":\"p5\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_011ERcapUT3thtNY6AZ4G6vG\",\"duration_ms\":1026}\n"
+    },
+    {
+      "at": "2026-10-20T21:19:41.300Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"ae2bb4da-55c6-4a15-8e4c-d71d53cee196\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s400-repo\\\\ae2bb4da-55c6-4a15-8e4c-d71d53cee196.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s400\\\\repo\",\"prompt_id\":\"ff3b1ccf-5518-4b23-995d-51f69ed0dbfd\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"p5\\nP5-MARKER-fast P5-MARKER-slow\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}

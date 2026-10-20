@@ -1,0 +1,402 @@
+{
+  "generated": "2026-10-20T21:44:09.122Z",
+  "claudeCodeVersion": "2.1.305 (Claude Code)",
+  "cell": "p5-sas-bg-t600-s120",
+  "setup": {
+    "event": "SubagentStop",
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 600,
+        "sleep": 120
+      },
+      {
+        "name": "fast",
+        "timeout": 600,
+        "sleep": 0
+      }
+    ],
+    "background": true
+  },
+  "hooksJson": {
+    "hooks": {
+      "SubagentStop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" slow 120 SubagentStop",
+              "timeout": 600
+            },
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" fast 0 SubagentStop",
+              "timeout": 600
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "validate": {
+    "status": 0,
+    "output": "Validating plugin manifest: C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-sas-bg-t600-s120\\slow-plugin\\.claude-plugin\\plugin.json\n\n⚠ Found 1 warning:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n\nPlugin directory checks for C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-sas-bg-t600-s120\\slow-plugin. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.\n\n✘ Found 1 problem the plugin directory refuses a submission for:\n\n  ❯ README.md: README missing (README_MISSING). This plugin has no README.md. People who install it and the directory's automated review read the README to learn what it does; the first line of a README in the plugin folder also stands in as the listing summary when plugin.json has no description.\n    Fix: Add a README.md to the plugin folder describing what the plugin does, how to use it, and any setup it needs, in at least 40 words. A README at the repository root also counts for a plugin in a sub-folder.\n\n⚠ Found 1 plugin directory warning:\n\n  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.\n    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.\n\nThese plugin directory checks do not change the result below. To fail on problems the directory refuses a submission for, run this command with --profile directory.\n\nThe directory also runs a safety scan and a policy review that this command does not.\n\n✔ Validation passe"
+  },
+  "mode": "headless",
+  "prompt": "Call the Agent tool once, with subagent_type \"tierminator-parallel-probe:cmd-worker\", run_in_background true, description \"p5 worker\", and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do the work yourself. Its report arrives later, in the background. When it arrives, run the Bash command `echo after-agent` once, then reply with the agent's report verbatim.\n---\nWorker: W1\nCommand: echo p5-worker\n---",
+  "exitCode": 0,
+  "elapsedSeconds": 134.024,
+  "costUsd": 0.07264773500000002,
+  "result": "WORKER: W1\nEXIT: 0\nOUTPUT: p5-worker",
+  "stderr": "",
+  "analysis": {
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 600,
+        "sleep": 120,
+        "started": true,
+        "pid": 2312,
+        "startAt": "2026-10-20T21:42:04.441Z",
+        "endAt": "2026-10-20T21:44:04.457Z",
+        "lastSeenAt": "2026-10-20T21:44:04.457Z",
+        "ranS": 120.016,
+        "beats": 23,
+        "completed": true,
+        "ranPastTimeout": false
+      },
+      {
+        "name": "fast",
+        "timeout": 600,
+        "sleep": 0,
+        "started": true,
+        "pid": 24620,
+        "startAt": "2026-10-20T21:42:04.441Z",
+        "endAt": "2026-10-20T21:42:04.444Z",
+        "lastSeenAt": "2026-10-20T21:42:04.444Z",
+        "ranS": 0.003,
+        "beats": 0,
+        "completed": true,
+        "ranPastTimeout": false
+      }
+    ],
+    "mainTools": [
+      {
+        "at": "2026-10-20T21:44:06.865Z",
+        "command": "echo after-agent"
+      }
+    ],
+    "workerTools": [
+      {
+        "at": "2026-10-20T21:42:01.066Z",
+        "command": "echo p5-worker"
+      }
+    ],
+    "ups": [
+      {
+        "at": "2026-10-20T21:41:56.666Z"
+      },
+      {
+        "at": "2026-10-20T21:44:04.649Z"
+      }
+    ],
+    "subStart": [
+      {
+        "at": "2026-10-20T21:41:59.530Z"
+      }
+    ],
+    "subStop": [
+      {
+        "at": "2026-10-20T21:42:04.426Z"
+      }
+    ],
+    "stop": [
+      {
+        "at": "2026-10-20T21:42:01.021Z"
+      },
+      {
+        "at": "2026-10-20T21:44:08.567Z"
+      }
+    ],
+    "postAgent": [
+      {
+        "at": "2026-10-20T21:41:59.515Z",
+        "status": "async_launched"
+      }
+    ],
+    "afterSlowStartS": {
+      "postAgent": -4.926,
+      "mainTool": 122.424,
+      "afterAgentTool": 122.424,
+      "stop": 124.126
+    },
+    "fastStartDelayMs": 0,
+    "markers": [],
+    "prompts": [
+      {
+        "at": "2026-10-20T21:41:56.666Z",
+        "kind": "user",
+        "head": "Call the Agent tool once, with subagent_type \"tierminator-parallel-probe:cmd-worker\", run_in_background true, description \"p5 worker\", and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do the work yourself. Its report arrives later, in "
+      },
+      {
+        "at": "2026-10-20T21:44:04.649Z",
+        "kind": "task-notification",
+        "head": "<task-notification>\n<task-id>aa2e95e0b9f972af6</task-id>\n<tool-use-id>toolu_01H5r7K5TZGZMXjoAPd73zzP</tool-use-id>\n<output-file>C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\\tasks\\aa2e95e0"
+      }
+    ],
+    "timeoutMentions": []
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T21:41:56.666Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Call the Agent tool once, with subagent_type \\\"tierminator-parallel-probe:cmd-worker\\\", run_in_background true, description \\\"p5 worker\\\", and pass the text between the two lines of three dashes exactly as written, with nothing added or removed. Do not do the work yourself. Its report arrives later, in the background. When it arrives, run the Bash command `echo after-agent` once, then reply with the agent's report verbatim.\\n---\\nWorker: W1\\nCommand: echo p5-worker\\n---\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:41:59.388Z",
+      "tag": "pre-agent",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"p5 worker\",\"prompt\":\"Worker: W1\\nCommand: echo p5-worker\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_use_id\":\"toolu_01H5r7K5TZGZMXjoAPd73zzP\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:41:59.515Z",
+      "tag": "post-agent",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Agent\",\"tool_input\":{\"description\":\"p5 worker\",\"prompt\":\"Worker: W1\\nCommand: echo p5-worker\",\"subagent_type\":\"tierminator-parallel-probe:cmd-worker\",\"run_in_background\":true},\"tool_response\":{\"isAsync\":true,\"status\":\"async_launched\",\"agentId\":\"aa2e95e0b9f972af6\",\"description\":\"p5 worker\",\"resolvedModel\":\"claude-haiku-5-5\",\"prompt\":\"Worker: W1\\nCommand: echo p5-worker\",\"outputFile\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\\\\tasks\\\\aa2e95e0b9f972af6.output\",\"canReadOutputFile\":true,\"canContinueAgent\":true},\"tool_use_id\":\"toolu_01H5r7K5TZGZMXjoAPd73zzP\",\"duration_ms\":6}\n"
+    },
+    {
+      "at": "2026-10-20T21:41:59.530Z",
+      "tag": "sub-start",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"agent_id\":\"aa2e95e0b9f972af6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"hook_event_name\":\"SubagentStart\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:42:01.021Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"The worker is running in the background. I'll wait for its report.\",\"background_tasks\":[{\"id\":\"aa2e95e0b9f972af6\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"p5 worker\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"}],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:42:01.066Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"aa2e95e0b9f972af6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5-worker\",\"description\":\"Echo the p5-worker marker string\"},\"tool_use_id\":\"toolu_014pZ8e9d6yc7YENz5m7vQZk\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:42:02.099Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"aa2e95e0b9f972af6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5-worker\",\"description\":\"Echo the p5-worker marker string\"},\"tool_response\":{\"stdout\":\"p5-worker\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_014pZ8e9d6yc7YENz5m7vQZk\",\"duration_ms\":911}\n"
+    },
+    {
+      "at": "2026-10-20T21:42:04.426Z",
+      "tag": "sub-stop",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"4530c217-ec1d-4a2e-a25a-2f002ed938d4\",\"permission_mode\":\"bypassPermissions\",\"agent_id\":\"aa2e95e0b9f972af6\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"SubagentStop\",\"stop_hook_active\":false,\"agent_transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\\\\subagents\\\\agent-aa2e95e0b9f972af6.jsonl\",\"last_assistant_message\":\"WORKER: W1\\nEXIT: 0\\nOUTPUT: p5-worker\",\"background_tasks\":[{\"id\":\"aa2e95e0b9f972af6\",\"type\":\"subagent\",\"status\":\"running\",\"description\":\"p5 worker\",\"agent_type\":\"tierminator-parallel-probe:cmd-worker\"}],\"session_crons\":[]}\n"
+    },
+    {
+      "at": "2026-10-20T21:42:04.441Z",
+      "tag": "slow:start",
+      "name": "fast",
+      "pid": 24620,
+      "sleepS": 0,
+      "event": "SubagentStop"
+    },
+    {
+      "at": "2026-10-20T21:42:04.441Z",
+      "tag": "slow:start",
+      "name": "slow",
+      "pid": 2312,
+      "sleepS": 120,
+      "event": "SubagentStop"
+    },
+    {
+      "at": "2026-10-20T21:42:04.444Z",
+      "tag": "slow:end",
+      "name": "fast",
+      "pid": 24620,
+      "elapsedS": 0.003
+    },
+    {
+      "at": "2026-10-20T21:42:09.450Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 5.009
+    },
+    {
+      "at": "2026-10-20T21:42:14.465Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 10.024
+    },
+    {
+      "at": "2026-10-20T21:42:19.478Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 15.037
+    },
+    {
+      "at": "2026-10-20T21:42:24.478Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 20.037
+    },
+    {
+      "at": "2026-10-20T21:42:29.488Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 25.047
+    },
+    {
+      "at": "2026-10-20T21:42:34.493Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 30.052
+    },
+    {
+      "at": "2026-10-20T21:42:39.496Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 35.055
+    },
+    {
+      "at": "2026-10-20T21:42:44.502Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 40.061
+    },
+    {
+      "at": "2026-10-20T21:42:49.503Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 45.062
+    },
+    {
+      "at": "2026-10-20T21:42:54.507Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 50.065
+    },
+    {
+      "at": "2026-10-20T21:42:59.506Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 55.064
+    },
+    {
+      "at": "2026-10-20T21:43:04.518Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 60.076
+    },
+    {
+      "at": "2026-10-20T21:43:09.519Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 65.077
+    },
+    {
+      "at": "2026-10-20T21:43:14.527Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 70.086
+    },
+    {
+      "at": "2026-10-20T21:43:19.537Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 75.096
+    },
+    {
+      "at": "2026-10-20T21:43:24.544Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 80.103
+    },
+    {
+      "at": "2026-10-20T21:43:29.552Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 85.11
+    },
+    {
+      "at": "2026-10-20T21:43:34.552Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 90.11
+    },
+    {
+      "at": "2026-10-20T21:43:39.557Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 95.116
+    },
+    {
+      "at": "2026-10-20T21:43:44.562Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 100.12
+    },
+    {
+      "at": "2026-10-20T21:43:49.574Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 105.133
+    },
+    {
+      "at": "2026-10-20T21:43:54.580Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 110.138
+    },
+    {
+      "at": "2026-10-20T21:43:59.585Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 115.143
+    },
+    {
+      "at": "2026-10-20T21:44:04.457Z",
+      "tag": "slow:end",
+      "name": "slow",
+      "pid": 2312,
+      "elapsedS": 120.016
+    },
+    {
+      "at": "2026-10-20T21:44:04.649Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"e7ddfb26-47c8-4ffb-a2c5-1ab4f4ffcd63\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"<task-notification>\\n<task-id>aa2e95e0b9f972af6</task-id>\\n<tool-use-id>toolu_01H5r7K5TZGZMXjoAPd73zzP</tool-use-id>\\n<output-file>C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\\\\tasks\\\\aa2e95e0b9f972af6.output</output-file>\\n<status>completed</status>\\n<summary>Agent \\\"p5 worker\\\" finished</summary>\\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\\n<result>WORKER: W1\\nEXIT: 0\\nOUTPUT: p5-worker</result>\\n<usage><subagent_tokens>19057</subagent_tokens><tool_uses>1</tool_uses><duration_ms>125072</duration_ms></usage>\\n</task-notification>\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:44:06.865Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"e7ddfb26-47c8-4ffb-a2c5-1ab4f4ffcd63\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo after-agent\",\"description\":\"Print after-agent marker\"},\"tool_use_id\":\"toolu_015k9KTxeR77D3p9H4y4UZE2\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:44:07.046Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"e7ddfb26-47c8-4ffb-a2c5-1ab4f4ffcd63\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo after-agent\",\"description\":\"Print after-agent marker\"},\"tool_response\":{\"stdout\":\"after-agent\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_015k9KTxeR77D3p9H4y4UZE2\",\"duration_ms\":65}\n"
+    },
+    {
+      "at": "2026-10-20T21:44:08.567Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"78bdf661-18d3-407c-b1eb-8a1d6b4f0f81\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-sas-bg-t600-s120-repo\\\\78bdf661-18d3-407c-b1eb-8a1d6b4f0f81.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-sas-bg-t600-s120\\\\repo\",\"prompt_id\":\"e7ddfb26-47c8-4ffb-a2c5-1ab4f4ffcd63\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"WORKER: W1\\nEXIT: 0\\nOUTPUT: p5-worker\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}

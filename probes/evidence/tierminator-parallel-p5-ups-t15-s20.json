@@ -1,0 +1,185 @@
+{
+  "generated": "2026-10-20T21:10:08.882Z",
+  "claudeCodeVersion": "2.1.305 (Claude Code)",
+  "cell": "p5-ups-t15-s20",
+  "setup": {
+    "event": "UserPromptSubmit",
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 15,
+        "sleep": 20
+      },
+      {
+        "name": "fast",
+        "timeout": 15,
+        "sleep": 0
+      }
+    ]
+  },
+  "hooksJson": {
+    "hooks": {
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" slow 20 UserPromptSubmit",
+              "timeout": 15
+            },
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" fast 0 UserPromptSubmit",
+              "timeout": 15
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "validate": {
+    "status": 0,
+    "output": "Validating plugin manifest: C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t15-s20\\slow-plugin\\.claude-plugin\\plugin.json\n\n⚠ Found 1 warning:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n\nPlugin directory checks for C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t15-s20\\slow-plugin. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.\n\n✘ Found 1 problem the plugin directory refuses a submission for:\n\n  ❯ README.md: README missing (README_MISSING). This plugin has no README.md. People who install it and the directory's automated review read the README to learn what it does; the first line of a README in the plugin folder also stands in as the listing summary when plugin.json has no description.\n    Fix: Add a README.md to the plugin folder describing what the plugin does, how to use it, and any setup it needs, in at least 40 words. A README at the repository root also counts for a plugin in a sub-folder.\n\n⚠ Found 1 plugin directory warning:\n\n  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.\n    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.\n\nThese plugin directory checks do not change the result below. To fail on problems the directory refuses a submission for, run this command with --profile directory.\n\nThe directory also runs a safety scan and a policy review that this command does not.\n\n✔ Validation passed with war"
+  },
+  "mode": "headless",
+  "prompt": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.",
+  "exitCode": 0,
+  "elapsedSeconds": 31.425,
+  "costUsd": 0.0607115,
+  "result": "p5\nNONE",
+  "stderr": "",
+  "analysis": {
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 15,
+        "sleep": 20,
+        "started": true,
+        "pid": 24776,
+        "startAt": "2026-10-20T21:09:38.750Z",
+        "endAt": null,
+        "lastSeenAt": "2026-10-20T21:09:53.789Z",
+        "ranS": 15.039,
+        "beats": 3,
+        "completed": false,
+        "ranPastTimeout": false
+      },
+      {
+        "name": "fast",
+        "timeout": 15,
+        "sleep": 0,
+        "started": true,
+        "pid": 16896,
+        "startAt": "2026-10-20T21:09:38.750Z",
+        "endAt": "2026-10-20T21:09:38.754Z",
+        "lastSeenAt": "2026-10-20T21:09:38.754Z",
+        "ranS": 0.004,
+        "beats": 0,
+        "completed": true,
+        "ranPastTimeout": false
+      }
+    ],
+    "mainTools": [
+      {
+        "at": "2026-10-20T21:09:57.297Z",
+        "command": "echo p5"
+      }
+    ],
+    "workerTools": [],
+    "ups": [
+      {
+        "at": "2026-10-20T21:09:38.735Z"
+      }
+    ],
+    "subStart": [],
+    "subStop": [],
+    "stop": [
+      {
+        "at": "2026-10-20T21:10:04.883Z"
+      }
+    ],
+    "postAgent": [],
+    "afterSlowStartS": {
+      "postAgent": null,
+      "mainTool": 18.547,
+      "afterAgentTool": null,
+      "stop": 26.133
+    },
+    "fastStartDelayMs": 0,
+    "markers": [],
+    "prompts": [
+      {
+        "at": "2026-10-20T21:09:38.735Z",
+        "kind": "user",
+        "head": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE."
+      }
+    ],
+    "timeoutMentions": []
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T21:09:38.735Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"085d853c-b446-4307-9a00-e56ccbea8191\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t15-s20-repo\\\\085d853c-b446-4307-9a00-e56ccbea8191.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t15-s20\\\\repo\",\"prompt_id\":\"27920f0c-5f6c-4cfd-b36b-3d9a3728c3f7\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:38.750Z",
+      "tag": "slow:start",
+      "name": "slow",
+      "pid": 24776,
+      "sleepS": 20,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:09:38.750Z",
+      "tag": "slow:start",
+      "name": "fast",
+      "pid": 16896,
+      "sleepS": 0,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:09:38.754Z",
+      "tag": "slow:end",
+      "name": "fast",
+      "pid": 16896,
+      "elapsedS": 0.004
+    },
+    {
+      "at": "2026-10-20T21:09:43.766Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 24776,
+      "elapsedS": 5.015
+    },
+    {
+      "at": "2026-10-20T21:09:48.776Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 24776,
+      "elapsedS": 10.026
+    },
+    {
+      "at": "2026-10-20T21:09:53.789Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 24776,
+      "elapsedS": 15.038
+    },
+    {
+      "at": "2026-10-20T21:09:57.297Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"085d853c-b446-4307-9a00-e56ccbea8191\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t15-s20-repo\\\\085d853c-b446-4307-9a00-e56ccbea8191.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t15-s20\\\\repo\",\"prompt_id\":\"27920f0c-5f6c-4cfd-b36b-3d9a3728c3f7\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Echo p5\"},\"tool_use_id\":\"toolu_01RTJW2Vds1VySYiFDXYXKhb\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:09:58.506Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"085d853c-b446-4307-9a00-e56ccbea8191\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t15-s20-repo\\\\085d853c-b446-4307-9a00-e56ccbea8191.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t15-s20\\\\repo\",\"prompt_id\":\"27920f0c-5f6c-4cfd-b36b-3d9a3728c3f7\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Echo p5\"},\"tool_response\":{\"stdout\":\"p5\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01RTJW2Vds1VySYiFDXYXKhb\",\"duration_ms\":1085}\n"
+    },
+    {
+      "at": "2026-10-20T21:10:04.883Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"085d853c-b446-4307-9a00-e56ccbea8191\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t15-s20-repo\\\\085d853c-b446-4307-9a00-e56ccbea8191.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t15-s20\\\\repo\",\"prompt_id\":\"27920f0c-5f6c-4cfd-b36b-3d9a3728c3f7\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"p5\\nNONE\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}

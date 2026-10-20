@@ -1,0 +1,335 @@
+{
+  "generated": "2026-10-20T21:12:51.945Z",
+  "claudeCodeVersion": "2.1.305 (Claude Code)",
+  "cell": "p5-ups-t600-s120",
+  "setup": {
+    "event": "UserPromptSubmit",
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 600,
+        "sleep": 120
+      },
+      {
+        "name": "fast",
+        "timeout": 600,
+        "sleep": 0
+      }
+    ]
+  },
+  "hooksJson": {
+    "hooks": {
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" slow 120 UserPromptSubmit",
+              "timeout": 600
+            },
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" fast 0 UserPromptSubmit",
+              "timeout": 600
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "validate": {
+    "status": 0,
+    "output": "Validating plugin manifest: C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t600-s120\\slow-plugin\\.claude-plugin\\plugin.json\n\n⚠ Found 1 warning:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n\nPlugin directory checks for C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t600-s120\\slow-plugin. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.\n\n✘ Found 1 problem the plugin directory refuses a submission for:\n\n  ❯ README.md: README missing (README_MISSING). This plugin has no README.md. People who install it and the directory's automated review read the README to learn what it does; the first line of a README in the plugin folder also stands in as the listing summary when plugin.json has no description.\n    Fix: Add a README.md to the plugin folder describing what the plugin does, how to use it, and any setup it needs, in at least 40 words. A README at the repository root also counts for a plugin in a sub-folder.\n\n⚠ Found 1 plugin directory warning:\n\n  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.\n    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.\n\nThese plugin directory checks do not change the result below. To fail on problems the directory refuses a submission for, run this command with --profile directory.\n\nThe directory also runs a safety scan and a policy review that this command does not.\n\n✔ Validation passed with"
+  },
+  "mode": "headless",
+  "prompt": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.",
+  "exitCode": 0,
+  "elapsedSeconds": 130.859,
+  "costUsd": 0.057054,
+  "result": "p5\nP5-MARKER-fast P5-MARKER-slow",
+  "stderr": "",
+  "analysis": {
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 600,
+        "sleep": 120,
+        "started": true,
+        "pid": 27116,
+        "startAt": "2026-10-20T21:10:42.425Z",
+        "endAt": "2026-10-20T21:12:42.442Z",
+        "lastSeenAt": "2026-10-20T21:12:42.442Z",
+        "ranS": 120.017,
+        "beats": 23,
+        "completed": true,
+        "ranPastTimeout": false
+      },
+      {
+        "name": "fast",
+        "timeout": 600,
+        "sleep": 0,
+        "started": true,
+        "pid": 24944,
+        "startAt": "2026-10-20T21:10:42.438Z",
+        "endAt": "2026-10-20T21:10:42.445Z",
+        "lastSeenAt": "2026-10-20T21:10:42.445Z",
+        "ranS": 0.007,
+        "beats": 0,
+        "completed": true,
+        "ranPastTimeout": false
+      }
+    ],
+    "mainTools": [
+      {
+        "at": "2026-10-20T21:12:45.978Z",
+        "command": "echo p5"
+      }
+    ],
+    "workerTools": [],
+    "ups": [
+      {
+        "at": "2026-10-20T21:10:42.466Z"
+      }
+    ],
+    "subStart": [],
+    "subStop": [],
+    "stop": [
+      {
+        "at": "2026-10-20T21:12:51.255Z"
+      }
+    ],
+    "postAgent": [],
+    "afterSlowStartS": {
+      "postAgent": null,
+      "mainTool": 123.553,
+      "afterAgentTool": null,
+      "stop": 128.83
+    },
+    "fastStartDelayMs": 13,
+    "markers": [
+      "P5-MARKER-fast",
+      "P5-MARKER-slow"
+    ],
+    "prompts": [
+      {
+        "at": "2026-10-20T21:10:42.466Z",
+        "kind": "user",
+        "head": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE."
+      }
+    ],
+    "timeoutMentions": []
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T21:10:42.425Z",
+      "tag": "slow:start",
+      "name": "slow",
+      "pid": 27116,
+      "sleepS": 120,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:10:42.438Z",
+      "tag": "slow:start",
+      "name": "fast",
+      "pid": 24944,
+      "sleepS": 0,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:10:42.445Z",
+      "tag": "slow:end",
+      "name": "fast",
+      "pid": 24944,
+      "elapsedS": 0.007
+    },
+    {
+      "at": "2026-10-20T21:10:42.466Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"bd0940e8-4810-4f0a-a93e-051c5d6f3f3b\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s120-repo\\\\bd0940e8-4810-4f0a-a93e-051c5d6f3f3b.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s120\\\\repo\",\"prompt_id\":\"969b0e4e-c16c-4a53-a6cb-7f6c7230fe40\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:10:47.445Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 5.02
+    },
+    {
+      "at": "2026-10-20T21:10:52.461Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 10.035
+    },
+    {
+      "at": "2026-10-20T21:10:57.475Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 15.049
+    },
+    {
+      "at": "2026-10-20T21:11:02.476Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 20.05
+    },
+    {
+      "at": "2026-10-20T21:11:07.488Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 25.063
+    },
+    {
+      "at": "2026-10-20T21:11:12.491Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 30.066
+    },
+    {
+      "at": "2026-10-20T21:11:17.502Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 35.077
+    },
+    {
+      "at": "2026-10-20T21:11:22.510Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 40.084
+    },
+    {
+      "at": "2026-10-20T21:11:27.517Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 45.091
+    },
+    {
+      "at": "2026-10-20T21:11:32.521Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 50.096
+    },
+    {
+      "at": "2026-10-20T21:11:37.529Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 55.104
+    },
+    {
+      "at": "2026-10-20T21:11:42.539Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 60.114
+    },
+    {
+      "at": "2026-10-20T21:11:47.544Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 65.119
+    },
+    {
+      "at": "2026-10-20T21:11:52.547Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 70.122
+    },
+    {
+      "at": "2026-10-20T21:11:57.554Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 75.128
+    },
+    {
+      "at": "2026-10-20T21:12:02.561Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 80.135
+    },
+    {
+      "at": "2026-10-20T21:12:07.576Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 85.15
+    },
+    {
+      "at": "2026-10-20T21:12:12.578Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 90.153
+    },
+    {
+      "at": "2026-10-20T21:12:17.591Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 95.166
+    },
+    {
+      "at": "2026-10-20T21:12:22.601Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 100.175
+    },
+    {
+      "at": "2026-10-20T21:12:27.610Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 105.184
+    },
+    {
+      "at": "2026-10-20T21:12:32.616Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 110.191
+    },
+    {
+      "at": "2026-10-20T21:12:37.629Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 115.204
+    },
+    {
+      "at": "2026-10-20T21:12:42.442Z",
+      "tag": "slow:end",
+      "name": "slow",
+      "pid": 27116,
+      "elapsedS": 120.017
+    },
+    {
+      "at": "2026-10-20T21:12:45.978Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"bd0940e8-4810-4f0a-a93e-051c5d6f3f3b\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s120-repo\\\\bd0940e8-4810-4f0a-a93e-051c5d6f3f3b.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s120\\\\repo\",\"prompt_id\":\"969b0e4e-c16c-4a53-a6cb-7f6c7230fe40\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Echo p5\"},\"tool_use_id\":\"toolu_01Af8gum6XXhDs7oAFPNRyXJ\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:12:47.188Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"bd0940e8-4810-4f0a-a93e-051c5d6f3f3b\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s120-repo\\\\bd0940e8-4810-4f0a-a93e-051c5d6f3f3b.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s120\\\\repo\",\"prompt_id\":\"969b0e4e-c16c-4a53-a6cb-7f6c7230fe40\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Echo p5\"},\"tool_response\":{\"stdout\":\"p5\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_01Af8gum6XXhDs7oAFPNRyXJ\",\"duration_ms\":1072}\n"
+    },
+    {
+      "at": "2026-10-20T21:12:51.255Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"bd0940e8-4810-4f0a-a93e-051c5d6f3f3b\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t600-s120-repo\\\\bd0940e8-4810-4f0a-a93e-051c5d6f3f3b.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t600-s120\\\\repo\",\"prompt_id\":\"969b0e4e-c16c-4a53-a6cb-7f6c7230fe40\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"p5\\nP5-MARKER-fast P5-MARKER-slow\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}

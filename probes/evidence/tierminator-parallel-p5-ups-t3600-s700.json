@@ -1,0 +1,1147 @@
+{
+  "generated": "2026-10-20T21:31:31.416Z",
+  "claudeCodeVersion": "2.1.305 (Claude Code)",
+  "cell": "p5-ups-t3600-s700",
+  "setup": {
+    "event": "UserPromptSubmit",
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 3600,
+        "sleep": 700
+      },
+      {
+        "name": "fast",
+        "timeout": 3600,
+        "sleep": 0
+      }
+    ]
+  },
+  "hooksJson": {
+    "hooks": {
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" slow 700 UserPromptSubmit",
+              "timeout": 3600
+            },
+            {
+              "type": "command",
+              "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/slow-hook.js\" fast 0 UserPromptSubmit",
+              "timeout": 3600
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "validate": {
+    "status": 0,
+    "output": "Validating plugin manifest: C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t3600-s700\\slow-plugin\\.claude-plugin\\plugin.json\n\n⚠ Found 1 warning:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n\nPlugin directory checks for C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-parallel-p5-ups-t3600-s700\\slow-plugin. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.\n\n✘ Found 1 problem the plugin directory refuses a submission for:\n\n  ❯ README.md: README missing (README_MISSING). This plugin has no README.md. People who install it and the directory's automated review read the README to learn what it does; the first line of a README in the plugin folder also stands in as the listing summary when plugin.json has no description.\n    Fix: Add a README.md to the plugin folder describing what the plugin does, how to use it, and any setup it needs, in at least 40 words. A README at the repository root also counts for a plugin in a sub-folder.\n\n⚠ Found 1 plugin directory warning:\n\n  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.\n    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.\n\nThese plugin directory checks do not change the result below. To fail on problems the directory refuses a submission for, run this command with --profile directory.\n\nThe directory also runs a safety scan and a policy review that this command does not.\n\n✔ Validation passed wi"
+  },
+  "mode": "headless",
+  "prompt": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.",
+  "exitCode": 0,
+  "elapsedSeconds": 708.115,
+  "costUsd": 0.0570523,
+  "result": "p5\nP5-MARKER-fast P5-MARKER-slow",
+  "stderr": "",
+  "analysis": {
+    "hooks": [
+      {
+        "name": "slow",
+        "timeout": 3600,
+        "sleep": 700,
+        "started": true,
+        "pid": 25900,
+        "startAt": "2026-10-20T21:19:44.755Z",
+        "endAt": "2026-10-20T21:31:24.772Z",
+        "lastSeenAt": "2026-10-20T21:31:24.772Z",
+        "ranS": 700.017,
+        "beats": 139,
+        "completed": true,
+        "ranPastTimeout": false
+      },
+      {
+        "name": "fast",
+        "timeout": 3600,
+        "sleep": 0,
+        "started": true,
+        "pid": 25128,
+        "startAt": "2026-10-20T21:19:44.757Z",
+        "endAt": "2026-10-20T21:19:44.762Z",
+        "lastSeenAt": "2026-10-20T21:19:44.762Z",
+        "ranS": 0.005,
+        "beats": 0,
+        "completed": true,
+        "ranPastTimeout": false
+      }
+    ],
+    "mainTools": [
+      {
+        "at": "2026-10-20T21:31:27.834Z",
+        "command": "echo p5"
+      }
+    ],
+    "workerTools": [],
+    "ups": [
+      {
+        "at": "2026-10-20T21:19:44.757Z"
+      }
+    ],
+    "subStart": [],
+    "subStop": [],
+    "stop": [
+      {
+        "at": "2026-10-20T21:31:30.281Z"
+      }
+    ],
+    "postAgent": [],
+    "afterSlowStartS": {
+      "postAgent": null,
+      "mainTool": 703.079,
+      "afterAgentTool": null,
+      "stop": 705.526
+    },
+    "fastStartDelayMs": 2,
+    "markers": [
+      "P5-MARKER-fast",
+      "P5-MARKER-slow"
+    ],
+    "prompts": [
+      {
+        "at": "2026-10-20T21:19:44.757Z",
+        "kind": "user",
+        "head": "Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE."
+      }
+    ],
+    "timeoutMentions": []
+  },
+  "hookLog": [
+    {
+      "at": "2026-10-20T21:19:44.755Z",
+      "tag": "slow:start",
+      "name": "slow",
+      "pid": 25900,
+      "sleepS": 700,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:19:44.757Z",
+      "tag": "ups",
+      "stdin": "{\"session_id\":\"7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t3600-s700-repo\\\\7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t3600-s700\\\\repo\",\"prompt_id\":\"cd2a39d5-528f-45dd-a517-882e8c937592\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"Run the Bash command `echo p5` once. Then reply with two lines: its output, then every line in your context that starts with P5-MARKER, separated by spaces, or NONE.\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:19:44.757Z",
+      "tag": "slow:start",
+      "name": "fast",
+      "pid": 25128,
+      "sleepS": 0,
+      "event": "UserPromptSubmit"
+    },
+    {
+      "at": "2026-10-20T21:19:44.762Z",
+      "tag": "slow:end",
+      "name": "fast",
+      "pid": 25128,
+      "elapsedS": 0.006
+    },
+    {
+      "at": "2026-10-20T21:19:49.766Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 5.011
+    },
+    {
+      "at": "2026-10-20T21:19:54.782Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 10.026
+    },
+    {
+      "at": "2026-10-20T21:19:59.787Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 15.032
+    },
+    {
+      "at": "2026-10-20T21:20:04.798Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 20.043
+    },
+    {
+      "at": "2026-10-20T21:20:09.812Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 25.056
+    },
+    {
+      "at": "2026-10-20T21:20:14.825Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 30.069
+    },
+    {
+      "at": "2026-10-20T21:20:19.829Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 35.074
+    },
+    {
+      "at": "2026-10-20T21:20:24.837Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 40.081
+    },
+    {
+      "at": "2026-10-20T21:20:29.852Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 45.097
+    },
+    {
+      "at": "2026-10-20T21:20:34.859Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 50.104
+    },
+    {
+      "at": "2026-10-20T21:20:39.871Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 55.115
+    },
+    {
+      "at": "2026-10-20T21:20:44.873Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 60.118
+    },
+    {
+      "at": "2026-10-20T21:20:49.882Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 65.127
+    },
+    {
+      "at": "2026-10-20T21:20:54.891Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 70.136
+    },
+    {
+      "at": "2026-10-20T21:20:59.900Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 75.145
+    },
+    {
+      "at": "2026-10-20T21:21:04.911Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 80.156
+    },
+    {
+      "at": "2026-10-20T21:21:09.912Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 85.156
+    },
+    {
+      "at": "2026-10-20T21:21:14.920Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 90.164
+    },
+    {
+      "at": "2026-10-20T21:21:19.925Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 95.17
+    },
+    {
+      "at": "2026-10-20T21:21:24.936Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 100.18
+    },
+    {
+      "at": "2026-10-20T21:21:29.948Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 105.192
+    },
+    {
+      "at": "2026-10-20T21:21:34.964Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 110.208
+    },
+    {
+      "at": "2026-10-20T21:21:39.970Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 115.214
+    },
+    {
+      "at": "2026-10-20T21:21:44.983Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 120.227
+    },
+    {
+      "at": "2026-10-20T21:21:49.988Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 125.232
+    },
+    {
+      "at": "2026-10-20T21:21:54.990Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 130.234
+    },
+    {
+      "at": "2026-10-20T21:21:59.994Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 135.239
+    },
+    {
+      "at": "2026-10-20T21:22:05.008Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 140.253
+    },
+    {
+      "at": "2026-10-20T21:22:10.018Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 145.263
+    },
+    {
+      "at": "2026-10-20T21:22:15.033Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 150.277
+    },
+    {
+      "at": "2026-10-20T21:22:20.039Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 155.283
+    },
+    {
+      "at": "2026-10-20T21:22:25.045Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 160.29
+    },
+    {
+      "at": "2026-10-20T21:22:30.045Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 165.289
+    },
+    {
+      "at": "2026-10-20T21:22:35.056Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 170.3
+    },
+    {
+      "at": "2026-10-20T21:22:40.060Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 175.305
+    },
+    {
+      "at": "2026-10-20T21:22:45.066Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 180.31
+    },
+    {
+      "at": "2026-10-20T21:22:50.078Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 185.323
+    },
+    {
+      "at": "2026-10-20T21:22:55.082Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 190.327
+    },
+    {
+      "at": "2026-10-20T21:23:00.097Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 195.341
+    },
+    {
+      "at": "2026-10-20T21:23:05.109Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 200.354
+    },
+    {
+      "at": "2026-10-20T21:23:10.114Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 205.359
+    },
+    {
+      "at": "2026-10-20T21:23:15.117Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 210.362
+    },
+    {
+      "at": "2026-10-20T21:23:20.131Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 215.375
+    },
+    {
+      "at": "2026-10-20T21:23:25.136Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 220.381
+    },
+    {
+      "at": "2026-10-20T21:23:30.139Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 225.383
+    },
+    {
+      "at": "2026-10-20T21:23:35.147Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 230.392
+    },
+    {
+      "at": "2026-10-20T21:23:40.149Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 235.394
+    },
+    {
+      "at": "2026-10-20T21:23:45.162Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 240.406
+    },
+    {
+      "at": "2026-10-20T21:23:50.168Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 245.413
+    },
+    {
+      "at": "2026-10-20T21:23:55.179Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 250.424
+    },
+    {
+      "at": "2026-10-20T21:24:00.179Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 255.424
+    },
+    {
+      "at": "2026-10-20T21:24:05.182Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 260.427
+    },
+    {
+      "at": "2026-10-20T21:24:10.185Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 265.43
+    },
+    {
+      "at": "2026-10-20T21:24:15.198Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 270.442
+    },
+    {
+      "at": "2026-10-20T21:24:20.213Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 275.457
+    },
+    {
+      "at": "2026-10-20T21:24:25.214Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 280.459
+    },
+    {
+      "at": "2026-10-20T21:24:30.226Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 285.471
+    },
+    {
+      "at": "2026-10-20T21:24:35.236Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 290.481
+    },
+    {
+      "at": "2026-10-20T21:24:40.245Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 295.49
+    },
+    {
+      "at": "2026-10-20T21:24:45.255Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 300.5
+    },
+    {
+      "at": "2026-10-20T21:24:50.259Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 305.504
+    },
+    {
+      "at": "2026-10-20T21:24:55.263Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 310.508
+    },
+    {
+      "at": "2026-10-20T21:25:00.273Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 315.518
+    },
+    {
+      "at": "2026-10-20T21:25:05.284Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 320.529
+    },
+    {
+      "at": "2026-10-20T21:25:10.287Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 325.532
+    },
+    {
+      "at": "2026-10-20T21:25:15.294Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 330.538
+    },
+    {
+      "at": "2026-10-20T21:25:20.306Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 335.55
+    },
+    {
+      "at": "2026-10-20T21:25:25.313Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 340.557
+    },
+    {
+      "at": "2026-10-20T21:25:30.315Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 345.56
+    },
+    {
+      "at": "2026-10-20T21:25:35.317Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 350.562
+    },
+    {
+      "at": "2026-10-20T21:25:40.327Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 355.571
+    },
+    {
+      "at": "2026-10-20T21:25:45.338Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 360.583
+    },
+    {
+      "at": "2026-10-20T21:25:50.353Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 365.597
+    },
+    {
+      "at": "2026-10-20T21:25:55.353Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 370.598
+    },
+    {
+      "at": "2026-10-20T21:26:00.357Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 375.602
+    },
+    {
+      "at": "2026-10-20T21:26:05.369Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 380.614
+    },
+    {
+      "at": "2026-10-20T21:26:10.384Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 385.628
+    },
+    {
+      "at": "2026-10-20T21:26:15.399Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 390.643
+    },
+    {
+      "at": "2026-10-20T21:26:20.409Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 395.654
+    },
+    {
+      "at": "2026-10-20T21:26:25.421Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 400.665
+    },
+    {
+      "at": "2026-10-20T21:26:30.430Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 405.675
+    },
+    {
+      "at": "2026-10-20T21:26:35.441Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 410.686
+    },
+    {
+      "at": "2026-10-20T21:26:40.450Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 415.695
+    },
+    {
+      "at": "2026-10-20T21:26:45.451Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 420.695
+    },
+    {
+      "at": "2026-10-20T21:26:50.467Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 425.712
+    },
+    {
+      "at": "2026-10-20T21:26:55.467Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 430.711
+    },
+    {
+      "at": "2026-10-20T21:27:00.478Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 435.722
+    },
+    {
+      "at": "2026-10-20T21:27:05.483Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 440.728
+    },
+    {
+      "at": "2026-10-20T21:27:10.499Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 445.743
+    },
+    {
+      "at": "2026-10-20T21:27:15.508Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 450.753
+    },
+    {
+      "at": "2026-10-20T21:27:20.518Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 455.762
+    },
+    {
+      "at": "2026-10-20T21:27:25.526Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 460.77
+    },
+    {
+      "at": "2026-10-20T21:27:30.536Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 465.78
+    },
+    {
+      "at": "2026-10-20T21:27:35.550Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 470.794
+    },
+    {
+      "at": "2026-10-20T21:27:40.551Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 475.796
+    },
+    {
+      "at": "2026-10-20T21:27:45.552Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 480.796
+    },
+    {
+      "at": "2026-10-20T21:27:50.555Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 485.8
+    },
+    {
+      "at": "2026-10-20T21:27:55.567Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 490.812
+    },
+    {
+      "at": "2026-10-20T21:28:00.569Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 495.813
+    },
+    {
+      "at": "2026-10-20T21:28:05.572Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 500.816
+    },
+    {
+      "at": "2026-10-20T21:28:10.583Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 505.827
+    },
+    {
+      "at": "2026-10-20T21:28:15.588Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 510.832
+    },
+    {
+      "at": "2026-10-20T21:28:20.594Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 515.839
+    },
+    {
+      "at": "2026-10-20T21:28:25.606Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 520.851
+    },
+    {
+      "at": "2026-10-20T21:28:30.614Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 525.858
+    },
+    {
+      "at": "2026-10-20T21:28:35.615Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 530.86
+    },
+    {
+      "at": "2026-10-20T21:28:40.630Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 535.874
+    },
+    {
+      "at": "2026-10-20T21:28:45.644Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 540.888
+    },
+    {
+      "at": "2026-10-20T21:28:50.648Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 545.893
+    },
+    {
+      "at": "2026-10-20T21:28:55.653Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 550.897
+    },
+    {
+      "at": "2026-10-20T21:29:00.653Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 555.897
+    },
+    {
+      "at": "2026-10-20T21:29:05.660Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 560.905
+    },
+    {
+      "at": "2026-10-20T21:29:10.663Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 565.908
+    },
+    {
+      "at": "2026-10-20T21:29:15.675Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 570.919
+    },
+    {
+      "at": "2026-10-20T21:29:20.685Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 575.93
+    },
+    {
+      "at": "2026-10-20T21:29:25.687Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 580.931
+    },
+    {
+      "at": "2026-10-20T21:29:30.693Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 585.938
+    },
+    {
+      "at": "2026-10-20T21:29:35.702Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 590.947
+    },
+    {
+      "at": "2026-10-20T21:29:40.706Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 595.951
+    },
+    {
+      "at": "2026-10-20T21:29:45.721Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 600.965
+    },
+    {
+      "at": "2026-10-20T21:29:50.721Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 605.966
+    },
+    {
+      "at": "2026-10-20T21:29:55.734Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 610.979
+    },
+    {
+      "at": "2026-10-20T21:30:00.735Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 615.98
+    },
+    {
+      "at": "2026-10-20T21:30:05.748Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 620.992
+    },
+    {
+      "at": "2026-10-20T21:30:10.758Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 626.003
+    },
+    {
+      "at": "2026-10-20T21:30:15.768Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 631.013
+    },
+    {
+      "at": "2026-10-20T21:30:20.782Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 636.026
+    },
+    {
+      "at": "2026-10-20T21:30:25.786Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 641.03
+    },
+    {
+      "at": "2026-10-20T21:30:30.790Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 646.034
+    },
+    {
+      "at": "2026-10-20T21:30:35.794Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 651.039
+    },
+    {
+      "at": "2026-10-20T21:30:40.799Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 656.044
+    },
+    {
+      "at": "2026-10-20T21:30:45.812Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 661.057
+    },
+    {
+      "at": "2026-10-20T21:30:50.824Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 666.068
+    },
+    {
+      "at": "2026-10-20T21:30:55.826Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 671.071
+    },
+    {
+      "at": "2026-10-20T21:31:00.829Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 676.073
+    },
+    {
+      "at": "2026-10-20T21:31:05.837Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 681.081
+    },
+    {
+      "at": "2026-10-20T21:31:10.844Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 686.088
+    },
+    {
+      "at": "2026-10-20T21:31:15.847Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 691.092
+    },
+    {
+      "at": "2026-10-20T21:31:20.858Z",
+      "tag": "slow:beat",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 696.103
+    },
+    {
+      "at": "2026-10-20T21:31:24.772Z",
+      "tag": "slow:end",
+      "name": "slow",
+      "pid": 25900,
+      "elapsedS": 700.017
+    },
+    {
+      "at": "2026-10-20T21:31:27.834Z",
+      "tag": "pre-tool",
+      "stdin": "{\"session_id\":\"7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t3600-s700-repo\\\\7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t3600-s700\\\\repo\",\"prompt_id\":\"cd2a39d5-528f-45dd-a517-882e8c937592\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Print p5\"},\"tool_use_id\":\"toolu_016mSvnEebTv5QnQxwqSZH4n\"}\n"
+    },
+    {
+      "at": "2026-10-20T21:31:29.064Z",
+      "tag": "post-tool",
+      "stdin": "{\"session_id\":\"7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t3600-s700-repo\\\\7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t3600-s700\\\\repo\",\"prompt_id\":\"cd2a39d5-528f-45dd-a517-882e8c937592\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo p5\",\"description\":\"Print p5\"},\"tool_response\":{\"stdout\":\"p5\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false},\"tool_use_id\":\"toolu_016mSvnEebTv5QnQxwqSZH4n\",\"duration_ms\":1106}\n"
+    },
+    {
+      "at": "2026-10-20T21:31:30.281Z",
+      "tag": "stop",
+      "stdin": "{\"session_id\":\"7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916\",\"transcript_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-parallel-p5-ups-t3600-s700-repo\\\\7e0aa8ab-12f8-4b23-b7a0-a36cd71a8916.jsonl\",\"cwd\":\"C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-parallel-p5-ups-t3600-s700\\\\repo\",\"prompt_id\":\"cd2a39d5-528f-45dd-a517-882e8c937592\",\"permission_mode\":\"bypassPermissions\",\"effort\":{\"level\":\"high\"},\"hook_event_name\":\"Stop\",\"stop_hook_active\":false,\"last_assistant_message\":\"p5\\nP5-MARKER-fast P5-MARKER-slow\",\"background_tasks\":[],\"session_crons\":[]}\n"
+    }
+  ]
+}
