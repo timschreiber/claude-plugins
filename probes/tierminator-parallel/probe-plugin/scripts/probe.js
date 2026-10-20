@@ -4,6 +4,9 @@
 // PROBE_MODE: observe (default, only logs) or add-isolation. In add-isolation mode, a pre-agent call
 // whose tool_input has no `isolation` key is rewritten, through updatedInput, to add
 // isolation: "worktree"; the emitted JSON is logged as pre-agent:emit. No permissionDecision is set.
+// PROBE_WRITE_SETTINGS: writes <cwd>/.claude/settings.local.json with worktree.baseRef "head" during the
+// session, to see whether a settings file written after the session started takes effect. "1" writes it in
+// the pre-agent call, just before the Agent call; "ups" writes it on UserPromptSubmit, seconds before.
 // WorktreeCreate and WorktreeRemove are deliberately not registered: a WorktreeCreate hook replaces
 // Claude Code's own worktree creation, which probe P1 measures.
 'use strict'
@@ -41,6 +44,25 @@ async function main() {
     input = JSON.parse(raw)
   } catch {
     return
+  }
+
+  // PROBE_PERM_ALLOW=1: answer every permission request with "allow", so a headless run in the default
+  // permission mode goes on and the log (tag perm-request) records each call that would have asked a person.
+  if (tag === 'perm-request' && process.env.PROBE_PERM_ALLOW === '1') {
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } } }))
+    return
+  }
+
+  const writeAt = process.env.PROBE_WRITE_SETTINGS === 'ups' ? 'ups' : process.env.PROBE_WRITE_SETTINGS === '1' ? 'pre-agent' : null
+  if (writeAt === tag && typeof input.cwd === 'string') {
+    const file = path.join(input.cwd, '.claude', 'settings.local.json')
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ worktree: { baseRef: 'head' } }, null, 2) + '\n')
+      log({ tag: 'settings-written', file })
+    } catch (e) {
+      log({ tag: 'settings-written:failed', file, error: String(e && e.message ? e.message : e) })
+    }
   }
 
   if (process.env.PROBE_MODE !== 'add-isolation' || tag !== 'pre-agent') return

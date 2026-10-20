@@ -31,6 +31,8 @@
 //   m1-substart-slow                            like m1-substart-reset, with PROBE_RESET_DELAY_MS=5000 delaying the reset.
 //   m1-worker-reset                             hook-added isolation; the m1-reset-worker agent is told the base (B) and resets itself.
 //   wt-decline                                  isolation "worktree" with variant-worktree-hook in PROBE_WT_MODE=decline.
+//   m1-settings-midsession                      hook-added isolation; the same hook first writes the untracked
+//                                               .claude/settings.local.json (baseRef head) during the session.
 //   m1-baseref-user                             interactive only: baseRef head in the USER settings file; refused headless.
 // The m1 and m2 cells use the m1-worker and m2-worker agents; all cells exclude .claude/worktrees/ from git.
 'use strict'
@@ -61,6 +63,8 @@ const CELLS = {
   'm1-substart-slow': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-substart-reset'], exclude: true, env: { PROBE_RESET_DELAY_MS: '5000' } },
   'm1-worker-reset': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-reset-worker', plugins: ['probe-plugin'], exclude: true, baseLine: true },
   'wt-decline': { isolation: 'call', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin', 'variant-worktree-hook'], exclude: true, env: { PROBE_WT_MODE: 'decline' } },
+  'm1-settings-midsession': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, excludeLocalSettings: true, env: { PROBE_WRITE_SETTINGS: '1' } },
+  'm1-settings-early': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, excludeLocalSettings: true, env: { PROBE_WRITE_SETTINGS: 'ups' } },
   'm1-baseref-user': { isolation: 'hook', commit: true, worktree: null, agent: 'm1-worker', plugins: ['probe-plugin'], exclude: true, userSettings: true, interactiveOnly: true },
 }
 
@@ -134,6 +138,10 @@ function setupCell(name) {
   if (cell.projectSettings === 'local') {
     fs.mkdirSync(path.join(repo, '.claude'), { recursive: true })
     fs.writeFileSync(path.join(repo, '.claude', 'settings.local.json'), JSON.stringify({ worktree: { baseRef: 'head' } }, null, 2) + '\n')
+    fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/settings.local.json\n')
+  }
+
+  if (cell.excludeLocalSettings) {
     fs.appendFileSync(path.join(repo, '.git', 'info', 'exclude'), '.claude/settings.local.json\n')
   }
 
@@ -419,7 +427,17 @@ function summary(ctx, entries) {
       }
     : null
   const cellDef = cellOf(ctx.cell)
-  const settingsSource = cellDef.settings ? 'flag' : cellDef.projectSettings ? 'project-' + cellDef.projectSettings : cellDef.userSettings ? 'user' : 'none'
+  const settingsSource = cellDef.settings
+    ? 'flag'
+    : cellDef.projectSettings
+      ? 'project-' + cellDef.projectSettings
+      : cellDef.userSettings
+        ? 'user'
+        : (cellDef.env ?? {}).PROBE_WRITE_SETTINGS === '1'
+          ? 'written-midsession'
+          : (cellDef.env ?? {}).PROBE_WRITE_SETTINGS === 'ups'
+            ? 'written-early'
+          : 'none'
 
   const after = gitAfter(ctx)
   const nonMain = Array.isArray(after.worktrees) ? after.worktrees.filter(w => !w.isMain) : []
@@ -575,6 +593,7 @@ function main(argv) {
       console.log(`cd "${ctx.repo}"`)
       console.log(`$env:PROBE_LOG='${ctx.log}'`)
       console.log(`$env:PROBE_MODE='${ctx.mode}'`)
+      console.log(`$env:PROBE_BASE='${ctx.shas.B}'`)
       for (const [k, v] of Object.entries(ctx.env ?? {})) console.log(`$env:${k}='${v}'`)
       console.log(
         'claude ' + ctx.plugins.map(p => `--plugin-dir "${p}"`).join(' ') + (ctx.settingsFile ? ` --settings "${ctx.settingsFile}"` : '')
