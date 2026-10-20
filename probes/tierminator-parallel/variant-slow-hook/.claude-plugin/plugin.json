@@ -1,0 +1,9 @@
+{
+  "name": "tierminator-parallel-probe-slow-hook",
+  "description": "Development-time probe variant for tierminator parallel execution: a hook that sleeps, to measure hook timeouts (probe P5). p5-runner.js writes its hooks.json per cell. Not for install.",
+  "author": {
+    "name": "Tim Schreiber",
+    "url": "https://github.com/timschreiber"
+  },
+  "license": "Apache-2.0"
+}
