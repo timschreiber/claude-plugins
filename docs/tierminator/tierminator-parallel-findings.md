@@ -86,6 +86,70 @@ The runner's worktree was on `probe/p2` at W (based on B), and the prompt carrie
   main prompt's closing instruction ("Do not do the steps yourself…") after the `Worktree:` line. It did not
   change what the worker did. Tierminator's H4 checks the dispatch text, so it would deny such a call.
 
+## M1 re-run: fixing the base
+
+Four more headless cells, run on 2026-10-20 (04:13 to 04:15 UTC) with Claude Code 2.1.304 on Windows, $0.48 in
+all, each one try to give the M1 worktree the base B. They use the same throwaway repo as P1 and P2 (A on
+`origin/main`, A2 on local `main`, B at `work`'s HEAD), the same main-session prompt, and a new probe agent,
+`tierminator-parallel-probe:m1-worker`, whose fixed steps report the toplevel, the branch and HEAD, whether
+`b.txt` (committed at B only) exists and what it holds, then do an Edit of `README.md`, a Write of
+`probe-abs.txt` with the drive-letter worktree path, a commit, and the closing branch and status. In every cell
+the runner added `.claude/worktrees/` to `.git/info/exclude`, so a clean main tree here does not show what the
+main tree looks like without that entry. The four mechanisms: `worktree.baseRef: head` in a `--settings` file
+(`m1-baseref-flag`, with a `PreToolUse` hook adding `isolation`), the same setting in a plugin's `settings.json`
+(`m1-baseref-plugin`), a `WorktreeCreate` hook that makes the worktree itself from B with `git worktree add`
+(`m1-worktree-hook`), and a `SubagentStart` hook that runs `git reset --hard B` in the worktree
+(`m1-substart-reset`). The documentation ([worktrees](https://code.claude.com/docs/en/worktrees) and
+[hooks](https://code.claude.com/docs/en/hooks)) says `worktree.baseRef` accepts `fresh` (the default) or `head`,
+and that a `WorktreeCreate` hook replaces Claude Code's own worktree creation. That is documentation, not
+evidence: only the table's measured rows below count as evidence. Each cell ran once.
+
+Evidence, one file per cell, each with the same fields as the P1 files:
+`probes/evidence/tierminator-parallel-m1-baseref-flag.json`,
+`probes/evidence/tierminator-parallel-m1-baseref-plugin.json`,
+`probes/evidence/tierminator-parallel-m1-worktree-hook.json` and
+`probes/evidence/tierminator-parallel-m1-substart-reset.json`.
+
+| Cell | Mechanism | Worktree base (`HEAD_BEFORE` vs B; `B_TXT`) | Did the mechanism's own hook or setting fire | Where the path and branch reached a hook | Edit and write in the worktree | Main tree | Commit on a branch | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| `m1-baseref-flag` | `--settings` file with `worktree.baseRef: "head"`; a `PreToolUse` hook added `isolation: "worktree"` (the call had none) | **B.** `HEAD_BEFORE` `b1b7113` = B; `B_TXT: b`. | The setting **took effect** (base B where P1 gave A). The hook fired: `pre-agent:emit` carries `updatedInput.isolation`, and `PostToolUse` shows `tool_input.isolation: "worktree"`. | `PostToolUse` on Agent: `tool_response.worktreePath` and `worktreeBranch`. `SubagentStart`/`SubagentStop` and the worker's tool hooks: `cwd` is the worktree. The branch is in no other field. | Both worked (`EDIT: ok`, `WRITE: ok`); `README.md` edited and `probe-abs.txt` present in the worktree, neither in the main tree. | On `work` at B, status empty. | Yes: `b760188` on `worktree-agent-abdce773db87913e5`, directly on B; worktree clean. | `m1-baseref-flag.json`: `summary.checks` (all true), `summary.report`, `summary.variantEvents` (empty, no variant hook), `summary.worktreeMentions`, `summary.after` |
+| `m1-baseref-plugin` | A plugin (`variant-settings`) whose `settings.json` has `worktree.baseRef: "head"`; the call passed `isolation` | **A, not B.** `HEAD_BEFORE` `128a792` = A; `B_TXT: missing`. | The setting **did not take effect**: base A as in P1. No hook was involved (`variantEvents` empty). | `PostToolUse` on Agent: `worktreePath` and `worktreeBranch`; `cwd` on `SubagentStart`/`SubagentStop` and tool hooks. | Both worked in the worktree; neither landed in the main tree. | On `work` at B, status empty. | Yes: `69ee844` on `worktree-agent-a02ba60c55720769b`, on A. | `m1-baseref-plugin.json`: `summary.checks` (`baseIsB` and `bTxtPresent` false), `summary.report`, `summary.base`, `summary.after` |
+| `m1-worktree-hook` | A `WorktreeCreate` hook that ran `git worktree add -b tierminator/probe/<name> <dir>/<name> B`, printing the path; the call passed `isolation` | **B.** `HEAD_BEFORE` `cae6410` = B; `B_TXT: b`. | The hook **fired** and made the worktree (`wt-create`, `wt-create:made`). No `.claude/worktrees/` directory and no `worktree-agent-*` branch exist afterwards, so Claude Code's own creation did not run. | `PostToolUse` on Agent: `tool_response.worktreePath` (the path the hook printed) but **no `worktreeBranch`**. `cwd` on `SubagentStart`/`SubagentStop` and tool hooks. The branch (hook-chosen) appears only in the worker's output and report. | Both worked in the worktree; neither landed in the main tree. | On `work` at B, status empty. | Yes: `6d8fd98` on `tierminator/probe/agent-ace6abff5404281e8`, directly on B; worktree clean. | `m1-worktree-hook.json`: `summary.checks` (all true), `summary.variantEvents`, `summary.worktreeMentions`, `summary.agentResult`, `summary.after` |
+| `m1-substart-reset` | A `SubagentStart` hook that ran `git reset --hard B` in the worktree; the call passed `isolation` | **B.** `HEAD_BEFORE` `0b96fe4` = B; `B_TXT: b`. | The hook **fired**: `sub-reset` records `before` A (`0ae6f80`), `after` B, `status` 0, empty stderr. The worktree was therefore first made at A and then moved. | `PostToolUse` on Agent: `worktreePath` and `worktreeBranch` (Claude Code's naming). `SubagentStart` input has `cwd` = the worktree, with `agent_id`. | Both worked in the worktree; neither landed in the main tree. | On `work` at B, status empty. | Yes: `6d9891a` on `worktree-agent-a6119904d256b385d`, on B. | `m1-substart-reset.json`: `summary.checks` (all true), `summary.variantEvents`, `summary.report`, `summary.after` |
+
+### Details
+
+- **`m1-baseref-flag`.** No `Agent` error (`summary.agentError` is null). The setting was supplied with
+  `--settings <file>`, so this shows the flag's file works. It does not show that `worktree.baseRef` works from
+  a project or user `settings.json`, which no cell tried (**not determinable**). The worktree stayed at
+  `repo/.claude/worktrees/agent-abdce773db87913e5`, and the main tree's status was empty only because of the
+  `.git/info/exclude` entry (**inferred**, as in P1 where `?? .claude/` showed without it).
+- **`m1-baseref-plugin`.** No `Agent` error. The plugin loaded by `--plugin-dir` (`summary.plugins` lists it)
+  and nothing in the log reports a rejected setting. Why the setting had no effect is **not determinable**
+  from the evidence: it could be that plugin `settings.json` does not accept this key, or that the plugin's
+  settings are not read for this purpose; neither was tested. The worker's `Read` of `b.txt` failed
+  (`post-fail`: "File does not exist"), the expected result at A, and the worker reported `B_TXT: missing`
+  and went on to the commit.
+- **`m1-worktree-hook`.** No `Agent` error. The `WorktreeCreate` hook's stdin had the keys `session_id`,
+  `transcript_path`, `cwd`, `prompt_id`, `hook_event_name` and `name` (`agent-ace6abff5404281e8`): no base, no
+  branch, no isolation flag, no agent type. Its `cwd` field and the hook process's own working directory were
+  both the main tree (`hookCwd` equals `inputCwd`). The hook created the worktree 86 ms after it started
+  (`wt-create` 04:14:13.731, `wt-create:made` 04:14:13.817), `SubagentStart` fired 277 ms later, and the
+  worker's first tool call came at 04:14:15.475. The worktree sits beside the repo (`<base>/wt-hook/<name>`),
+  outside the project, and the run needed no permission prompt (`bypassPermissions`; a default-mode prompt is
+  **not determinable** headless). The hook used the same name for the worktree directory, as given in `name`;
+  the branch name is whatever the hook chose, and no hook field gives it to later hooks, so a caller would have
+  to compute it (**inferred**). `PostToolUse` on Agent has `worktreePath` but, unlike the other three cells,
+  no `worktreeBranch`. `canContinueAgent` is true. The `WorktreeRemove` hook, also registered, did not fire in
+  this run (no `wt-remove` entry), and whether it would on cleanup is **not determinable**.
+- **`m1-substart-reset`.** No `Agent` error. Timing, from the hook log: `SubagentStart` at 04:14:35.850, the
+  reset from 04:14:35.891 to 04:14:35.945 (54 ms), and the worker's first tool call (`pre-tool`) at
+  04:14:37.768, 1.82 s after the reset ended. The worker's own `HEAD_BEFORE` was B, so in this run the reset
+  finished before the worker's first command. Whether Claude Code waits for a `SubagentStart` hook before the
+  worker's first turn is **not determinable** from one run: the gap here is much longer than the reset, and
+  a slower reset was not tried. The reset moved the worktree's branch `worktree-agent-<id>` from A to B, and
+  the branch's log afterwards starts with the probe commit, then B.
+
 ## Pending: interactive cells
 
 Interactive dispatch runs in the background and in the user's permission mode, and P2's outside placement
