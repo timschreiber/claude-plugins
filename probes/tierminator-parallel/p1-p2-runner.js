@@ -191,10 +191,15 @@ const lines = s => s.split('\n').map(l => l.replace(/\r$/, '')).filter(Boolean)
 
 function gitAfter(ctx) {
   const probeFilesIn = dir => ['probe-rel.txt', 'probe-abs.txt'].filter(f => fs.existsSync(path.join(dir, f)))
+  const readmeEdited = dir => {
+    const f = path.join(dir, 'README.md')
+    return fs.existsSync(f) && fs.readFileSync(f, 'utf8').includes('probe edited')
+  }
   const out = {}
   out.main = safe(() => {
     const head = git(ctx.repo, 'rev-parse', 'HEAD')
     return {
+      readmeEdited: readmeEdited(ctx.repo),
       branch: git(ctx.repo, 'rev-parse', '--abbrev-ref', 'HEAD'),
       head,
       headIsB: head === ctx.shas.B,
@@ -214,10 +219,20 @@ function gitAfter(ctx) {
       w.status = safe(() => lines(git(w.path, 'status', '--porcelain')))
       w.log = safe(() => lines(git(w.path, 'log', '-3', '--format=%H %s')))
       w.probeFiles = safe(() => probeFilesIn(w.path))
+      w.readmeEdited = safe(() => readmeEdited(w.path))
       return w
     })
   })
   out.branches = safe(() => lines(git(ctx.repo, 'branch', '-a', '--format=%(refname:short) %(objectname)')))
+  out.headLogOfBranches = safe(() => {
+    const res = {}
+    for (const b of lines(git(ctx.repo, 'for-each-ref', '--format=%(refname:short)', 'refs/heads'))) {
+      if (b.startsWith('probe/') || b.startsWith('tierminator/') || b.startsWith('worktree-')) {
+        res[b] = lines(git(ctx.repo, 'log', '-2', '--format=%H %s', b))
+      }
+    }
+    return res
+  })
   out.mainProbeFiles = safe(() => probeFilesIn(ctx.repo))
   out.claudeWorktreesDir = safe(() => {
     const d = path.join(ctx.repo, '.claude', 'worktrees')
@@ -308,7 +323,7 @@ function summary(ctx, entries) {
   })
 
   // The report text: the last sub-stop message that has it, else the Agent result, else the agent transcript.
-  const KEY = 'PWD_INITIAL:'
+  const KEY = 'TOPLEVEL:'
   const fullStops = tagged('sub-stop').map(e => parse(e))
   let text = null
   const stopWith = fullStops.filter(s => typeof s.last_assistant_message === 'string' && s.last_assistant_message.includes(KEY)).pop()
@@ -323,7 +338,7 @@ function summary(ctx, entries) {
   let report = null
   if (text) {
     report = {}
-    const re = /^(PWD_INITIAL|MARKER|PWD_NOW|TOPLEVEL|BRANCH|HEAD_BEFORE|REL_WRITE|ABS_WRITE|COMMIT|PWD_END|BRANCH_END|STATUS_END):\s*(.*)$/
+    const re = /^(MARKER|MARKER_GIVEN|PWD_INITIAL|PWD_CD|PWD_NOW|TOPLEVEL|BRANCH|HEAD_BEFORE|B_TXT|READ_MARKER|REL_WRITE|ABS_WRITE|EDIT|WRITE|COMMIT|PWD_END|BRANCH_END|STATUS_END):\s*(.*)$/
     for (const l of text.split('\n')) {
       const m = re.exec(l.replace(/\r$/, ''))
       if (m) report[m[1]] = m[2]
@@ -336,7 +351,36 @@ function summary(ctx, entries) {
     basedOn = h === B ? 'HEAD of work (B)' : h === A2 ? 'local main (A2)' : h === A ? 'origin/main (A)' : W && h === W ? 'runner worktree commit (W)' : 'other'
   }
 
+  const VARIANT_TAGS = ['wt-create', 'wt-create:made', 'wt-create:failed', 'wt-remove', 'sub-reset:input', 'sub-reset', 'sub-reset:skipped']
+  const variantEvents = entries
+    .filter(e => VARIANT_TAGS.includes(e.tag))
+    .map(e => {
+      const { at, tag, ...rest } = e
+      return { tag, at, data: typeof e.stdin === 'string' ? parse(e) : rest }
+    })
+
+  const after = gitAfter(ctx)
+  const nonMain = Array.isArray(after.worktrees) ? after.worktrees.filter(w => !w.isMain) : []
+  const branchLogs = after.headLogOfBranches
+  const checks = {
+    baseIsB: report ? report.HEAD_BEFORE === ctx.shas.B : null,
+    bTxtPresent: report ? report.B_TXT === 'b' : null,
+    mainOnBAndClean: report ? Boolean(after.main.headIsB && after.main.status.length === 0) : null,
+    editInWorktree: report ? nonMain.some(w => w.readmeEdited === true && Array.isArray(w.probeFiles) && w.probeFiles.includes('probe-abs.txt')) : null,
+    mainEditFree: report
+      ? after.main.readmeEdited === false && Array.isArray(after.mainProbeFiles) && !after.mainProbeFiles.includes('probe-abs.txt')
+      : null,
+    commitIsBranchHead: report
+      ? Boolean(report.COMMIT) && branchLogs && typeof branchLogs === 'object' && Object.values(branchLogs).some(l => Array.isArray(l) && l.length > 0 && l[0].split(' ')[0] === report.COMMIT)
+      : null,
+  }
+
   return {
+    settingsFlag: Boolean(ctx.settingsFile),
+    plugins: (ctx.plugins ?? []).map(p => path.basename(p)),
+    agent: ctx.agent ?? 'sonnet-low',
+    variantEvents,
+    checks,
     agentCall,
     isolationPassed: agentCall && typeof agentCall === 'object' ? agentCall.isolation ?? null : null,
     hookEmitted: emit ? parse(emit) : null,
@@ -348,7 +392,7 @@ function summary(ctx, entries) {
     worktreeMentions: worktreeMentions(entries),
     report,
     base: { ...ctx.shas, basedOn },
-    after: gitAfter(ctx),
+    after,
   }
 }
 
