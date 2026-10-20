@@ -229,6 +229,84 @@ Evidence, one file per cell, each with the same fields as the P1 files:
 - **Cost.** $0.116 (`inside`) and $0.111 (`outside`); each cell ran once, so nothing here shows run-to-run
   variation.
 
+## Base mechanism: second round
+
+Six more cells, ten headless runs, run on 2026-10-20 (04:38 to 04:42 UTC) with Claude Code 2.1.304 on Windows,
+$1.08 in all (per run $0.06 to $0.14). They use the same throwaway repo (A on `origin/main`, A2 on local `main`,
+B at `work`'s HEAD), the same fenced main-session prompt, `bypassPermissions`, and the `m1-worker` probe agent,
+except `m1-worker-reset`, which uses `m1-reset-worker`. Round one left four gaps. First, `worktree.baseRef: head`
+was tried only as a `--settings` flag file (`m1-baseref-flag`), never as a project settings file. Second, each
+mechanism ran once, so one run could not show a pattern. Third, the hook ordering is not documented: whether
+Claude Code waits for a `SubagentStart` hook before the worker's first turn was **not determinable** from
+`m1-substart-reset`, where a 54 ms reset ended 1.82 s before the first tool call. Fourth, a `WorktreeCreate` hook
+replaces Claude Code's own creation, and a plugin that registers one cannot step aside for a given call,
+so what Claude Code does when such a hook fails was unknown. The documentation
+([worktrees](https://code.claude.com/docs/en/worktrees) and [hooks](https://code.claude.com/docs/en/hooks)) says
+settings files can carry `worktree.baseRef`, that a `WorktreeCreate` hook replaces the default creation, and
+describes hook events; that is documentation, not evidence. Only the measured rows below count.
+
+Evidence, one file per run, each with the same fields as the P1 files (the cells with three runs have `-r1` to
+`-r3` files): `probes/evidence/tierminator-parallel-m1-baseref-local.json`, `-m1-baseref-shared.json`,
+`-m1-noremote.json`, `-m1-substart-slow-r1.json` to `-r3.json`, `-m1-worker-reset-r1.json` to `-r3.json` and
+`-wt-decline.json`. The six checks are `summary.checks` without `resetFinishedBeforeFirstTool`, which only the
+`m1-substart-slow` cell evaluates (it is `null` in the others): `baseIsB`, `bTxtPresent`, `mainOnBAndClean`,
+`editInWorktree`, `mainEditFree` and `commitIsBranchHead`.
+
+| Cell | Mechanism | Runs | Worktree base (`HEAD_BEFORE` vs B; `B_TXT`) | Checks (true of six) | Notes | Evidence |
+|---|---|---|---|---|---|---|
+| `m1-baseref-local` | `.claude/settings.local.json` in the repo (untracked, listed in `.git/info/exclude`) with `worktree.baseRef: "head"`; no `--settings` flag; a `PreToolUse` hook added `isolation: "worktree"`; `origin` exists | 1 | **B.** `HEAD_BEFORE` `a5407b3` = B; `B_TXT: b`. | 6 of 6 | The setting took effect from a project-local file (base B where P1 gave A). Commit `9b311f4` on `worktree-agent-af9e59b2f2424640f`, directly on B; main tree on `work` at B, status empty. | `m1-baseref-local.json`: `summary.checks`, `summary.report`, `summary.settingsSource`, `summary.after` |
+| `m1-baseref-shared` | A committed `.claude/settings.json` (in A, so in every commit) with `worktree.baseRef: "head"`; no `--settings` flag; hook-added isolation; `origin` exists | 1 | **B.** `HEAD_BEFORE` `89cde58` = B; `B_TXT: b`. | 6 of 6 | The setting took effect from a committed project file. Commit `379684c` on `worktree-agent-a6564d74c75364cc9`, directly on B; main tree on `work` at B, status empty. | `m1-baseref-shared.json`: `summary.checks`, `summary.report`, `summary.settingsSource`, `summary.after` |
+| `m1-noremote` | Hook-added isolation in a repo with no remote at all; no `baseRef` setting anywhere | 1 | **B.** `HEAD_BEFORE` `ee6121d` = B; `B_TXT: b`. | 6 of 6 | Not A2 (local `main`) either. Commit `ec3044d` on `worktree-agent-a10265bd7a277361d`, directly on B; main tree on `work` at B, status empty. | `m1-noremote.json`: `summary.remote` (false), `summary.settingsSource` ("none"), `summary.checks`, `summary.after.branches` |
+| `m1-substart-slow` | The `SubagentStart` reset hook of `m1-substart-reset`, with `PROBE_RESET_DELAY_MS=5000` so the reset ends about 5.1 s after it starts; call-passed isolation | 3 (r1 to r3) | **B in 3 of 3.** `HEAD_BEFORE` `77b02c1`, `dace028`, `9cb850d` = B in each run; `B_TXT: b`. | 6 of 6 in each run | `resetFinishedBeforeFirstTool` is true in 3 of 3. The reset took 5071, 5098 and 5086 ms and moved the worktree from A to B each time (`before` A, `after` B, `status` 0). The first worker tool call came 1.41 s, 2.49 s and 1.54 s after the hook ended (6.52 s, 7.63 s and 6.66 s after `SubagentStart`). | `m1-substart-slow-r1.json`, `m1-substart-slow-r2.json`, `m1-substart-slow-r3.json`: `summary.checks`, `summary.resetTimings`, `summary.firstWorkerToolDelayMs`, `summary.report` |
+| `m1-worker-reset` | Hook-added isolation; the `m1-reset-worker` agent gets `Base: <B>` on a prompt line and runs `git reset --hard <Base>` as its first step | 3 (r1 to r3) | **B in 3 of 3.** `HEAD_BEFORE` `93dfc4f`, `c801a65`, `8f20ea4` = B; `B_TXT: b`. The worker reads `HEAD_BEFORE` after its reset, so the base before the reset is not in the report. | 6 of 6 in each run | `RESET: ok` in 3 of 3. Each worktree branch then holds the probe commit, B, A2 (the reset moved it onto B). Main tree on `work` at B, status empty in each. | `m1-worker-reset-r1.json`, `m1-worker-reset-r2.json`, `m1-worker-reset-r3.json`: `summary.report`, `summary.checks`, `summary.agentCall`, `summary.after` |
+| `wt-decline` | `isolation: "worktree"` with a `WorktreeCreate` hook that exits 1 with stderr `probe: declining to create a worktree` and creates nothing | 1 | **No worktree.** No worker ran, so `HEAD_BEFORE` and `B_TXT` do not exist. | 0 of 6 (all `null`: nothing was evaluated) | The Agent call returned an error. See Details. | `wt-decline.json`: `summary.agentError`, `summary.agentResult` (null), `summary.after`, `hookLog` |
+
+### Details
+
+- **`m1-baseref-local`.** No `Agent` error. `PostToolUse` on Agent carries `worktreePath` and `worktreeBranch`,
+  and `cwd` is the worktree on `SubagentStart` and on the worker's tool hooks, as in `m1-baseref-flag`. Without a
+  control run in this repo that has the file removed, that the setting caused B rests on P1 (A in all three cells
+  with the default) and on `m1-baseref-plugin` (A) (**inferred**). Together with `m1-baseref-flag`, this answers
+  the earlier "not determinable" for a project settings file: it works from `.claude/settings.local.json` here.
+- **`m1-baseref-shared`.** No `Agent` error; the same hook fields as `m1-baseref-local`. The settings file is a
+  tracked file, committed in A, and the main tree's status was empty at the end. The same caveat: no control run
+  without the file in this repo (**inferred** from P1). A user-level settings file was not tried in any cell
+  with evidence (the runner marks `m1-baseref-user` interactive only), so whether it works is **not
+  determinable**.
+- **`m1-noremote`.** No `Agent` error. The repo has no `origin` and no `origin/*` ref (`summary.after.branches`
+  lists `main`, `work` and the worktree branch only), and no setting was supplied. The worktree started at the
+  current HEAD, B, not at local `main` (A2). **Inferred:** with no remote default branch to base on, Claude
+  Code falls back to HEAD, which would fit P1's inference that the default base is the remote's default branch.
+  The cell did not run with a remote and without a setting, so it cannot say which of the two inputs decides.
+- **`m1-substart-slow`.** No `Agent` error in any run. In all three runs the worker's first tool call came after the
+  hook had ended and the worker's own `HEAD_BEFORE` was B, so Claude Code held the worker back until the 5 s hook
+  was done: a first tool call at 6.5 to 7.6 s after `SubagentStart` fits a wait for the hook and is far above the
+  1.5 to 1.7 s of the cells without a delay (`m1-baseref-local`, `-shared`, `-noremote`). That is measured for one
+  hook, one delay length (5 s), a synchronous command hook and `bypassPermissions`; a longer delay, an async hook,
+  and the hook's `timeout` setting were not tried. Whether Claude Code waits for the hook before the worker's
+  first model turn, or only before its first tool call, is **not determinable**: the log records the first tool
+  call only. Run r2 has 7 `pre-tool` events and r1 and r3 have 9; every run reports `COMMIT` and a clean status.
+- **`m1-worker-reset`.** No `Agent` error. The worker's step 0 is the reset, so `HEAD_BEFORE` (step 2) is read after
+  it; the worktree's base before the reset is not recorded in these files, so it is **not determinable** here
+  (P1 and the `m1-substart-slow` `before` field give A, in cells with a remote). The prompt's `Base:` line was
+  written by the runner from the repo's B, as `summary.agentCall.prompt` shows; the call had no `isolation`
+  parameter, because the hook added it (`pre-agent:emit` in each log). The three runs took 2.5 to 3.2 s from
+  `SubagentStart` to the first tool call and 13.5 to 14.7 s in all.
+- **`wt-decline`.** The Agent call carried `isolation: "worktree"` and returned an **error**: `summary.agentError`
+  and the main session's final result are both `WorktreeCreate hook failed: node "${CLAUDE_PLUGIN_ROOT}/scripts/wt.js"
+  wt-create: probe: declining to create a worktree`, that is, the hook's stderr behind a fixed prefix. The tool
+  result was a failure (`PostToolUseFailure`, `is_interrupt: false`, `duration_ms: 111`), so `PostToolUse` did not
+  fire and there is no `tool_response`. **No worker ran**: `SubagentStart` and `SubagentStop` did not fire, no
+  worker tool call was logged (`toolCwds` empty), and `agentResult` is null. **No worktree exists afterwards**: the
+  repo has only its main worktree, `claudeWorktreesDir` is null (no `.claude/worktrees/` directory) and there is no
+  `worktree-agent-*` branch, so Claude Code did not fall back to its own creation. The main tree stayed on `work`
+  at B with empty status. **Hook events that fired**, in order: `UserPromptSubmit`, `PreToolUse` on Agent,
+  `WorktreeCreate` (stdin keys `session_id`, `transcript_path`, `cwd`, `prompt_id`, `hook_event_name`, `name`;
+  `name` was `agent-a88308cca16dedcc1`), `PostToolUseFailure` on Agent (111 ms after the call started) and `Stop`.
+  The `WorktreeRemove` hook, also registered, did not fire. The main prompt told the session to reply with the
+  error verbatim if the call failed, so a retry by the main session is **not determinable** from this cell; there
+  was exactly one `PreToolUse` on Agent and one `WorktreeCreate`. The run cost $0.059 and the process exited 0.
+
 ## Pending: interactive cells
 
 Interactive dispatch runs in the background and in the user's permission mode, and P2's outside placement
