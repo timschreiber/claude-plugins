@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/reset.js\"", "timeout": 30 }
+        ]
+      }
+    ]
+  }
+}
