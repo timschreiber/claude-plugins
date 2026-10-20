@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\" wt-create", "timeout": 60 }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/wt.js\" wt-remove", "timeout": 60 }
+        ]
+      }
+    ]
+  }
+}
