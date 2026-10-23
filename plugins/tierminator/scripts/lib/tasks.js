@@ -1,6 +1,7 @@
 // The only parser and validator for a plan's tiered-tasks block, and the only code that reads or
 // rewrites plan text. H2 and H3 reach it through sidecar.js resolvePlan(), which adds the file work.
 'use strict'
+const { waves } = require('./waves.js')
 
 // Sonnet stops at high, and work harder than sonnet/high goes to opus/medium: with Sonnet 5.5, opus/low
 // scores below sonnet/high and sonnet/xhigh below opus/medium or opus/high, and opus/xhigh adds little
@@ -271,10 +272,43 @@ function parsePlan(text) {
 
 const thousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
-// The generated section, as lines without line endings.
-function renderSection(tasks, file, hash) {
+// A table cell, or a command shown in the section: a pipe would end the cell, so it is escaped.
+const cell = text => String(text).replace(/\|/g, '\\|')
+
+// The After cell of a task that needs no earlier task.
+const NO_AFTER = '—'
+
+// The generated section, as lines without line endings; for a graph plan the table gains Wave and After columns
+// and is followed by the setup and verify commands, shown verbatim but for escaped pipes since approving the plan
+// makes tierminator run them, and by the waves; a serial plan's section ignores setup and verify.
+function renderSection(tasks, file, hash, { graph = false, setup = [], verify = null } = {}) {
+  if (graph) {
+    const waveList = waves(tasks)
+    const waveOfId = new Map()
+    waveList.forEach((ids, i) => ids.forEach(id => waveOfId.set(id, i + 1)))
+    const graphRow = t =>
+      `| ${t.id} | ${waveOfId.get(t.id)} | ${t.after?.length ? t.after.join(', ') : NO_AFTER} | ${cell(t.title)} | ${t.model} | ${t.effort} | ${thousands(t.prompt.length)} chars |`
+    const notes = [
+      ...setup.map(command => `Setup: ${cell(command)}`),
+      ...(verify !== null ? [`Verify (after each parallel wave): ${cell(verify)}`] : []),
+      'Waves: ' + waveList.map((ids, i) => `${i + 1}: ${ids.join(', ')}`).join(' · '),
+    ]
+    return [
+      SECTION_START,
+      `Tasks file: \`${file}\` (sha256 \`${hash}\`)`,
+      '',
+      '| ID | Wave | After | Title | Model | Effort | Prompt |',
+      '|---|---|---|---|---|---|---|',
+      ...tasks.map(graphRow),
+      '',
+      ...notes.flatMap((line, i) => (i === 0 ? [line] : ['', line])),
+      '',
+      'Open the tasks file to read each prompt before approving.',
+      SECTION_END,
+    ]
+  }
   const row = t =>
-    `| ${t.id} | ${t.title.replace(/\|/g, '\\|')} | ${t.model} | ${t.effort} | ${thousands(t.prompt.length)} chars |`
+    `| ${t.id} | ${cell(t.title)} | ${t.model} | ${t.effort} | ${thousands(t.prompt.length)} chars |`
   return [
     SECTION_START,
     `Tasks file: \`${file}\` (sha256 \`${hash}\`)`,

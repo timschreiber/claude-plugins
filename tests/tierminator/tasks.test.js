@@ -358,3 +358,71 @@ test('a failed or opted-out parse carries the empty graph fields', () => {
     assert.equal(r.graph, false)
   }
 })
+
+test('a serial plan\'s section is byte for byte as before, whatever setup and verify say', () => {
+  const n = task(1).prompt.length
+  const tasks = parsePlan(plan({ tasks: [task(1), task(2)] })).tasks
+  const expected = [
+    SECTION_START,
+    'Tasks file: `/p.tasks.json` (sha256 `0123456789abcdef`)',
+    '',
+    '| ID | Title | Model | Effort | Prompt |',
+    '|---|---|---|---|---|',
+    `| T01 | Task 1 | sonnet | medium | ${n} chars |`,
+    `| T02 | Task 2 | sonnet | medium | ${n} chars |`,
+    '',
+    'Open the tasks file to read each prompt before approving.',
+    SECTION_END,
+  ]
+  assert.deepEqual(renderSection(tasks, '/p.tasks.json', HASH), expected)
+  assert.deepEqual(renderSection(tasks, '/p.tasks.json', HASH, { graph: false, setup: ['npm ci'], verify: 'npm test' }), expected)
+})
+
+const graphBlock = () => ({
+  setup: ['npm ci', 'echo a | tee b'],
+  verify: 'npm test | tail -5',
+  tasks: [task(1), task(2, { after: [] }), task(3, { after: [] }), task(4, { title: 'Join | both', after: ['T02', 'T03'] })],
+})
+
+test('a graph plan\'s section shows waves, After, setup and verify, with pipes escaped', () => {
+  const n = task(1).prompt.length
+  const r = parsePlan(plan(graphBlock()))
+  assert.deepEqual(renderSection(r.tasks, '/p.tasks.json', HASH, r), [
+    SECTION_START,
+    'Tasks file: `/p.tasks.json` (sha256 `0123456789abcdef`)',
+    '',
+    '| ID | Wave | After | Title | Model | Effort | Prompt |',
+    '|---|---|---|---|---|---|---|',
+    `| T01 | 1 | — | Task 1 | sonnet | medium | ${n} chars |`,
+    `| T02 | 1 | — | Task 2 | sonnet | medium | ${n} chars |`,
+    `| T03 | 1 | — | Task 3 | sonnet | medium | ${n} chars |`,
+    `| T04 | 2 | T02, T03 | Join \\| both | sonnet | medium | ${n} chars |`,
+    '',
+    'Setup: npm ci',
+    '',
+    'Setup: echo a \\| tee b',
+    '',
+    'Verify (after each parallel wave): npm test \\| tail -5',
+    '',
+    'Waves: 1: T01, T02, T03 · 2: T04',
+    '',
+    'Open the tasks file to read each prompt before approving.',
+    SECTION_END,
+  ])
+})
+
+test('a graph plan without setup or verify shows only its waves', () => {
+  const n = task(1).prompt.length
+  const r = parsePlan(plan({ tasks: [task(1), task(2, { after: ['T01'] }), task(3)] }))
+  const lines = renderSection(r.tasks, '/p.tasks.json', HASH, r)
+  assert.ok(lines.includes(`| T03 | 3 | T02 | Task 3 | sonnet | medium | ${n} chars |`))
+  assert.ok(lines.includes('Waves: 1: T01 · 2: T02 · 3: T03'))
+  assert.ok(!lines.some(l => l.startsWith('Setup:') || l.startsWith('Verify')))
+})
+
+test('a graph plan\'s section parses back to itself', () => {
+  const r = parsePlan(plan(graphBlock()))
+  const lines = renderSection(r.tasks, '/p.tasks.json', HASH, r)
+  const out = replaceBlock(plan(graphBlock()), lines)
+  assert.deepEqual(parsePlan(out).section, { file: '/p.tasks.json', hash: HASH, lines })
+})
