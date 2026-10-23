@@ -281,3 +281,80 @@ test('the replaced plan parses back to its section', () => {
   const out = replaceBlock(plan({ tasks: [task(1)] }), renderSection([task(1)], '/p.tasks.json', HASH))
   assert.deepEqual(parsePlan(out).section.lines, renderSection([task(1)], '/p.tasks.json', HASH))
 })
+
+const bad = (obj, field, text) => assert.ok(validate(obj).some(e => e.startsWith(field) && e.includes(text)), `${field} ${text}: ${validate(obj).join(' | ')}`)
+
+test('a plan without after normalizes to a chain', () => {
+  const r = parsePlan(plan({ tasks: [task(1), task(2), task(3)] }))
+  assert.deepEqual(r.tasks.map(t => t.after), [[], ['T01'], ['T02']])
+  assert.equal(r.graph, false)
+  assert.deepEqual(r.setup, [])
+  assert.equal(r.verify, null)
+})
+
+test('after [] makes independent tasks and marks a graph', () => {
+  const r = parsePlan(plan({ tasks: [task(1), task(2, { after: [] }), task(3, { after: [] })] }))
+  assert.deepEqual(r.tasks.map(t => t.after), [[], [], []])
+  assert.equal(r.graph, true)
+  const r2 = parsePlan(plan({ tasks: [task(1), task(2, { after: [] }), task(3)] }))
+  assert.deepEqual(r2.tasks[2].after, ['T02'])
+})
+
+test('explicit lists are kept and redundant edges are allowed', () => {
+  const r = parsePlan(plan({ tasks: [task(1), task(2, { after: ['T01'] }), task(3, { after: ['T01'] }), task(4, { after: ['T02', 'T03'] })] }))
+  assert.deepEqual(r.tasks.map(t => t.after), [[], ['T01'], ['T01'], ['T02', 'T03']])
+  assert.deepEqual(validate({ tasks: [task(1), task(2, { after: ['T01'] }), task(3, { after: ['T01', 'T02'] })] }), [])
+})
+
+test('a bad after is rejected naming the field', () => {
+  bad({ tasks: [task(1, { after: ['T02'] }), task(2)] }, 'T01.after', 'comes later')
+  bad({ tasks: [task(1, { after: ['T02'] }), task(2, { after: ['T01'] })] }, 'T01.after', 'comes later')
+  bad({ tasks: [task(1), task(2, { after: ['T02'] })] }, 'T02.after', 'itself')
+  bad({ tasks: [task(1), task(2, { after: ['T09'] })] }, 'T02.after', 'not a task id')
+  bad({ tasks: [task(1), task(2, { after: ['T01', 'T01'] })] }, 'T02.after', 'listed twice')
+  bad({ tasks: [task(1, { after: 'T01' })] }, 'T01.after', 'array')
+  bad({ tasks: [task(1), task(2, { after: [1] })] }, 'T02.after', 'string')
+})
+
+test('setup and verify are returned', () => {
+  const r = parsePlan(plan({ tasks: [task(1)], setup: ['npm ci', 'npm run gen'], verify: 'npm test' }))
+  assert.deepEqual(r.setup, ['npm ci', 'npm run gen'])
+  assert.equal(r.verify, 'npm test')
+  assert.equal(r.graph, false)
+})
+
+test('a bad setup or verify is rejected naming the field', () => {
+  bad({ tasks: [task(1)], setup: 'npm ci' }, 'setup', 'array')
+  bad({ tasks: [task(1)], setup: Array(11).fill('x') }, 'setup', 'at most 10')
+  bad({ tasks: [task(1)], setup: ['ok', ' '] }, 'setup[1]', 'non-empty line')
+  bad({ tasks: [task(1)], setup: ['a\nb'] }, 'setup[0]', 'non-empty line')
+  bad({ tasks: [task(1)], verify: '' }, 'verify', 'non-empty line')
+  bad({ tasks: [task(1)], verify: 'a\nb' }, 'verify', 'non-empty line')
+  bad({ tasks: [task(1)], verify: 7 }, 'verify', 'non-empty line')
+})
+
+test('an unknown top-level key is rejected', () => {
+  bad({ tasks: [task(1)], extra: 1 }, 'block: unknown key "extra"', 'tasks, setup or verify')
+})
+
+test('new and old errors are collected together', () => {
+  assert.ok(validate({ tasks: [task(1, { model: 'gpt', after: ['T05'] })], setup: 'x', verify: '' }).length >= 4)
+})
+
+test('a serial plan parses to its tasks plus after', () => {
+  assert.deepEqual(parsePlan(plan({ tasks: [task(1), task(2)] })).tasks.map(({ after, ...rest }) => rest), [task(1), task(2)])
+})
+
+test('an aliased task keeps its after', () => {
+  const r = parsePlan(plan({ tasks: [task(1), task(2, { model: 'opus', effort: 'low', after: [] })] }))
+  assert.equal(r.tasks[1].effort, 'medium')
+  assert.deepEqual(r.tasks[1].after, [])
+})
+
+test('a failed or opted-out parse carries the empty graph fields', () => {
+  for (const r of [parsePlan('# Plan'), parsePlan('Tiered execution: off')]) {
+    assert.deepEqual(r.setup, [])
+    assert.equal(r.verify, null)
+    assert.equal(r.graph, false)
+  }
+})
