@@ -428,3 +428,60 @@ test('cherryPick and cherryPickAbort report other failures', () => {
   assert.equal(g.cherryPick(missing, g.head(r)).ok, false)
   assert.equal(g.cherryPickAbort(missing).ok, false)
 })
+
+// excludeWorktrees
+
+const excludeFile = r => path.join(r, '.git', 'info', 'exclude')
+
+test('excludeWorktrees hides the slot directory from the main tree and is idempotent', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', g.head(r)).ok, true)
+  assert.equal(g.isClean(r), false)
+  assert.match(run(r, 'status', '--porcelain'), /\?\? \.claude\//)
+  assert.equal(g.excludeWorktrees(r), true)
+  assert.equal(g.isClean(r), true)
+  const text = fs.readFileSync(excludeFile(r), 'utf8')
+  assert.equal(text.split('\n').filter(l => l === '.claude/worktrees/').length, 1)
+  assert.ok(text.endsWith('\n'))
+  assert.equal(g.excludeWorktrees(r), true)
+  assert.equal(fs.readFileSync(excludeFile(r), 'utf8'), text)
+})
+
+test('excludeWorktrees from a linked worktree writes the main repository exclude file', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', g.head(r)).ok, true)
+  assert.equal(g.excludeWorktrees(wt), true)
+  const text = fs.readFileSync(excludeFile(r), 'utf8')
+  assert.ok(text.split('\n').includes('.claude/worktrees/'))
+  assert.equal(g.isClean(r), true)
+  assert.equal(g.excludeWorktrees(r), true)
+  assert.equal(fs.readFileSync(excludeFile(r), 'utf8'), text)
+})
+
+test('excludeWorktrees creates a missing info directory', () => {
+  const r = repo()
+  fs.rmSync(path.join(r, '.git', 'info'), { recursive: true, force: true })
+  assert.equal(g.excludeWorktrees(r), true)
+  assert.equal(fs.readFileSync(excludeFile(r), 'utf8'), '.claude/worktrees/\n')
+})
+
+test('excludeWorktrees keeps existing lines and leaves a present entry alone', () => {
+  const r = repo()
+  fs.writeFileSync(excludeFile(r), '*.tmp')
+  assert.equal(g.excludeWorktrees(r), true)
+  assert.equal(fs.readFileSync(excludeFile(r), 'utf8'), '*.tmp\n.claude/worktrees/\n')
+
+  const r2 = repo('repo2')
+  fs.writeFileSync(excludeFile(r2), '.claude/worktrees/\r\n')
+  assert.equal(g.excludeWorktrees(r2), true)
+  assert.equal(fs.readFileSync(excludeFile(r2), 'utf8'), '.claude/worktrees/\r\n')
+})
+
+test('excludeWorktrees is false for a directory that is not a repository', () => {
+  const plain = path.join(dir, 'plain')
+  fs.mkdirSync(plain)
+  assert.equal(g.excludeWorktrees(plain), false)
+  assert.equal(g.excludeWorktrees(path.join(dir, 'missing')), false)
+})

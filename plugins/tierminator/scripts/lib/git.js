@@ -302,4 +302,26 @@ function cherryPickAbort(cwd, delays = LOCK_RETRY_MS) {
 // True while a cherry-pick is in progress in this worktree (Git keeps CHERRY_PICK_HEAD per worktree).
 const pickInProgress = cwd => git(cwd, ['rev-parse', '-q', '--verify', 'CHERRY_PICK_HEAD']).ok
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd, cherryPick, cherryPickAbort, pickInProgress }
+// Adds `.claude/worktrees/` to the repository's info/exclude once (a second call changes nothing).
+// --git-path finds the file shared by every worktree, so this works from a linked worktree too.
+// Without it the main tree shows `?? .claude/` as soon as a slot worktree is made there, which fails
+// the clean-tree check (findings, Recommendation). True when the entry is present afterwards, false
+// when the file could not be found or written.
+const WORKTREES_EXCLUDE = '.claude/worktrees/'
+function excludeWorktrees(cwd) {
+  try {
+    const r = git(cwd, ['rev-parse', '--git-path', 'info/exclude'])
+    if (!r.ok || !r.stdout.trim()) return false
+    const file = path.resolve(cwd, r.stdout.trim())
+    let text = ''
+    try { text = fs.readFileSync(file, 'utf8') } catch (e) { if (e?.code !== 'ENOENT') return false }
+    if (text.split(/\r?\n/).some(l => l.trim() === WORKTREES_EXCLUDE)) return true
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.appendFileSync(file, `${text && !text.endsWith('\n') ? '\n' : ''}${WORKTREES_EXCLUDE}\n`)
+    return true
+  } catch {
+    return false
+  }
+}
+
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd, cherryPick, cherryPickAbort, pickInProgress, excludeWorktrees }
