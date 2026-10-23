@@ -468,6 +468,33 @@ test('remove deletes the session lock and leaves another session\'s', () => {
   assert.equal(fs.existsSync(path.join(sessions, 's10.lock')), true)
 })
 
+const race = (mode, id, children, count) => {
+  const startAt = Date.now() + 1500
+  const runs = Array.from({ length: children }, () => new Promise(resolve => {
+    const child = spawn(process.execPath, [path.join(__dirname, 'fixtures', 'state-increment.js'), mode, id, String(count), String(startAt)], {
+      env: { ...process.env, CLAUDE_PLUGIN_DATA: dir },
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    let out = ''
+    child.stdout.on('data', d => { out += d })
+    child.on('close', () => resolve(JSON.parse(out)))
+  }))
+  return Promise.all(runs)
+}
+
+test('four processes incrementing through update lose no update', { timeout: 120000 }, async () => {
+  const results = await race('update', 'race', 4, 100)
+  for (const r of results) assert.equal(r.ok, 100)
+  assert.equal(state.read('race').n, 400)
+  assert.equal(fs.existsSync(path.join(dir, 'sessions', 'race.lock')), false)
+})
+
+// The control: without the lock the same race loses updates, so the test above can catch a lost update.
+test('four processes doing a plain read then write lose updates', { timeout: 120000 }, async () => {
+  await race('naive', 'naive', 4, 100)
+  assert.ok((state.read('naive')?.n ?? 0) < 400)
+})
+
 test('prune removes old lock files and keeps fresh ones', () => {
   const sessions = path.join(dir, 'sessions')
   fs.mkdirSync(sessions, { recursive: true })
