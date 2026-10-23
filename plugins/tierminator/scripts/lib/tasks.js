@@ -36,6 +36,9 @@ const nextTier = tier => {
   return i >= 0 && i < TIERS.length - 1 ? TIERS[i + 1] : null
 }
 const TASK_KEYS = ['id', 'title', 'model', 'effort', 'prompt']
+const OPTIONAL_TASK_KEYS = ['after']
+const TOP_KEYS = ['tasks', 'setup', 'verify']
+const MAX_SETUP = 10
 const MAX_TASKS = 99
 const MAX_TITLE = 100
 const BLOCK_INFO = 'json tiered-tasks'
@@ -107,19 +110,44 @@ function validate(obj) {
   if (obj.tasks.length > MAX_TASKS) {
     errors.push(`at most ${MAX_TASKS} tasks are allowed; found ${obj.tasks.length}`)
   }
+  for (const key of Object.keys(obj)) {
+    if (!TOP_KEYS.includes(key)) {
+      errors.push(`block: unknown key "${key}"; allowed keys are ${list(TOP_KEYS)}`)
+    }
+  }
+  if (obj.setup !== undefined) {
+    if (!Array.isArray(obj.setup)) {
+      errors.push('setup: must be an array of command strings')
+    } else {
+      if (obj.setup.length > MAX_SETUP) {
+        errors.push(`setup: at most ${MAX_SETUP} commands are allowed; found ${obj.setup.length}`)
+      }
+      obj.setup.forEach((cmd, i) => {
+        if (typeof cmd !== 'string' || cmd.trim() === '' || /[\r\n]/.test(cmd)) {
+          errors.push(`setup[${i}]: must be one non-empty line`)
+        }
+      })
+    }
+  }
+  if (obj.verify !== undefined) {
+    if (typeof obj.verify !== 'string' || obj.verify.trim() === '' || /[\r\n]/.test(obj.verify)) {
+      errors.push('verify: must be one non-empty line')
+    }
+  }
 
+  const wantIds = obj.tasks.map((_, i) => `T${String(i + 1).padStart(2, '0')}`)
   obj.tasks.forEach((task, i) => {
     const at = `tasks[${i}]`
     if (task === null || typeof task !== 'object' || Array.isArray(task)) {
       errors.push(`${at}: must be an object`)
       return
     }
-    const wantId = `T${String(i + 1).padStart(2, '0')}`
+    const wantId = wantIds[i]
     const where = typeof task.id === 'string' && task.id ? task.id : at
 
     for (const key of Object.keys(task)) {
-      if (!TASK_KEYS.includes(key)) {
-        errors.push(`${where}: unknown key "${key}"; allowed keys are ${list(TASK_KEYS)}`)
+      if (![...TASK_KEYS, ...OPTIONAL_TASK_KEYS].includes(key)) {
+        errors.push(`${where}: unknown key "${key}"; allowed keys are ${list(TASK_KEYS)}, plus the optional "after"`)
       }
     }
     for (const key of TASK_KEYS) {
@@ -147,6 +175,26 @@ function validate(obj) {
       if (task.prompt.trim() === '') errors.push(`${where}.prompt: must not be empty`)
       else if (!task.prompt.includes('Verify:')) {
         errors.push(`${where}.prompt: must contain a "Verify:" step that fails if the task is incomplete`)
+      }
+    }
+    if (task.after !== undefined) {
+      if (!Array.isArray(task.after)) {
+        errors.push(`${where}.after: must be an array of task ids`)
+      } else {
+        const seen = new Set()
+        for (const dep of task.after) {
+          if (typeof dep !== 'string') {
+            errors.push(`${where}.after: every entry must be a task id string`)
+            continue
+          }
+          if (seen.has(dep)) errors.push(`${where}.after: "${dep}" is listed twice`)
+          else if (dep === wantId) errors.push(`${where}.after: "${dep}" is the task itself`)
+          else if (!wantIds.includes(dep)) errors.push(`${where}.after: "${dep}" is not a task id`)
+          else if (wantIds.indexOf(dep) > i) {
+            errors.push(`${where}.after: "${dep}" comes later; a task can depend only on earlier tasks`)
+          }
+          seen.add(dep)
+        }
       }
     }
   })
