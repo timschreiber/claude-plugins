@@ -48,7 +48,13 @@ function recordPlanning(input, planId, planFile) {
 }
 
 // What became of an attempt, from the state before and after it was judged.
-function outcomeOf(prev, next) {
+function outcomeOf(prev, next, slotId = null) {
+  if (slotId) {
+    if (next.done.length > prev.done.length) return { outcome: 'done', reason: null }
+    const sl = next.wave.slots[slotId]
+    if (sl.status === 'failed') return { outcome: 'halt', reason: sl.failure ?? null }
+    return { outcome: 'retry', reason: sl.lastFailure?.reason ?? null }
+  }
   if (next.phase === 'halted') return { outcome: 'halt', reason: next.halt?.reason ?? null }
   if (next.done.length > prev.done.length) return { outcome: 'done', reason: null }
   return { outcome: 'retry', reason: next.current?.lastFailure?.reason ?? null }
@@ -59,17 +65,16 @@ function outcomeOf(prev, next) {
 // queues its UI line in the state's `spendLines`. Returns {next, line}: the state to save and the line.
 // The line is shown by the next Stop (takeLines), not here: a SubagentStop hook's systemMessage is not
 // displayed for a background worker, and a Stop hook's is (tierminator-telemetry-findings.md).
-function recordAttempt(input, prev, next, { transcript = input.agent_transcript_path, ran = true, stopReason = null } = {}) {
+function recordAttempt(input, prev, next, { transcript = input.agent_transcript_path, ran = true, stopReason = null, slotId = null } = {}) {
   return safe(
     () => {
+      const attemptOf = (s, id) => (id ? s.wave?.slots?.[id] : s.current)
+      const was = attemptOf(prev, slotId)
+      const now = attemptOf(next, slotId)
+      const taskId = slotId ?? currentTask(prev).id
       // The same attempt still in flight (the worker was asked for its report) is not judged yet: nothing is
       // written, and its final record covers the whole transcript.
-      if (
-        next.phase === 'running' &&
-        next.current?.inFlight &&
-        next.current.index === prev.current.index &&
-        next.current.attempt === prev.current.attempt
-      ) {
+      if (next.phase === 'running' && now?.inFlight && now.index === was.index && now.attempt === was.attempt) {
         return { next, line: null }
       }
       const file = t.fileFor(prev.planFile, input.session_id)
@@ -79,27 +84,27 @@ function recordAttempt(input, prev, next, { transcript = input.agent_transcript_
           r =>
             r.kind === 'attempt' &&
             r.runId === (prev.runId ?? null) &&
-            r.task === currentTask(prev).id &&
-            r.attempt === prev.current.attempt &&
+            r.task === taskId &&
+            r.attempt === was.attempt &&
             r.agentId === (input.agent_id ?? null)
         )
       if (duplicate) return { next, line: null }
       const usage = ran ? transcriptUsage(transcript) : tally([])
       const cost = usage?.costUsd ?? 0
       const runCost = (prev.spend?.costUsd ?? 0) + cost
-      const { outcome, reason } = outcomeOf(prev, next)
+      const { outcome, reason } = outcomeOf(prev, next, slotId)
       const record = {
         kind: 'attempt',
         sessionId: input.session_id,
         planId: prev.planId ?? null,
         runId: prev.runId ?? null,
-        task: currentTask(prev).id,
-        tier: prev.current.tier,
-        effort: input.effort?.level ?? prev.current.tier.split('-')[1],
-        attempt: prev.current.attempt,
-        maxTurns: MAX_TURNS[prev.current.tier] ?? null,
-        resumes: prev.current.resumes ?? 0,
-        asked: !!prev.current.asked,
+        task: taskId,
+        tier: was.tier,
+        effort: input.effort?.level ?? was.tier.split('-')[1],
+        attempt: was.attempt,
+        maxTurns: MAX_TURNS[was.tier] ?? null,
+        resumes: was.resumes ?? 0,
+        asked: !!was.asked,
         stopReason,
         agentId: input.agent_id ?? null,
         outcome,
@@ -128,7 +133,7 @@ function recordRunStart(input, run) {
         sessionId: input.session_id,
         planId: run.planId ?? null,
         runId: run.runId ?? null,
-        startTask: run.tasks?.[run.current?.index]?.id ?? null,
+        startTask: run.tasks?.[run.current?.index]?.id ?? run.wave?.size?.[0] ?? null,
         contextTokens: transcriptUsage(input.transcript_path)?.lastContext ?? null,
       }),
     null

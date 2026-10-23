@@ -126,3 +126,55 @@ test('wave fixtures start three ready slots in a clean main tree', () => {
   assert.ok(git.isClean(repo))
   assert.equal(s.current, null)
 })
+
+const spend = lib('spend.js')
+const attemptRows = () => telemetry.read(path.join(dir, 'plan.telemetry.jsonl')).filter(x => x.kind === 'attempt')
+
+test('spend records an attempt of a wave slot', () => {
+  const s = startWaveRun()
+  const prev = w.dispatched(s, 'T02')
+  const next = w.advanceSlot(prev, 'T02', { ok: true, commit: 'abc' }).state
+  const out = spend.recordAttempt({ session_id: S, agent_id: 'worker-T02' }, prev, next, { slotId: 'T02', ran: false, stopReason: 'report' })
+  const rows = attemptRows()
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].task, 'T02')
+  assert.equal(rows[0].tier, 'haiku-high')
+  assert.equal(rows[0].attempt, 1)
+  assert.equal(rows[0].outcome, 'done')
+  assert.equal(rows[0].runId, prev.runId)
+  assert.equal(rows[0].agentId, 'worker-T02')
+  assert.equal(out.next.spendLines.length, 1)
+})
+
+test('spend judges a failed wave slot as halt or retry by its ladder', () => {
+  const s = startWaveRun()
+  const p3 = w.dispatched(s, 'T03')
+  const n3 = w.advanceSlot(p3, 'T03', { ok: false, reason: 'x' }).state
+  spend.recordAttempt({ session_id: S, agent_id: 'worker-T03' }, p3, n3, { slotId: 'T03', ran: false })
+  const p1 = w.dispatched(s, 'T01')
+  const n1 = w.advanceSlot(p1, 'T01', { ok: false, reason: 'x' }).state
+  spend.recordAttempt({ session_id: S, agent_id: 'worker-T01' }, p1, n1, { slotId: 'T01', ran: false })
+  const rows = attemptRows()
+  const by = id => rows.find(x => x.task === id)
+  assert.equal(by('T03').outcome, 'halt')
+  assert.equal(by('T03').reason, 'x')
+  assert.equal(by('T01').outcome, 'retry')
+  assert.equal(by('T01').reason, 'x')
+})
+
+test('spend writes no second row for the same wave slot attempt and agent', () => {
+  const s = startWaveRun()
+  const prev = w.dispatched(s, 'T02')
+  const next = w.advanceSlot(prev, 'T02', { ok: true, commit: 'abc' }).state
+  const input = { session_id: S, agent_id: 'worker-T02' }
+  spend.recordAttempt(input, prev, next, { slotId: 'T02', ran: false })
+  spend.recordAttempt(input, prev, next, { slotId: 'T02', ran: false })
+  assert.equal(attemptRows().length, 1)
+})
+
+test('spend.outcomeOf without a slot id still judges a serial state', () => {
+  const tasksFile = path.join(dir, 'plan.tasks.json')
+  const prev = r.startRun({ tasks: [task(1)], tasksFile, planFile: path.join(dir, 'plan.md'), branch: 'main', planId: PLAN_ID })
+  const next = r.advance(prev, { ok: true, commit: 'a' }).state
+  assert.equal(spend.outcomeOf(prev, next).outcome, 'done')
+})
