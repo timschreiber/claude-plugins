@@ -35,8 +35,8 @@ main tree, and the resolver, the overlap flag and parts of resume, limit handlin
   is what makes "the main tree was not touched" checkable. (A ready-set scheduler would be faster and is a
   possible later optimization.)
 - Enforcing independence. There is no `files` field and H2 does not reject overlapping tasks; the planner's
-  judgment and the serial re-run of a conflicting task cover it. A review flag that asks the planner to confirm
-  two parallel tasks naming the same file (O6) is deferred.
+  judgment and the serial re-run of a conflicting task cover it. A review flag asks the planner to confirm
+  two parallel tasks naming the same file (O6, built 2026-10-22 in WP-05); it asks, and never rejects.
 - A model that resolves merge conflicts (deferred; see [Conflicts](#conflicts)).
 - Unattended parallel runs in the default permission modes (see [Permissions](#permissions)).
 - Nested subagents, per-task approval gates and pushing, as before.
@@ -60,7 +60,7 @@ main tree, and the resolver, the overlap flag and parts of resume, limit handlin
 | D11 | There is no `files` field (the user chose to skip it). |
 | D12 | **2026-10-20, option C:** tierminator makes each task's worktree itself (H4 `pre`, at the wave base), and the worker is not isolated: it works there under rules in its prompt, and a guard hook denies calls that would reach the main tree. No `isolation`, no `worktree.baseRef`. |
 | D13 | **2026-10-20:** in the default and `acceptEdits` permission modes every worker command asks for approval and a `cd ... && git ...` command offers no permanent rule; unattended and headless parallel runs use `auto` or `bypassPermissions`. It is documented as a restriction of unattended mode. |
-| D14 | **2026-10-20:** the first release is the packages listed in [Rollout](#rollout); the resolver, the overlap flag, the usage-limit rule, the result-file fields and the display and summary changes are deferred. |
+| D14 | **2026-10-20:** the first release is the packages listed in [Rollout](#rollout); the resolver, the overlap flag, the usage-limit rule, the result-file fields and the display and summary changes are deferred. The overlap flag was built on 2026-10-22 (WP-05). |
 
 ## Concepts
 
@@ -140,7 +140,8 @@ New section "Dependencies and parallel tasks". The rules tell the planner to:
 - give each parallel task its own `Files to change:` line and keep those lines disjoint (guidance only);
 - remember that a task also waits for every other task in its dependencies' wave, so splitting a chain into
   a wide graph helps only if the waves are wide;
-- put work every task needs (a shared interface, a rename) in an earlier wave.
+- put work every task needs (a shared interface, a rename) in an earlier wave;
+- expect the sizing review to flag two tasks that may run at the same time and name the same file on their `Files to change:` lines, and add an `after` or a `Keep Txx:` line (O6, WP-05).
 
 The existing line "A task can depend only on earlier tasks" is replaced.
 
@@ -388,9 +389,10 @@ happens to the other slots that end because of the same limit, and the worktrees
 | all tier agents | A "Parallel" section in the shared worker body. |
 | `hooks/hooks.json` | The guard hook; a timeout of 3600 s for the hooks that integrate and verify (H1 on `UserPromptSubmit`, H4 `stop`, `post` and `failure`); H4 `pre`, which makes the worktrees, stays at 30 s (P5, [findings](tierminator-parallel-findings.md#hook-timeouts-recommendation)). |
 | `rules/tiering.md` | The dependency section. |
+| `lib/sizing.js`, `h2-gate-exit-plan.js`, `h5-guard.js` | The overlap flag (O6, WP-05, built 2026-10-22): the sizing review flags the later of two tasks that may run at the same time and name the same file. |
 | Docs | `tierminator-reference.md` (replace the "Serial only" non-goal), `README.md`, `CLAUDE.md`, `docs/README.md`, the spike spec's non-goal note. |
 
-Deferred, with their packages: `lib/sizing.js` (the overlap flag, WP-05), `agents/resolver.md` and `lib/resolver.js`
+Deferred, with their packages: `agents/resolver.md` and `lib/resolver.js`
 (WP-12), the repair half of verify (WP-13), the limit rule and result fields (WP-15), run lines and summary (WP-16).
 
 ## Probes
@@ -425,8 +427,9 @@ work packages in [`parallel/`](parallel/README.md), which map to the phases belo
 5. **Resume and cleanup by name** (WP-14).
 6. **Documentation and the end-to-end run** (WP-17, eight scenarios).
 
-**Deferred** (written, not scheduled): the overlap flag (WP-05), the conflict resolver (WP-12), verify repair
+**Deferred** (written, not scheduled): the conflict resolver (WP-12), verify repair
 (WP-13), the usage-limit rule, result fields and headless extras (WP-15), the display and summary (WP-16).
+The overlap flag (WP-05) was built on 2026-10-22, ahead of its place.
 
 **Done means**
 
@@ -448,7 +451,7 @@ work packages in [`parallel/`](parallel/README.md), which map to the phases belo
 - **Permissions in the default modes** (see [Permissions](#permissions)).
 - **Readers of `state.current`** that break silently on a wave state; one package audits them.
 - **Independent tasks that were not.** A conflicting task costs a serial re-run; picks that apply cleanly and
-  break together cost a halt at `verify`. Planner guidance is the only prevention until the overlap flag exists.
+  break together cost a halt at `verify`. Planner guidance and the overlap flag, a review rather than a rule, are the only prevention.
 - **Machine load.** Several builds at once slow each other and can lose to a single serial build. The cap is
   the control.
 - **Rate limits** are drawn down faster by design; handling of a limit mid-wave is deferred.
@@ -463,6 +466,6 @@ work packages in [`parallel/`](parallel/README.md), which map to the phases belo
 | O3 | Is `setup` run by the worker or by hook code at worktree creation? | **Decided 2026-10-19:** the worker. |
 | O4 | `setup` shape. | **Decided 2026-10-19:** a list of command strings. |
 | O5 | Add the result file's fields without bumping its version? | **Deferred** with WP-15. |
-| O6 | A review flag in the sizing check for two independent tasks that name the same file. | **Deferred 2026-10-20** (WP-05). |
+| O6 | A review flag in the sizing check for two independent tasks that name the same file. | Deferred 2026-10-20; **built 2026-10-22** (WP-05): the sizing review flags the later task, and an `after` or a `Keep` line clears it. |
 | O7 | Names: `TIERMINATOR_MAX_PARALLEL`, branches `tierminator/<runId>/<task>`, worktrees `tierminator-<run>-<task>`. | As written. `TIERMINATOR_VERIFY_TIMEOUT` and the agent `tierminator:resolver` are dropped. |
 | O8 | A failed `verify` leaves the picks on the run branch (no reset to the wave base). | **Decided 2026-10-20** (the user delegated the call): the picks stay. It is simpler, and each pick passed its own `Verify:`; the alternative, a `reset --hard` that unwinds the whole wave, would need the slot branches re-picked on resume. The halt text says which verify failed and that the run branch holds the picks. |

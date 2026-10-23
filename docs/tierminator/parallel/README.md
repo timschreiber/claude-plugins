@@ -2,7 +2,7 @@
 
 Oct 19, 2026 · revised Oct 20, 2026 · @Tim · Branch `parallelism`
 
-Seventeen packages describe the feature in `../tierminator-parallel-spec.md`, in dependency order; **eleven are the first release and six are deferred** (decided 2026-10-20, after a design review looked for simplifications). Each file is one paste-ready prompt: run it as one plan, by typing `/tierminator:plan ` and pasting the fenced block. Each cites the spec by section name. A deferred package starts with a note saying so and why; do not run it without re-planning it.
+Seventeen packages describe the feature in `../tierminator-parallel-spec.md`, in dependency order; **eleven are the first release and six are deferred** (WP-05 has since been built) (decided 2026-10-20, after a design review looked for simplifications). Each file is one paste-ready prompt: run it as one plan, by typing `/tierminator:plan ` and pasting the fenced block. Each cites the spec by section name. A deferred package starts with a note saying so and why; do not run it without re-planning it.
 
 | Package | Title | Depends on | Release |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ Seventeen packages describe the feature in `../tierminator-parallel-spec.md`, in
 | WP-02 | Concurrency and hook-duration probes (P3 background, P4, P5) | WP-01 | first |
 | WP-03 | Plan format and waves | none | first |
 | WP-04 | Approval table and planner rules | WP-03 | first |
-| WP-05 | Overlap review flag (decision O6) | WP-03, WP-04 | **deferred** |
+| WP-05 | Overlap review flag (decision O6) | WP-03, WP-04 | built 2026-10-22 (ahead of the first release) |
 | WP-06 | Git helpers | WP-01 | first |
 | WP-07 | State lock | none | first |
 | WP-08 | Parallel wave engine (pure functions) | WP-03 | first |
@@ -38,7 +38,7 @@ Run the first-release packages in number order; WP-03 and WP-04 do not depend on
 
 - **Option C, tierminator makes the worktrees (2026-10-20).** WP-01 and its re-runs (`../tierminator-parallel-findings.md`) compared M1 (the Agent tool's `isolation: "worktree"`, which by default bases the worktree on the remote's default branch and needs `worktree.baseRef: "head"`) with M2 (a `Worktree:` line with the `cd`-prefix rules, the worktree made by tierminator). Option C was tested with realistic work (38 runs, the "Option C" findings section) and chosen: H4's `pre` hook makes each slot's worktree at the wave base, the worker is not isolated and follows the M2 rules, and a guard hook denies calls that would reach the main tree. The earlier M1 decisions (the `baseRef` setting, writing it, the pause, the one-slot gate, the serial fallback) stay in the findings as the record and are not built.
 - **Restriction.** In the default and `acceptEdits` permission modes every worker command asks for approval and a `cd ... && git ...` command offers no permanent rule, so unattended and headless runs need `--permission-mode auto` or `bypassPermissions`; this is documented as a restriction of unattended mode (WP-10 adds one line to the start notice; WP-17 documents it).
-- **Simplifications (2026-10-20).** Three design reviewers looked for overcomplication, and the user adopted: conflicts are not resolved by a model but the conflicting task is run again serially after the wave (WP-11; the resolver is WP-12, deferred); integration cherry-picks in the main tree with no integration worktree (WP-11); waves stay (a ready-queue is a possible later optimization); plan-level verify halts on failure and nothing repairs it (WP-11; the repair is WP-13, deferred); the overlap flag is deferred (WP-05); and the first release is the packages marked "first" above.
+- **Simplifications (2026-10-20).** Three design reviewers looked for overcomplication, and the user adopted: conflicts are not resolved by a model but the conflicting task is run again serially after the wave (WP-11; the resolver is WP-12, deferred); integration cherry-picks in the main tree with no integration worktree (WP-11); waves stay (a ready-queue is a possible later optimization); plan-level verify halts on failure and nothing repairs it (WP-11; the repair is WP-13, deferred); the overlap flag is deferred (WP-05) (built on 2026-10-22); and the first release is the packages marked "first" above.
 - **Spec O8, decided 2026-10-20** (the user delegated the call): a failed verify leaves the picks on the run branch instead of resetting to the wave base.
 
 ## Choices made while splitting the spec

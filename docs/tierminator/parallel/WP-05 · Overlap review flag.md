@@ -1,6 +1,6 @@
 # WP-05 · Overlap review flag
 
-> **Deferred 2026-10-20: not part of the first release.** With a conflicting pick handled by running the task again serially (spec, "Conflicts"), a missed overlap costs one redo, so the planner review round and the `Files to change:` parsing wait. Kept as written for later.
+> **Deferred 2026-10-20, built 2026-10-22.** It was deferred because a conflicting pick is handled by running the task again serially (spec, "Conflicts"). It was built as written at the user's request. The two existing graph-plan tests in `tests/tierminator/hooks.test.js` had their T02 `Files to change:` line changed to `src/b.js` so the new flag does not fire on them; no assertion changed.
 
 ```text
 Work package WP-05 · Overlap review flag
