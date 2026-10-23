@@ -5,6 +5,7 @@ const assert = require('node:assert/strict')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { spawn, spawnSync } = require('node:child_process')
 const state = require('../../plugins/tierminator/scripts/lib/state.js')
 
 let dir
@@ -357,4 +358,87 @@ test('prune removes old cursors and fallback telemetry files too', () => {
   state.prune(7)
   assert.equal(state.cursor('old'), null)
   assert.equal(fs.existsSync(telemetry), false)
+})
+
+const lockPath = () => path.join(dir, 'sessions', 's1.lock')
+const writeLock = (pid, agoMs = 0) => {
+  fs.mkdirSync(path.join(dir, 'sessions'), { recursive: true })
+  const text = JSON.stringify({ pid, at: new Date(Date.now() - agoMs).toISOString() })
+  fs.writeFileSync(lockPath(), text)
+  return text
+}
+const withForeign = fn => {
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' })
+  try {
+    return fn(child.pid)
+  } finally {
+    child.kill()
+  }
+}
+
+test('a lock from a dead pid with a fresh time is removed', () => {
+  writeLock(spawnSync(process.execPath, ['-e', '']).pid)
+  const start = Date.now()
+  assert.equal(state.update('s1', () => ({ n: 1 })).ok, true)
+  assert.ok(Date.now() - start < 2000)
+  assert.equal(fs.existsSync(lockPath()), false)
+})
+
+test('a lock from a live foreign pid timed 31 s ago is removed', () => {
+  withForeign(pid => {
+    writeLock(pid, 31000)
+    assert.equal(state.update('s1', () => ({ n: 1 })).ok, true)
+    assert.equal(fs.existsSync(lockPath()), false)
+  })
+})
+
+test('a lock holding this process\'s own pid with a fresh time is stale', () => {
+  writeLock(process.pid)
+  assert.equal(state.update('s1', () => ({ n: 1 })).ok, true)
+})
+
+test('an unparsable lock is judged by its mtime', () => {
+  fs.mkdirSync(path.join(dir, 'sessions'), { recursive: true })
+  fs.writeFileSync(lockPath(), 'garbage')
+  const past = new Date(Date.now() - 31000)
+  fs.utimesSync(lockPath(), past, past)
+  assert.equal(state.update('s1', () => ({ n: 1 })).ok, true)
+  fs.writeFileSync(lockPath(), 'garbage')
+  assert.equal(state.update('s1', () => ({ n: 2 }), { waitMs: 200 }).ok, false)
+})
+
+test('a fresh lock from a live foreign pid is waited on, then update fails and leaves it', () => {
+  withForeign(pid => {
+    const text = writeLock(pid)
+    let called = false
+    const start = Date.now()
+    const result = state.update('s1', () => {
+      called = true
+      return { n: 1 }
+    }, { waitMs: 300 })
+    const took = Date.now() - start
+    assert.deepEqual(result, { ok: false, state: null })
+    assert.ok(took >= 300 && took < 5000)
+    assert.equal(called, false)
+    assert.equal(fs.readFileSync(lockPath(), 'utf8'), text)
+  })
+})
+
+test('the release leaves a lock this process no longer owns', () => {
+  withForeign(pid => {
+    const theirs = JSON.stringify({ pid, at: new Date().toISOString() })
+    const result = state.update('s1', () => {
+      fs.writeFileSync(lockPath(), theirs)
+      return { n: 1 }
+    })
+    assert.equal(result.ok, true)
+    assert.equal(fs.readFileSync(lockPath(), 'utf8'), theirs)
+  })
+})
+
+test('the staleMs option shortens when a live owner\'s lock is stale', () => {
+  withForeign(pid => {
+    writeLock(pid, 2000)
+    assert.equal(state.update('s1', () => ({ n: 1 }), { staleMs: 1000 }).ok, true)
+  })
 })
