@@ -178,3 +178,38 @@ test('spend.outcomeOf without a slot id still judges a serial state', () => {
   const next = r.advance(prev, { ok: true, commit: 'a' }).state
   assert.equal(spend.outcomeOf(prev, next).outcome, 'done')
 })
+
+const resultFile = lib('result.js')
+const stopFx = require('./fixtures/stop-failure.js')
+
+test('result.currentId reads a wave state', () => {
+  const s = startWaveRun()
+  assert.equal(resultFile.currentId(s), 'T01')
+  const p = w.dispatched(s, 'T03')
+  const halted = w.advanceSlot(p, 'T03', { ok: false, reason: 'x' }).state
+  assert.equal(resultFile.currentId(halted), 'T03')
+  const serial = r.startRun({ tasks: [task(1)], tasksFile: 'f', branch: 'main' })
+  assert.equal(resultFile.currentId(serial), 'T01')
+})
+
+test('result.endOf treats a wave state as a run', () => {
+  const s = startWaveRun()
+  const a = resultFile.endOf({ ...s, phase: 'abandoned' })
+  assert.equal(a.outcome, 'halted')
+  assert.equal(a.haltedAt, 'T01')
+  const b = resultFile.endOf({ ...s, phase: 'running' }, 'why')
+  assert.equal(b.outcome, 'halted')
+  assert.equal(b.reason, 'why')
+  assert.equal(b.haltedAt, 'T01')
+})
+
+test('a usage limit during a wave writes a limit result at the open task', () => {
+  const s = startWaveRun()
+  state.write(S, { ...s, phase: 'running' })
+  const transcript = path.join(dir, 'transcript.jsonl')
+  fs.writeFileSync(transcript, stopFx.transcript('oauth'))
+  hook('h7-limit.js', { ...stopFx.PAYLOADS.oauth, session_id: S, cwd: repo, transcript_path: transcript })
+  const res = JSON.parse(fs.readFileSync(resultFile.pathFor(S, path.join(dir, 'plan.md')), 'utf8'))
+  assert.equal(res.outcome, 'limit')
+  assert.equal(res.haltedAt, 'T01')
+})

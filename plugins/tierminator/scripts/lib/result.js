@@ -28,8 +28,17 @@ function pathFor(sessionId, planFile) {
   return state.fileFor(sessionId)?.replace(/\.json$/, '.result.json') ?? null
 }
 
+const OPEN = ['queued', 'ready', 'running']
+
+// The task a wave state is on: the one that halted it, else the first open slot of the wave, else null.
+function waveTaskId(s) {
+  const wv = s?.wave
+  if (!wv || !wv.slots) return null
+  return wv.halting?.task ?? (wv.size ?? []).find(id => OPEN.includes(wv.slots[id]?.status)) ?? null
+}
+
 // The id of the task the run is on, else null.
-const currentId = s => s?.tasks?.[s?.current?.index]?.id ?? null
+const currentId = s => s?.tasks?.[s?.current?.index]?.id ?? waveTaskId(s)
 
 // The result record, its fields in FIELDS order. `s` is the run state, or null when no run existed.
 function record({ sessionId, s = null, outcome, reason = null, haltedAt = null, limit = null, planFile = null, cwd = null, now = new Date() }) {
@@ -93,7 +102,7 @@ const REASONS = {
 // What an ended state says: {outcome, reason, haltedAt}, or null when it has not ended. A running state counts
 // only when the caller says why it ended (runningReason).
 function endOf(s, runningReason) {
-  const run = Array.isArray(s?.tasks) && s.tasks.length > 0 && !!s.current
+  const run = Array.isArray(s?.tasks) && s.tasks.length > 0 && (!!s.current || !!s.wave)
   if (s?.phase === 'complete') return { outcome: 'complete', reason: null, haltedAt: null }
   if (s?.phase === 'halted') {
     return { outcome: 'halted', reason: s.halt?.reason ?? 'the run halted', haltedAt: s.halt?.task ?? currentId(s) }
