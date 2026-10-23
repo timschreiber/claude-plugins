@@ -37,6 +37,7 @@ const nextTier = tier => {
 }
 const TASK_KEYS = ['id', 'title', 'model', 'effort', 'prompt']
 const OPTIONAL_TASK_KEYS = ['after']
+const NO_GRAPH = { setup: [], verify: null, graph: false }
 const TOP_KEYS = ['tasks', 'setup', 'verify']
 const MAX_SETUP = 10
 const MAX_TASKS = 99
@@ -201,27 +202,39 @@ function validate(obj) {
   return errors
 }
 
-// parseBlock(body) -> {ok, tasks, errors}: one block's JSON text, parsed and validated.
-// tasks carry only the known keys, and an aliased pair is replaced by the tier it runs as.
+// parseBlock(body) -> {ok, tasks, setup, verify, graph, errors}: one block's JSON text, parsed and validated.
+// tasks carry only the known keys plus an explicit after (the previous task's id when the block gives
+// none), and an aliased pair is replaced by the tier it runs as. setup and verify come from the block
+// (defaults [] and null); graph is true when any task gives after.
 function parseBlock(body) {
   let obj
   try {
     obj = JSON.parse(body)
   } catch (e) {
-    return { ok: false, tasks: [], errors: [`the block is not valid JSON: ${e.message}`] }
+    return { ok: false, tasks: [], ...NO_GRAPH, errors: [`the block is not valid JSON: ${e.message}`] }
   }
   const errors = validate(obj)
-  if (errors.length > 0) return { ok: false, tasks: [], errors }
-  const tasks = obj.tasks.map(t => ({
+  if (errors.length > 0) return { ok: false, tasks: [], ...NO_GRAPH, errors }
+  const graph = obj.tasks.some(t => t.after !== undefined)
+  const tasks = obj.tasks.map((t, i) => ({
     ...Object.fromEntries(TASK_KEYS.map(k => [k, t[k]])),
     ...ALIASES[`${t.model}-${t.effort}`],
+    after: t.after !== undefined ? [...t.after] : i === 0 ? [] : [`T${String(i).padStart(2, '0')}`],
   }))
-  return { ok: true, tasks, errors: [] }
+  return {
+    ok: true,
+    tasks,
+    setup: obj.setup !== undefined ? [...obj.setup] : [],
+    verify: obj.verify !== undefined ? obj.verify : null,
+    graph,
+    errors: [],
+  }
 }
 
-// parsePlan(text) -> {ok, tasks, optOut, errors, missingBlock, section?}
+// parsePlan(text) -> {ok, tasks, setup, verify, graph, optOut, errors, missingBlock, section?}
 //   ok + optOut: the plan opted out of tiering; tasks is empty
-//   ok, not optOut: tasks holds the validated tasks, with only the known keys
+//   ok, not optOut: tasks holds the validated tasks, with only the known keys plus an explicit
+//   after; setup, verify and graph come from the block (see parseBlock)
 //   not ok: errors lists every problem; missingBlock is true when the plan has no block, no
 //   generated section and no opt-out line at all, so the caller can show the full rules
 //   section: present only when the plan has no block but has a generated section. It is
@@ -229,7 +242,7 @@ function parseBlock(body) {
 //   markers included); loading that file is file work, so the result is not ok until
 //   resolvePlan() loads it. It is null when the sections cannot be used.
 function parsePlan(text) {
-  const fail = (errors, missingBlock = false) => ({ ok: false, tasks: [], optOut: false, errors, missingBlock })
+  const fail = (errors, missingBlock = false) => ({ ok: false, tasks: [], ...NO_GRAPH, optOut: false, errors, missingBlock })
   if (typeof text !== 'string' || text.trim() === '') return fail(['the plan text is empty or unavailable'])
 
   const { blocks, optOut, sections } = extractBlock(text)
@@ -243,7 +256,7 @@ function parsePlan(text) {
     return { ...fail([`the plan's tasks are in ${file}, which has not been loaded`]), section: { file, hash, lines } }
   }
   if (blocks.length === 0) {
-    if (optOut) return { ok: true, tasks: [], optOut: true, errors: [], missingBlock: false }
+    if (optOut) return { ok: true, tasks: [], ...NO_GRAPH, optOut: true, errors: [], missingBlock: false }
     return fail([`no fenced "${BLOCK_INFO}" block found`], true)
   }
   if (blocks.length > 1) {
@@ -253,7 +266,7 @@ function parsePlan(text) {
 
   const parsed = parseBlock(blocks[0])
   if (!parsed.ok) return fail(parsed.errors)
-  return { ok: true, tasks: parsed.tasks, optOut: false, errors: [], missingBlock: false }
+  return { ok: true, tasks: parsed.tasks, setup: parsed.setup, verify: parsed.verify, graph: parsed.graph, optOut: false, errors: [], missingBlock: false }
 }
 
 const thousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')

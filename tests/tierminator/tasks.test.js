@@ -204,7 +204,7 @@ test('the tier ladder runs haiku, then sonnet, then opus, each by rising effort'
 
 test('returned tasks carry only the known keys', () => {
   const r = parsePlan(plan({ tasks: [task(1)] }))
-  assert.deepEqual(Object.keys(r.tasks[0]), ['id', 'title', 'model', 'effort', 'prompt'])
+  assert.deepEqual(Object.keys(r.tasks[0]), ['id', 'title', 'model', 'effort', 'prompt', 'after'])
 })
 
 // ---- generated sections ------------------------------------------------------------
@@ -213,7 +213,7 @@ const HASH = '0123456789abcdef'
 const section = (file = '/plans/p.tasks.json', hash = HASH) => renderSection([task(1)], file, hash).join('\n')
 
 test('parseBlock parses and validates one block body', () => {
-  assert.deepEqual(parseBlock(JSON.stringify({ tasks: [task(1)] })), { ok: true, tasks: [task(1)], errors: [] })
+  assert.deepEqual(parseBlock(JSON.stringify({ tasks: [task(1)] })), { ok: true, tasks: [{ ...task(1), after: [] }], setup: [], verify: null, graph: false, errors: [] })
   assert.match(parseBlock('{').errors[0], /not valid JSON/)
   assert.match(parseBlock('{"tasks": []}').errors[0], /non-empty "tasks" array/)
 })
