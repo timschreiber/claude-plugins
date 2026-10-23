@@ -278,4 +278,28 @@ function worktreeAdd(cwd, wtPath, branch, base, delays = LOCK_RETRY_MS) {
   return { ok: false, failure: `git worktree add failed: ${firstLine(r.stderr)}` }
 }
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd }
+// Cherry-picks one commit onto the current branch of cwd. Never passes -x, so the message and its
+// Tierminator- trailers stay exactly as they are and committedTasks still finds them. Returns {ok: true},
+// or {ok: false, conflicts, failure}. On a conflict the pick is left in progress for the caller to abort
+// (cherryPickAbort); any other failure (a bad sha, a pick that would be empty) gives conflicts [], and the
+// caller checks pickInProgress.
+function cherryPick(cwd, sha, delays = LOCK_RETRY_MS) {
+  if (typeof sha !== 'string' || !sha) return { ok: false, conflicts: [], failure: 'cherryPick needs a commit' }
+  const r = gitPatiently(cwd, ['cherry-pick', sha], delays)
+  if (r.ok) return { ok: true }
+  const d = git(cwd, ['diff', '--name-only', '--diff-filter=U'])
+  const conflicts = d.ok ? d.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean) : []
+  return { ok: false, conflicts, failure: `git cherry-pick ${sha} failed: ${firstLine(r.stderr || r.stdout)}` }
+}
+
+// Abandons a pick in progress: returns HEAD, the index and the tree to how they were before the pick.
+// Returns {ok: true}, or {ok: false, failure}.
+function cherryPickAbort(cwd, delays = LOCK_RETRY_MS) {
+  const r = gitPatiently(cwd, ['cherry-pick', '--abort'], delays)
+  return r.ok ? { ok: true } : { ok: false, failure: `git cherry-pick --abort failed: ${firstLine(r.stderr)}` }
+}
+
+// True while a cherry-pick is in progress in this worktree (Git keeps CHERRY_PICK_HEAD per worktree).
+const pickInProgress = cwd => git(cwd, ['rev-parse', '-q', '--verify', 'CHERRY_PICK_HEAD']).ok
+
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd, cherryPick, cherryPickAbort, pickInProgress }

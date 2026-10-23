@@ -339,3 +339,92 @@ test('worktreeAdd past the Windows path limit fails and undoes the worktree and 
   assert.deepEqual(g.worktreeList(r).map(w => w.path), [g.toWorktreePath(r)])
   assert.deepEqual(g.branchesMatching(r), [])
 })
+
+// cherryPick, cherryPickAbort, pickInProgress
+
+const plan = '0123456789abcdef'
+const trailers = id => `Tierminator-Task: ${id}\nTierminator-Plan: ${plan}`
+
+// A repository whose exclude file hides .claude/worktrees, with slots T01 and T02 started at its HEAD.
+function pickRepo() {
+  const r = repo()
+  const exclude = path.join(r, '.git', 'info', 'exclude')
+  fs.mkdirSync(path.dirname(exclude), { recursive: true })
+  fs.appendFileSync(exclude, '.claude/worktrees/\n')
+  const base = g.head(r)
+  const make = id => {
+    const wt = slot(r, `tierminator-aaaa1111-${id}`)
+    assert.equal(g.worktreeAdd(r, wt, `tierminator/aaaa1111/${id}`, base).ok, true)
+    return wt
+  }
+  return { r, base, wt1: make('T01'), wt2: make('T02') }
+}
+
+test('cherryPick applies a commit and keeps its message and trailers', () => {
+  const { r, base, wt1 } = pickRepo()
+  commit(wt1, 'a.txt', 'a', 'Add a', trailers('T01'))
+  const msg = g.commitsSince(wt1, base)[0].message
+  assert.deepEqual(g.cherryPick(r, g.head(wt1)), { ok: true })
+  const picked = g.commitsSince(r, base)
+  assert.equal(picked.length, 1)
+  assert.equal(picked[0].message, msg)
+  assert.doesNotMatch(picked[0].message, /cherry picked from/)
+  assert.deepEqual(g.committedTasks(r, plan), { T01: g.head(r) })
+  assert.ok(g.isClean(r))
+  assert.equal(g.pickInProgress(r), false)
+})
+
+test('cherryPick of two commits in id order keeps that order', () => {
+  const { r, base, wt1, wt2 } = pickRepo()
+  commit(wt1, 'a.txt', 'a', 'Add a', trailers('T01'))
+  commit(wt2, 'b.txt', 'b', 'Add b', trailers('T02'))
+  const m1 = g.commitsSince(wt1, base)[0].message
+  const m2 = g.commitsSince(wt2, base)[0].message
+  assert.deepEqual(g.cherryPick(r, g.head(wt1)), { ok: true })
+  assert.deepEqual(g.cherryPick(r, g.head(wt2)), { ok: true })
+  assert.deepEqual(g.commitsSince(r, base).map(c => c.message), [m1, m2])
+})
+
+test('cherryPick reports a conflict, leaves the pick in progress and cherryPickAbort undoes it', () => {
+  const { r, wt1, wt2 } = pickRepo()
+  commit(wt1, 'README.md', 'one\n', 'README in T01', trailers('T01'))
+  commit(wt2, 'README.md', 'two\n', 'README in T02', trailers('T02'))
+  assert.deepEqual(g.cherryPick(r, g.head(wt1)), { ok: true })
+  const after = g.head(r)
+  const res = g.cherryPick(r, g.head(wt2))
+  assert.equal(res.ok, false)
+  assert.deepEqual(res.conflicts, ['README.md'])
+  assert.match(res.failure, /^git cherry-pick [0-9a-f]+ failed: /)
+  assert.equal(g.pickInProgress(r), true)
+  assert.deepEqual(g.cherryPickAbort(r), { ok: true })
+  assert.equal(g.head(r), after)
+  assert.ok(g.isClean(r))
+  assert.equal(g.pickInProgress(r), false)
+  assert.equal(fs.readFileSync(path.join(r, 'README.md'), 'utf8'), 'one\n')
+})
+
+test('a pick in progress in a linked worktree is seen there only', () => {
+  const { r, wt2 } = pickRepo()
+  commit(wt2, 'README.md', 'two\n', 'README in T02')
+  commit(r, 'README.md', 'main\n', 'README on main')
+  const res = g.cherryPick(wt2, g.head(r))
+  assert.equal(res.ok, false)
+  assert.deepEqual(res.conflicts, ['README.md'])
+  assert.equal(g.pickInProgress(wt2), true)
+  assert.equal(g.pickInProgress(r), false)
+  assert.deepEqual(g.cherryPickAbort(wt2), { ok: true })
+  assert.ok(g.isClean(wt2))
+})
+
+test('cherryPick and cherryPickAbort report other failures', () => {
+  const { r } = pickRepo()
+  const bad = g.cherryPick(r, '0'.repeat(40))
+  assert.equal(bad.ok, false)
+  assert.deepEqual(bad.conflicts, [])
+  assert.equal(g.pickInProgress(r), false)
+  assert.match(g.cherryPick(r, '').failure, /needs a commit/)
+  assert.equal(g.cherryPickAbort(r).ok, false)
+  const missing = path.join(dir, 'missing')
+  assert.equal(g.cherryPick(missing, g.head(r)).ok, false)
+  assert.equal(g.cherryPickAbort(missing).ok, false)
+})
