@@ -508,3 +508,103 @@ test('post with a saved lost-state note ends the run', () => {
   assert.equal(state.read(S), null)
   assert.equal(state.isActive(S), false)
 })
+
+// A worker transcript of `n` assistant messages.
+function turnsTranscript(n, id) {
+  const file = path.join(dir, 'turns.jsonl')
+  const lines = Array.from({ length: n }, (_, i) =>
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: new Date(Date.now() - (n - i) * 1000).toISOString(),
+      message: { id: `m${i}`, model: 'claude-sonnet-5', content: [{ type: 'text', text: '...' }], usage: { input_tokens: 1, output_tokens: 1 } },
+    })
+  )
+  // The first line is the worker's prompt, which names its task, as a real worker transcript does.
+  const first = JSON.stringify({ type: 'user', message: { content: promptFor(id, PLAN_ID) } })
+  fs.writeFileSync(file, [first, ...lines].join('\n') + '\n')
+  return file
+}
+const sendMessage = (to, message) => ({
+  session_id: S,
+  cwd: repo,
+  tool_name: 'SendMessage',
+  tool_input: { to, summary: 'T01: resume after the turn limit', message },
+})
+const ctxOf = res => res.json.hookSpecificOutput.additionalContext
+const limitedResponse = { status: 'completed', agentId: 'worker-T01', content: 'stopped at its 60-turn limit' }
+
+test('a stop with no report at the turn limit marks the slot and gives no notice', () => {
+  dispatchAll()
+  stopHook(subStop('T01', '', { agent_transcript_path: turnsTranscript(60, 'T01') }))
+  assert.deepEqual(slotOf('T01').turnLimited, { turns: 60 })
+  assert.equal(slotOf('T01').status, 'running')
+  assert.equal(slotOf('T01').agentId, 'worker-T01')
+  assert.equal(state.read(S).notice, null)
+})
+
+test('a foreground post at the turn limit asks Claude to resume the worker', () => {
+  dispatchAll()
+  stopHook(subStop('T01', '', { agent_transcript_path: turnsTranscript(60, 'T01') }))
+  const res = postHook(agentPost(callOf('T01'), limitedResponse))
+  assert.match(ctxOf(res), /turn limit/)
+  assert.ok(ctxOf(res).includes('to "worker-T01"'))
+  assert.equal(slotOf('T01').resumePending, true)
+})
+
+test('resume-pre passes only the expected message to the worker', () => {
+  dispatchAll()
+  stopHook(subStop('T01', '', { agent_transcript_path: turnsTranscript(60, 'T01') }))
+  postHook(agentPost(callOf('T01'), limitedResponse))
+  const wrong = hook('h4-dispatch.js', sendMessage('worker-T01', 'carry on'), ['resume-pre'])
+  assert.equal(wrong.json.hookSpecificOutput.permissionDecision, 'deny')
+  assert.match(wrong.json.hookSpecificOutput.permissionDecisionReason, /not the expected one/)
+  assert.equal(slotOf('T01').resumes, 0)
+  const resume = hook('h4-dispatch.js', sendMessage('worker-T01', r.RESUME_MESSAGE), ['resume-pre'])
+  assert.equal(resume.stdout, '')
+  assert.equal(slotOf('T01').resumes, 1)
+})
+
+test('resume-pre refuses a message to another agent while a resume is due', () => {
+  dispatchAll()
+  stopHook(subStop('T01', '', { agent_transcript_path: turnsTranscript(60, 'T01') }))
+  postHook(agentPost(callOf('T01'), limitedResponse))
+  const other = hook('h4-dispatch.js', sendMessage('someone-else', r.RESUME_MESSAGE), ['resume-pre'])
+  assert.equal(other.json.hookSpecificOutput.permissionDecision, 'deny')
+  assert.equal(slotOf('T01').resumePending, true)
+  const wrong = hook('h4-dispatch.js', sendMessage('worker-T01', 'carry on'), ['resume-pre'])
+  assert.match(wrong.json.hookSpecificOutput.permissionDecisionReason, /not the expected one/)
+  assert.equal(slotOf('T01').resumePending, true)
+  const ok = hook('h4-dispatch.js', sendMessage('worker-T01', r.RESUME_MESSAGE), ['resume-pre'])
+  assert.equal(ok.stdout, '')
+  assert.equal(slotOf('T01').resumePending, false)
+  assert.equal(slotOf('T01').resumes, 1)
+})
+
+test('resume-post says the slot runs in the background and resume-failure fails it fatally', () => {
+  dispatchAll()
+  stopHook(subStop('T01', '', { agent_transcript_path: turnsTranscript(60, 'T01') }))
+  postHook(agentPost(callOf('T01'), limitedResponse))
+  hook('h4-dispatch.js', sendMessage('worker-T01', r.RESUME_MESSAGE), ['resume-pre'])
+  const post = hook('h4-dispatch.js', sendMessage('worker-T01', r.RESUME_MESSAGE), ['resume-post'])
+  assert.match(ctxOf(post), /running in the background/)
+  const fail = hook('h4-dispatch.js', { ...sendMessage('worker-T01', r.RESUME_MESSAGE), error: 'x' }, ['resume-failure'])
+  assert.match(ctxOf(fail), /resume message to the worker failed/)
+  assert.equal(slotOf('T01').status, 'failed')
+  assert.match(slotOf('T01').failure, /resume message to the worker failed/)
+  assert.equal(state.read(S).wave.halting.task, 'T01')
+})
+
+test('a third turn-limit post fails the slot after two resumes', () => {
+  dispatchAll()
+  stopHook(subStop('T01', '', { agent_transcript_path: turnsTranscript(60, 'T01') }))
+  for (let i = 1; i <= 2; i++) {
+    postHook(agentPost(callOf('T01'), limitedResponse))
+    assert.equal(slotOf('T01').resumePending, true)
+    assert.equal(hook('h4-dispatch.js', sendMessage('worker-T01', r.RESUME_MESSAGE), ['resume-pre']).stdout, '')
+    assert.equal(slotOf('T01').resumes, i)
+  }
+  const res = postHook(agentPost(callOf('T01'), limitedResponse))
+  assert.match(ctxOf(res), /reached its turn limit 3 times/)
+  assert.equal(slotOf('T01').status, 'failed')
+  assert.match(slotOf('T01').failure, /reached its turn limit 3 times/)
+})

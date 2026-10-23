@@ -4,9 +4,13 @@
 //            (discarding the failed attempt's first on a retry) and records the slot as running; the call
 //            itself passes through unchanged (no isolation, no updatedInput, no permissionDecision).
 //   stop     SubagentStop: a slot's worker finished. Judges that slot alone (settleSlot) while the others run.
+//   post / failure   the Agent result: a foreground worker at its turn limit is resumed (turnLimit).
+//   resume-pre / resume-post / resume-failure   the SendMessage that resumes a slot's worker or asks it for
+//            its report: pre lets only the expected message through, failure fails that slot.
 'use strict'
 
 const fs = require('fs')
+const path = require('path')
 const state = require('./state.js')
 const git = require('./git.js')
 const r = require('./run.js')
@@ -15,7 +19,7 @@ const spend = require('./spend.js')
 const resultFile = require('./result.js')
 const { readReport } = require('./settle.js')
 const { MAX_TURNS } = require('./tasks.js')
-const { transcriptUsage } = require('./usage.js')
+const { transcriptUsage, subagentsDir } = require('./usage.js')
 const { emit } = require('./hook.js')
 
 const ours = type => typeof type === 'string' && type.startsWith(r.AGENT_PREFIX)
@@ -219,6 +223,29 @@ function stop(input, s) {
   })
 }
 
+// A worker of slot `id` stopped at its turn limit with its task in flight (the "stopped at its N-turn limit"
+// notification or the foreground Agent result). Resumes it while resumes are left, else fails the slot.
+// Returns the text Claude is told, or null when the slot is not in that state or the state cannot be saved.
+function turnLimit(input, id, turns, agentId = null) {
+  let text = null
+  const res = state.update(input.session_id, cur => {
+    const sl = cur.wave?.slots?.[id]
+    if (cur.phase !== 'running' || !sl || sl.status !== 'running' || !sl.inFlight || sl.resumePending) return null
+    const base = agentId ? w.recordAgent(cur, id, agentId) : cur
+    const step = w.turnLimitStop(base, id, turns)
+    if (step.action === 'resume') {
+      text = w.resumeText(step.state, id)
+      return step.state
+    }
+    const now = base.wave.slots[id].agentId
+    const dir = subagentsDir(input.transcript_path)
+    const transcript = now && dir ? path.join(dir, 'agent-' + now + '.jsonl') : undefined
+    text = w.noticeText(base, step.state, id, step.action, { ok: false, fatal: step.state.wave.slots[id].failure })
+    return spend.recordAttempt({ ...input, agent_id: now }, base, step.state, { slotId: id, transcript, stopReason: 'turn-limit' }).next
+  })
+  return res.ok ? text : null
+}
+
 function post(input, s) {
   if (!ours(input.tool_input?.subagent_type)) return
   const lost = state.takeLost(input.session_id)
@@ -249,6 +276,14 @@ function post(input, s) {
     return
   }
   if (!slot.inFlight) return
+  if (!response?.isAsync) {
+    // A foreground run that ended at its turn limit (SubagentStop does not fire for it): resume it.
+    const turns = r.turnLimitOf(JSON.stringify(response)) ?? slot.turnLimited?.turns ?? null
+    if (typeof turns === 'number' || slot.turnLimited) {
+      const text = turnLimit(input, id, turns ?? 0, agentId)
+      if (text) return context('PostToolUse', text)
+    }
+  }
   context('PostToolUse', w.runningText(cur))
 }
 
@@ -266,9 +301,44 @@ function failure(input, s) {
   if (text) context('PostToolUseFailure', text)
 }
 
+// The SendMessage that resumes a slot's worker (or asks it for its report): only the expected message to a
+// wave worker passes; SendMessage to other agents is left alone unless a resume is due.
+function resumePre(input, s) {
+  if (s.phase !== 'running') return
+  const toolInput = input.tool_input ?? {}
+  const id = w.slotOfAgent(s, toolInput.to)
+  const pending = s.wave.size.find(x => s.wave.slots[x].inFlight && s.wave.slots[x].resumePending) ?? null
+  if (!id && !pending) return
+  const check = id ? w.checkResume(s, toolInput) : { id: pending, problem: 'the message is not for the worker of ' + pending }
+  if (check.problem) {
+    const target = id && s.wave.slots[id].resumePending ? id : pending
+    deny('tierminator: resume refused: ' + check.problem + '. ' + (target ? w.resumeText(s, target) : 'Wait for the worker to report.'))
+    return
+  }
+  state.update(input.session_id, cur => (w.checkResume(cur, toolInput).problem ? null : w.resumed(cur, id)))
+}
+
+function resumePost(input, s) {
+  const id = w.slotOfAgent(s, input.tool_input?.to)
+  if (s.phase === 'running' && id && s.wave.slots[id].inFlight) context('PostToolUse', w.runningText(s))
+}
+
+function resumeFailure(input, s) {
+  const id = w.slotOfAgent(s, input.tool_input?.to)
+  if (s.phase !== 'running' || !id || !s.wave.slots[id].inFlight) return
+  const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
+  const text = settleSlot(input, s, id, {
+    failure: { ok: false, fatal: 'the resume message to the worker failed: ' + error },
+    record: false,
+    deliver: true,
+  })
+  if (text) context('PostToolUseFailure', text)
+}
+
 module.exports = {
-  modes: { pre, stop, post, failure },
+  modes: { pre, stop, post, failure, 'resume-pre': resumePre, 'resume-post': resumePost, 'resume-failure': resumeFailure },
   settleSlot,
+  turnLimit,
   ours,
   deny,
   context,
