@@ -645,7 +645,39 @@ notifications arrived 181 and 319 ms after that `Stop` and were answered in one 
   spec's `state.update` lock is for.
 - **Not shown:** the `<agent-message>` hand-back path, which the real tier agents use interactively
   ([dispatch findings](tierminator-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2-1-285)),
-  and an interactive session, where the user can type between notifications.
+  and a user who types between notifications (the interactive run below typed nothing).
+
+### Interactive run: `p4-close-interactive`
+
+One interactive session, run by hand on 2026-10-22 (01:20 UTC on 2026-10-23) with Claude Code 2.1.309 on Windows,
+started in `bypassPermissions` with the user typing nothing after the pasted prompt (`p4-runner.js --prepare
+p4-close`, then `--collect p4-close`). It is the `p4-close` cell: three `cmd-worker` agents that wait for each other
+at the barrier and end together. No cost was recorded. One round, no mode change: all 27 hook events that carry a
+mode say `bypassPermissions`, unlike `p3-bg-interactive`'s first round.
+
+Evidence: `probes/evidence/tierminator-parallel-p4-close-interactive.json` (`analysis.timeline`, `analysis.prompts`,
+`analysis.subagentStops`, `analysis.barrier`, `hookLog`). The `GOT` replies are from the terminal output the user
+pasted, not from the file: an interactive run has no stream, so `analysis.summary.gotLines` is empty and
+`resultEvents` 0. **Do not use** `analysis.summary.subagentStopSpreadMs` (13763 ms): it includes four `SubagentStop`s
+whose `agent_type` is empty and which are not the workers (the same unidentified ones as in `p3-bg-interactive`);
+the workers' own spread is below. `promptsNamingSeveralWorkers: 1` is the typed prompt, as in the headless runs.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| How close did the workers finish? | The three `barrier.js` ends came within **30 ms** (12.236, 12.265, 12.266 s past 01:20). Their `SubagentStop`s came 1.7 to 3.7 s later, W2 13.986, W3 14.751 and W1 15.988: a 2.0 s spread, wider than the 0.6 to 0.8 s of the headless runs. | `analysis.barrier`, `analysis.subagentStops` |
+| How many prompts reached the model after the typed one, and of what kind? | **Three `<task-notification>`s**, one per worker (W2 14.249, W3 15.932, W1 22.644), no `<agent-message>`; each names one worker. `byKind` is `{"user": 1, "task-notification": 3}`, as in every headless run. | `analysis.prompts`, `analysis.summary.byKind` |
+| In what order? | The `SubagentStop` order: W2, W3, W1. | `analysis.prompts`, `analysis.subagentStops` |
+| When does a notification start a turn? | At once when the session is idle: W2's came 263 ms after its `SubagentStop`, the dispatching turn having ended (`Stop` at 12.169). Otherwise after the `Stop` of the turn the worker finished during: W3 finished at 14.751 during W2's turn (14.249 to 15.679), and its notification came 253 ms after that `Stop`; W1 finished at 15.988 during W3's turn (15.932 to 22.382), and its notification came 262 ms after that `Stop`, **6.7 s after W1's `SubagentStop`**. | `analysis.timeline` |
+| Were queued notifications batched into one reply? | **No, in this run.** The model answered each in its own turn: four `Stop` events (12.169, 15.679, 22.382, 24.244), replies `GOT W2`; `GOT W3`; `GOT W1` and `ALL DONE` (from the pasted output). In the headless runs the last two notifications were queued together and answered in one reply. | `analysis.timeline`; the pasted terminal output |
+| What did `PostToolUse` on the Agent call return? | `async_launched`, at the same millisecond as each worker's `SubagentStart` (07.222, 08.312, 09.596). | `analysis.timeline` (`post-agent`) |
+
+Why no batching here is **inferred**: batching needs two notifications queued behind one running turn, and in this run
+only one worker (W3) finished during W2's short 1.4 s turn; W1 finished 1.2 s after it, during W3's much longer
+6.4 s turn. The notifications waited for the turns they finished in, so the "a finish during a turn waits for that
+turn's `Stop`" rule held, and the "two notices in one turn" case did not occur only because of the timing. It is not
+a difference between interactive and headless dispatch, which this one run cannot separate. The same run's last
+notification was delayed 6.7 s, the length of the turn before it, so a notice from H1 can arrive well after the
+worker's `SubagentStop`.
 
 ## P5: how long a hook may run
 
@@ -783,16 +815,6 @@ its full 3 s delay (3072 to 3103 ms in all, `delayMs` 3000) and every `git workt
 
 **The largest timeout accepted** is 2147484 s, the largest value that `p5-accept` ran to `slow:end` (with a 3 s
 hook, so not a hook that long) and that the validator passed.
-
-## Pending: interactive P3 and P4
-
-The P3 cell `p3-bg` is done (see "Interactive run: `p3-bg-interactive`" under P3). The P4 cell is still to be run
-by hand: its runs above are headless, and interactive dispatch has no `run_in_background` field and always runs in
-the background.
-
-| Cell | Why it needs an interactive run | Steps |
-|---|---|---|
-| `p4-close` | Whether an interactive session gets one notification per worker, and queues them behind a running turn, as `p4-close` did headless. | 1. `node probes/tierminator-parallel/p4-runner.js --prepare p4-close` 2. Run the printed lines in a new pwsh terminal (it starts in `bypassPermissions`, so no permission prompt is expected; answer any once). 3. Paste the printed prompt. 4. Type nothing until the session prints `ALL DONE`, or two minutes pass. 5. `/exit`. 6. `node probes/tierminator-parallel/p4-runner.js --collect p4-close` 7. Commit `probes/evidence/tierminator-parallel-p4-close-interactive.json` and update this doc. |
 
 ## Pending: interactive cells
 
@@ -1100,7 +1122,9 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
   dispatch is now measured (P3 `p3-bg`, P4): the workers and slow hooks overlap, `PostToolUse` returns
   `async_launched`, and each finish arrives as its own `<task-notification>`. The interactive run of `p3-bg` is
   done (default mode, one clean round of three workers, "Interactive run: `p3-bg-interactive`" under P3); the
-  interactive `p4-close` is pending (see "Pending: interactive P3 and P4"). Not measured: an interactive run with
+  interactive `p4-close` is done too (`bypassPermissions`, nothing typed: three separate notifications, each in its
+  own turn; "Interactive run: `p4-close-interactive`" under P4). Not measured: an interactive run where the user
+  types between notifications, one that batches two queued notifications, and an interactive run with
   `auto` or `acceptEdits` from the start (the mixed round 1 of `p3-bg-interactive` is not a clean run of either).
 - **The `<agent-message>` hand-back with several workers.** No P3 or P4 worker called `SubagentHandback`, so how
   several hand-backs and their notifications arrive together is unmeasured.
