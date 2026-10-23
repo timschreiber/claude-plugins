@@ -426,6 +426,8 @@ module.exports = {
   MAX_RESUMES,
   AGENT_PREFIX,
   agentName,
+  fresh,
+  normalize,
   startRun,
   skippedEntry,
   doneLabel,
