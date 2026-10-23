@@ -226,3 +226,64 @@ test('H4 pre makes the slot worktree and lets the call through', () => {
   assert.equal(git.head(slot.worktree), state.read(S).wave.base)
   assert.ok(git.isClean(repo))
 })
+
+const preOf = input => hook('h4-dispatch.js', agentPre(input), ['pre'])
+const denial = res => res.json.hookSpecificOutput
+
+test('the three calls of a wave pass one after another', () => {
+  startWaveRun()
+  for (const id of ['T01', 'T02', 'T03']) assert.equal(preOf(callOf(id)).stdout, '')
+  for (const id of ['T01', 'T02', 'T03']) {
+    assert.ok(fs.existsSync(slotOf(id).worktree))
+    assert.equal(slotOf(id).status, 'running')
+  }
+})
+
+test('a call carrying isolation is denied', () => {
+  startWaveRun()
+  const res = preOf({ ...callOf('T01'), isolation: 'worktree' })
+  assert.equal(denial(res).permissionDecision, 'deny')
+  assert.match(denial(res).permissionDecisionReason, /isolation/)
+  assert.ok(!fs.existsSync(slotOf('T01').worktree))
+  assert.equal(slotOf('T01').status, 'ready')
+})
+
+test('a wrong tier or a foreign Worktree line is denied with the right call', () => {
+  startWaveRun()
+  const tier = preOf({ ...callOf('T01'), subagent_type: 'tierminator:opus-high' })
+  assert.equal(denial(tier).permissionDecision, 'deny')
+  assert.match(denial(tier).permissionDecisionReason, /runs on tierminator:sonnet-medium/)
+  assert.match(denial(tier).permissionDecisionReason, /Call the Agent tool/)
+  const call = callOf('T01')
+  const foreign = preOf({ ...call, prompt: call.prompt.replace(/^Worktree:.*$/m, 'Worktree: C:/elsewhere') })
+  assert.equal(denial(foreign).permissionDecision, 'deny')
+  assert.match(denial(foreign).permissionDecisionReason, /Worktree: line must be/)
+  assert.match(denial(foreign).permissionDecisionReason, /Call the Agent tool/)
+})
+
+test('a worktree that cannot be made denies with Git message and fails the slot', () => {
+  startWaveRun()
+  const wt = slotOf('T01').worktree
+  fs.mkdirSync(path.dirname(wt), { recursive: true })
+  fs.writeFileSync(wt, 'x')
+  const res = preOf(callOf('T01'))
+  assert.equal(denial(res).permissionDecision, 'deny')
+  assert.match(denial(res).permissionDecisionReason, /git worktree add failed/)
+  assert.equal(slotOf('T01').status, 'failed')
+  assert.ok(slotOf('T01').failure.startsWith('WORKTREE CREATE:'))
+  assert.equal(state.read(S).wave.halting.task, 'T01')
+  assert.ok(!fs.existsSync(slotOf('T02').worktree))
+})
+
+test('a retry discards the old worktree and makes a fresh one', () => {
+  startWaveRun()
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  const wt = slotOf('T01').worktree
+  fs.writeFileSync(path.join(wt, 'marker.txt'), 'old')
+  const s = state.read(S)
+  state.write(S, w.advanceSlot(s, 'T01', { ok: false, reason: 'x' }).state)
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  assert.ok(!fs.existsSync(path.join(wt, 'marker.txt')))
+  assert.ok(fs.existsSync(wt))
+  assert.equal(git.branch(wt), 'tierminator/' + state.read(S).runId + '/T01')
+})
