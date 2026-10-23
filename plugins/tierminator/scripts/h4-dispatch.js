@@ -32,6 +32,7 @@ const git = require('./lib/git.js')
 const r = require('./lib/run.js')
 const spend = require('./lib/spend.js')
 const resultFile = require('./lib/result.js')
+const h4wave = require('./lib/h4-wave.js')
 const { settle, readReport } = require('./lib/settle.js')
 const { MAX_TURNS } = require('./lib/tasks.js')
 const { transcriptUsage } = require('./lib/usage.js')
@@ -189,11 +190,20 @@ run(async () => {
   const mode = process.argv[2]
   if (mode === 'stop') {
     // SubagentStop comes from the subagent itself, so agent_id is expected here.
-    stop(input, state.read(input.session_id))
+    const stopped = state.read(input.session_id)
+    if (stopped?.wave) {
+      h4wave.modes.stop?.(input, stopped)
+      return
+    }
+    stop(input, stopped)
     return
   }
   if (input.agent_id) return
   const s = state.read(input.session_id)
+  if (s?.wave) {
+    h4wave.modes[mode]?.(input, s)
+    return
+  }
   if (mode === 'pre') pre(input, s)
   else if (mode === 'post') post(input, s)
   else if (mode === 'failure') failure(input, s)

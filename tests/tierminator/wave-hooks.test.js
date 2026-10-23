@@ -213,3 +213,16 @@ test('a usage limit during a wave writes a limit result at the open task', () =>
   assert.equal(res.outcome, 'limit')
   assert.equal(res.haltedAt, 'T01')
 })
+
+test('H4 pre makes the slot worktree and lets the call through', () => {
+  startWaveRun()
+  const res = hook('h4-dispatch.js', agentPre(callOf('T01')), ['pre'])
+  assert.equal(res.stdout, '')
+  const slot = slotOf('T01')
+  assert.equal(slot.status, 'running')
+  assert.equal(slot.inFlight, true)
+  assert.ok(fs.existsSync(slot.worktree))
+  assert.equal(git.branch(slot.worktree), slot.branch)
+  assert.equal(git.head(slot.worktree), state.read(S).wave.base)
+  assert.ok(git.isClean(repo))
+})
