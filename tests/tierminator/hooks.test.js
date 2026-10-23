@@ -2664,7 +2664,7 @@ test('every hook exits 0 when the data directory is unwritable', () => {
 test('hooks.json is valid, every command names a script that exists, and Agent events go to H4', () => {
   const config = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
   const commands = Object.values(config.hooks).flatMap(groups => groups.flatMap(g => g.hooks.map(h => h.command)))
-  assert.equal(commands.length, 17)
+  assert.equal(commands.length, 18)
   for (const command of commands) {
     const script = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w-]+\.js)/.exec(command)?.[1]
     assert.ok(script && fs.existsSync(path.join(PLUGIN, 'scripts', script)), command)

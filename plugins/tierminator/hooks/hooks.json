@@ -39,6 +39,12 @@
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h5-guard.js\" pre", "timeout": 15 }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell|Write|Edit|Glob|Grep",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/h8-worktree-guard.js\"", "timeout": 15 }
+        ]
       }
     ],
     "PostToolUse": [

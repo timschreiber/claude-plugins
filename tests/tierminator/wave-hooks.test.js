@@ -677,3 +677,68 @@ test('H1 ignores a turn-limit notification for an unknown agent', () => {
   dispatchAll()
   assert.equal(h1({ prompt: notification('nobody') }).stdout, '')
 })
+
+const g = (tool_name, tool_input, over = {}) => ({
+  session_id: S,
+  cwd: repo,
+  agent_id: 'worker-T01',
+  agent_type: 'tierminator:sonnet-medium',
+  tool_name,
+  tool_input,
+  ...over,
+})
+const h8 = input => hook('h8-worktree-guard.js', input)
+
+test('H8 denies a worker call outside its worktree', () => {
+  startWaveRun()
+  const cases = [
+    g('PowerShell', { command: 'git status' }),
+    g('Bash', { command: 'git status' }),
+    g('Bash', { command: 'cd "' + repo + '" && git status' }),
+    g('Write', { file_path: path.join(repo, 'src/a.js'), content: 'x' }),
+    g('Glob', { pattern: '*.js' }),
+    g('Glob', { pattern: '*.js', path: repo }),
+    g('Grep', { pattern: 'x' }),
+    g('Grep', { pattern: 'x', path: repo }),
+  ]
+  for (const c of cases) {
+    const res = h8(c)
+    assert.equal(res.json?.hookSpecificOutput?.permissionDecision, 'deny', JSON.stringify(c))
+    assert.ok(res.json.hookSpecificOutput.permissionDecisionReason)
+  }
+})
+
+test('H8 allows a worker call inside its worktree', () => {
+  startWaveRun()
+  const wt = slotOf('T01').worktree
+  assert.equal(h8(g('Bash', { command: 'cd "' + wt + '" && git status' })).stdout, '')
+  assert.equal(h8(g('Write', { file_path: wt + '/src/a.js', content: 'x' })).stdout, '')
+  assert.equal(h8(g('Grep', { pattern: 'x', path: wt })).stdout, '')
+})
+
+test('H8 stays silent outside a working wave or for other callers', () => {
+  startWaveRun()
+  const bad = { command: 'git status' }
+  assert.equal(h8(g('Bash', bad, { agent_id: undefined })).stdout, '')
+  assert.equal(h8(g('Bash', bad, { agent_type: 'Explore' })).stdout, '')
+  const s = state.read(S)
+  state.write(S, { ...s, wave: { ...s.wave, phase: 'integrating' } })
+  assert.equal(h8(g('Bash', bad)).stdout, '')
+  state.write(S, s)
+  state.deactivate(S)
+  assert.equal(h8(g('Bash', bad)).stdout, '')
+})
+
+test('H8 stays silent without a wave', () => {
+  startWaveRun()
+  const tasksFile = path.join(dir, 'plan.tasks.json')
+  state.write(S, { ...r.startRun({ tasks: TASKS, tasksFile, planFile: path.join(dir, 'plan.md'), branch: 'main', planId: PLAN_ID }), cwd: repo })
+  assert.equal(h8(g('Bash', { command: 'git status' })).stdout, '')
+})
+
+test('H8 is registered and only ever denies', () => {
+  const hooks = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
+  const entry = hooks.hooks.PreToolUse.find(e => e.matcher === 'Bash|PowerShell|Write|Edit|Glob|Grep')
+  assert.ok(entry)
+  assert.ok(entry.hooks.some(x => x.command.endsWith('h8-worktree-guard.js"')))
+})
