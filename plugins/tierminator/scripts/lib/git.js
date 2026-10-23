@@ -6,6 +6,7 @@
 'use strict'
 
 const { spawnSync } = require('child_process')
+const fs = require('fs')
 const path = require('path')
 
 function git(cwd, args) {
@@ -119,6 +120,9 @@ function gitPatiently(cwd, args, delays) {
   return r
 }
 
+// The first non-empty line of some error output, cut to 300 characters.
+const firstLine = text => (String(text ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? 'no error output').slice(0, 300)
+
 // Returns the working tree and branch to `sha`: tracked files reset, untracked files removed
 // (ignored files are left alone). A command that fails with a lock-type error is repeated a few times.
 // Returns {ok: true}, or {ok: false, failure} naming the git command that failed and the first line of
@@ -206,4 +210,46 @@ function worktreesMatching(cwd, prefix = 'tierminator-') {
   })
 }
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching }
+// Forgets the records of linked worktrees whose directories are gone. True when git succeeded.
+const worktreePrune = cwd => gitPatiently(cwd, ['worktree', 'prune'], LOCK_RETRY_MS).ok
+
+// Force-deletes a local branch, but only one named tierminator/..., so a user's branch is never deleted.
+// A branch still checked out in a worktree cannot be deleted, so remove the worktree first.
+// Returns {ok: true}, or {ok: false, failure}.
+function branchDelete(cwd, name, delays = LOCK_RETRY_MS) {
+  if (typeof name !== 'string' || !name.startsWith('tierminator/')) return { ok: false, failure: `not a tierminator branch: ${name}` }
+  const r = gitPatiently(cwd, ['branch', '-D', name], delays)
+  return r.ok ? { ok: true } : { ok: false, failure: `git branch -D ${name} failed: ${firstLine(r.stderr)}` }
+}
+
+// Removes the worktree with its changes and untracked files (--force twice also takes a locked worktree).
+// Measured on Windows, Git 2.53: when another process holds the worktree directory (as its cwd), git
+// deletes the files and the record but fails with 'Permission denied', leaving the empty directory, and a
+// repeat says 'is not a working tree'; so what is left is deleted directly, retried after each wait in
+// delays, and pruned. Refuses the main working tree and a path that is not a worktree of this repository;
+// a path already gone, or an empty unlisted directory such a removal left, counts as removed. The branch
+// is kept: branchDelete it after.
+function worktreeRemove(cwd, wtPath, delays = LOCK_RETRY_MS) {
+  const target = toWorktreePath(wtPath)
+  const list = worktreeList(cwd)
+  if (!target || !list.length) return { ok: false, failure: 'git worktree list failed' }
+  if (samePath(list[0].path, target)) return { ok: false, failure: 'refusing to remove the main working tree' }
+  const listed = () => worktreeList(cwd).some(w => samePath(w.path, target))
+  if (!list.some(w => samePath(w.path, target))) {
+    try { if (fs.existsSync(target) && fs.readdirSync(target).length === 0) fs.rmdirSync(target) } catch {}
+    return fs.existsSync(target) ? { ok: false, failure: `not a worktree of this repository: ${target}` } : { ok: true }
+  }
+  const args = ['worktree', 'remove', '--force', '--force', target]
+  const first = git(cwd, args)
+  if (first.ok) return { ok: true }
+  for (const ms of [0, ...delays]) {
+    sleep(ms)
+    if (listed() && git(cwd, args).ok) return { ok: true }
+    try { fs.rmSync(target, { recursive: true, force: true }) } catch {}
+    git(cwd, ['worktree', 'prune'])
+    if (!fs.existsSync(target) && !listed()) return { ok: true }
+  }
+  return { ok: false, failure: `git worktree remove failed: ${firstLine(first.stderr)}` }
+}
+
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove }

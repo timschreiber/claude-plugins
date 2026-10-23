@@ -122,3 +122,105 @@ test('worktreesMatching finds only tierminator slots directly inside .claude/wor
   assert.deepEqual(g.worktreesMatching(r, 'agent-'), [])
   assert.deepEqual(paths(g.worktreesMatching(mine)), want)
 })
+
+const exited = child => (child.exitCode !== null || child.signalCode !== null ? Promise.resolve() : new Promise(res => child.once('exit', res)))
+
+test('worktreePrune forgets worktrees whose directory is gone', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  run(r, 'worktree', 'add', '-q', '-b', 'tierminator/aaaa1111/T01', wt)
+  fs.rmSync(wt, { recursive: true, force: true })
+  assert.equal(g.worktreeList(r).find(w => w.path === g.toWorktreePath(wt)).prunable, true)
+  assert.equal(g.worktreePrune(r), true)
+  assert.deepEqual(g.worktreeList(r).map(w => w.path), [g.toWorktreePath(r)])
+  assert.equal(g.worktreePrune(path.join(dir, 'missing')), false)
+})
+
+test('branchDelete deletes only tierminator branches that are not checked out', () => {
+  const r = repo()
+  run(r, 'branch', 'tierminator/aaaa1111/T01')
+  run(r, 'branch', 'feature/x')
+  assert.deepEqual(g.branchDelete(r, 'tierminator/aaaa1111/T01'), { ok: true })
+  assert.ok(!g.branchesMatching(r).includes('tierminator/aaaa1111/T01'))
+
+  const refused = g.branchDelete(r, 'feature/x')
+  assert.equal(refused.ok, false)
+  assert.match(refused.failure, /not a tierminator branch/)
+  assert.match(run(r, 'branch', '--list', 'feature/x'), /feature\/x/)
+
+  const wt = slot(r, 'tierminator-aaaa1111-T02')
+  run(r, 'worktree', 'add', '-q', '-b', 'tierminator/aaaa1111/T02', wt)
+  const held = g.branchDelete(r, 'tierminator/aaaa1111/T02', [])
+  assert.equal(held.ok, false)
+  assert.match(held.failure, /^git branch -D tierminator\/aaaa1111\/T02 failed: /)
+
+  assert.equal(g.branchDelete(r, 'tierminator/aaaa1111/T99', []).ok, false)
+})
+
+test('worktreeRemove removes a dirty worktree and keeps its branch', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  run(r, 'worktree', 'add', '-q', '-b', 'tierminator/aaaa1111/T01', wt)
+  write(wt, 'README.md', 'changed\n')
+  write(wt, 'new.txt', 'untracked\n')
+  fs.mkdirSync(path.join(wt, 'sub'))
+  write(path.join(wt, 'sub'), 'inner.txt', 'untracked\n')
+  assert.deepEqual(g.worktreeRemove(r, wt), { ok: true })
+  assert.equal(fs.existsSync(wt), false)
+  assert.deepEqual(g.worktreeList(r).map(w => w.path), [g.toWorktreePath(r)])
+  assert.deepEqual(g.branchesMatching(r), ['tierminator/aaaa1111/T01'])
+  assert.deepEqual(g.branchDelete(r, 'tierminator/aaaa1111/T01'), { ok: true })
+})
+
+test('worktreeRemove removes a locked worktree', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  run(r, 'worktree', 'add', '-q', '-b', 'tierminator/aaaa1111/T01', wt)
+  run(r, 'worktree', 'lock', '--reason', 'test', wt)
+  assert.deepEqual(g.worktreeRemove(r, wt), { ok: true })
+  assert.equal(fs.existsSync(wt), false)
+})
+
+test('worktreeRemove removes a worktree another process holds as its cwd', async () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  run(r, 'worktree', 'add', '-q', '-b', 'tierminator/aaaa1111/T01', wt)
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 1000)'], { cwd: wt, stdio: 'ignore' })
+  assert.deepEqual(g.worktreeRemove(r, wt), { ok: true })
+  assert.equal(fs.existsSync(wt), false)
+  await exited(child)
+})
+
+test('worktreeRemove reports a worktree a process keeps held, then removes it once released', { skip: process.platform !== 'win32' }, async () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  run(r, 'worktree', 'add', '-q', '-b', 'tierminator/aaaa1111/T01', wt)
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { cwd: wt, stdio: 'ignore' })
+  const res = g.worktreeRemove(r, wt, [10, 10])
+  assert.equal(res.ok, false)
+  assert.match(res.failure, /^git worktree remove failed: .*Permission denied/)
+  assert.ok(!g.worktreeList(r).some(w => w.path === g.toWorktreePath(wt)))
+  child.kill()
+  await exited(child)
+  assert.deepEqual(g.worktreeRemove(r, wt), { ok: true })
+  assert.equal(fs.existsSync(wt), false)
+})
+
+test('worktreeRemove refuses the main tree and a path that is not a worktree', () => {
+  const r = repo()
+  const main = g.worktreeRemove(r, r)
+  assert.equal(main.ok, false)
+  assert.match(main.failure, /main working tree/)
+  assert.ok(fs.existsSync(path.join(r, 'README.md')))
+
+  const plain = path.join(dir, 'plain')
+  fs.mkdirSync(plain)
+  write(plain, 'file.txt', 'x\n')
+  const notWt = g.worktreeRemove(r, plain)
+  assert.equal(notWt.ok, false)
+  assert.match(notWt.failure, /not a worktree/)
+  assert.ok(fs.existsSync(plain))
+
+  assert.deepEqual(g.worktreeRemove(r, path.join(dir, 'nope')), { ok: true })
+  assert.equal(g.worktreeRemove(path.join(dir, 'missing'), plain).ok, false)
+})
