@@ -1,7 +1,8 @@
 # tierminator: tiered plans
 
-After approval, tierminator runs each task in its own subagent, in order, at the model and effort you
-choose, and the subagent commits its work. Plan as usual, then end the plan with a task block.
+After approval, tierminator runs each task in its own subagent, in order or, for tasks you declare
+independent, several at once, at the model and effort you choose, and the subagent commits its work. Plan as
+usual, then end the plan with a task block.
 
 ## The plan
 
@@ -21,6 +22,14 @@ choose, and the subagent commits its work. Plan as usual, then end the plan with
       "model": "sonnet",
       "effort": "medium",
       "prompt": "Read docs/spec.md section 3. Create src/IClock.cs with ... Verify: dotnet build succeeds and dotnet test --filter ClockTests passes."
+    },
+    {
+      "id": "T02",
+      "title": "Add the IFileStore abstraction",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [],
+      "prompt": "Read docs/spec.md section 4. Create src/IFileStore.cs with ... Verify: dotnet build succeeds and dotnet test --filter FileStoreTests passes."
     }
   ]
 }
@@ -34,8 +43,10 @@ choose, and the subagent commits its work. Plan as usual, then end the plan with
 | `model` | `haiku`, `sonnet` or `opus` |
 | `effort` | `high` for `haiku`; `low`, `medium` or `high` for `sonnet`; `medium` or `high` for `opus` |
 | `prompt` | Self-contained, with a `Verify:` step |
+| `after` | Optional: the ids of the earlier tasks this one needs; leave it off to wait for the task before |
 
-No other keys. The block is what runs, so keep the prose consistent with it.
+No other keys in a task. Beside `tasks`, the block may hold only `setup` and `verify` (see Dependencies and
+parallel tasks). The block is what runs, so keep the prose consistent with it.
 
 `ExitPlanMode` is denied until the block is valid, and the denial says what to fix. A valid block is moved
 to `<plan>.tasks.json` and replaced by a task table. To change the tasks, write a complete new block under
@@ -141,7 +152,28 @@ An `opus` prompt states the goal, the constraints, what to read and the acceptan
 the goal needs and names it in its report. Don't script it edit by edit: the worker makes routine judgment calls itself. If you find
 yourself writing every edit out, the task belongs on `sonnet`.
 
-A task can depend only on earlier tasks.
+## Dependencies and parallel tasks
+
+By default a task waits for the task before it. Leave `after` off when each task needs the one before it,
+which is the common case. Write it only for tasks that can truly run at once:
+
+- `"after": []` means the task needs no earlier task; `"after": ["T02", "T03"]` means it needs just those.
+  An `after` names only earlier tasks.
+- Tasks run in waves. A task with no dependencies is in wave 1, any other in the wave after its latest
+  dependency's. The tasks of a wave run at the same time, each in its own Git worktree. A task waits for the
+  whole wave of its dependencies, not only for them, so splitting a chain helps only when the waves are wide.
+- Tasks of one wave must read and change different files, need none of each other's output and share no
+  build output. Give each its own `Files to change:` line, with no file on two of them. A task whose changes
+  conflict with another's is run again on its own after the wave, doing its work twice.
+- Put work every task needs, such as a shared interface or a rename, in an earlier wave.
+
+Two optional fields beside `tasks` are used only when some task has `after`. Approving the plan runs them as
+written:
+
+- `setup`, a list of commands such as `["npm ci"]`, runs in order in each fresh worktree before its task,
+  for what Git does not track: installed packages, a restore, a copied `.env`. A failed setup halts the run.
+- `verify`, one command such as `"npm test"`, runs in the main tree after each parallel wave's commits are
+  brought together, to catch tasks that pass alone and break together. A failure halts the run.
 
 ## Opting out
 
