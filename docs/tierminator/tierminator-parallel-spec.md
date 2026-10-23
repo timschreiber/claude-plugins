@@ -398,10 +398,10 @@ section before the code that depends on it. They run on the Claude Code version 
 | # | Question | Status |
 |---|---|---|
 | P1, P2 | Worktree placement (Agent `isolation`, hook-made worktrees). | **Done**, with re-runs, a base-mechanism round and an option C round (38 runs); option C chosen (D12). |
-| P3 | Do several Agent calls in one message run concurrently? Do their `pre` hooks overlap? | **Mostly answered** by the option C round (foreground workers overlap; the hooks ran one after another). Remaining, in WP-02: background (interactive) dispatch. |
-| P4 | When three background workers finish close together, how many prompts reach Claude, in what order? | Open (WP-02). |
+| P3 | Do several Agent calls in one message run concurrently? Do their `pre` hooks overlap? | **Answered headless** (findings, "P3", 6 runs): the workers overlap in the foreground and in headless background dispatch; the `pre` hooks overlap when they take longer than the gap between calls (three 3 s hooks ran at once), and each worker waits for its own hook; background `PostToolUse` returns `async_launched`. The interactive run (`p3-bg`) is pending. |
+| P4 | When three background workers finish close together, how many prompts reach Claude, in what order? | **Answered headless** (findings, "P4", 4 runs): one `<task-notification>` per worker, in `SubagentStop` order, never several reports in one; a finish during a turn waits for its `Stop`, and two queued notifications reach the model in one turn, which the Notices rules must allow for. The interactive run (`p4-close`) is pending. |
 | P5 | Can a hook run for minutes with a raised `timeout`? Is there a maximum? | Open (WP-02); decides the hook timeouts. |
-| P6 | Git on Windows: concurrent `git worktree add`, path length, conflict reporting, trailers surviving a pick, removal of a locked worktree. | **Dropped as a probe**; the real-repo tests in WP-06 cover it (hooks do not run concurrently in the probes). |
+| P6 | Git on Windows: concurrent `git worktree add`, path length, conflict reporting, trailers surviving a pick, removal of a locked worktree. | **Dropped as a probe**; the real-repo tests in WP-06 cover it (slow hooks overlap in P3, but the probes' git commands never ran at once). |
 | P7 | A seeded conflict resolved by `opus`. | **Dropped** with the resolver (WP-12). |
 | P8 | A usage limit with several workers in flight. | **Deferred** with WP-15. |
 | P3b | The lost-update count of the state file. | **Dropped**; WP-07's concurrent test proves it. |

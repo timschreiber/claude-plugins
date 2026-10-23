@@ -445,6 +445,173 @@ Evidence, one file per run in `probes/evidence/` (24 files, $3.07):
   main session. The runs differ from real plans: 8 to 10 tool calls per task against the 30 to 60 turns of real
   tasks, small files, no setup commands, no build.
 
+## P3: several Agent calls in one message
+
+Probe P3 of the spec: do three Agent calls made in one message run at the same time, and do their `PreToolUse`
+hooks on the Agent call (where H4 `pre` makes the worktree) overlap? Two cells, six headless runs, run on
+2026-10-20 (21:03:50 to 21:07:30 UTC) with Claude Code 2.1.305 on Windows, $0.57 in all ($0.26 for
+`p3-slow-hooks`, $0.31 for `p3-bg`; per run $0.084 to $0.112). Both are `c-haiku-guard` of the option C round
+(same fixture, same three tasks, `haiku-high` probe worker with the Parallel section, the guard hook, hook-made
+worktrees, `bypassPermissions`), made by `probes/tierminator-parallel/c-runner.js`, with one change each:
+
+- `p3-slow-hooks`: the worktree hook (`probe-plugin/scripts/mkwt.js`) waits 3 s (`PROBE_MKWT_DELAY_MS=3000`)
+  **before** its `git worktree add`, so each hook process lasts about 3.1 s. The calls run in the foreground
+  (`run_in_background false`).
+- `p3-bg`: the same slow hook, with the main session told to pass `run_in_background true`, the headless stand-in
+  for interactive dispatch, which is always in the background
+  ([dispatch findings](tierminator-agent-dispatch-findings.md#interactive-sessions-always-in-the-background)).
+
+The comparison is `c-haiku-guard-r1` to `-r3` (Claude Code 2.1.304, the same setup with the hook's own 62 to 109 ms).
+The runner's `analysis.mkwt` holds each hook process's `pid`, `startedAt` and `endedAt` (the delay included);
+`analysis.mkwtTiming` (written for the P3 cells only) holds the `durationsMs`, the `gapsMs` between one hook's end
+and the next one's start (negative when they overlap), `overlap`, and `subagentStartAfterHookEndMs`;
+`analysis.overlap` holds the workers' `allOverlap` (every `SubagentStart` before the first `SubagentStop`),
+`wallSeconds` and `perAgentSeconds`; `analysis.postAgent` holds `status` and `isAsync` of each `PostToolUse` on
+the Agent call; `analysis.prompts` holds every `UserPromptSubmit` with its kind. For `c-haiku-guard` the gaps and
+the `SubagentStart` delays below are computed from `analysis.mkwt` and `analysis.agents`, which its files have.
+
+Evidence:
+- `probes/evidence/tierminator-parallel-p3-slow-hooks-r1.json`, `-r2.json`, `-r3.json`.
+- `probes/evidence/tierminator-parallel-p3-bg-r1.json`, `-r2.json`, `-r3.json`.
+- For comparison, `probes/evidence/tierminator-parallel-c-haiku-guard-r1.json`, `-r2.json`, `-r3.json`.
+
+All nine runs ended with every task done and the main tree untouched (`verdicts.allDone` and
+`verdicts.mainUntouched` true), and every `git worktree add` exited 0.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Do the workers overlap in time, in the foreground? | **Yes, in 6 of 6 runs.** Every `SubagentStart` came before the first `SubagentStop`. `c-haiku-guard`: 15.9 to 17.6 s from the first start to the last stop, each worker 13.1 to 15.5 s. `p3-slow-hooks`: 17.1 to 25.2 s, each worker 13.9 to 22.6 s. | `c-haiku-guard-r*`, `p3-slow-hooks-r*`: `analysis.overlap` (`allOverlap`, `wallSeconds`, `perAgentSeconds`) |
+| Do they overlap with headless background dispatch? | **Yes, in 3 of 3 runs**: 16.1 to 17.8 s from the first start to the last stop, each worker 12.8 to 15.4 s, about what the foreground runs took. | `p3-bg-r*`: `analysis.overlap` |
+| Do the three `PreToolUse` hook processes overlap? | **Only when the hook is slow.** `c-haiku-guard`: three processes (three `pid`s per run) of 62 to 109 ms, one after another; each started 755 to 1262 ms after the previous one ended. `p3-slow-hooks` and `p3-bg`: three processes of 3067 to 3103 ms, a different `pid` each, and each started while the previous one was still running (`gapsMs` -1622 to -1995 ms, `overlap: true` in 6 of 6). For 0.5 to 0.8 s of each run all three ran at once. | `c-haiku-guard-r*`: `analysis.mkwt`; `p3-*`: `analysis.mkwt`, `analysis.mkwtTiming` |
+| What spaces the hooks apart? | Not the hooks. The second and third hooks started 833 to 1330 ms after the one before in `c-haiku-guard`, and 1086 to 1469 ms after it with the 3 s hook, so a slow hook did not hold back the next call's hook. **Inferred:** Claude Code starts each call's `PreToolUse` as the model's message reaches that call, about a second apart here. | `analysis.mkwt` (`startedAt`), `hookLog` (`pre-agent`) |
+| Does a slow hook delay its own worker? | **Yes, by its full length.** `SubagentStart` came 96 to 155 ms after the worker's own hook ended in all nine runs (101 to 143 ms in the P3 cells), so each worker waited for its hook. The runs took 33.3 to 37.6 s (`p3-slow-hooks`) against 28.6 to 29.7 s (`c-haiku-guard`): about 3 s more, not 9, because the hooks overlapped (**inferred**). | `analysis.mkwtTiming.subagentStartAfterHookEndMs`; `elapsedSeconds` |
+| Does a slow hook delay the next call's hook? | **No**, as above: the next hook started about 1.1 to 1.5 s after the previous one started, while it was still running. | `analysis.mkwtTiming.gapsMs` |
+| Did the `git worktree add` commands themselves run at once? | **No.** The delay is before the command, so each `git worktree add` ran in the last 67 to 103 ms of its hook, and those windows were about a second apart. Concurrent `git worktree add` is still not exercised. | `analysis.mkwt` (`startedAt`, `endedAt`, `delayMs`); `probe-plugin/scripts/mkwt.js` |
+| What does `PostToolUse` on the Agent call return with background dispatch? | `status: "async_launched"`, `isAsync: true`, in 9 of 9 calls, with `agentId`, `description`, `resolvedModel`, `prompt`, `outputFile`, `canReadOutputFile` and `canContinueAgent: true`. It fired at the same time as that worker's `SubagentStart` (0 to 7 ms apart), right after the slow hook ended. In the foreground (`p3-slow-hooks`) it was `status: "completed"` with no `isAsync`, 110 to 167 ms after that worker's `SubagentStop`. | `p3-bg-r*`, `p3-slow-hooks-r*`: `analysis.postAgent`; `p3-bg-r1`: `hookLog` (`post-agent` `tool_response`) |
+| Which prompts reached the main session in `p3-bg`? | The typed prompt, then **one `<task-notification>` per worker** (3 per run, no `<agent-message>`: no worker called `SubagentHandback`). Each names one task: `<task-id>` (the worker's `agent_id`, the same as `agentId` in `PostToolUse`), `<tool-use-id>`, `<output-file>`, `<status>completed</status>`, `<summary>Agent "task T01" finished</summary>` (the call's description), a `<note>`, the worker's report in `<result>`, and `<usage>`. The main session's first turn ended (`Stop`) 1.8 to 3.9 s after the last launch, while the workers ran. In r1 each notification started its own turn (four `Stop` events in all); in r2 and r3 two of them arrived 121 and 132 ms apart, with no `Stop` between them (three `Stop` events). | `p3-bg-r*`: `analysis.prompts`, `hookLog` (`ups`, `stop`, `sub-stop`) |
+
+### Details
+
+- **This qualifies an earlier statement.** The option C round said the three hook processes "ran one after
+  another" and the first-release decisions drop P6 because "the hooks ran one after another in every probe". That
+  held for a hook of about 0.1 s. A hook that runs longer than the gap between the model's calls runs alongside
+  the next one, so H4 `pre` can run in two or three processes at once and its `git worktree add` must go through
+  the state lock, as the spec already says. The probe's git commands did not collide, so what Git does when two
+  `git worktree add` run at once in one repository is still unmeasured.
+- **Foreground, the main session waits in one turn.** `p3-slow-hooks` had one prompt and one `Stop` per run,
+  after the last `PostToolUse`; each `PostToolUse` came after its own worker's `SubagentStop`, in the order the
+  workers finished.
+- **Background, the first `Stop` comes before any worker is done.** In `p3-bg` the main session's dispatching
+  turn ended while all three workers were running, then each finish arrived as a prompt. The notification carries
+  the report itself, so a hook on `UserPromptSubmit` can read it from the prompt.
+- **Version.** The P3 and P4 runs used Claude Code 2.1.305; the `c-haiku-guard` comparison used 2.1.304.
+
+## P4: background workers finishing together
+
+Probe P4 of the spec: when three background workers finish close together, how many prompts reach the main
+session, of which kinds, and does one prompt carry several reports? Two cells, four headless runs, run on
+2026-10-20 (21:07:58 to 21:09:19 UTC) with Claude Code 2.1.305 on Windows, $0.37 in all (per run $0.088 to
+$0.095), made by `probes/tierminator-parallel/p4-runner.js`. The main session (`claude -p --model sonnet
+--permission-mode bypassPermissions`) makes three Agent calls in one message with `run_in_background true` to the
+probe agent `tierminator-parallel-probe:cmd-worker`, which runs one command, `barrier.js`: each worker waits until
+all three are ready, then sleeps its stagger and ends. The main session is told to reply `GOT <worker>` for each
+report in a message, end its turn, and add `ALL DONE` once it has all three. Cells:
+
+- `p4-close`: stagger 0, 0, 0 ms, three runs.
+- `p4-stagger`: stagger 0, 1000, 2000 ms, one run.
+
+The runner's `analysis.summary` holds `prompts`, `byKind`, `promptsNamingSeveralWorkers` (prompts whose text
+names more than one of W1 to W3; the typed prompt names all three, so 1 means no notification did),
+`barrierSpreadMs` (the spread of the three `barrier.js` end times), `subagentStopSpreadMs`, `stops`,
+`resultEvents` and `gotLines`; `analysis.timeline` orders every prompt, `Stop`, `SubagentStart`,
+`SubagentStop`, `PostToolUse` and barrier end; `analysis.stream` is the session's own output.
+
+Evidence:
+- `probes/evidence/tierminator-parallel-p4-close-r1.json`, `-r2.json`, `-r3.json`.
+- `probes/evidence/tierminator-parallel-p4-stagger.json`.
+
+| Run | Finish spread: barrier, `SubagentStop` | Prompts after the first | Several reports in one prompt? | `GOT` replies (one line = one reply) | `Stop` events, `result` events |
+|---|---|---|---|---|---|
+| `p4-close-r1` | 39 ms, 580 ms | 3, all `task-notification` (W2, W3, W1) | **No**: each names one worker | `GOT W2`; `GOT W3 / GOT W1 / ALL DONE` | 3, 4 |
+| `p4-close-r2` | 27 ms, 788 ms | 3, all `task-notification` (W2, W1, W3) | **No** | `GOT W2`; `GOT W1 / GOT W3 / ALL DONE` | 3, 4 |
+| `p4-close-r3` | 44 ms, 732 ms | 3, all `task-notification` (W3, W1, W2) | **No** | `GOT W3`; `GOT W1 / GOT W2 / ALL DONE` | 3, 4 |
+| `p4-stagger` | 1970 ms, 3139 ms | 3, all `task-notification` (W1, W2, W3) | **No** | `GOT W1 / GOT W2`; `GOT W3 / ALL DONE` | 3, 4 |
+
+Every run has `byKind` `{"user": 1, "task-notification": 3}` and `promptsNamingSeveralWorkers: 1` (the typed
+prompt). No `<agent-message>` prompt arrived (no worker called `SubagentHandback`). Every `SubagentStop` had
+`last_assistant_message` with the worker's report, and every `PostToolUse` on the Agent call was
+`async_launched` with `isAsync: true`, at its worker's `SubagentStart`.
+
+**Timeline.** `p4-close-r1`, from `analysis.timeline` (UTC, 21:08):
+
+| Time | Event |
+|---|---|
+| 07:57.992 | the typed prompt |
+| 08:02.226 to 08:04.631 | three `SubagentStart`, each with its `PostToolUse` `async_launched` |
+| 08:06.555 | `Stop`: the dispatching turn ends |
+| 08:07.220 to 08:07.259 | the three barrier ends (39 ms) |
+| 08:09.102 | `SubagentStop` W2 |
+| 08:09.262 | prompt: notification W2 (160 ms later); a turn starts |
+| 08:09.435, 08:09.682 | `SubagentStop` W3, W1, during that turn |
+| 08:10.617 | `Stop` (reply `GOT W2`) |
+| 08:10.755, 08:10.890 | prompts: notifications W3 and W1, 138 and 273 ms after the `Stop`, with no `Stop` between them |
+| 08:12.937 | `Stop` (reply `GOT W3 / GOT W1 / ALL DONE`) |
+
+`p4-close-r2` and `-r3` follow the same order: the dispatching turn's `Stop` before the first `SubagentStop`, the
+first notification 249 and 187 ms after its `SubagentStop`, the other two `SubagentStop` events during that turn,
+and their two notifications 144 and 126 ms apart after its `Stop`. In `p4-stagger` the dispatching turn ran
+longer: its `Stop` (21:09:13.997) came after the `SubagentStop` of W1 (11.598) and W2 (13.081); their two
+notifications arrived 181 and 319 ms after that `Stop` and were answered in one reply; W3's `SubagentStop`
+(14.737) came during that turn, and its notification arrived 140 ms after the next `Stop` (17.176).
+
+### Details
+
+- **One prompt per worker, never combined.** In 4 of 4 runs each finish produced exactly one
+  `<task-notification>` naming one worker, with that worker's report in `<result>`, whether the finishes were
+  27 ms or 2 s apart.
+- **A finish during a turn waits for that turn's `Stop`.** No notification of a worker that finished during a
+  turn arrived before that turn's `Stop`. Each one either started a turn 160 to 249 ms after its `SubagentStop`,
+  when the session was idle, or came 128 to 319 ms after the `Stop` of the turn it finished during.
+- **Queued notifications arrive back to back and get one reply.** In all four runs two notifications were queued
+  at once, and both fired `UserPromptSubmit` before the model replied, with no `Stop` between them; the next
+  reply covered both (two `GOT` lines). The stream has four `result` events against three `Stop` hook events,
+  one of them with an empty result, between the two queued prompts. How Claude Code turns two queued prompts into
+  one reply (one turn with both, or an empty turn and then a turn that sees both) is **not determinable** from
+  these files.
+- **Order.** The notifications came in `SubagentStop` order in every run.
+- **`SubagentStop` events can be close.** Two came 47 ms apart (`p4-close-r3`, W1 and W2) and 126 ms apart
+  (`p4-close-r2`), each in its own hook process.
+
+**What it means for the spec's [Notices](tierminator-parallel-spec.md#notices) rules (inferred).**
+
+- **"Every hand-back or finish of a task yields a notice for that task" holds**: each finish is its own prompt,
+  and the `<task-id>` (the `agent_id`) and the description in `<summary>` tie it to the slot, so H1 can judge per
+  prompt, as it does for a serial hand-back.
+- **Two notices can reach the model in one turn.** When two notifications are queued, H1 runs twice before the
+  model answers, so the model sees both notices at once. The first, written when the other was not yet judged,
+  may say "others still running: end your turn" while the second says what to do next. The rule "the notice
+  says only what is true at that moment" is right but not enough: the notice must also say that a later notice
+  supersedes an earlier one, or each notice must be built from the whole wave state at that moment so the last
+  one is complete. The spec should say which.
+- **A finish while the dispatching turn is still running is not lost**, only delayed to that turn's `Stop`
+  (`p4-stagger`). H5's wait-states must let that turn end with workers in flight, and the judging (done in H4 at
+  `SubagentStop` or in H1 on the prompt) must not assume the notification comes right after the `SubagentStop`.
+- **The state lock is needed.** `SubagentStop` hooks of different workers ran 47 ms apart, which is the case the
+  spec's `state.update` lock is for.
+- **Not shown:** the `<agent-message>` hand-back path, which the real tier agents use interactively
+  ([dispatch findings](tierminator-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2-1-285)),
+  and an interactive session, where the user can type between notifications.
+
+## Pending: interactive P3 and P4
+
+These runs are headless. Interactive dispatch has no `run_in_background` field and always runs in the background,
+and in the default permission mode the workers ask for permission, so neither cell is covered by the runs above.
+
+| Cell | Why it needs an interactive run | Steps |
+|---|---|---|
+| `p3-bg` | Whether interactive background dispatch overlaps the workers and the slow hooks as `p3-bg` did headless, and what `PostToolUse` and the prompts look like there. | 1. `node probes/tierminator-parallel/c-runner.js --prepare p3-bg` 2. Run the printed lines in a new pwsh terminal. 3. Paste the printed prompt. 4. Answer each permission prompt once (do not pick "always allow"). 5. When all three reports are printed, `/exit`. 6. `node probes/tierminator-parallel/c-runner.js --collect p3-bg` 7. Commit `probes/evidence/tierminator-parallel-p3-bg-interactive.json` and update this doc. |
+| `p4-close` | Whether an interactive session gets one notification per worker, and queues them behind a running turn, as `p4-close` did headless. | 1. `node probes/tierminator-parallel/p4-runner.js --prepare p4-close` 2. Run the printed lines in a new pwsh terminal (it starts in `bypassPermissions`, so no permission prompt is expected; answer any once). 3. Paste the printed prompt. 4. Type nothing until the session prints `ALL DONE`, or two minutes pass. 5. `/exit`. 6. `node probes/tierminator-parallel/p4-runner.js --collect p4-close` 7. Commit `probes/evidence/tierminator-parallel-p4-close-interactive.json` and update this doc. |
+
 ## Pending: interactive cells
 
 **Superseded 2026-10-20 by option C** (see "Recommendation"): these cells are all about M1 (an isolated worktree
@@ -729,7 +896,8 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
 ## Not measured
 
 - **The interactive cells** (see Pending above): background dispatch, the user's permission mode, and
-  permission prompts for an outside worktree. None of the M1 or M2 re-run cells ran interactively.
+  permission prompts for an outside worktree. None of the M1 or M2 re-run cells ran interactively, and neither
+  did the P3 and P4 cells.
 - **The user-level settings file** (`~/.claude/settings.json` with `worktree.baseRef: "head"`): pending above
   as `m1-baseref-user`.
 - **How often independent-looking tasks conflict.** Nothing measured; the first release re-runs a conflicting task
@@ -741,10 +909,18 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
 - **Whether Claude Code's periodic sweep of `.claude/worktrees/` leaves worktrees that tierminator made**
   (named `tierminator-<run>-<task>`, not `agent-*`). Not tried; the packages name them to avoid Claude Code's
   pattern.
-- **Concurrent `git worktree add`.** The three hook processes ran one after another in 6 of 6 runs, so the
-  collision case never arose; the state lock covers it regardless.
+- **Concurrent `git worktree add`.** P3 shows the hook processes that make the worktrees overlap when they are
+  slow (three at once, `p3-slow-hooks`, `p3-bg`), but the probe's delay came before the git command, and the git
+  commands themselves still ran about a second apart, so two `git worktree add` in one repository at the same
+  moment never happened; the state lock covers it regardless.
 - **Interactive background dispatch of option C beyond one run**, and the exact prompts of that run (inferred from
-  hook timing; the `PermissionRequest` hook was added afterwards and used in headless runs).
+  hook timing; the `PermissionRequest` hook was added afterwards and used in headless runs). Headless background
+  dispatch is now measured (P3 `p3-bg`, P4): the workers and slow hooks overlap, `PostToolUse` returns
+  `async_launched`, and each finish arrives as its own `<task-notification>`. The interactive runs of `p3-bg` and
+  `p4-close` are pending (see "Pending: interactive P3 and P4").
+- **The `<agent-message>` hand-back with several workers.** No P3 or P4 worker called `SubagentHandback`, so how
+  several hand-backs and their notifications arrive together is unmeasured.
+- **Prompts typed by the user between notifications**, and more than three workers finishing at once.
 - **Auto mode on anything but small haiku tasks**, and whether the mode ever asks.
 - **Why `cd ... && git ...` offers no permanent rule**, and whether other forms (for example a `git` alias or a
   script) would.
@@ -766,5 +942,8 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
   cleanup is unknown.
 - **Whether Claude Code removes an isolated worktree that has no changes at all**; the no-commit worker left an
   untracked file.
-- **Several isolated Agent calls at once** (concurrent worktree creation), which belongs to P3 and P6.
+- **Several isolated Agent calls at once** (Claude Code making several `isolation: "worktree"` worktrees
+  concurrently). P3 answers several Agent calls in one message with hook-made worktrees (option C): the workers
+  overlap in the foreground and in the background, and their `PreToolUse` hooks overlap when slow. No cell made
+  several Claude Code worktrees at once, which option C does not use.
 - **Platforms other than Windows**: the `/tmp` path mismatch is Git Bash's, and may not occur elsewhere.
