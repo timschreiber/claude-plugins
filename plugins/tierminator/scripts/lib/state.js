@@ -1,5 +1,5 @@
 // Per-session state file: ${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json, and the activation flag beside
-// it, <session_id>.active, which the run state's own removals leave alone, and the rules marker,
+// it, <session_id>.lock (the state lock update() holds), <session_id>.active, which the run state's own removals leave alone, and the rules marker,
 // <session_id>.rules (H1 has shown the tiering rules in this plan-mode stint), and the attempt claims,
 // <session_id>.<key>.claim (which hook judges an attempt). Every function
 // swallows filesystem errors and returns a "nothing happened" value, because a hook must
@@ -162,12 +162,13 @@ function update(sessionId, fn, { waitMs = LOCK_WAIT_MS, staleMs = LOCK_STALE_MS 
   }
 }
 
-// Removes the state file, the lost-state note and the session's attempt claims.
+// Removes the state file, the lost-state note, the state lock and the session's attempt claims.
 function remove(sessionId) {
   try {
     const file = fileFor(sessionId)
     if (file) fs.rmSync(file, { force: true })
     if (file) fs.rmSync(lostFor(sessionId), { force: true })
+    if (file) fs.rmSync(lockFor(sessionId), { force: true })
     if (file) debug(`state ${path.basename(file, '.json')}: removed`)
     if (file) {
       const prefix = `${path.basename(file, '.json')}.`
@@ -182,6 +183,12 @@ function remove(sessionId) {
 // plus `-asked` once the worker was asked for its report, so its second stop is claimed and judged afresh.
 const attemptKey = s =>
   `${s?.runId ?? s?.planId ?? 'run'}-${s?.current?.index}-${s?.current?.attempt}${s?.current?.asked ? '-asked' : ''}`
+
+// The key of a parallel slot's attempt in flight: the run, the task id, the slot's attempt number, plus `-asked` once its worker was asked for its report. The task id keeps the claims of two slots of one run apart; the serial attemptKey is unchanged.
+const slotAttemptKey = (s, id) => {
+  const slot = s?.wave?.slots?.[id]
+  return `${s?.runId ?? s?.planId ?? 'run'}-${id}-${slot?.attempt}${slot?.asked ? '-asked' : ''}`
+}
 
 // Claims the judging of an attempt, <session_id>.<key>.claim beside the state: a background worker's
 // hand-back (H1) and its SubagentStop (H4) arrive close together, in either order, and only the hook that
@@ -365,14 +372,14 @@ function deactivate(sessionId) {
   } catch {}
 }
 
-// Deletes session files (state, activation flags, cursors, rules markers, attempt claims, lost-state notes, fallback tasks and telemetry
+// Deletes session files (state, activation flags, cursors, rules markers, attempt claims, lost-state notes, state locks, fallback tasks and telemetry
 // files, and leftover temp files) not modified within `days` days.
 function prune(days) {
   try {
     const dir = sessionsDir()
     const cutoff = Date.now() - days * DAY_MS
     for (const name of fs.readdirSync(dir)) {
-      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.claim', '.lost', '.plan.md'].some(ext => name.endsWith(ext))) continue
+      if (!['.json', '.jsonl', '.tmp', '.active', '.cursor', '.rules', '.claim', '.lost', '.lock', '.plan.md'].some(ext => name.endsWith(ext))) continue
       const file = path.join(dir, name)
       if (fs.statSync(file).mtimeMs < cutoff) fs.rmSync(file, { force: true })
     }
@@ -386,6 +393,7 @@ module.exports = {
   update,
   remove,
   attemptKey,
+  slotAttemptKey,
   claimAttempt,
   isActive,
   activate,

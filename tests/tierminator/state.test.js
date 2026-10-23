@@ -442,3 +442,40 @@ test('the staleMs option shortens when a live owner\'s lock is stale', () => {
     assert.equal(state.update('s1', () => ({ n: 1 }), { staleMs: 1000 }).ok, true)
   })
 })
+
+test('slotAttemptKey names the run, the task id, the attempt and asked', () => {
+  const s = { runId: 'ab12', wave: { slots: { T02: { attempt: 1 }, T03: { attempt: 1 } } } }
+  assert.equal(state.slotAttemptKey(s, 'T02'), 'ab12-T02-1')
+  assert.equal(state.slotAttemptKey(s, 'T03'), 'ab12-T03-1')
+  assert.equal(state.slotAttemptKey({ planId: 'p', wave: { slots: { T02: { attempt: 1 } } } }, 'T02'), 'p-T02-1')
+  assert.equal(state.slotAttemptKey({ runId: 'ab12', wave: { slots: { T02: { attempt: 2, asked: true } } } }, 'T02'), 'ab12-T02-2-asked')
+})
+
+test('two slots of one run claim their attempts apart', () => {
+  const s = { runId: 'ab12', wave: { slots: { T02: { attempt: 1 }, T03: { attempt: 1 } } } }
+  assert.equal(state.claimAttempt('s1', state.slotAttemptKey(s, 'T02')), true)
+  assert.equal(state.claimAttempt('s1', state.slotAttemptKey(s, 'T03')), true)
+  assert.equal(state.claimAttempt('s1', state.slotAttemptKey(s, 'T02')), false)
+})
+
+test('remove deletes the session lock and leaves another session\'s', () => {
+  const sessions = path.join(dir, 'sessions')
+  fs.mkdirSync(sessions, { recursive: true })
+  fs.writeFileSync(path.join(sessions, 's1.lock'), '{}')
+  fs.writeFileSync(path.join(sessions, 's10.lock'), '{}')
+  state.remove('s1')
+  assert.equal(fs.existsSync(path.join(sessions, 's1.lock')), false)
+  assert.equal(fs.existsSync(path.join(sessions, 's10.lock')), true)
+})
+
+test('prune removes old lock files and keeps fresh ones', () => {
+  const sessions = path.join(dir, 'sessions')
+  fs.mkdirSync(sessions, { recursive: true })
+  fs.writeFileSync(path.join(sessions, 'old.lock'), '{}')
+  fs.writeFileSync(path.join(sessions, 'new.lock'), '{}')
+  const past = new Date(Date.now() - 10 * 24 * 3600 * 1000)
+  fs.utimesSync(path.join(sessions, 'old.lock'), past, past)
+  state.prune(7)
+  assert.equal(fs.existsSync(path.join(sessions, 'old.lock')), false)
+  assert.equal(fs.existsSync(path.join(sessions, 'new.lock')), true)
+})
