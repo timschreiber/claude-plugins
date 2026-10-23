@@ -224,3 +224,118 @@ test('worktreeRemove refuses the main tree and a path that is not a worktree', (
   assert.deepEqual(g.worktreeRemove(r, path.join(dir, 'nope')), { ok: true })
   assert.equal(g.worktreeRemove(path.join(dir, 'missing'), plain).ok, false)
 })
+
+test('worktreeAdd makes a clean worktree on a new branch at HEAD', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  const res = g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', g.head(r))
+  assert.deepEqual(res, { ok: true, path: g.toWorktreePath(wt) })
+  assert.equal(g.branch(wt), 'tierminator/aaaa1111/T01')
+  assert.equal(g.head(wt), g.head(r))
+  assert.ok(fs.existsSync(path.join(wt, 'README.md')))
+  assert.ok(g.isClean(wt))
+  assert.equal(g.worktreesMatching(r).length, 1)
+})
+
+test('worktreeAdd starts the branch at a base that is not HEAD', () => {
+  const r = repo()
+  const base = g.head(r)
+  commit(r, 'b.txt', 'b', 'Add b')
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', base).ok, true)
+  assert.equal(g.head(wt), base)
+  assert.equal(fs.existsSync(path.join(wt, 'b.txt')), false)
+})
+
+test('commitsSince works from a worktree and leaves the main tree untouched', () => {
+  const r = repo()
+  const base = g.head(r)
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', base).ok, true)
+  commit(wt, 'a.txt', 'a', 'Add a', 'Tierminator-Task: T01')
+  const found = g.commitsSince(wt, base)
+  assert.equal(found.length, 1)
+  assert.match(found[0].message, /^Add a\n\nTierminator-Task: T01$/)
+  assert.deepEqual(g.commitsSince(r, base), [])
+})
+
+test('worktreeAdd reports a failure and undoes what it made', () => {
+  const r = repo()
+  const base = g.head(r)
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', base).ok, true)
+
+  const dup = g.worktreeAdd(r, slot(r, 'tierminator-aaaa1111-T02'), 'tierminator/aaaa1111/T01', base)
+  assert.equal(dup.ok, false)
+  assert.match(dup.failure, /^git worktree add failed: .*already exists/)
+  assert.equal(fs.existsSync(slot(r, 'tierminator-aaaa1111-T02')), false)
+  assert.equal(g.branch(wt), 'tierminator/aaaa1111/T01')
+  assert.deepEqual(g.branchesMatching(r), ['tierminator/aaaa1111/T01'])
+  assert.equal(g.worktreeList(r).length, 2)
+
+  const before = g.worktreeList(r)
+  const bad = slot(r, 'tierminator-aaaa1111-T09')
+  const res = g.worktreeAdd(r, bad, 'tierminator/aaaa1111/T09', 'not-a-commit')
+  assert.equal(res.ok, false)
+  assert.notEqual(spawnSync('git', ['-C', r, 'rev-parse', '--verify', '-q', 'refs/heads/tierminator/aaaa1111/T09']).status, 0)
+  assert.equal(fs.existsSync(bad), false)
+  assert.deepEqual(g.worktreeList(r), before)
+
+  const none = g.worktreeAdd(r, bad, undefined, base)
+  assert.equal(none.ok, false)
+  assert.match(none.failure, /needs a path, a branch and a base/)
+  assert.equal(g.worktreeAdd(path.join(dir, 'missing'), bad, 'tierminator/aaaa1111/T09', base).ok, false)
+})
+
+test('four worktreeAdd calls from separate processes at once all succeed', async () => {
+  const r = repo()
+  const base = g.head(r)
+  const script = path.join(dir, 'add.js')
+  write(dir, 'add.js', [
+    `const g = require(${JSON.stringify(path.resolve(__dirname, '../../plugins/tierminator/scripts/lib/git.js'))})`,
+    'const [cwd, p, b, base, at] = process.argv.slice(2)',
+    'while (Date.now() < Number(at)) {}',
+    'process.stdout.write(JSON.stringify(g.worktreeAdd(cwd, p, b, base)))'
+  ].join('\n'))
+  const at = Date.now() + 1500
+  const ids = ['T01', 'T02', 'T03', 'T04']
+  const runs = ids.map(id => {
+    const child = spawn(process.execPath, [script, r, slot(r, `tierminator-cccc3333-${id}`), `tierminator/cccc3333/${id}`, base, String(at)], { stdio: ['ignore', 'pipe', 'ignore'] })
+    let out = ''
+    child.stdout.on('data', d => { out += d })
+    return exited(child).then(() => out)
+  })
+  const outs = await Promise.all(runs)
+  for (const out of outs) assert.equal(JSON.parse(out).ok, true, out)
+  assert.equal(g.worktreeList(r).length, 5)
+  for (const id of ids) {
+    const wt = slot(r, `tierminator-cccc3333-${id}`)
+    assert.ok(g.isClean(wt))
+    assert.equal(g.branch(wt), `tierminator/cccc3333/${id}`)
+    assert.equal(g.head(wt), base)
+  }
+})
+
+test('worktreeAdd works for a slot path of 190 characters or more', () => {
+  const deep = path.join(dir, 'p'.repeat(Math.max(1, 190 - 49 - dir.length)))
+  fs.mkdirSync(deep)
+  const r = repo(path.join(path.basename(deep), 'repo'))
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.ok(g.toWorktreePath(wt).length >= 190)
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', g.head(r)).ok, true)
+  assert.ok(fs.existsSync(path.join(wt, 'README.md')))
+  assert.ok(g.isClean(wt))
+})
+
+test('worktreeAdd past the Windows path limit fails and undoes the worktree and the branch', { skip: process.platform !== 'win32' }, () => {
+  const r = repo()
+  run(r, 'config', 'core.longpaths', 'false')
+  commit(r, 'f'.repeat(240 - r.length - 1), 'x', 'Add a long name')
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  const res = g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', g.head(r))
+  assert.equal(res.ok, false)
+  assert.match(res.failure, /Filename too long/)
+  assert.equal(fs.existsSync(wt), false)
+  assert.deepEqual(g.worktreeList(r).map(w => w.path), [g.toWorktreePath(r)])
+  assert.deepEqual(g.branchesMatching(r), [])
+})

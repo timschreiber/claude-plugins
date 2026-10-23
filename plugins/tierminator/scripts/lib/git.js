@@ -60,7 +60,8 @@ const isClean = cwd => {
   return r.ok && r.stdout === ''
 }
 
-// The commits after `base` up to HEAD, oldest first, as {sha, message}.
+// The commits after `base` up to HEAD in `cwd`, which may be any worktree of the repository (a slot's in a
+// parallel wave), oldest first, as {sha, message}.
 function commitsSince(cwd, base) {
   const r = git(cwd, ['log', '--reverse', '--format=%H%x1f%B%x1e', `${base}..HEAD`])
   if (!r.ok) return []
@@ -252,4 +253,29 @@ function worktreeRemove(cwd, wtPath, delays = LOCK_RETRY_MS) {
   return { ok: false, failure: `git worktree remove failed: ${firstLine(first.stderr)}` }
 }
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove }
+// Makes a worktree at wtPath on a new branch started at base (git worktree add -b), retried on locks.
+// Returns {ok: true, path} with path in toWorktreePath form, or {ok: false, failure} with Git's first
+// error line. Callers serialize worktreeAdd through the state lock (WP-07, in H4's pre hook, WP-09); four
+// concurrent adds still succeed in the tests. core.longpaths is left as the user set it: measured on
+// Windows, Git 2.53, a checkout past the path limit exits 128 with 'Filename too long', removes the
+// directory and keeps the new branch, so a failed add undoes what it made (the worktree if the path was
+// new, the branch if it did not exist before).
+function worktreeAdd(cwd, wtPath, branch, base, delays = LOCK_RETRY_MS) {
+  const target = toWorktreePath(wtPath)
+  if (!target || typeof branch !== 'string' || !branch || typeof base !== 'string' || !base) {
+    return { ok: false, failure: 'worktreeAdd needs a path, a branch and a base' }
+  }
+  const hadBranch = git(cwd, ['rev-parse', '--verify', '-q', `refs/heads/${branch}`]).ok
+  const hadPath = fs.existsSync(target)
+  const r = gitPatiently(cwd, ['worktree', 'add', '-q', '-b', branch, target, base], delays)
+  if (r.ok) return { ok: true, path: target }
+  if (!hadPath) {
+    if (worktreeList(cwd).some(w => samePath(w.path, target))) git(cwd, ['worktree', 'remove', '--force', '--force', target])
+    try { fs.rmSync(target, { recursive: true, force: true }) } catch {}
+  }
+  git(cwd, ['worktree', 'prune'])
+  if (!hadBranch) git(cwd, ['branch', '-D', branch])
+  return { ok: false, failure: `git worktree add failed: ${firstLine(r.stderr)}` }
+}
+
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd }
