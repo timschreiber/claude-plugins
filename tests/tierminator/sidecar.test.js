@@ -25,6 +25,7 @@ const task = (n, over = {}) => ({
   prompt: 'Read docs/spec.md. Do the work. Verify: node --test passes.',
   ...over,
 })
+const withAfter = tasks => tasks.map((t, i) => ({ ...t, after: i === 0 ? [] : [tasks[i - 1].id] }))
 const body = tasks => JSON.stringify({ tasks }, null, 2)
 const planText = (tasks, eol = '\n') =>
   ['# Plan', '', 'Prose.', '', '## Tasks', '', '```json tiered-tasks', body(tasks), '```', ''].join('\n').replace(/\n/g, eol)
@@ -68,7 +69,7 @@ test('moveBlock keeps a CRLF plan CRLF, and the tasks file matches its hash', ()
   assert.equal(plan.replace(/\r\n/g, '').includes('\n'), false)
   const r = sidecar.resolvePlan(plan)
   assert.equal(r.ok, true)
-  assert.deepEqual(r.tasks, tasks)
+  assert.deepEqual(r.tasks, withAfter(tasks))
 })
 
 test('moveBlock leaves the plan unchanged when the plan cannot be written', () => {
@@ -86,9 +87,38 @@ test('resolvePlan loads the tasks from the tasks file', () => {
   sidecar.moveBlock(planFile, text, tasks)
   const r = sidecar.resolvePlan(fs.readFileSync(planFile, 'utf8'))
   assert.equal(r.ok, true)
-  assert.deepEqual(r.tasks, tasks)
+  assert.deepEqual(r.tasks, withAfter(tasks))
   assert.equal(r.section.file, sidecar.sidecarPath(planFile))
   assert.equal(r.problem, undefined)
+})
+
+test('resolvePlan keeps after, setup, verify and graph through the tasks file', () => {
+  const block = JSON.stringify(
+    { tasks: [task(1), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })], setup: ['npm ci'], verify: 'npm test' },
+    null,
+    2,
+  )
+  const text = ['# Plan', '', '## Tasks', '', '```json tiered-tasks', block, '```', ''].join('\n')
+  const planFile = writePlan(text)
+  assert.equal(sidecar.moveBlock(planFile, text, parsePlan(text).tasks), true)
+  assert.equal(fs.readFileSync(sidecar.sidecarPath(planFile), 'utf8'), block)
+  const r = sidecar.resolvePlan(fs.readFileSync(planFile, 'utf8'))
+  assert.equal(r.ok, true)
+  assert.equal(r.graph, true)
+  assert.deepEqual(r.setup, ['npm ci'])
+  assert.equal(r.verify, 'npm test')
+  assert.deepEqual(r.tasks.map(t => t.after), [[], [], ['T01', 'T02']])
+})
+
+test('resolvePlan of a serial plan has no graph fields', () => {
+  const text = planText([task(1), task(2)])
+  const planFile = writePlan(text)
+  assert.equal(sidecar.moveBlock(planFile, text, parsePlan(text).tasks), true)
+  const r = sidecar.resolvePlan(fs.readFileSync(planFile, 'utf8'))
+  assert.equal(r.ok, true)
+  assert.equal(r.graph, false)
+  assert.deepEqual(r.setup, [])
+  assert.equal(r.verify, null)
 })
 
 test('resolvePlan reports a missing, changed or invalid tasks file', () => {

@@ -32,7 +32,7 @@ function writeFile(file, text) {
   }
 }
 
-// loadSidecar(file, hash) -> {ok: true, tasks} or {ok: false, problem, errors}, where problem is
+// loadSidecar(file, hash) -> {ok: true, tasks, setup, verify, graph} or {ok: false, problem, errors}, where problem is
 // 'missing' (unreadable), 'changed' (hash differs from the table's) or 'invalid' (bad block).
 function loadSidecar(file, hash) {
   let body
@@ -51,7 +51,7 @@ function loadSidecar(file, hash) {
   }
   const parsed = parseBlock(body)
   if (!parsed.ok) return { ok: false, problem: 'invalid', errors: parsed.errors }
-  return { ok: true, tasks: parsed.tasks }
+  return { ok: true, tasks: parsed.tasks, setup: parsed.setup, verify: parsed.verify, graph: parsed.graph }
 }
 
 // parsePlan(), plus loading the tasks file when the plan has a generated section instead of a
@@ -74,7 +74,7 @@ function resolvePlan(text) {
       errors: [`the tierminator task table does not match its tasks file ${file}; the table was edited`],
     }
   }
-  return { ...result, ok: true, tasks: loaded.tasks, errors: [] }
+  return { ...result, ok: true, tasks: loaded.tasks, setup: loaded.setup, verify: loaded.verify, graph: loaded.graph, errors: [] }
 }
 
 // Moves the plan's one valid block into the tasks file and writes the plan with the generated
