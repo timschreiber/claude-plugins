@@ -1140,7 +1140,7 @@ counted by the same `MAX_REVIEWS`; a serial plan is never checked for it.
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
 The activation flag is a separate file beside it, `<session_id>.active` (its content is the time it was
 activated), so the run state's own removals never deactivate the session. `/tierminator:plan` and
-`/tierminator:execute` write it. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/tierminator/sessions/` is used. With `--plugin-dir`, Claude
+`/tierminator:execute` write it. Another file beside it, `<session_id>.rules`, marks that the rules were shown in the current plan-mode stint. `<session_id>.lock` is the state lock: `state.update()` holds it while it reads, changes and writes the state, so hook processes that change one session's state at once lose no update. It records its owner's pid and time, and a lock whose owner is gone or that is older than 30 seconds is removed. If `CLAUDE_PLUGIN_DATA` is unset, `<temp dir>/tierminator/sessions/` is used. With `--plugin-dir`, Claude
 Code sets `CLAUDE_PLUGIN_DATA` itself, to `~/.claude/plugins/data/tierminator-inline`.
 
 During a run the file looks like this:
@@ -1380,7 +1380,7 @@ plugins/tierminator/
     lib/result.js                # the result file: path, record, atomic write, what each ended state says
     lib/run.js                   # the run as pure functions: dispatch, report, judging, retries
     lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
-    lib/state.js                 # per-session state file, activation flag and telemetry cursor: read, atomic write, remove, activate, prune
+    lib/state.js                 # per-session state file, activation flag and telemetry cursor: read, atomic write, locked update, remove, activate, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
     lib/unattended.js            # headless runs: the CLAUDE_CODE_ENTRYPOINT check, the plan file name, the final message, the note
 ```
