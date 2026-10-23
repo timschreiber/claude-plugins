@@ -1,10 +1,12 @@
 // Git commands for the run: checks before a plan is accepted, the HEAD recorded before each dispatch,
-// and the reset before a retry. Every function swallows errors and returns a "nothing happened"
+// and the reset before a retry; for parallel waves, the slot worktrees and branches, the picks that
+// integrate them, and the exclude entry. Every function swallows errors and returns a "nothing happened"
 // value, because a hook must never fail loudly. Commands run with -C <cwd> and without the GIT_*
 // variables that could point them at another repository.
 'use strict'
 
 const { spawnSync } = require('child_process')
+const path = require('path')
 
 function git(cwd, args) {
   try {
@@ -132,4 +134,76 @@ function resetTo(cwd, sha, delays = LOCK_RETRY_MS) {
   return { ok: true }
 }
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep }
+// Parallel waves: slot worktrees and branches (spec: The dispatch of one task; Integration; Resuming).
+
+// The form a `Worktree:` line carries and file tools resolve correctly (C:/Users/...), never Git Bash's
+// /tmp/... pwd form. null unless p is a non-empty string.
+function toWorktreePath(p) {
+  if (typeof p !== 'string' || !p) return null
+  if (process.platform !== 'win32') return path.resolve(p)
+  const m = /^\/([a-zA-Z])(\/|$)/.exec(p)
+  if (m) p = `${m[1]}:/${p.slice(m[0].length)}`
+  const out = path.win32.resolve(p).replace(/\\/g, '/')
+  return out.replace(/^[a-z]:/, s => s.toUpperCase())
+}
+
+// True when both paths name the same location in toWorktreePath form (case-insensitive on win32).
+function samePath(a, b) {
+  const x = toWorktreePath(a)
+  const y = toWorktreePath(b)
+  if (x === null || y === null) return false
+  return process.platform === 'win32' ? x.toLowerCase() === y.toLowerCase() : x === y
+}
+
+// Every worktree of the repository, main first, as {path, head, branch, locked, prunable}; branch is
+// null when detached. [] on failure.
+function worktreeList(cwd) {
+  const r = git(cwd, ['worktree', 'list', '--porcelain'])
+  if (!r.ok) return []
+  const out = []
+  for (const block of r.stdout.split(/\r?\n\s*\r?\n/)) {
+    const lines = block.split(/\r?\n/).map(l => l.trim())
+    const wt = lines.find(l => l.startsWith('worktree '))
+    if (!wt) continue
+    const headLine = lines.find(l => l.startsWith('HEAD '))
+    const branchLine = lines.find(l => l.startsWith('branch '))
+    out.push({
+      path: toWorktreePath(wt.slice('worktree '.length)),
+      head: headLine ? headLine.slice('HEAD '.length) : null,
+      branch: branchLine ? branchLine.slice('branch '.length).replace(/^refs\/heads\//, '') : null,
+      locked: lines.some(l => l === 'locked' || l.startsWith('locked ')),
+      prunable: lines.some(l => l === 'prunable' || l.startsWith('prunable '))
+    })
+  }
+  return out
+}
+
+// The local branches whose names start with prefix (which must itself start with 'tierminator/'), sorted.
+function branchesMatching(cwd, prefix = 'tierminator/') {
+  if (typeof prefix !== 'string' || !prefix.startsWith('tierminator/')) return []
+  const r = git(cwd, ['for-each-ref', '--format=%(refname)', 'refs/heads/tierminator'])
+  if (!r.ok) return []
+  return r.stdout
+    .split(/\r?\n/)
+    .map(l => l.trim().replace(/^refs\/heads\//, ''))
+    .filter(n => n.startsWith(prefix))
+    .sort()
+}
+
+// The linked worktrees directly inside <main>/.claude/worktrees/ whose directory name starts with prefix
+// (which must itself start with 'tierminator-').
+function worktreesMatching(cwd, prefix = 'tierminator-') {
+  if (typeof prefix !== 'string' || !prefix.startsWith('tierminator-')) return []
+  const list = worktreeList(cwd)
+  if (!list.length || !list[0].path) return []
+  const dirPrefix = `${list[0].path}/.claude/worktrees/`
+  const win = process.platform === 'win32'
+  const cmp = s => (win ? s.toLowerCase() : s)
+  return list.slice(1).filter(w => {
+    if (!w.path || !cmp(w.path).startsWith(cmp(dirPrefix))) return false
+    const name = w.path.slice(dirPrefix.length)
+    return name.startsWith(prefix) && !name.includes('/')
+  })
+}
+
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching }
