@@ -2,7 +2,7 @@
 
 const { test, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
-const { spawnSync } = require('node:child_process')
+const { spawnSync, spawn } = require('node:child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -741,4 +741,76 @@ test('H8 is registered and only ever denies', () => {
   const entry = hooks.hooks.PreToolUse.find(e => e.matcher === 'Bash|PowerShell|Write|Edit|Glob|Grep')
   assert.ok(entry)
   assert.ok(entry.hooks.some(x => x.command.endsWith('h8-worktree-guard.js"')))
+})
+
+// Like hook, but runs the script without blocking, so several hooks run at the same time.
+function hookAsync(script, stdin, args = []) {
+  const env = { ...process.env }
+  delete env.CLAUDE_CODE_ENTRYPOINT
+  return new Promise(resolve => {
+    const child = spawn(process.execPath, [path.join(PLUGIN, 'scripts', script), ...args], { env })
+    let stdout = ''
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', chunk => (stdout += chunk))
+    child.on('close', status => resolve({ status, stdout }))
+    child.stdin.end(JSON.stringify(stdin))
+  })
+}
+
+test('a wave of three runs to the integration stub with its stops arriving together', async () => {
+  startWaveRun()
+  const ids = ['T01', 'T02', 'T03']
+  for (const id of ids) assert.equal(preOf(callOf(id)).stdout, '')
+  for (const id of ids) {
+    const res = postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+    assert.match(ctxOf(res), /running in the background/)
+  }
+  const shas = {}
+  for (const id of ids) shas[id] = workerCommits(id)
+  await Promise.all(ids.map(id => hookAsync('h4-dispatch.js', subStop(id, report('DONE', shas[id])), ['stop'])))
+  const s = state.read(S)
+  for (const id of ids) assert.equal(s.wave.slots[id].status, 'done', id)
+  assert.deepEqual(s.done.map(x => x.id).sort(), ['T01', 'T02', 'T03'])
+  assert.equal(s.phase, 'halted')
+  assert.equal(s.halt.reason, 'integration is not built yet')
+  assert.equal(s.wave.phase, 'integrating')
+  assert.equal(git.head(repo), s.wave.base)
+  assert.ok(git.isClean(repo))
+  for (const id of ids) assert.ok(fs.existsSync(s.wave.slots[id].worktree), id)
+  const rows = attemptRows()
+  assert.deepEqual(rows.map(x => x.task).sort(), ['T01', 'T02', 'T03'])
+  const by = id => rows.find(x => x.task === id)
+  assert.deepEqual(ids.map(id => by(id).tier), ['sonnet-medium', 'haiku-high', 'opus-high'])
+  for (const row of rows) {
+    assert.equal(row.attempt, 1)
+    assert.equal(row.outcome, 'done')
+  }
+  assert.equal(s.notice.split('integration is not built yet').length - 1, 1)
+})
+
+test('a retry runs in place while the others finish, then the run halts with the failed task', () => {
+  dispatchAll()
+  const ids = ['T01', 'T02', 'T03']
+  for (const id of ids) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+  stopHook(subStop('T01', report('FAILED', 'NONE', 'tests fail')))
+  assert.equal(slotOf('T01').status, 'ready')
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  // The retry is a new worker, with its own agent id.
+  postHook(agentPost(callOf('T01'), { isAsync: true, status: 'async_launched', agentId: 'retry-T01' }))
+  const sha2 = workerCommits('T02')
+  stopHook(subStop('T02', report('DONE', sha2)))
+  const sha3 = workerCommits('T03')
+  stopHook(subStop('T03', report('DONE', sha3)))
+  assert.equal(state.read(S).phase, 'running')
+  const sha1 = workerCommits('T01')
+  stopHook(subStop('T01', report('DONE', sha1), { agent_id: 'retry-T01' }))
+  const s = state.read(S)
+  assert.equal(slotOf('T01').attempt, 2)
+  assert.equal(slotOf('T01').tier, 'sonnet-high')
+  assert.equal(slotOf('T01').status, 'done')
+  assert.equal(s.phase, 'halted')
+  assert.equal(s.halt.reason, 'integration is not built yet')
+  const rows = attemptRows()
+  assert.equal(rows.length, 4)
+  assert.deepEqual(rows.filter(x => x.task === 'T01').map(x => x.outcome), ['retry', 'done'])
 })
