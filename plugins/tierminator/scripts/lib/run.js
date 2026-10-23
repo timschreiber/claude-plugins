@@ -44,10 +44,13 @@ const fresh = (task, index) => ({
 // planId marks every worker commit, so a later /tierminator:execute can tell this plan's finished tasks apart.
 // A run picked up part-way starts at `start`, with the tasks before it already in `done` (see
 // skippedEntry).
-function startRun({ tasks, tasksFile, tasksHash = null, planFile = null, branch = '', planId = null, start = 0, done = [] }) {
+function startRun({ tasks, tasksFile, tasksHash = null, planFile = null, branch = '', planId = null, start = 0, done = [], setup = [], verify = null, graph = false }) {
   return {
     phase: 'running',
     tasks,
+    setup,
+    verify,
+    graph,
     tasksFile,
     tasksHash,
     planFile,

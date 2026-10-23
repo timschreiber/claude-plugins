@@ -219,6 +219,9 @@ function startPlan(input, rest, opts, seen) {
   const run = {
     ...startRun({
       tasks: result.tasks,
+      setup: result.setup,
+      verify: result.verify,
+      graph: result.graph,
       tasksFile,
       tasksHash: result.section?.hash ?? null,
       planFile,

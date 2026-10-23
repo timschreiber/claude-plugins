@@ -44,6 +44,20 @@ test('the dispatch is a pointer to the task, with the reason added on a retry', 
   )
 })
 
+test('startRun carries setup, verify and graph', () => {
+  const s = r.startRun({ tasks: TASKS, tasksFile: 'f', branch: 'main', setup: ['npm ci'], verify: 'npm test', graph: true })
+  assert.deepEqual(s.setup, ['npm ci'])
+  assert.equal(s.verify, 'npm test')
+  assert.equal(s.graph, true)
+})
+
+test('startRun defaults to no setup, no verify and no graph', () => {
+  const s = start()
+  assert.deepEqual(s.setup, [])
+  assert.equal(s.verify, null)
+  assert.equal(s.graph, false)
+})
+
 test('with a plan id, the prompt names the plan and judge requires its line in the commit', () => {
   const s = r.startRun({ tasks: TASKS, tasksFile: 'C:/plans/p.tasks.json', branch: 'main', planId: '0123456789abcdef' })
   assert.equal(r.expectedPrompt(s), 'Tasks file: C:/plans/p.tasks.json\nPlan: 0123456789abcdef\nTask: T01')
