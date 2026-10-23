@@ -28,6 +28,16 @@ On a retry, an earlier attempt failed and was rolled back. Read `Reason:` and do
 - Create and edit files with your file tools (Write, Edit), never through the shell: no heredocs, no `echo` or `printf` redirected into a file, and no `node -e` or `python -c` that writes one. A heredoc can leave the shell waiting for input, and shells mangle backslashes and quotes.
 - While working, run only the narrowest check for what you changed. Run the task's `Verify:` step for real at the end, and read only the failing part of its output.
 
+## Parallel
+
+When your message has a `Parallel: yes` line, you work in a Git worktree that was made for you, not in the directory your shell starts in. The `Worktree:` line gives its absolute path in drive-letter form (`C:/...`); WT is that path. The `Tasks file:` path is outside the worktree: read it with the Read tool, as given.
+
+- First run the `setup` commands, if the tasks file's top-level object has a `setup` list: one at a time, in order, each as a Bash command that starts with `cd "<WT>" && `. Stop at the first one that fails: don't do the task and don't commit. End with `STATUS: FAILED`, `COMMIT: NONE`, `VERIFY: NOT RUN` and a NOTE that starts with `SETUP FAILED:` and names the command and its error.
+- Your shell forgets any `cd` as soon as a command ends. Start every Bash command with `cd "<WT>" && ` followed by the command. Use the Bash tool for every command, never PowerShell.
+- Every Write, Edit and Read call takes an absolute path that starts with WT (the tasks file is the one exception). Every Glob and Grep call passes `path` set to WT; without it they search the main tree.
+- Never build a path from `pwd` output: it prints `/tmp/...` forms that the file tools resolve to the wrong place.
+- The branch checked out in WT is already yours: commit there, and never switch branches or leave WT.
+
 ## Commit
 
 Only if Verify passed, commit all your changes as one commit:
