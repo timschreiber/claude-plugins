@@ -5,6 +5,7 @@
 //            itself passes through unchanged (no isolation, no updatedInput, no permissionDecision).
 'use strict'
 
+const fs = require('fs')
 const state = require('./state.js')
 const git = require('./git.js')
 const r = require('./run.js')
@@ -25,6 +26,76 @@ function discardSlot(cwd, slot) {
   const gone = git.worktreeRemove(cwd, slot.worktree)
   git.branchDelete(cwd, slot.branch)
   return gone
+}
+
+const STUB_REASON = 'integration is not built yet'
+
+// The task id a worker's transcript names in its first prompt, else null.
+function slotFromTranscript(file, planId) {
+  let lines
+  try {
+    lines = fs.readFileSync(file, 'utf8').split('\n').slice(0, 40)
+  } catch {
+    return null
+  }
+  for (const line of lines) {
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch {
+      continue
+    }
+    const c = o?.message?.content
+    const text = typeof c === 'string' ? c : Array.isArray(c) ? c.filter(b => b?.type === 'text').map(b => b.text).join('\n') : ''
+    if (typeof text !== 'string' || !text) continue
+    const rows = text.split('\n')
+    if (rows.some(l => l.startsWith('Tasks file:')) && (!planId || rows.some(l => l.trim() === 'Plan: ' + planId))) return w.taskOfPrompt(text)
+  }
+  return null
+}
+
+function slotOfStop(s, input) {
+  const id = w.slotOfAgent(s, input.agent_id) ?? slotFromTranscript(input.agent_transcript_path, s.planId)
+  return id && s.wave.slots[id] ? id : null
+}
+
+function slotFacts(cwd, s, id) {
+  const slot = s.wave.slots[id]
+  const at = git.head(cwd)
+  const mainTree =
+    at !== s.wave.base
+      ? 'the main working tree is on ' + String(at).slice(0, 7) + ', not the wave base ' + String(s.wave.base).slice(0, 7)
+      : git.isClean(cwd)
+        ? null
+        : 'the main working tree has uncommitted changes'
+  return {
+    commits: git.commitsSince(slot.worktree, slot.head),
+    clean: git.isClean(slot.worktree),
+    sameBranch: git.branch(slot.worktree) === slot.branch,
+    mainTree,
+  }
+}
+
+const lostText = (s, id) =>
+  'tierminator: the run stopped: ' +
+  id +
+  ' was judged but the run state could not be saved. Done: ' +
+  (s.done.map(r.doneLabel).join(', ') || 'none') +
+  '. To resume, the user types /tierminator:execute "' +
+  s.planFile +
+  '". Tell the user, and dispatch nothing more.'
+
+function stubHalt(next, id, notice) {
+  return {
+    state: { ...next, phase: 'halted', halt: { task: id, tried: next.wave.slots[id].tried, reason: STUB_REASON } },
+    notice:
+      notice +
+      ' The run stops here: ' +
+      STUB_REASON +
+      '. The finished tasks are on their branches (' +
+      next.wave.size.map(x => next.wave.slots[x].branch).join(', ') +
+      ') and their worktrees are left in place. Tell the user; dispatch nothing more.',
+  }
 }
 
 function pre(input, s) {
@@ -80,4 +151,18 @@ function pre(input, s) {
   if (denial) deny(denial)
 }
 
-module.exports = { modes: { pre }, ours, deny, context, cwdOf, joinNotice, discardSlot }
+module.exports = {
+  modes: { pre },
+  ours,
+  deny,
+  context,
+  cwdOf,
+  joinNotice,
+  discardSlot,
+  STUB_REASON,
+  slotFromTranscript,
+  slotOfStop,
+  slotFacts,
+  lostText,
+  stubHalt,
+}

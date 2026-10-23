@@ -287,3 +287,50 @@ test('a retry discards the old worktree and makes a fresh one', () => {
   assert.ok(fs.existsSync(wt))
   assert.equal(git.branch(wt), 'tierminator/' + state.read(S).runId + '/T01')
 })
+
+const h4 = lib('h4-wave.js')
+const promptFor = (id, plan = 'P1') => 'Tasks file: x\nPlan: ' + plan + '\nTask: ' + id + '\nParallel: yes\nWorktree: C:/w'
+const transcript = (name, content) => {
+  const f = path.join(dir, name)
+  fs.writeFileSync(f, JSON.stringify({ type: 'user', message: { content } }) + '\n')
+  return f
+}
+
+test('slotFromTranscript reads the task from the first prompt', () => {
+  const f = transcript('t.jsonl', promptFor('T02'))
+  assert.equal(h4.slotFromTranscript(f, 'P1'), 'T02')
+  assert.equal(h4.slotFromTranscript(f, 'P2'), null)
+  assert.equal(h4.slotFromTranscript(path.join(dir, 'missing.jsonl'), 'P1'), null)
+  const g = transcript('u.jsonl', [{ type: 'text', text: promptFor('T02') }])
+  assert.equal(h4.slotFromTranscript(g, 'P1'), 'T02')
+})
+
+test('slotOfStop finds a slot by transcript or by agent id', () => {
+  startWaveRun()
+  const f = transcript('t3.jsonl', promptFor('T03', PLAN_ID))
+  assert.equal(h4.slotOfStop(state.read(S), { agent_transcript_path: f }), 'T03')
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  state.write(S, w.recordAgent(state.read(S), 'T01', 'a1'))
+  assert.equal(h4.slotOfStop(state.read(S), { agent_id: 'a1' }), 'T01')
+})
+
+test('slotFacts reports commits, cleanliness and the main tree', () => {
+  startWaveRun()
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  workerCommits('T01')
+  const facts = h4.slotFacts(repo, state.read(S), 'T01')
+  assert.equal(facts.commits.length, 1)
+  assert.equal(facts.clean, true)
+  assert.equal(facts.sameBranch, true)
+  assert.equal(facts.mainTree, null)
+  fs.writeFileSync(path.join(repo, 'stray.txt'), 'x')
+  assert.match(h4.slotFacts(repo, state.read(S), 'T01').mainTree, /uncommitted/)
+})
+
+test('stubHalt halts the run and names the slot branches', () => {
+  const s = startWaveRun()
+  const res = h4.stubHalt(s, 'T01', 'Note.')
+  assert.equal(res.state.phase, 'halted')
+  assert.equal(res.state.halt.reason, h4.STUB_REASON)
+  for (const id of s.wave.size) assert.ok(res.notice.includes(s.wave.slots[id].branch))
+})
