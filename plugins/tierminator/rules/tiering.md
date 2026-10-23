@@ -167,6 +167,10 @@ which is the common case. Write it only for tasks that can truly run at once:
   conflict with another's is run again on its own after the wave, doing its work twice.
 - Put work every task needs, such as a shared interface or a rename, in an earlier wave.
 
+`ExitPlanMode` flags two tasks that may run at the same time and name the same file on their
+`Files to change:` lines. Make the later one wait for the other by adding it to its `after`, or keep it with a
+line `Keep T04: <why these can share files>`.
+
 Two optional fields beside `tasks` are used only when some task has `after`. Approving the plan runs them as
 written:
 

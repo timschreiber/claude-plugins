@@ -106,7 +106,9 @@ finished commit does the task fail and retry a tier up.
 Before you approve a plan, tierminator may send it back to Claude once or twice because a task looks too
 large for one worker: a Sonnet task with no `Files to change:` line or more than 4 files (an Opus task's
 files are only expected, so they are not counted), a very long prompt, or "and", "then"
-or ";" in its title. Claude splits the task, or keeps it and says why in a `Keep T03: <why>` line. These
+or ";" in its title. Claude splits the task, or keeps it and says why in a `Keep T03: <why>` line. In a plan
+with parallel tasks, it also flags two tasks that may run at the same time yet list the same file on their
+`Files to change:` lines; Claude makes one wait for the other with `after`, or keeps it with a `Keep` line. These
 are guidelines, so after two reviews the plan goes to the approval dialog either way.
 
 ### Stopping a run

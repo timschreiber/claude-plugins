@@ -1126,6 +1126,15 @@ flags, and in a headless draft H5 blocks the final message the same way. A plan 
 whatever flags remain. Only H2 and headless drafting review: `/tierminator:execute` runs a saved plan as it
 is.
 
+For a graph plan only (a block with any `after`), a task is also flagged when it may run at the same time as an
+earlier task (neither depends on the other, directly or through other tasks) and both `Files to change:` lines
+name the same file. Paths are compared after dropping wrapping backticks or quotes, turning `\` into `/`,
+collapsing repeated `/` and a leading `./`, and ignoring case; directories and globs are compared as written,
+never expanded. A task with no `Files to change:` line is not compared; an `opus` task with one is. The later
+task carries the flag, which names the other task, the shared files and the two fixes: add the other task to its
+`after`, or keep it with `Keep T04: <why these can share files>`. The flag is part of the same review and
+counted by the same `MAX_REVIEWS`; a serial plan is never checked for it.
+
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
