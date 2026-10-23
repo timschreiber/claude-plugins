@@ -506,6 +506,51 @@ All nine runs ended with every task done and the main tree untouched (`verdicts.
   the report itself, so a hook on `UserPromptSubmit` can read it from the prompt.
 - **Version.** The P3 and P4 runs used Claude Code 2.1.305; the `c-haiku-guard` comparison used 2.1.304.
 
+### Interactive run: `p3-bg-interactive`
+
+One interactive session, run by hand on 2026-10-22 (00:51 to 01:03 UTC on 2026-10-23) with Claude Code 2.1.309 on
+Windows, started in the default permission mode with the user answering the prompts (`c-runner.js --prepare p3-bg`,
+then `--collect p3-bg`; the cell is the `p3-bg` of the headless runs, with the slow 3 s worktree hook and the
+guard). No cost was recorded: an interactive run has no result event. The prompt was pasted without
+`run_in_background`, since interactive dispatch has no such field.
+
+The session holds **two dispatch rounds**, which the runner's own `analysis` mixes:
+
+- **Round 1 (00:51:20 to 00:56:54).** Not a default-mode run. The user approved with "allow all" by accident and the
+  permission mode changed: the tool events carry `default`, then `acceptEdits` (from 00:52:26), `plan` (4 events),
+  and `auto` (33 events), interleaved with `default` ones. Only 5 worker permission requests were made, all before
+  00:52:31. The main session then merged the three probe branches into `work` itself (00:56:08 UTC) and the user
+  asked it to remove the worktrees and branches.
+- **Round 2 (00:59:59 to 01:02:40).** The prompt pasted again after that cleanup. Every event carries `default`
+  (83 of 83), so this is the clean default-mode round.
+
+`probes/tierminator-parallel/split-rounds.js <file> 2026-10-23T00:58:00.000Z` splits the hook log at 00:58 UTC and
+writes a `rounds` key (`round1`, `round2`) into the file; the claims below come from it. **Do not use** the runner's
+`analysis.overlap` (it counts 20 `SubagentStop`s, 14 of them not the probe workers: an empty `agent_type`, not
+identified), `analysis.mkwtTiming` (it pairs hooks and workers across the rounds, for example -500256 ms),
+`verdicts.mainUntouched` (false only because the main session merged the probe branches into `work`: merge commits
+`c130946` and `fcd176a`; no worker is shown to have reached the main tree) or `analysis.permissionRequests` (it
+counts both rounds, 20).
+
+Evidence: `probes/evidence/tierminator-parallel-p3-bg-interactive.json` (`rounds`, `hookLog`; `git` for the final
+state, which is round 2's).
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Do the workers overlap with interactive background dispatch? | **Yes, in both rounds.** Round 1: starts 00:52:15.8 to :17.3, stops :46.2 to :46.7, each worker 28.9 to 30.7 s. Round 2: starts 01:00:36.5 to :38.2, stops 01:02:30.1 to :32.7, each worker 112.6 to 116.2 s. Every start came before the first stop. | `rounds.round1.workers`, `rounds.round2.workers` |
+| Do the slow worktree hooks overlap? | **Yes, in both rounds**, as headless: three processes of 3.1 to 3.3 s, started 0.5 to 1.2 s apart (`gapAfterPreviousEndMs` -2063 and -2619 in round 1, -2105 and -2327 in round 2), `git worktree add` status 0 each time. | `rounds.round*.worktreeHooks` |
+| Does a worker wait for its hook? | **Yes**, as headless. Paired with the hooks in time order (the log does not tie a hook to an agent id), `SubagentStart` came 167 to 294 ms (round 1) and 229 to 415 ms (round 2) after the hook ended; headless it was 101 to 143 ms. | `rounds.round*.subagentStartAfterHookEndMs` |
+| What does `PostToolUse` on the Agent call return? | `status: "async_launched"`, `isAsync: true`, 6 of 6, each within 23 ms of that worker's `SubagentStart`: the same as headless. | `rounds.round*.postAgent`, `rounds.round*.workers` |
+| Which prompts reached the main session after the typed prompt? | **One `<task-notification>` per worker**, three per round, no `<agent-message>`, as headless. They arrived in the order the workers stopped in both rounds (checked by `<task-id>` against `SubagentStop`), 2.6 to 5.2 s after the stops in round 1 and 0.4 to 2.0 s after them in round 2. | `rounds.round*.prompts`, `hookLog` (`ups`, `sub-stop`) |
+| What did default mode ask for? | Round 2: **13 permission requests**, all `default` mode: Read 3 (the tasks file, outside the worktree), Edit 6 and Bash 4. All 4 `cd "<worktree>" && …` Bash requests offered **no suggested rule**; the Reads and Edits did. This is the headless `c-haiku-default` finding, now with a person answering. | `rounds.round2.permissionRequests` (`byTool`, `cdBashWithoutSuggestion`, `list`) |
+| What did the prompts cost in time? | Round 2 workers took 112.6 to 116.2 s against 28.9 to 30.7 s in round 1 (mostly `auto`) and 12.8 to 15.4 s headless `p3-bg`. **Inferred:** the difference is time spent waiting for the 13 answers; the log does not time the waits. | `rounds.round*.workers`, `p3-bg-r*`: `analysis.overlap` |
+| Did the guard deny anything? | Round 2: no. Round 1: two `Write` calls, T01's and T02's, to `~/.claude/plans/…-agent-<id>.md` at 00:52:35, just after `plan` mode appears in the log (00:52:26.99). **Inferred:** the workers wrote plan files while the mode was cycling; the cause is not shown. Both workers still finished. | `rounds.round1.guardDenials`, `rounds.round1.permissionModes` |
+| Did the three tasks finish correctly? | **Yes** (round 2's final state): one commit each with both trailers, only the two expected files changed, clean status, tests pass, on `probe/t01` to `probe/t03`. | `git.slots`, `verdicts` (T01 to T03 `done`) |
+
+What it adds: interactive dispatch behaves like the headless `p3-bg` for overlap, hooks, `PostToolUse` and the
+notifications, so P3 needs no interactive caveat. What it adds on top is permissions: in default mode a person must
+answer one request per `cd … && git …` command, and the run took about four times longer for it.
+
 ## P4: background workers finishing together
 
 Probe P4 of the spec: when three background workers finish close together, how many prompts reach the main
@@ -741,12 +786,12 @@ hook, so not a hook that long) and that the validator passed.
 
 ## Pending: interactive P3 and P4
 
-These runs are headless. Interactive dispatch has no `run_in_background` field and always runs in the background,
-and in the default permission mode the workers ask for permission, so neither cell is covered by the runs above.
+The P3 cell `p3-bg` is done (see "Interactive run: `p3-bg-interactive`" under P3). The P4 cell is still to be run
+by hand: its runs above are headless, and interactive dispatch has no `run_in_background` field and always runs in
+the background.
 
 | Cell | Why it needs an interactive run | Steps |
 |---|---|---|
-| `p3-bg` | Whether interactive background dispatch overlaps the workers and the slow hooks as `p3-bg` did headless, and what `PostToolUse` and the prompts look like there. | 1. `node probes/tierminator-parallel/c-runner.js --prepare p3-bg` 2. Run the printed lines in a new pwsh terminal. 3. Paste the printed prompt. 4. Answer each permission prompt once (do not pick "always allow"). 5. When all three reports are printed, `/exit`. 6. `node probes/tierminator-parallel/c-runner.js --collect p3-bg` 7. Commit `probes/evidence/tierminator-parallel-p3-bg-interactive.json` and update this doc. |
 | `p4-close` | Whether an interactive session gets one notification per worker, and queues them behind a running turn, as `p4-close` did headless. | 1. `node probes/tierminator-parallel/p4-runner.js --prepare p4-close` 2. Run the printed lines in a new pwsh terminal (it starts in `bypassPermissions`, so no permission prompt is expected; answer any once). 3. Paste the printed prompt. 4. Type nothing until the session prints `ALL DONE`, or two minutes pass. 5. `/exit`. 6. `node probes/tierminator-parallel/p4-runner.js --collect p4-close` 7. Commit `probes/evidence/tierminator-parallel-p4-close-interactive.json` and update this doc. |
 
 ## Pending: interactive cells
@@ -1034,7 +1079,7 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
 
 - **The interactive cells** (see Pending above): background dispatch, the user's permission mode, and
   permission prompts for an outside worktree. None of the M1 or M2 re-run cells ran interactively, and neither
-  did the P3 and P4 cells.
+  did the P4 cells. The P3 cell `p3-bg` did, once, in the default mode (13 permission requests; see P3).
 - **The user-level settings file** (`~/.claude/settings.json` with `worktree.baseRef: "head"`): pending above
   as `m1-baseref-user`.
 - **How often independent-looking tasks conflict.** Nothing measured; the first release re-runs a conflicting task
@@ -1053,8 +1098,10 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
 - **Interactive background dispatch of option C beyond one run**, and the exact prompts of that run (inferred from
   hook timing; the `PermissionRequest` hook was added afterwards and used in headless runs). Headless background
   dispatch is now measured (P3 `p3-bg`, P4): the workers and slow hooks overlap, `PostToolUse` returns
-  `async_launched`, and each finish arrives as its own `<task-notification>`. The interactive runs of `p3-bg` and
-  `p4-close` are pending (see "Pending: interactive P3 and P4").
+  `async_launched`, and each finish arrives as its own `<task-notification>`. The interactive run of `p3-bg` is
+  done (default mode, one clean round of three workers, "Interactive run: `p3-bg-interactive`" under P3); the
+  interactive `p4-close` is pending (see "Pending: interactive P3 and P4"). Not measured: an interactive run with
+  `auto` or `acceptEdits` from the start (the mixed round 1 of `p3-bg-interactive` is not a clean run of either).
 - **The `<agent-message>` hand-back with several workers.** No P3 or P4 worker called `SubagentHandback`, so how
   several hand-backs and their notifications arrive together is unmeasured.
 - **Prompts typed by the user between notifications**, and more than three workers finishing at once.
