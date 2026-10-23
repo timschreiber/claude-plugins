@@ -370,7 +370,7 @@ test('H2 moves a valid block to the tasks file and leaves the table in the plan'
 })
 
 test('H2 writes the wave table for a graph plan, and passes it when resubmitted', () => {
-  const body = JSON.stringify({ setup: ['npm ci'], verify: 'npm test', tasks: [task(1), task(2, { after: [] })] }, null, 2)
+  const body = JSON.stringify({ setup: ['npm ci'], verify: 'npm test', tasks: [task(1), task(2, { after: [], prompt: 'Read docs/spec.md.\nFiles to change: src/b.js\nDo the work. Verify: node --test passes.' })] }, null, 2)
   const text = `# Plan\n\nProse.\n\n## Tasks\n\n\`\`\`json tiered-tasks\n${body}\n\`\`\`\n`
   const file = writePlanFile(text)
   assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, file)).stdout, '')
@@ -517,7 +517,7 @@ test('H3 starts a graph plan with after, setup and verify kept', () => {
   const graphPlan =
     '# Plan\n\nProse.\n\n## Tasks\n\n```json tiered-tasks\n' +
     JSON.stringify(
-      { tasks: [task(1), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })], setup: ['npm ci'], verify: 'npm test' },
+      { tasks: [task(1), task(2, { after: [], prompt: 'Read docs/spec.md.\nFiles to change: src/b.js\nDo the work. Verify: node --test passes.' }), task(3, { after: ['T01', 'T02'] })], setup: ['npm ci'], verify: 'npm test' },
       null,
       2,
     ) +
@@ -624,6 +624,50 @@ test('H2 lets an unchanged flagged plan through after two reviews', () => {
   }
   assert.equal(hook('h2-gate-exit-plan.js', exitPre(FLAGGED, file)).stdout, '')
   assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
+const SHARED = planText([task(1), task(2, { after: [] })])
+
+test('H2 flags two parallel tasks that name the same file, and lets them through after a Keep line', () => {
+  planning()
+  const file = writePlanFile(SHARED)
+  const first = hook('h2-gate-exit-plan.js', exitPre(SHARED, file))
+  assert.equal(first.json.hookSpecificOutput.permissionDecision, 'deny')
+  const reason = denyReason(first)
+  assert.match(reason, /may run at the same time as a task that changes the same file/)
+  assert.match(reason, /- T02: may run at the same time as T01, and both name src\/a\.js/)
+  assert.ok(!reason.includes('- T01:'))
+  assert.equal(state.read(S).sizingReviews, 1)
+  assert.equal(fs.readFileSync(file, 'utf8'), SHARED, 'the block is not moved by a review')
+
+  const kept = SHARED + '\nKeep T02: they touch different functions.\n'
+  fs.writeFileSync(file, kept)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(kept, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
+test('H2 does not flag parallel tasks joined by after', () => {
+  planning()
+  const text = planText([task(1), task(2, { after: ['T01'] })])
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, writePlanFile(text))).stdout, '')
+  assert.equal(state.read(S).sizingReviews, undefined)
+})
+
+test('H2 lets an unchanged overlapping plan through after two reviews', () => {
+  planning()
+  const file = writePlanFile(SHARED)
+  for (let i = 1; i <= 2; i++) {
+    assert.equal(hook('h2-gate-exit-plan.js', exitPre(SHARED, file)).json.hookSpecificOutput.permissionDecision, 'deny')
+    assert.equal(state.read(S).sizingReviews, i)
+  }
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(SHARED, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
+test('H2 never flags a serial plan whose tasks share a file', () => {
+  planning()
+  const text = planText([task(1), task(2), task(3)])
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, writePlanFile(text))).stdout, '')
 })
 
 test('H2 passes a clean plan on the first call', () => {
@@ -1864,6 +1908,21 @@ test('H5 stop with a flagged plan while drafting blocks once with the review tex
   assert.match(again.json.reason, /Dispatch/)
   assert.equal(state.read(S).phase, 'running')
   assert.equal(fs.readFileSync(draftPlanFile(), 'utf8'), kept)
+})
+
+test('H5 stop with parallel tasks sharing a file while drafting blocks with the overlap text, then runs it once kept', () => {
+  state.write(S, draftingState())
+  const r = draftStop(SHARED)
+  assert.equal(r.json.decision, 'block')
+  assert.match(r.json.reason, /- T02: may run at the same time as T01/)
+  assert.match(r.json.reason, /then end your turn again with the complete plan as your final message\.$/i)
+  assert.ok(!r.json.reason.includes('ExitPlanMode'))
+  assert.equal(state.read(S).sizingReviews, 1)
+  assert.equal(state.read(S).phase, 'drafting')
+
+  const again = draftStop(SHARED + '\nKeep T02: x.\n')
+  assert.match(again.json.reason, /Dispatch/)
+  assert.equal(state.read(S).phase, 'running')
 })
 
 test('H5 stop with an opt-out plan while drafting removes the state and tells Claude to implement it', () => {

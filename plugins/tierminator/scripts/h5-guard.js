@@ -77,7 +77,7 @@ function draftingStop(input, s) {
     // A task that may be too large for one worker is sent back to the planner, a couple of times, as H2 does.
     const reviews = s.sizingReviews ?? 0
     if (reviews < sizing.MAX_REVIEWS) {
-      const pending = sizing.review(result.tasks, text)
+      const pending = sizing.review(result.tasks, text, { graph: result.graph })
       if (pending.length > 0) {
         state.write(id, { ...s, sizingReviews: reviews + 1 })
         return block(

@@ -63,11 +63,12 @@ run(async () => {
     }
 
     // A task that may be too large for one worker is sent back to the planner, a couple of times: it is
-    // split, or kept with a "Keep Txx:" line. These are guidelines, so the plan then passes. A review
+    // split, or kept with a "Keep Txx:" line. In a graph plan two tasks that may run at the same time
+    // and name the same file are flagged too. These are guidelines, so the plan then passes. A review
     // does not count toward the invalid-block denials.
     const reviews = current?.sizingReviews ?? 0
     if (reviews < sizing.MAX_REVIEWS) {
-      const pending = sizing.review(result.tasks, text)
+      const pending = sizing.review(result.tasks, text, { graph: result.graph })
       if (pending.length > 0) {
         const base = current ?? { phase: 'planning', tasks: [], denials: 0 }
         state.write(input.session_id, { ...base, sizingReviews: reviews + 1 })
