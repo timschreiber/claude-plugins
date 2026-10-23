@@ -3,6 +3,7 @@
 //   pre      PreToolUse Agent: only a dispatch the wave expects may start. It makes the slot's worktree
 //            (discarding the failed attempt's first on a retry) and records the slot as running; the call
 //            itself passes through unchanged (no isolation, no updatedInput, no permissionDecision).
+//   stop     SubagentStop: a slot's worker finished. Judges that slot alone (settleSlot) while the others run.
 'use strict'
 
 const fs = require('fs')
@@ -10,6 +11,11 @@ const state = require('./state.js')
 const git = require('./git.js')
 const r = require('./run.js')
 const w = require('./wave-run.js')
+const spend = require('./spend.js')
+const resultFile = require('./result.js')
+const { readReport } = require('./settle.js')
+const { MAX_TURNS } = require('./tasks.js')
+const { transcriptUsage } = require('./usage.js')
 const { emit } = require('./hook.js')
 
 const ours = type => typeof type === 'string' && type.startsWith(r.AGENT_PREFIX)
@@ -151,8 +157,71 @@ function pre(input, s) {
   if (denial) deny(denial)
 }
 
+// The one place a slot's attempt is judged and saved; used by stop, failure and resume-failure. Returns the
+// notice text, or null when the attempt was not judged or the state could not be saved.
+function settleSlot(input, s, id, { report = null, failure = null, agentId = null, transcript, stopReason, ran = true, record = true, deliver = false } = {}) {
+  const cwd = cwdOf(s, input)
+  const outcome = failure ?? w.judgeSlot({ report, taskId: id, planId: s.planId, ...slotFacts(cwd, s, id) })
+  let text = null
+  const res = state.update(input.session_id, cur => {
+    if (!w.judgeable(cur, id, agentId)) return null
+    let base = agentId ? w.recordAgent(cur, id, agentId) : cur
+    base = w.withSlot(base, id, { ...base.wave.slots[id], report })
+    const step = !failure && w.shouldAsk(base, id, outcome) ? w.askForReport(base, id) : w.advanceSlot(base, id, outcome)
+    let next = step.state
+    let notice = w.noticeText(base, next, id, step.action, outcome)
+    if (step.action === 'integrate') {
+      const h = stubHalt(next, id, notice)
+      next = h.state
+      notice = h.notice
+    }
+    if (record) {
+      next = spend.recordAttempt({ ...input, agent_id: agentId ?? input.agent_id }, base, next, { slotId: id, transcript, ran, stopReason }).next
+    }
+    text = notice
+    return {
+      ...next,
+      notice: deliver ? cur.notice : joinNotice(cur.notice, notice),
+      noticeByNotification: !deliver && !!base.wave.slots[id].background,
+    }
+  })
+  if (!res.ok) {
+    state.saveLost(input.session_id, lostText(s, id))
+    return null
+  }
+  return text
+}
+
+function stop(input, s) {
+  if (s.handedBack?.includes(input.agent_id) || !ours(input.agent_type) || s.phase !== 'running') return
+  const id = slotOfStop(s, input)
+  if (!id || !w.judgeable(s, id, input.agent_id)) return
+  const report = readReport(input.last_assistant_message, input.agent_transcript_path)
+  if (!report) {
+    // No report at its turn limit: the worker is not judged; the turn-limit paths resume it.
+    const turns = transcriptUsage(input.agent_transcript_path)?.messages
+    if (typeof turns === 'number' && turns >= MAX_TURNS[s.wave.slots[id].tier]) {
+      state.update(input.session_id, cur => {
+        if (!w.judgeable(cur, id, input.agent_id)) return null
+        const b = w.recordAgent(cur, id, input.agent_id)
+        return w.withSlot(b, id, { ...b.wave.slots[id], turnLimited: { turns } })
+      })
+      return
+    }
+  }
+  // Only one hook judges an attempt: when H1's hand-back claimed it first, H1 judges it.
+  if (!state.claimAttempt(input.session_id, state.slotAttemptKey(s, id))) return
+  settleSlot(input, s, id, {
+    report,
+    agentId: input.agent_id ?? null,
+    transcript: input.agent_transcript_path,
+    stopReason: report ? 'report' : 'no-report',
+  })
+}
+
 module.exports = {
-  modes: { pre },
+  modes: { pre, stop },
+  settleSlot,
   ours,
   deny,
   context,

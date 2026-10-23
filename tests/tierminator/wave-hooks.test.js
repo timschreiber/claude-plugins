@@ -334,3 +334,40 @@ test('stubHalt halts the run and names the slot branches', () => {
   assert.equal(res.state.halt.reason, h4.STUB_REASON)
   for (const id of s.wave.size) assert.ok(res.notice.includes(s.wave.slots[id].branch))
 })
+
+// Dispatches all three slots with the pre hook.
+function dispatchAll() {
+  startWaveRun()
+  for (const id of ['T01', 'T02', 'T03']) assert.equal(preOf(callOf(id)).stdout, '')
+}
+// A SubagentStop for slot `id`; its transcript names the task, as the worker's first prompt does.
+const stopOf = (id, text) => subStop(id, text, { agent_transcript_path: transcript('stop-' + id + '.jsonl', promptFor(id, PLAN_ID)) })
+
+test('a clean finish settles one slot while the others run', () => {
+  dispatchAll()
+  const sha = workerCommits('T01')
+  hook('h4-dispatch.js', stopOf('T01', report('DONE', sha)), ['stop'])
+  const s = state.read(S)
+  assert.equal(slotOf('T01').status, 'done')
+  assert.equal(slotOf('T01').agentId, 'worker-T01')
+  assert.equal(s.done.length, 1)
+  assert.equal(s.done[0].id, 'T01')
+  assert.equal(s.done[0].commit, sha)
+  assert.match(s.notice, /T01 done/)
+  assert.match(s.notice, /Still running: T02, T03/)
+  assert.equal(slotOf('T02').status, 'running')
+  assert.equal(slotOf('T03').status, 'running')
+  assert.ok(git.isClean(repo))
+})
+
+test('a failed slot retries in place while the others run', () => {
+  dispatchAll()
+  hook('h4-dispatch.js', stopOf('T01', report('FAILED', 'NONE', 'tests fail')), ['stop'])
+  const s = state.read(S)
+  assert.equal(slotOf('T01').status, 'ready')
+  assert.equal(slotOf('T01').attempt, 2)
+  assert.equal(slotOf('T01').tier, 'sonnet-high')
+  assert.equal(slotOf('T02').status, 'running')
+  assert.match(s.notice, /T01 failed at sonnet-medium: tests fail/)
+  assert.ok(s.notice.includes('tierminator:sonnet-high'))
+})
