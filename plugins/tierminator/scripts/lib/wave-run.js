@@ -302,7 +302,106 @@ function checkResume(state, toolInput) {
   return { id, problem: null }
 }
 
+const short = sha => String(sha ?? '').slice(0, 7)
+const lastDone = (state, id) => [...state.done].reverse().find(d => d.id === id)
+
+// The instruction Claude follows to dispatch every task that may start now; '' when none may.
+function dispatchText(state) {
+  const ids = startable(state)
+  if (ids.length === 0) return ''
+  const lines = [
+    ids.length === 1
+      ? 'Call the Agent tool now, once:'
+      : `Call the Agent tool ${ids.length} times now, all in one message, one call per task:`,
+  ]
+  for (const id of ids) {
+    const call = expectedCall(state, id)
+    lines.push(
+      `- subagent_type "${call.subagent_type}", description ${JSON.stringify(call.description)}, and as its ` +
+        `prompt exactly the ${call.prompt.split('\n').length} lines inside this fence, without the fence lines:` +
+        '\n```\n' + call.prompt + '\n```'
+    )
+  }
+  lines.push(
+    "Do not set isolation: tierminator makes each task's worktree. Do not do the tasks yourself. If they run in the background, end your turn."
+  )
+  return lines.join('\n')
+}
+
+const runningIds = state => state.wave.size.filter(id => state.wave.slots[id].status === 'running')
+
+// What Claude is told when its Agent calls return while the tasks run in the background.
+function runningText(state) {
+  const wv = state.wave
+  const ids = runningIds(state)
+  if (ids.length === 0) return `tierminator: no task of wave ${wv.n} is running. End your turn now.`
+  const list = ids.map(id => `${id} on ${r.agentName(wv.slots[id].tier)}`)
+  return (
+    `tierminator: ${list.join(', ')} ${ids.length === 1 ? 'is' : 'are'} running in the background (wave ${wv.n}). ` +
+    'End your turn now; tierminator gives the next step as each one reports.'
+  )
+}
+
+const resumeText = (state, id) => r.resumeText(asCurrent(state, id))
+
+// What Claude is told when the wave has stopped on a failed task.
+function haltText(state) {
+  const wv = state.wave
+  const h = state.halt ?? wv.halting
+  const failed = wv.size.filter(id => wv.slots[id].status === 'failed' && id !== h.task)
+  const done = wv.size.filter(id => wv.slots[id].status === 'done')
+  const skipped = wv.size.filter(id => wv.slots[id].status === 'skipped')
+  let text =
+    `tierminator: wave ${wv.n} stopped: ${h.task} failed after ${h.tried.length} attempt(s) (${h.tried.join(', ')}). ` +
+    `Reason: ${h.reason}. `
+  if (failed.length) text += `Also failed: ${failed.map(id => `${id} (${wv.slots[id].failure})`).join('; ')}. `
+  if (done.length) {
+    const labels = done.map(id => r.doneLabel(lastDone(state, id) ?? { id, commit: '', tier: wv.slots[id].tier }))
+    text += `The tasks that passed are integrated onto the run branch, and /tierminator:execute skips them: ${labels.join(', ')}. `
+  } else {
+    text += 'No task of the wave passed. '
+  }
+  if (skipped.length) text += `Not started: ${skipped.join(', ')}. `
+  text +=
+    `The failed task's worktree, ${wv.slots[h.task].worktree}, is left in place. ` +
+    'Tell the user what stopped the run and what is left; do not fix it or dispatch more tasks.'
+  return text
+}
+
+// What Claude is told after a slot's attempt. prev is the state the attempt ran in, next the state after,
+// action what advanceSlot, turnLimitStop or askForReport returned, outcome what judgeSlot did.
+function noticeText(prev, next, id, action, outcome) {
+  if (action === 'ask' || action === 'resume') return resumeText(next, id)
+  const slot = prev.wave.slots[id]
+  let line
+  if (action === 'retry') {
+    line =
+      `tierminator: ${id} failed at ${slot.tier}: ${outcome.reason}. Its worktree and branch are discarded ` +
+      'and made again at the wave base; retrying one tier up.'
+  } else if (outcome.ok) {
+    const d = lastDone(next, id)
+    const how = d.unreported ? `${d.tier}; no report block, accepted on its commit` : d.tier
+    line = `tierminator: ${id} done (commit ${short(d.commit)}, ${how}).`
+  } else {
+    line = `tierminator: ${id} failed at ${slot.tier}: ${outcome.fatal ?? outcome.reason}. It is not retried.`
+  }
+  if (action === 'halt') return `${line} ${haltText(next)}`
+  // WP-11's hook integrates the wave and appends the next step.
+  if (action === 'integrate') return `${line} All ${next.wave.size.length} tasks of wave ${next.wave.n} are done.`
+  const wv = next.wave
+  const tail =
+    (wv.halting ? `Wave ${wv.n} is halting (${wv.halting.task} failed): nothing more starts. ` : '') +
+    (dispatchText(next) ||
+      `Still running: ${runningIds(next).join(', ')}. End your turn; tierminator gives the next step when the next one reports.`)
+  return `${line} ${tail}`
+}
+
 module.exports = {
+  dispatchText,
+  runningText,
+  resumeText,
+  haltText,
+  noticeText,
   asCurrent,
   withSlot,
   slotPlacement,

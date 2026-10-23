@@ -495,3 +495,162 @@ test('resumed counts a resume but not a report request', () => {
   assert.equal(slot(ask, 'T02').resumePending, false)
   assert.equal(slot(ask, 'T02').asked, true)
 })
+
+// --- dispatch, running, notice and halt texts ---
+
+const fenceOf = (s, id) => `\`\`\`\n${w.expectedCall(s, id).prompt}\n\`\`\``
+const ISO = "Do not set isolation: tierminator makes each task's worktree. Do not do the tasks yourself. If they run in the background, end your turn."
+
+test('dispatchText for one startable task', () => {
+  const s = w.dispatched(w.dispatched(wave(), 'T02'), 'T03')
+  const c = w.expectedCall(s, 'T04')
+  assert.equal(
+    w.dispatchText(s),
+    [
+      'Call the Agent tool now, once:',
+      `- subagent_type "tierminator:opus-high", description "T04: Task 4", and as its prompt exactly the ${c.prompt.split('\n').length} lines inside this fence, without the fence lines:`,
+      fenceOf(s, 'T04'),
+      ISO,
+    ].join('\n')
+  )
+})
+
+test('dispatchText for three startable tasks, and empty when none can start', () => {
+  const s = wave()
+  const text = w.dispatchText(s)
+  assert.ok(text.startsWith('Call the Agent tool 3 times now, all in one message, one call per task:\n'))
+  for (const [id, type] of [['T02', 'tierminator:sonnet-medium'], ['T03', 'tierminator:haiku-high'], ['T04', 'tierminator:opus-high']]) {
+    const c = w.expectedCall(s, id)
+    assert.ok(text.includes(`- subagent_type "${type}", description "${id}: Task ${Number(id.slice(1))}", and as its prompt exactly the 5 lines inside this fence, without the fence lines:\n${fenceOf(s, id)}`))
+    assert.equal(c.prompt.split('\n').length, 5)
+  }
+  assert.ok(text.endsWith(`\n${ISO}`))
+  assert.equal(w.dispatchText(running(s, 'T02', 'T03', 'T04')), '')
+  assert.equal(w.dispatchText({ ...s, phase: 'halted' }), '')
+})
+
+test('runningText for one, two and none', () => {
+  const s = wave()
+  assert.equal(
+    w.runningText(running(s, 'T02')),
+    'tierminator: T02 on tierminator:sonnet-medium is running in the background (wave 2). End your turn now; tierminator gives the next step as each one reports.'
+  )
+  assert.equal(
+    w.runningText(running(s, 'T02', 'T04')),
+    'tierminator: T02 on tierminator:sonnet-medium, T04 on tierminator:opus-high are running in the background (wave 2). End your turn now; tierminator gives the next step as each one reports.'
+  )
+  assert.equal(w.runningText(s), 'tierminator: no task of wave 2 is running. End your turn now.')
+})
+
+test('resumeText equals run.js resumeText for the slot', () => {
+  const s = w.recordAgent(running(wave(), 'T02', 'T03'), 'T02', 'a1')
+  const turn = w.turnLimitStop(s, 'T02', 60).state
+  assert.equal(w.resumeText(turn, 'T02'), r.resumeText(w.asCurrent(turn, 'T02')))
+  assert.match(w.resumeText(turn, 'T02'), /T02 stopped at its turn limit/)
+  const ask = w.askForReport(s, 'T02').state
+  assert.equal(w.resumeText(ask, 'T02'), r.resumeText(w.asCurrent(ask, 'T02')))
+  assert.match(w.resumeText(ask, 'T02'), /without its report block/)
+})
+
+test('noticeText done with room under the cap holds the next dispatch', () => {
+  const prev = running(wave(2), 'T02', 'T03')
+  const out = finish(prev, 'T02')
+  const text = w.noticeText(prev, out.state, 'T02', out.action, { ok: true, commit: sha })
+  assert.ok(text.includes('Task: T04'))
+  assert.equal(text, `tierminator: T02 done (commit aaaaaaa, sonnet-medium). ${w.dispatchText(out.state)}`)
+})
+
+test('noticeText done with siblings running and nothing to start', () => {
+  const prev = running(wave(), 'T02', 'T03', 'T04')
+  const out = finish(prev, 'T02')
+  assert.equal(
+    w.noticeText(prev, out.state, 'T02', out.action, { ok: true, commit: sha }),
+    'tierminator: T02 done (commit aaaaaaa, sonnet-medium). Still running: T03, T04. End your turn; tierminator gives the next step when the next one reports.'
+  )
+})
+
+test('noticeText done unreported', () => {
+  const prev = running(wave(), 'T02', 'T03')
+  const outcome = { ok: true, commit: sha, unreported: true }
+  const out = w.advanceSlot(prev, 'T02', outcome)
+  assert.ok(w.noticeText(prev, out.state, 'T02', out.action, outcome).startsWith(
+    'tierminator: T02 done (commit aaaaaaa, sonnet-medium; no report block, accepted on its commit). Call the Agent tool now, once:'
+  ))
+})
+
+test('noticeText retry holds the retried slot dispatch with its Retry line', () => {
+  const prev = running(wave(), 'T02', 'T03')
+  const outcome = { ok: false, reason: 'Verify failed' }
+  const out = w.advanceSlot(prev, 'T02', outcome)
+  const text = w.noticeText(prev, out.state, 'T02', out.action, outcome)
+  assert.ok(text.startsWith('tierminator: T02 failed at sonnet-medium: Verify failed. Its worktree and branch are discarded and made again at the wave base; retrying one tier up. Call the Agent tool 2 times now, all in one message, one call per task:'))
+  assert.ok(text.includes('Retry: attempt 2 of 3; the attempt at sonnet-medium failed and was rolled back.'))
+  assert.ok(text.includes('tierminator:sonnet-high'))
+})
+
+test('noticeText wait names the halting wave and what still runs', () => {
+  let prev = running(wave(), 'T02', 'T03', 'T04')
+  prev = w.withSlot(prev, 'T04', { ...slot(prev, 'T04'), attempt: 3 })
+  const outcome = { ok: false, reason: 'still broken' }
+  const out = w.advanceSlot(prev, 'T04', outcome)
+  assert.equal(out.action, 'wait')
+  assert.equal(
+    w.noticeText(prev, out.state, 'T04', out.action, outcome),
+    'tierminator: T04 failed at opus-high: still broken. It is not retried. Wave 2 is halting (T04 failed): nothing more starts. Still running: T02, T03. End your turn; tierminator gives the next step when the next one reports.'
+  )
+})
+
+test('noticeText integrate', () => {
+  let s = running(wave(), 'T02', 'T03', 'T04')
+  s = finish(finish(s, 'T02').state, 'T03').state
+  const out = finish(s, 'T04')
+  assert.equal(
+    w.noticeText(s, out.state, 'T04', out.action, { ok: true, commit: sha }),
+    'tierminator: T04 done (commit aaaaaaa, opus-high). All 3 tasks of wave 2 are done.'
+  )
+})
+
+test('noticeText halt equals the line plus haltText', () => {
+  let s = running(wave(), 'T02', 'T03', 'T04')
+  s = w.withSlot(s, 'T04', { ...slot(s, 'T04'), attempt: 3 })
+  s = finish(finish(s, 'T02').state, 'T03').state
+  const outcome = { ok: false, reason: 'dead' }
+  const out = w.advanceSlot(s, 'T04', outcome)
+  assert.equal(out.action, 'halt')
+  assert.equal(
+    w.noticeText(s, out.state, 'T04', out.action, outcome),
+    `tierminator: T04 failed at opus-high: dead. It is not retried. ${w.haltText(out.state)}`
+  )
+})
+
+test('noticeText ask and resume give the resume text', () => {
+  const s = w.recordAgent(running(wave(), 'T02', 'T03'), 'T02', 'a1')
+  const ask = w.askForReport(s, 'T02')
+  assert.equal(w.noticeText(s, ask.state, 'T02', ask.action, { ok: false, reason: 'x' }), w.resumeText(ask.state, 'T02'))
+  const turn = w.turnLimitStop(s, 'T02', 60)
+  assert.equal(w.noticeText(s, turn.state, 'T02', turn.action, null), w.resumeText(turn.state, 'T02'))
+})
+
+test('haltText names the task, the also-failed, the passers, the skipped and the worktree', () => {
+  let s = running(wave(2), 'T02', 'T03')
+  s = w.withSlot(s, 'T02', { ...slot(s, 'T02'), attempt: 3, tier: 'opus-high' })
+  s = w.withSlot(s, 'T03', { ...slot(s, 'T03'), attempt: 3, tier: 'opus-high' })
+  s = fail(s, 'T02', 'dead').state
+  s = fail(s, 'T03', 'also dead').state
+  assert.equal(s.phase, 'halted')
+  assert.equal(
+    w.haltText(s),
+    `tierminator: wave 2 stopped: T02 failed after 1 attempt(s) (opus-high). Reason: dead. Also failed: T03 (also dead). No task of the wave passed. Not started: T04. The failed task's worktree, ${slot(s, 'T02').worktree}, is left in place. Tell the user what stopped the run and what is left; do not fix it or dispatch more tasks.`
+  )
+  let p = running(wave(), 'T02', 'T03', 'T04')
+  p = w.withSlot(p, 'T04', { ...slot(p, 'T04'), attempt: 3 })
+  p = finish(p, 'T02').state
+  p = fail(p, 'T04', 'broke').state
+  p = finish(p, 'T03').state
+  const text = w.haltText(p)
+  assert.ok(text.includes('T04 failed after 1 attempt(s) (opus-high). Reason: broke. '))
+  assert.ok(text.includes('/tierminator:execute skips them: T02 aaaaaaa (sonnet-medium), T03 aaaaaaa (haiku-high). '))
+  assert.ok(!text.includes('No task of the wave passed.'))
+  assert.ok(!text.includes('Also failed'))
+  assert.ok(!text.includes('Not started'))
+})
