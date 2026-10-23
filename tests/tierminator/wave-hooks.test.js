@@ -644,3 +644,36 @@ test('H5 pre denies a main-thread edit in an idle wave and passes once a slot ru
   assert.equal(preOf(callOf('T01')).stdout, '')
   assert.equal(hook('h5-guard.js', editInput(), ['pre']).stdout, '')
 })
+
+const h1 = input => hook('h1-plan-rules.js', { session_id: S, permission_mode: 'default', cwd: repo, transcript_path: path.join(dir, 'main.jsonl'), ...input })
+const notification = id => '<task-notification><task-id>' + id + '</task-id> <summary>Agent stopped at its 60-turn limit</summary></task-notification>'
+
+test('H1 typed prompt during a wave names the workers still running', () => {
+  dispatchAll()
+  const res = h1({ prompt: 'hello' })
+  assert.match(res.stdout, /T01, T02, T03 workers are still running/)
+  assert.match(res.stdout, /\/tierminator:execute/)
+  assert.equal(state.read(S), null)
+  assert.equal(state.isActive(S), false)
+})
+
+test('H1 typed prompt during a wave names a single running worker', () => {
+  startWaveRun()
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  const res = h1({ prompt: 'hello' })
+  assert.match(res.stdout, /T01's worker is still running/)
+})
+
+test('H1 resumes a wave worker named by a turn-limit notification', () => {
+  dispatchAll()
+  postHook(agentPost(callOf('T01'), { isAsync: true, status: 'async_launched', agentId: 'worker-T01' }))
+  const res = h1({ prompt: notification('worker-T01') })
+  assert.match(res.stdout, /T01 stopped at its turn limit/)
+  assert.ok(res.stdout.includes('to \\"worker-T01\\"') || res.stdout.includes('to "worker-T01"'))
+  assert.equal(slotOf('T01').resumePending, true)
+})
+
+test('H1 ignores a turn-limit notification for an unknown agent', () => {
+  dispatchAll()
+  assert.equal(h1({ prompt: notification('nobody') }).stdout, '')
+})

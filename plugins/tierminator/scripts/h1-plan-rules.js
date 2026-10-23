@@ -24,6 +24,7 @@
 //               claims it judges it. When H4 claimed it first, H1 waits briefly for H4's saved notice and
 //               prints that instead. When a judged attempt's state could not be saved (H1's own, or H4's lost-state note),
 //               the run ends here with a message saying how to resume. In plan mode these prompts never show the rules;
+//               A wave's hand-backs are judged by WP-10, not here; here a wave only gets the turn-limit resume.
 //             - while planning, a prompt typed in plan mode shows the rules once per plan-mode stint
 //               (unless /tierminator:plan or EnterPlanMode already did); one typed outside plan mode means
 //               the user left plan mode without approving, so the session is made inactive, silently;
@@ -52,6 +53,8 @@ const resultFile = require('./lib/result.js')
 const unattended = require('./lib/unattended.js')
 const { settle, readReport } = require('./lib/settle.js')
 const { subagentsDir } = require('./lib/usage.js')
+const h4wave = require('./lib/h4-wave.js')
+const w = require('./lib/wave-run.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
 // Subagent reports and task notifications also arrive as prompts; they are not the user speaking.
@@ -140,12 +143,25 @@ async function runNote(input) {
     return
   }
   if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight && !s.current.resumePending) await handBack(input, s)
-  else if (/^\s*<task-notification\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight) turnLimitNote(input, s)
+  else if (/^\s*<task-notification\b/.test(input.prompt) && s.phase === 'running' && (s.current?.inFlight || s.wave)) turnLimitNote(input, s)
+}
+
+// The wave form of turnLimitNote: the notification's task id names the slot, by agent id or by transcript.
+function waveTurnLimitNote(input, s) {
+  const turns = r.turnLimitOf(input.prompt)
+  const taskId = r.taskIdOf(input.prompt)
+  if (typeof turns !== 'number' || !taskId) return
+  const dir = subagentsDir(input.transcript_path)
+  const id = w.slotOfAgent(s, taskId) ?? (dir ? h4wave.slotFromTranscript(path.join(dir, 'agent-' + taskId + '.jsonl'), s.planId) : null)
+  if (!id) return
+  const text = h4wave.turnLimit(input, id, turns, taskId)
+  if (text) emitText(text)
 }
 
 // A worker's "stopped at its N-turn limit" notification: SubagentStop did not judge it, so resume the worker
 // (or halt after too many resumes) in this turn. A notification for another agent is ignored.
 function turnLimitNote(input, s) {
+  if (s.wave) return waveTurnLimitNote(input, s)
   if (s.current.resumePending) return
   const turns = r.turnLimitOf(input.prompt)
   if (typeof turns !== 'number') return
@@ -181,10 +197,15 @@ function endRun(input) {
     const finished = new Set(s.done.map(d => d.id))
     const done = s.done.map(doneLabel).join(', ') || 'none'
     const notRun = s.tasks.filter(t => !finished.has(t.id)).map(t => t.id).join(', ') || 'none'
-    const running = s.current?.inFlight
-      ? ` ${s.tasks[s.current.index].id}'s worker is still running; ` +
-        'whatever it commits or leaves in the working tree stays unchecked.'
-      : ''
+    const ids = s.wave ? s.wave.size.filter(id => s.wave.slots[id].inFlight) : []
+    const running = s.wave
+      ? ids.length
+        ? ' ' + ids.join(', ') + (ids.length === 1 ? "'s worker is" : ' workers are') + ' still running; whatever they commit or leave in their worktrees (under .claude/worktrees) stays unchecked.'
+        : ''
+      : s.current?.inFlight
+        ? ` ${s.tasks[s.current.index].id}'s worker is still running; ` +
+          'whatever it commits or leaves in the working tree stays unchecked.'
+        : ''
     note =
       'tierminator: the run stopped because the user typed a new prompt. ' +
       `Done: ${done}. Not done: ${notRun}.${running} To resume, the user types ` +
