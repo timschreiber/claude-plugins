@@ -602,6 +602,143 @@ notifications arrived 181 and 319 ms after that `Stop` and were answered in one 
   ([dispatch findings](tierminator-agent-dispatch-findings.md#a-hand-back-makes-the-finished-notification-transcript-only-claude-code-2-1-285)),
   and an interactive session, where the user can type between notifications.
 
+## P5: how long a hook may run
+
+Probe P5 of the spec: can a hook run for minutes with a raised `timeout`, does the session wait for it, is it
+stopped at its timeout, and is there a maximum? Eleven headless cells, one run each, run on 2026-10-20 (21:09:38
+to 21:44:20 UTC) with Claude Code 2.1.305 on Windows, $0.68 in all (per run $0.057 to $0.073), made by
+`probes/tierminator-parallel/p5-runner.js`. Each cell builds a throwaway repo and a copy of the
+`variant-slow-hook` plugin whose `hooks.json` registers, on one event, a **slow** hook (`slow-hook.js`, sleeping
+S seconds under a timeout of T seconds) and a **fast** hook (the same timeout, no sleep), as two entries of one
+matcher group. The slow hook logs `slow:start`, a `slow:beat` every 5 s and `slow:end`; on `UserPromptSubmit` it
+then prints `additionalContext` `P5-MARKER-<name>`. A hook stopped at its timeout logs no more beats; one whose
+process outlives the stop keeps beating, and for a cell whose sleep exceeds its timeout the runner waits until
+10 s after the sleep would have ended before it reads the log. The main session (`claude -p --model sonnet
+--permission-mode bypassPermissions`, with the probe plugin) is, on `UserPromptSubmit`, told to run `echo p5` and
+reply with its output and every `P5-MARKER` line in its context (or `NONE`); on `SubagentStop`, to make one Agent
+call to `tierminator-parallel-probe:cmd-worker` (which runs `echo p5-worker`), then run `echo after-agent` and
+reply with the report. Cells (`ups` = `UserPromptSubmit`, `sas` = `SubagentStop`, `t` = timeout, `s` = sleep,
+both in seconds):
+
+- `p5-ups-t15-s20`, `-t600-s20`, `-t600-s120`, `-t600-s400`, `-t3600-s700`.
+- `p5-sas-t15-s20`, `-t600-s20`, `-t600-s120`, `-t600-s400` (a foreground worker), and `p5-sas-bg-t600-s120`
+  (the worker with `run_in_background true`).
+- `p5-accept`: five `UserPromptSubmit` hooks with timeouts 600, 3600, 86400, 2147483 and 2147484, each sleeping
+  3 s, and `claude plugin validate` on the generated plugin.
+
+The runner's `analysis.hooks` holds, per hook, `startAt`, `endAt`, `beats`, `ranS` (start to the last log line),
+`completed` (logged `slow:end`) and `ranPastTimeout` (`ranS` more than 2 s over the timeout);
+`analysis.fastStartDelayMs` is the fast hook's start minus the slow hook's; `analysis.afterSlowStartS` gives, in
+seconds after the slow hook's start, the main session's `PostToolUse` on Agent (`postAgent`), its first Bash
+(`mainTool`), its `echo after-agent` (`afterAgentTool`) and the next `Stop`; `analysis.markers` are the
+`P5-MARKER` strings in the final result; `analysis.timeoutMentions` are the session's stdout and stderr lines
+that match `time[d ]?out`; `analysis.prompts` holds every `UserPromptSubmit` with its kind; each file's
+`validate` holds the validator's exit status and output.
+
+Evidence, one file per cell:
+- `probes/evidence/tierminator-parallel-p5-ups-t15-s20.json`, `-p5-ups-t600-s20.json`, `-p5-ups-t600-s120.json`,
+  `-p5-ups-t600-s400.json`, `-p5-ups-t3600-s700.json`.
+- `probes/evidence/tierminator-parallel-p5-sas-t15-s20.json`, `-p5-sas-t600-s20.json`, `-p5-sas-t600-s120.json`,
+  `-p5-sas-t600-s400.json`, `-p5-sas-bg-t600-s120.json`.
+- `probes/evidence/tierminator-parallel-p5-accept.json`.
+- For the worktree hook (H4 `pre`), `probes/evidence/tierminator-parallel-p3-slow-hooks-r1.json` to `-r3.json`
+  (see "P3").
+
+Every session exited 0, and every `validate` exited 0 ("Validation passed with warnings": no version, no README,
+no icon; nothing about a timeout).
+
+**`UserPromptSubmit`.** Fields: `analysis.hooks` (`completed`, `beats`, `ranS`, `ranPastTimeout`),
+`analysis.fastStartDelayMs`, `analysis.afterSlowStartS` (`mainTool`, `stop`), `analysis.markers`,
+`analysis.timeoutMentions`.
+
+| Cell | Did the session wait for the hook? | Slow hook: ended or stopped at its timeout? | Fast hook's start after the slow one's | Session went on (first Bash; `Stop`) | Output reached the model (`markers`) | What the session showed for a timeout |
+|---|---|---|---|---|---|---|
+| `p5-ups-t15-s20` | **Yes, until the timeout**: the first Bash came 18.5 s after the hook started, after the stop at 15 s. | **Stopped at 15 s**: 3 beats, the last at 15.04 s, no `slow:end`, and no beat after it, though the runner watched to 30 s (`ranPastTimeout` false). | 0 ms | 18.5 s; 26.1 s | **None**: the result was `NONE`. Not even `P5-MARKER-fast`, whose hook ended 4 ms after it started. | Nothing: no matching line, exit 0. |
+| `p5-ups-t600-s20` | **Yes**: the first Bash came 2.2 s after `slow:end`. | **Ended** at 20.0 s (3 beats). | 2 ms | 22.2 s; 27.4 s | `P5-MARKER-fast`, `P5-MARKER-slow` | Nothing |
+| `p5-ups-t600-s120` | **Yes** (3.5 s after `slow:end`). | **Ended** at 120.0 s (23 beats). | 13 ms | 123.6 s; 128.8 s | `fast`, `slow` | Nothing |
+| `p5-ups-t600-s400` | **Yes** (2.4 s after `slow:end`). | **Ended** at 400.0 s (79 beats). | 0 ms | 402.4 s; 406.6 s | `fast`, `slow` | Nothing |
+| `p5-ups-t3600-s700` | **Yes** (3.1 s after `slow:end`). | **Ended** at 700.0 s (139 beats). | 2 ms | 703.1 s; 705.5 s | `fast`, `slow` | Nothing |
+
+**`SubagentStop`.** Fields: `analysis.hooks`, `analysis.fastStartDelayMs`, `analysis.afterSlowStartS`
+(`postAgent`, `afterAgentTool`, `stop`), `analysis.timeoutMentions`; for the background cell also
+`analysis.postAgent`, `analysis.prompts` and `analysis.stop`. The hook prints nothing on this event, so there are
+no markers.
+
+| Cell | Did the session wait for the hook? | Slow hook: ended or stopped at its timeout? | Fast hook's start after the slow one's | Session went on (`PostToolUse` on Agent; `echo after-agent`; `Stop`) | What the session showed for a timeout |
+|---|---|---|---|---|---|
+| `p5-sas-t15-s20` | **Yes, until the timeout**: the Agent call returned (`PostToolUse`, `completed`) 15.2 s after the hook started. | **Stopped at 15 s**: 3 beats, the last at 15.03 s, no `slow:end`, no beat after it though the runner watched to 30 s (`ranPastTimeout` false). | 0 ms | 15.2 s; 16.3 s; 17.5 s | Nothing; the reply was the worker's report as usual. |
+| `p5-sas-t600-s20` | **Yes**: the Agent call returned 0.14 s after `slow:end`. | **Ended** at 20.0 s. | -5 ms | 20.2 s; 21.3 s; 22.5 s | Nothing |
+| `p5-sas-t600-s120` | **Yes** (0.14 s after `slow:end`). | **Ended** at 120.0 s. | -1 ms | 120.2 s; 121.4 s; 122.5 s | Nothing |
+| `p5-sas-t600-s400` | **Yes** (0.14 s after `slow:end`). | **Ended** at 400.0 s. | 3 ms | 400.2 s; 401.8 s; 403.2 s | Nothing |
+| `p5-sas-bg-t600-s120` | **The notification waited for it**: `PostToolUse` was `async_launched` at the worker's start (4.9 s before the hook) and the dispatching turn's `Stop` came 3.4 s before the worker's `SubagentStop`; the worker's `<task-notification>` prompt arrived 120.2 s after the hook started, 0.19 s after `slow:end`. | **Ended** at 120.0 s. | 0 ms | -4.9 s (`async_launched`); 122.4 s; 124.1 s | Nothing |
+
+**`p5-accept`.** All five hooks ran to `slow:end` (3.00 to 3.01 s each, started within 18 ms of one another), and
+all five markers reached the model (`P5-MARKER-t600`, `-t3600`, `-t86400`, `-t2147483`, `-t2147484`). The
+validator accepted every value (status 0; its warnings name no timeout). The largest timeout tried, 2147484 s,
+is therefore the largest accepted; the probe tried nothing larger. Fields: `analysis.hooks`, `analysis.markers`,
+`validate`.
+
+### Details
+
+- **The two hooks of one event run at once.** The fast hook started 5 ms before to 13 ms after the slow one in
+  every cell, with its own process, so Claude Code does not run the hooks of one matcher group one after
+  another. On both events the session went on only when the slower hook had ended or been stopped.
+- **A stopped hook is stopped.** In both 15 s cells the slow process logged its last beat at 15.0 s and nothing
+  after, while the runner watched for 15 s more; the beat due at 20 s never came. So Claude Code ended the hook's
+  process at its timeout, measured for a Node hook with no child processes. Whether it also ends processes that
+  the hook started (git, a verify command) is **not determinable** here.
+- **A timeout is silent.** No session line mentioned a timeout, every session exited 0, and the model's reply
+  did not mention it either. On `UserPromptSubmit` a timeout lost the outputs of **both** hooks, including the
+  fast hook's, which had ended at once (one run). **Inferred:** Claude Code passes the event's hook outputs on
+  only when all of them are done, and drops them all when one times out; a hook that must reach the model
+  should not share its event with a hook that may time out.
+- **On `SubagentStop` the main session waits for the hook.** Foreground, the Agent call returned 0.14 to 0.15 s
+  after the hook ended (or was stopped). In the background, the worker's notification came 0.19 s after it; the
+  session sat idle meanwhile (its first `Stop` came before the worker ended). So a slow H4 `stop` delays the
+  next model turn by its length on both paths.
+- **On `UserPromptSubmit` the main session waits too**, 2.2 to 3.5 s more after `slow:end`, which is the
+  model's own latency (the first Bash).
+- **What ran to the end.** On `UserPromptSubmit`, 700 s under a timeout of 3600; on `SubagentStop`, 400 s under
+  a timeout of 600. No cell ran a `SubagentStop` hook longer than 400 s or under a timeout above 600, and no
+  `PostToolUse` or `PostToolUseFailure` hook was tried.
+
+### Hook timeouts: recommendation
+
+The rule: a cell **works** when its slow hook logged `slow:end` and the session went on after it (on
+`UserPromptSubmit`, `P5-MARKER-slow` is in `markers`; on `SubagentStop`, the main session's `echo after-agent`
+ran). Recommend 3600 if `p5-ups-t3600-s700` works; else 600 if `p5-ups-t600-s400` and `p5-sas-t600-s400` both
+work; else the largest timeout of a cell that works on both events.
+
+| Cell | `slow:end` | Went on after it | Works |
+|---|---|---|---|
+| `p5-ups-t3600-s700` | yes (700.0 s) | `P5-MARKER-slow` in `markers` | **yes** |
+| `p5-ups-t600-s400` | yes (400.0 s) | `P5-MARKER-slow` in `markers` | yes |
+| `p5-sas-t600-s400` | yes (400.0 s) | `echo after-agent` at 401.8 s | yes |
+
+**`p5-ups-t3600-s700` works, so the recommendation is a timeout of 3600 s** for the hooks that settle a wave,
+and so integrate and verify:
+
+- **H1** (`UserPromptSubmit`, `h1-plan-rules.js`): 3600, measured on this event to 700 s.
+- **H4 `stop`** (`SubagentStop`, `h4-dispatch.js stop`): 3600. Measured on this event to 400 s under a timeout
+  of 600; that a timeout of 3600 holds there as it did on `UserPromptSubmit` is **inferred** (`p5-accept` shows
+  the value is accepted and run, on `UserPromptSubmit` only).
+- **H4 `post` and `failure`** (`PostToolUse` and `PostToolUseFailure` on Agent): the same 3600, **inferred**,
+  since P5 did not measure either event.
+
+The longest hook duration measured to work is **700 s on `UserPromptSubmit`** (`p5-ups-t3600-s700`) and **400 s
+on `SubagentStop`** (`p5-sas-t600-s400`). No stopped hook kept beating past its timeout (`ranPastTimeout` false
+in both 15 s cells), so Claude Code did stop the hook process at its timeout; that is measured for the hook's own
+process only, and the integrate and verify hooks should not leave child processes running on the assumption that
+they are stopped with it (**not determinable**, above). A timeout is silent and loses the event's hook outputs,
+so a verify that may approach the timeout should bound itself below it and report its own failure.
+
+**H4 `pre`** (makes the worktrees, 30 s today) **stays at 30**: in all three `p3-slow-hooks` runs every hook ran
+its full 3 s delay (3072 to 3103 ms in all, `delayMs` 3000) and every `git worktree add` returned status 0
+(`analysis.mkwt`, `analysis.mkwtTiming`).
+
+**The largest timeout accepted** is 2147484 s, the largest value that `p5-accept` ran to `slow:end` (with a 3 s
+hook, so not a hook that long) and that the validator passed.
+
 ## Pending: interactive P3 and P4
 
 These runs are headless. Interactive dispatch has no `run_in_background` field and always runs in the background,
@@ -947,3 +1084,11 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
   overlap in the foreground and in the background, and their `PreToolUse` hooks overlap when slow. No cell made
   several Claude Code worktrees at once, which option C does not use.
 - **Platforms other than Windows**: the `/tmp` path mismatch is Git Bash's, and may not occur elsewhere.
+- **Hook durations on `PostToolUse` and `PostToolUseFailure`** (H4 `post` and `failure`). P5 measured
+  `UserPromptSubmit` and `SubagentStop` only; the recommended 3600 s for those two events is inferred.
+- **Long hooks in an interactive session.** Every P5 cell was headless; whether an interactive session waits the
+  same way, and what the user sees meanwhile, was not tried.
+- **Hook timeouts and durations between those tried.** The timeouts were 15, 600 and 3600 s (and the five
+  `p5-accept` values with a 3 s hook), the sleeps 20, 120, 400 and 700 s; a `SubagentStop` hook longer than
+  400 s or under a timeout above 600, and a hook running for longer than 700 s, were not tried. Each cell ran once.
+- **Whether a hook's child processes are stopped with it at its timeout.** The slow hook started none.

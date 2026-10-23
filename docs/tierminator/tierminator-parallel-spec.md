@@ -277,7 +277,10 @@ break together.
   run branch (each is a commit that passed its own `Verify:`); the slot branches are kept until cleanup. The
   user fixes the break and `/tierminator:execute` resumes with the remaining tasks. Verify runs again after the
   next parallel wave, not on resume.
-- It runs under the hook's timeout in `hooks.json`, whose value comes from probe P5.
+- It runs under the hook's timeout in `hooks.json`: **3600 s** on the hooks that settle a wave, and so integrate
+  and verify (H1 and H4 `stop`, `post` and `failure`), from probe P5
+  ([findings, "Hook timeouts: recommendation"](tierminator-parallel-findings.md#hook-timeouts-recommendation)). A
+  hook timeout is silent, so the command should be bounded below it.
 
 ### State
 
@@ -383,7 +386,7 @@ happens to the other slots that end because of the same limit, and the worktrees
 | `h8-worktree-guard.js` (new) | The guard hook. |
 | `h1-plan-rules.js`, `h5-guard.js`, `h7-limit.js`, `lib/result.js`, `lib/spend.js` | Handle a wave state (see Readers of `state.current`); hand-back and wait-states per slot. |
 | all tier agents | A "Parallel" section in the shared worker body. |
-| `hooks/hooks.json` | The guard hook; longer timeouts for the hooks that make worktrees, integrate and verify (P5). |
+| `hooks/hooks.json` | The guard hook; a timeout of 3600 s for the hooks that integrate and verify (H1 on `UserPromptSubmit`, H4 `stop`, `post` and `failure`); H4 `pre`, which makes the worktrees, stays at 30 s (P5, [findings](tierminator-parallel-findings.md#hook-timeouts-recommendation)). |
 | `rules/tiering.md` | The dependency section. |
 | Docs | `tierminator-reference.md` (replace the "Serial only" non-goal), `README.md`, `CLAUDE.md`, `docs/README.md`, the spike spec's non-goal note. |
 
@@ -400,7 +403,7 @@ section before the code that depends on it. They run on the Claude Code version 
 | P1, P2 | Worktree placement (Agent `isolation`, hook-made worktrees). | **Done**, with re-runs, a base-mechanism round and an option C round (38 runs); option C chosen (D12). |
 | P3 | Do several Agent calls in one message run concurrently? Do their `pre` hooks overlap? | **Answered headless** (findings, "P3", 6 runs): the workers overlap in the foreground and in headless background dispatch; the `pre` hooks overlap when they take longer than the gap between calls (three 3 s hooks ran at once), and each worker waits for its own hook; background `PostToolUse` returns `async_launched`. The interactive run (`p3-bg`) is pending. |
 | P4 | When three background workers finish close together, how many prompts reach Claude, in what order? | **Answered headless** (findings, "P4", 4 runs): one `<task-notification>` per worker, in `SubagentStop` order, never several reports in one; a finish during a turn waits for its `Stop`, and two queued notifications reach the model in one turn, which the Notices rules must allow for. The interactive run (`p4-close`) is pending. |
-| P5 | Can a hook run for minutes with a raised `timeout`? Is there a maximum? | Open (WP-02); decides the hook timeouts. |
+| P5 | Can a hook run for minutes with a raised `timeout`? Is there a maximum? | **Answered headless** (findings, "P5", 11 runs): a hook runs to its end under a raised timeout (700 s under 3600 on `UserPromptSubmit`, 400 s under 600 on `SubagentStop`), the session waits for it, and one past its timeout is stopped silently; every value up to 2147484 s was accepted. Recommended timeout: **3600 s** for H1 and H4 `stop`, `post` and `failure`; H4 `pre` stays at 30 s. |
 | P6 | Git on Windows: concurrent `git worktree add`, path length, conflict reporting, trailers surviving a pick, removal of a locked worktree. | **Dropped as a probe**; the real-repo tests in WP-06 cover it (slow hooks overlap in P3, but the probes' git commands never ran at once). |
 | P7 | A seeded conflict resolved by `opus`. | **Dropped** with the resolver (WP-12). |
 | P8 | A usage limit with several workers in flight. | **Deferred** with WP-15. |
