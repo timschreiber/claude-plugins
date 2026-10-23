@@ -26,6 +26,7 @@ const unattended = require('./lib/unattended.js')
 const resultFile = require('./lib/result.js')
 const sizing = require('./lib/sizing.js')
 const { dispatchText, resumeText } = require('./lib/run.js')
+const w = require('./lib/wave-run.js')
 const { executePlan } = require('./lib/execute.js')
 const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
 const { run, readInput, emit } = require('./lib/hook.js')
@@ -36,8 +37,20 @@ const MAX_DENIALS = 3
 const DRAFTING_DENIAL =
   'tierminator: unattended planning: files cannot be edited until the plan runs. ' +
   'Finish investigating, then end your turn with the complete plan as your final message.'
+// Wave states keep their slots in s.wave and have no s.current.
+const flying = s => (s?.wave ? s.wave.size.some(id => s.wave.slots[id].inFlight) : !!s?.current?.inFlight)
+const resumeSlot = s =>
+  s?.wave
+    ? (s.wave.size.find(id => s.wave.slots[id].inFlight && s.wave.slots[id].resumePending) ?? null)
+    : s?.current?.inFlight && s.current.resumePending
+      ? 'current'
+      : null
+const dispatchFor = s =>
+  s?.wave
+    ? w.dispatchText(s) || 'tierminator: wave ' + s.wave.n + ' has nothing to dispatch now; tell the user.'
+    : dispatchText(s)
 const REASON = s =>
-  'tierminator: a run is in progress, and its subagents do the work, not you. ' + dispatchText(s)
+  'tierminator: a run is in progress, and its subagents do the work, not you. ' + dispatchFor(s)
 
 // The spend text for this Stop: queued attempt lines, then the summary if the run has just ended (once).
 // Returns {s, text}: the state to continue with (already saved) and the text, or null.
@@ -132,8 +145,8 @@ function stop(input, current) {
   s = recordResult(input, s)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })
   // A resume is due (a worker stopped at its turn limit, or ended without its report) and not sent yet: Claude's turn must stay open.
-  const resumeDue = s?.phase === 'running' && !!s.current?.inFlight && !!s.current.resumePending
-  if (!s || s.phase !== 'running' || (s.current?.inFlight && !resumeDue)) {
+  const resumeDue = s?.phase === 'running' && resumeSlot(s) !== null
+  if (!s || s.phase !== 'running' || (flying(s) && !resumeDue)) {
     if (text) shown({})
     return
   }
@@ -148,7 +161,7 @@ function stop(input, current) {
     if (text) shown({})
     return
   }
-  if (resumeDue) return shown({ decision: 'block', reason: resumeText(s) })
+  if (resumeDue) return shown({ decision: 'block', reason: s.wave ? w.resumeText(s, resumeSlot(s)) : resumeText(s) })
   // A background worker's notice goes out with its "finished" notification (H1), which always follows
   // its SubagentStop. Blocking here would deliver it too, but Claude Code labels a blocked stop an error.
   if (s.notice && s.noticeByNotification) {
@@ -167,7 +180,7 @@ run(async () => {
   const current = state.read(input.session_id)
   if (process.argv[2] === 'stop') return stop(input, current)
   const drafting = current?.phase === 'drafting'
-  if (!drafting && (!current || current.phase !== 'running' || current.current?.inFlight)) return
+  if (!drafting && (!current || current.phase !== 'running' || flying(current))) return
 
   const denied = (current.guardDenials ?? 0) + 1
   if (denied > MAX_TOOL_DENIALS) {

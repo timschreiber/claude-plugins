@@ -608,3 +608,39 @@ test('a third turn-limit post fails the slot after two resumes', () => {
   assert.equal(slotOf('T01').status, 'failed')
   assert.match(slotOf('T01').failure, /reached its turn limit 3 times/)
 })
+
+const stopInput = { session_id: S, stop_hook_active: false }
+const editInput = () => ({ session_id: S, tool_name: 'Write', tool_input: { file_path: path.join(repo, 'x.txt') } })
+
+test('H5 stop is silent while a wave slot runs', () => {
+  startWaveRun()
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  assert.equal(hook('h5-guard.js', stopInput, ['stop']).stdout, '')
+})
+
+test('H5 stop blocks a wave with nothing in flight and names the three calls', () => {
+  startWaveRun()
+  const res = hook('h5-guard.js', stopInput, ['stop'])
+  assert.equal(res.json.decision, 'block')
+  assert.ok(res.json.reason.includes('Call the Agent tool 3 times now'))
+  for (const id of ['T01', 'T02', 'T03']) assert.ok(res.json.reason.includes('Task: ' + id))
+})
+
+test('H5 stop blocks while a wave resume is due', () => {
+  startWaveRun()
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  const s = state.read(S)
+  state.write(S, w.withSlot(s, 'T01', { ...s.wave.slots.T01, resumePending: true, resumeFor: 'turn-limit' }))
+  const res = hook('h5-guard.js', stopInput, ['stop'])
+  assert.equal(res.json.decision, 'block')
+  assert.match(res.json.reason, /stopped at its turn limit/)
+})
+
+test('H5 pre denies a main-thread edit in an idle wave and passes once a slot runs', () => {
+  startWaveRun()
+  const res = hook('h5-guard.js', editInput(), ['pre'])
+  assert.equal(res.json.hookSpecificOutput.permissionDecision, 'deny')
+  assert.ok(res.json.hookSpecificOutput.permissionDecisionReason.includes('Call the Agent tool'))
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  assert.equal(hook('h5-guard.js', editInput(), ['pre']).stdout, '')
+})
