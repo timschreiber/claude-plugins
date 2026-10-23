@@ -219,8 +219,55 @@ function stop(input, s) {
   })
 }
 
+function post(input, s) {
+  if (!ours(input.tool_input?.subagent_type)) return
+  const lost = state.takeLost(input.session_id)
+  if (lost) {
+    resultFile.writeEnded(input, s, resultFile.REASONS.lost)
+    state.deactivate(input.session_id)
+    state.remove(input.session_id)
+    return context('PostToolUse', lost)
+  }
+  const id = w.taskOfPrompt(input.tool_input?.prompt)
+  if (!id || !s.wave.slots[id]) return
+  const response = input.tool_response
+  const agentId = typeof response?.agentId === 'string' && response.agentId ? response.agentId : null
+  const res = state.update(input.session_id, cur => {
+    const sl = cur.wave?.slots?.[id]
+    if (!sl || sl.status !== 'running') return null
+    let n = agentId ? w.recordAgent(cur, id, agentId) : cur
+    if (response?.isAsync) n = w.withSlot(n, id, { ...n.wave.slots[id], background: true })
+    return n
+  })
+  const cur = res.state ?? s
+  const slot = cur.wave.slots[id]
+  if (slot.status !== 'running') {
+    if (cur.notice) {
+      state.update(input.session_id, c => ({ ...c, notice: null, noticeByNotification: false }))
+      context('PostToolUse', cur.notice)
+    }
+    return
+  }
+  if (!slot.inFlight) return
+  context('PostToolUse', w.runningText(cur))
+}
+
+function failure(input, s) {
+  if (!ours(input.tool_input?.subagent_type)) return
+  const id = w.taskOfPrompt(input.tool_input?.prompt)
+  if (!w.judgeable(s, id)) return
+  const error = String(input.error ?? 'unknown error').split('\n')[0].slice(0, 300)
+  const text = settleSlot(input, s, id, {
+    failure: { ok: false, reason: 'the Agent call failed: ' + error },
+    ran: false,
+    stopReason: 'call-failed',
+    deliver: true,
+  })
+  if (text) context('PostToolUseFailure', text)
+}
+
 module.exports = {
-  modes: { pre, stop },
+  modes: { pre, stop, post, failure },
   settleSlot,
   ours,
   deny,

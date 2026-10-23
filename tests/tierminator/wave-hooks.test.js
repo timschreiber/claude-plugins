@@ -465,3 +465,46 @@ test('the agent is found by its transcript when no id was recorded', () => {
   assert.equal(slotOf('T02').status, 'done')
   assert.equal(slotOf('T02').agentId, 'zz')
 })
+
+const postHook = input => hook('h4-dispatch.js', input, ['post'])
+
+test('post of a background launch records the agent id and says to end the turn', () => {
+  startWaveRun()
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  const res = postHook(agentPost(callOf('T01'), { isAsync: true, status: 'async_launched', agentId: 'worker-T01' }))
+  assert.match(res.json.hookSpecificOutput.additionalContext, /T01 on tierminator:sonnet-medium is running in the background/)
+  assert.equal(slotOf('T01').agentId, 'worker-T01')
+  assert.equal(slotOf('T01').background, true)
+})
+
+test('post then stop and stop then post both settle the slot', () => {
+  dispatchAll()
+  postHook(agentPost(callOf('T01'), { isAsync: true, status: 'async_launched', agentId: 'worker-T01' }))
+  const sha1 = workerCommits('T01')
+  stopHook(stopOf('T01', report('DONE', sha1)))
+  assert.equal(slotOf('T01').status, 'done')
+  const sha2 = workerCommits('T02')
+  stopHook(stopOf('T02', report('DONE', sha2)))
+  assert.equal(slotOf('T02').status, 'done')
+  const res = postHook(agentPost(callOf('T02'), { status: 'completed', agentId: 'worker-T02' }))
+  assert.match(res.json.hookSpecificOutput.additionalContext, /T02 done/)
+  assert.equal(state.read(S).notice, null)
+})
+
+test('the failure mode counts the failed Agent call as a failed attempt', () => {
+  dispatchAll()
+  const res = hook('h4-dispatch.js', { ...agentPre(callOf('T01')), error: 'boom\nmore' }, ['failure'])
+  assert.match(res.json.hookSpecificOutput.additionalContext, /T01 failed at sonnet-medium: the Agent call failed: boom/)
+  assert.equal(slotOf('T01').status, 'ready')
+  assert.equal(slotOf('T01').attempt, 2)
+  assert.equal(state.read(S).notice, null)
+})
+
+test('post with a saved lost-state note ends the run', () => {
+  dispatchAll()
+  state.saveLost(S, 'LOST')
+  const res = postHook(agentPost(callOf('T01')))
+  assert.equal(res.json.hookSpecificOutput.additionalContext, 'LOST')
+  assert.equal(state.read(S), null)
+  assert.equal(state.isActive(S), false)
+})
