@@ -65,7 +65,7 @@ function resolvePlan(text) {
   const { file, hash, lines } = result.section
   const loaded = loadSidecar(file, hash)
   if (!loaded.ok) return { ...result, errors: loaded.errors, problem: loaded.problem }
-  const expected = renderSection(loaded.tasks, file, hash)
+  const expected = renderSection(loaded.tasks, file, hash, loaded)
   const same = expected.length === lines.length && expected.every((line, i) => line === lines[i].trimEnd())
   if (!same) {
     return {
@@ -78,13 +78,15 @@ function resolvePlan(text) {
 }
 
 // Moves the plan's one valid block into the tasks file and writes the plan with the generated
-// section in its place. `tasks` are the block's parsed tasks. Returns true when both files were
-// written; on false the plan file is unchanged (a tasks file may have been written).
+// section in its place. `tasks` are the block's parsed tasks; the table's setup, verify and graph
+// are read from the block itself, as loadSidecar reads them, so the table matches the one
+// resolvePlan checks. Returns true when both files were written; on false the plan file is
+// unchanged (a tasks file may have been written).
 function moveBlock(planFile, text, tasks) {
   const { blocks } = extractBlock(text)
   if (blocks.length !== 1) return false
   const file = sidecarPath(planFile)
-  const next = replaceBlock(text, renderSection(tasks, file, hashOf(blocks[0])))
+  const next = replaceBlock(text, renderSection(tasks, file, hashOf(blocks[0]), parseBlock(blocks[0])))
   if (next === null) return false
   return writeFile(file, blocks[0]) && writeFile(planFile, next)
 }

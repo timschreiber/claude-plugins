@@ -369,6 +369,20 @@ test('H2 moves a valid block to the tasks file and leaves the table in the plan'
   assert.equal(parsePlan(plan).section.hash, sidecar.hashOf(blockBody(VALID)))
 })
 
+test('H2 writes the wave table for a graph plan, and passes it when resubmitted', () => {
+  const body = JSON.stringify({ setup: ['npm ci'], verify: 'npm test', tasks: [task(1), task(2, { after: [] })] }, null, 2)
+  const text = `# Plan\n\nProse.\n\n## Tasks\n\n\`\`\`json tiered-tasks\n${body}\n\`\`\`\n`
+  const file = writePlanFile(text)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, file)).stdout, '')
+  const plan = fs.readFileSync(file, 'utf8')
+  assert.ok(plan.includes('| T02 | 1 | — | Task 2 | sonnet | medium |'))
+  assert.ok(plan.includes('Setup: npm ci'))
+  assert.ok(plan.includes('Verify (after each parallel wave): npm test'))
+  assert.ok(plan.includes('Waves: 1: T01, T02'))
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre('stale', file)).stdout, '')
+  assert.equal(fs.readFileSync(file, 'utf8'), plan)
+})
+
 test('H2 does not move a block it did not read from the plan file', () => {
   const missing = path.join(dir, 'nope.md')
   hook('h2-gate-exit-plan.js', exitPre(VALID, missing))

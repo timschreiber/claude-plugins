@@ -173,6 +173,54 @@ test('resolvePlan passes an ordinary plan straight through', () => {
   assert.equal(sidecar.resolvePlan('').ok, false)
 })
 
+const blockPlan = block => ['# Plan', '', '## Tasks', '', '```json tiered-tasks', JSON.stringify(block, null, 2), '```', ''].join('\n')
+
+test('moveBlock writes the wave table for a graph plan, and resolvePlan accepts it', () => {
+  const text = blockPlan({
+    tasks: [task(1), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })],
+    setup: ['npm ci'],
+    verify: 'npm test | tail -5',
+  })
+  const planFile = writePlan(text)
+  assert.equal(sidecar.moveBlock(planFile, text, parsePlan(text).tasks), true)
+  const plan = fs.readFileSync(planFile, 'utf8')
+  assert.ok(plan.includes('| ID | Wave | After | Title | Model | Effort | Prompt |'))
+  assert.ok(plan.includes('| T03 | 2 | T01, T02 | Task 3 | sonnet | medium |'))
+  assert.ok(plan.includes('Setup: npm ci'))
+  assert.ok(plan.includes('Verify (after each parallel wave): npm test \\| tail -5'))
+  assert.ok(plan.includes('Waves: 1: T01, T02 · 2: T03'))
+  const r = sidecar.resolvePlan(plan)
+  assert.equal(r.ok, true)
+  assert.equal(r.graph, true)
+})
+
+test('a hand-edited Setup line in a graph table is rejected', () => {
+  const text = blockPlan({
+    tasks: [task(1), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })],
+    setup: ['npm ci'],
+    verify: 'npm test | tail -5',
+  })
+  const planFile = writePlan(text)
+  assert.equal(sidecar.moveBlock(planFile, text, parsePlan(text).tasks), true)
+  const plan = fs.readFileSync(planFile, 'utf8')
+  const edited = plan.replace('Setup: npm ci', 'Setup: npm install')
+  assert.notEqual(edited, plan)
+  const r = sidecar.resolvePlan(edited)
+  assert.equal(r.ok, false)
+  assert.equal(r.problem, 'edited')
+})
+
+test('a serial plan with setup and verify keeps today\'s table', () => {
+  const text = blockPlan({ tasks: [task(1), task(2)], setup: ['npm ci'], verify: 'npm test' })
+  const planFile = writePlan(text)
+  assert.equal(sidecar.moveBlock(planFile, text, parsePlan(text).tasks), true)
+  const plan = fs.readFileSync(planFile, 'utf8')
+  assert.ok(plan.includes('| ID | Title | Model | Effort | Prompt |'))
+  assert.ok(!plan.includes('Setup:'))
+  assert.ok(!plan.includes('Waves:'))
+  assert.equal(sidecar.resolvePlan(plan).ok, true)
+})
+
 test('planIdOf gives a plan the same id before and after its block is moved', () => {
   const text = planText([task(1), task(2)])
   const before = sidecar.planIdOf(sidecar.resolvePlan(text), text)
