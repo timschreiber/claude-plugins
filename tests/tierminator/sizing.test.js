@@ -157,3 +157,81 @@ test('reviewText names each task and its flags, and the two ways out', () => {
       'to the plan, outside the task block. Then call ExitPlanMode again.'
   )
 })
+
+const { normalizeFile, overlaps, overlapFlag } = sizing
+const g = (n, files, after) =>
+  task(n, { prompt: `Files to change: ${files}\nVerify: x`, ...(after === undefined ? {} : { after }) })
+
+test('normalizeFile', () => {
+  assert.equal(normalizeFile('Src\\Lib\\A.js'), 'src/lib/a.js')
+  assert.equal(normalizeFile('./src//a.js'), 'src/a.js')
+  assert.equal(normalizeFile('`C:\\Repo\\a.js`'), 'c:/repo/a.js')
+  assert.equal(normalizeFile('"a.js"'), 'a.js')
+})
+
+test('overlaps', () => {
+  assert.deepEqual(overlaps([g(1, 'src/a.js', []), g(2, 'src/a.js', [])]), [
+    { id: 'T02', other: 'T01', files: ['src/a.js'] },
+  ])
+  assert.deepEqual(overlaps([g(1, 'Src\\A.js', []), g(2, 'src/a.js', [])])[0].files, ['src/a.js'])
+  assert.deepEqual(overlaps([g(1, 'src/a.js', []), g(2, 'src/a.js', ['T01'])]), [])
+  const chain = [g(1, 'a.js', []), g(2, 'b.js', ['T01']), g(3, 'a.js', ['T02'])]
+  assert.deepEqual(overlaps(chain), [])
+  assert.deepEqual(overlaps([chain[0], chain[1], g(3, 'a.js', [])]), [{ id: 'T03', other: 'T01', files: ['a.js'] }])
+  assert.deepEqual(
+    overlaps([g(1, 'a.js', []), task(2, { model: 'opus', effort: 'medium', prompt: 'Do it. Verify: x', after: [] })]),
+    []
+  )
+  assert.deepEqual(overlaps([task(1), task(2)]), [])
+  assert.deepEqual(overlaps([g(1, 'a.js, b.js', []), g(2, 'B.js, a.js, ./a.js, c.js', [])]), [
+    { id: 'T02', other: 'T01', files: ['B.js', 'a.js'] },
+  ])
+  assert.deepEqual(overlaps([g(1, 'src/', []), g(2, 'src/a.js', [])]), [])
+  assert.deepEqual(overlaps([g(1, 'src/*.js', []), g(2, 'src/a.js', [])]), [])
+  const three = overlaps([g(1, 'a.js', []), g(2, 'a.js', []), g(3, 'a.js', [])])
+  assert.deepEqual(three.map(o => [o.id, o.other]), [['T02', 'T01'], ['T03', 'T01'], ['T03', 'T02']])
+  assert.deepEqual(overlaps('x'), [])
+})
+
+test('overlapFlag', () => {
+  assert.equal(
+    overlapFlag({ id: 'T04', other: 'T02', files: ['a.js', 'b.js'] }),
+    'may run at the same time as T02, and both name a.js, b.js in "Files to change:": add "T02" to its "after", or keep it with a line "Keep T04: <why these can share files>"'
+  )
+})
+
+test('review with graph flags overlapping tasks', () => {
+  const pair = [g(1, 'a.js', []), g(2, 'a.js', [])]
+  const flag = overlapFlag({ id: 'T02', other: 'T01', files: ['a.js'] })
+  assert.deepEqual(review(pair, '', { graph: true }), [{ id: 'T02', flags: [flag] }])
+  assert.deepEqual(review(pair, ''), [])
+  assert.deepEqual(review(pair, '', { graph: false }), [])
+  assert.deepEqual(review(pair, 'Keep T02: shared on purpose.', { graph: true }), [])
+  assert.deepEqual(review(pair, 'Keep T01: x', { graph: true }).map(p => p.id), ['T02'])
+  const titled = [g(1, 'a.js', []), { ...g(2, 'a.js', []), title: 'A and B' }]
+  assert.deepEqual(review(titled, '', { graph: true })[0].flags, [
+    'has "and", "then" or ";" in its title, which suggests two changes',
+    flag,
+  ])
+})
+
+test('reviewText for overlap-only and mixed pending', () => {
+  const flag = overlapFlag({ id: 'T02', other: 'T01', files: ['a.js'] })
+  assert.equal(
+    reviewText([{ id: 'T02', flags: [flag] }]),
+    'tierminator: some tasks may run at the same time as a task that changes the same file. These are guidelines, not rules:\n' +
+      `- T02: ${flag}` +
+      '\n\nFor each, do as its line says; a Keep line goes in the plan, outside the task block. Then call ExitPlanMode again.'
+  )
+  assert.equal(
+    reviewText([
+      { id: 'T02', flags: [flag] },
+      { id: 'T03', flags: ['changes 5 files (guideline: at most 4)'] },
+    ]),
+    'tierminator: some tasks may be too large for one worker, or may run at the same time as a task that changes the same file. These are guidelines, not rules:\n' +
+      `- T02: ${flag}\n` +
+      '- T03: changes 5 files (guideline: at most 4)' +
+      '\n\nSplit a task that may be too large into smaller tasks, or keep it with a line "Keep T03: <why it stays one task>". ' +
+      'For a task that shares a file, do as its line says. Keep lines go in the plan, outside the task block. Then call ExitPlanMode again.'
+  )
+})

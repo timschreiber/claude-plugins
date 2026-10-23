@@ -1,8 +1,10 @@
 // Task sizing: flags a task that may be too large for one worker. These are guidelines, not rules:
 // ExitPlanMode (H2) and a headless draft (H5) ask the planner to split a flagged task or to keep it
-// with a "Keep T03: <why>" line in the plan, a limited number of times. Never throws.
+// with a "Keep T03: <why>" line in the plan, a limited number of times. For a graph plan it also flags
+// two tasks that may run at the same time yet name the same file. Never throws.
 'use strict'
 
+const OVERLAP_PREFIX = 'may run at the same time as '
 const MAX_FILES = 4
 const MAX_PROMPT = { haiku: 3000, sonnet: 4000, opus: 5000 }
 const MAX_REVIEWS = 2
@@ -48,25 +50,119 @@ function kept(text) {
   return ids
 }
 
+// A file name in a comparable form: unwrapped, forward slashes, no leading ./, lower case.
+function normalizeFile(file) {
+  return String(file)
+    .trim()
+    .replace(/^([`"'])(.*)\1$/, '$2')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\/+/g, '/')
+    .replace(/^(\.\/)+/, '')
+    .toLowerCase()
+}
+
+// Map of task id -> Set of the ids it depends on, directly or through other tasks.
+function ancestors(tasks) {
+  const out = new Map()
+  tasks.forEach((t, i) => {
+    const deps = Array.isArray(t?.after) ? t.after : i === 0 ? [] : [tasks[i - 1]?.id]
+    const set = new Set()
+    for (const d of deps) {
+      set.add(d)
+      for (const a of out.get(d) ?? []) set.add(a)
+    }
+    out.set(t?.id, set)
+  })
+  return out
+}
+
+// [{id, other, files}] for each pair of tasks with no dependency path between them that name the same file.
+function overlaps(tasks) {
+  if (!Array.isArray(tasks)) return []
+  const anc = ancestors(tasks)
+  const files = tasks.map(t => filesToChange(t?.prompt))
+  const out = []
+  for (let j = 1; j < tasks.length; j++) {
+    if (files[j] === null) continue
+    for (let i = 0; i < j; i++) {
+      if (files[i] === null || anc.get(tasks[j]?.id)?.has(tasks[i]?.id)) continue
+      const theirs = new Set(files[i].map(normalizeFile))
+      const seen = new Set()
+      const shared = []
+      for (const f of files[j]) {
+        const n = normalizeFile(f)
+        if (theirs.has(n) && !seen.has(n)) {
+          seen.add(n)
+          shared.push(f)
+        }
+      }
+      if (shared.length > 0) out.push({ id: tasks[j].id, other: tasks[i].id, files: shared })
+    }
+  }
+  return out
+}
+
+const overlapFlag = o =>
+  `${OVERLAP_PREFIX}${o.other}, and both name ${o.files.join(', ')} in "Files to change:": ` +
+  `add "${o.other}" to its "after", or keep it with a line "Keep ${o.id}: <why these can share files>"`
+
 // [{id, flags}] for the flagged tasks the plan does not keep.
-function review(tasks, text) {
+function review(tasks, text, { graph = false } = {}) {
   const keep = kept(text)
+  const list = Array.isArray(tasks) ? tasks : []
+  const shared = new Map()
+  if (graph === true) {
+    for (const o of overlaps(list)) shared.set(o.id, [...(shared.get(o.id) ?? []), overlapFlag(o)])
+  }
   const pending = []
-  for (const t of Array.isArray(tasks) ? tasks : []) {
+  for (const t of list) {
     if (keep.has(t.id)) continue
-    const f = flags(t)
+    const f = [...flags(t), ...(shared.get(t.id) ?? [])]
     if (f.length > 0) pending.push({ id: t.id, flags: f })
   }
   return pending
 }
 
 function reviewText(pending) {
+  const all = pending.flatMap(p => p.flags)
+  const shares = all.some(f => f.startsWith(OVERLAP_PREFIX))
+  const large = all.some(f => !f.startsWith(OVERLAP_PREFIX))
+  const list = pending.map(p => `- ${p.id}: ${p.flags.join('; ')}`).join('\n')
+  if (!shares) {
+    return (
+      'tierminator: some tasks may be too large for one worker. These are guidelines, not rules:\n' +
+      list +
+      '\n\nFor each, split it into smaller tasks, or keep it and add a line "Keep T03: <why it stays one task>" ' +
+      'to the plan, outside the task block. Then call ExitPlanMode again.'
+    )
+  }
+  if (!large) {
+    return (
+      'tierminator: some tasks may run at the same time as a task that changes the same file. These are guidelines, not rules:\n' +
+      list +
+      '\n\nFor each, do as its line says; a Keep line goes in the plan, outside the task block. Then call ExitPlanMode again.'
+    )
+  }
   return (
-    'tierminator: some tasks may be too large for one worker. These are guidelines, not rules:\n' +
-    pending.map(p => `- ${p.id}: ${p.flags.join('; ')}`).join('\n') +
-    '\n\nFor each, split it into smaller tasks, or keep it and add a line "Keep T03: <why it stays one task>" ' +
-    'to the plan, outside the task block. Then call ExitPlanMode again.'
+    'tierminator: some tasks may be too large for one worker, or may run at the same time as a task that changes the same file. These are guidelines, not rules:\n' +
+    list +
+    '\n\nSplit a task that may be too large into smaller tasks, or keep it with a line "Keep T03: <why it stays one task>". ' +
+    'For a task that shares a file, do as its line says. Keep lines go in the plan, outside the task block. Then call ExitPlanMode again.'
   )
 }
 
-module.exports = { MAX_FILES, MAX_PROMPT, MAX_REVIEWS, filesToChange, flags, kept, review, reviewText }
+module.exports = {
+  MAX_FILES,
+  MAX_PROMPT,
+  MAX_REVIEWS,
+  OVERLAP_PREFIX,
+  filesToChange,
+  flags,
+  kept,
+  normalizeFile,
+  overlaps,
+  overlapFlag,
+  review,
+  reviewText,
+}
