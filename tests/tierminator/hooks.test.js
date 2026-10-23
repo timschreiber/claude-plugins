@@ -492,8 +492,49 @@ test('H3 saves the plan beside the state when there is no plan file, and runs it
   assert.equal(s.planFile, saved)
   assert.equal(fs.readFileSync(saved, 'utf8'), VALID)
   assert.equal(s.tasksFile, state.fileFor(S).replace(/\.json$/, '.plan.tasks.json'))
-  assert.deepEqual(JSON.parse(fs.readFileSync(s.tasksFile, 'utf8')).tasks, parsePlan(VALID).tasks)
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(s.tasksFile, 'utf8')).tasks,
+    parsePlan(VALID).tasks.map(({ after, ...rest }) => rest),
+  )
   assert.equal(s.tasksHash, null)
+})
+
+test('H3 starts a graph plan with after, setup and verify kept', () => {
+  const graphPlan =
+    '# Plan\n\nProse.\n\n## Tasks\n\n```json tiered-tasks\n' +
+    JSON.stringify(
+      { tasks: [task(1), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })], setup: ['npm ci'], verify: 'npm test' },
+      null,
+      2,
+    ) +
+    '\n```\n'
+  planning()
+  const file = writePlanFile(graphPlan)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(graphPlan, file)).stdout, '')
+  hook('h3-post-approval.js', exitPost(graphPlan))
+  const s = state.read(S)
+  assert.equal(s.phase, 'running')
+  assert.equal(s.graph, true)
+  assert.deepEqual(s.setup, ['npm ci'])
+  assert.equal(s.verify, 'npm test')
+  assert.deepEqual(s.tasks.map(t => t.after), [[], [], ['T01', 'T02']])
+  assert.equal(s.current.index, 0)
+  const f = JSON.parse(fs.readFileSync(s.tasksFile, 'utf8'))
+  assert.deepEqual(f.setup, ['npm ci'])
+  assert.equal(f.verify, 'npm test')
+  assert.deepEqual(f.tasks[1].after, [])
+})
+
+test('H3 starts a serial plan with a chain of after and no graph', () => {
+  planning()
+  const file = writePlanFile(VALID)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(VALID, file)).stdout, '')
+  hook('h3-post-approval.js', exitPost(VALID))
+  const s = state.read(S)
+  assert.equal(s.graph, false)
+  assert.deepEqual(s.setup, [])
+  assert.equal(s.verify, null)
+  assert.deepEqual(s.tasks.map(t => t.after), [[], ['T01'], ['T02']])
 })
 
 test('approval with a dirty tree starts nothing, deactivates and names /tierminator:execute with the plan path', () => {
