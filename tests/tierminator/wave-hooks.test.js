@@ -371,3 +371,97 @@ test('a failed slot retries in place while the others run', () => {
   assert.match(s.notice, /T01 failed at sonnet-medium: tests fail/)
   assert.ok(s.notice.includes('tierminator:sonnet-high'))
 })
+
+const stopHook = input => hook('h4-dispatch.js', input, ['stop'])
+
+test('a stale or repeated stop changes nothing', () => {
+  dispatchAll()
+  const sha = workerCommits('T01')
+  stopHook(stopOf('T01', report('DONE', sha)))
+  assert.equal(state.read(S).done.length, 1)
+  const before = fs.readFileSync(state.fileFor(S))
+  stopHook(stopOf('T01', report('DONE', sha)))
+  assert.equal(state.read(S).done.length, 1)
+  assert.ok(fs.readFileSync(state.fileFor(S)).equals(before))
+  stopHook({ ...stopOf('T02', report('DONE', sha)), agent_type: 'Explore' })
+  assert.ok(fs.readFileSync(state.fileFor(S)).equals(before))
+  assert.equal(slotOf('T02').status, 'running')
+})
+
+test('an exhausted slot halts the run after its siblings settle', () => {
+  dispatchAll()
+  stopHook(stopOf('T03', report('FAILED', 'NONE', 'cannot do it')))
+  assert.equal(slotOf('T03').status, 'failed')
+  let s = state.read(S)
+  assert.equal(s.wave.halting.task, 'T03')
+  assert.equal(s.phase, 'running')
+  assert.equal(slotOf('T01').status, 'running')
+  assert.equal(slotOf('T02').status, 'running')
+  const sha1 = workerCommits('T01')
+  stopHook(stopOf('T01', report('DONE', sha1)))
+  assert.equal(state.read(S).phase, 'running')
+  const sha2 = workerCommits('T02')
+  stopHook(stopOf('T02', report('DONE', sha2)))
+  s = state.read(S)
+  assert.equal(s.phase, 'halted')
+  assert.equal(s.halt.task, 'T03')
+  assert.match(s.notice, /wave 1 stopped: T03 failed/)
+  assert.ok(s.notice.includes('T01 ' + sha1.slice(0, 7)))
+  assert.ok(s.notice.includes('T02 ' + sha2.slice(0, 7)))
+})
+
+test('a leaked edit in the main tree fails as MAIN TREE', () => {
+  dispatchAll()
+  const sha = workerCommits('T01')
+  fs.writeFileSync(path.join(repo, 'stray.txt'), 'leak')
+  stopHook(stopOf('T01', report('DONE', sha)))
+  assert.equal(slotOf('T01').status, 'failed')
+  assert.ok(slotOf('T01').failure.startsWith('MAIN TREE:'))
+  assert.equal(state.read(S).wave.halting.task, 'T01')
+  assert.equal(slotOf('T01').attempt, 1)
+})
+
+test('a failed setup is fatal and not retried', () => {
+  dispatchAll()
+  stopHook(stopOf('T01', report('FAILED', 'NONE', 'SETUP FAILED: npm ci exited 1')))
+  assert.equal(slotOf('T01').status, 'failed')
+  assert.ok(slotOf('T01').failure.startsWith('SETUP FAILED:'))
+  assert.equal(slotOf('T01').attempt, 1)
+})
+
+test('a stop with no last_assistant_message reads the report from the transcript', () => {
+  dispatchAll()
+  const sha = workerCommits('T01')
+  const file = path.join(dir, 'report-T01.jsonl')
+  fs.writeFileSync(
+    file,
+    JSON.stringify({ type: 'user', message: { content: promptFor('T01', PLAN_ID) } }) +
+      '\n' +
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: report('DONE', sha) }] } }) +
+      '\n'
+  )
+  const input = subStop('T01', '', { agent_transcript_path: file })
+  delete input.last_assistant_message
+  stopHook(input)
+  assert.equal(slotOf('T01').status, 'done')
+})
+
+test('no report and no commit asks the worker once', () => {
+  dispatchAll()
+  stopHook(stopOf('T01', ''))
+  assert.equal(slotOf('T01').status, 'running')
+  assert.equal(slotOf('T01').resumePending, true)
+  assert.equal(slotOf('T01').resumeFor, 'report')
+  const s = state.read(S)
+  assert.match(s.notice, /without its report block/)
+  assert.ok(s.notice.includes('to "worker-T01"'))
+})
+
+test('the agent is found by its transcript when no id was recorded', () => {
+  dispatchAll()
+  const sha = workerCommits('T02')
+  const file = transcript('zz.jsonl', 'Tasks file: x\nPlan: ' + PLAN_ID + '\nTask: T02\nParallel: yes')
+  stopHook(subStop('T02', report('DONE', sha), { agent_id: 'zz', agent_transcript_path: file }))
+  assert.equal(slotOf('T02').status, 'done')
+  assert.equal(slotOf('T02').agentId, 'zz')
+})
