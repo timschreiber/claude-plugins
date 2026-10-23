@@ -64,6 +64,104 @@ function write(sessionId, state, delays = LOCK_RETRY_MS) {
   }
 }
 
+// The state lock, <session_id>.lock beside the state: update() holds it while it reads, changes and writes the
+// state, so hook processes that change one session's state at once lose no update. It records its owner's pid
+// and time.
+const LOCK_WAIT_MS = 10 * 1000
+const LOCK_STALE_MS = 30 * 1000
+const LOCK_BACKOFF_MS = [5, 10, 20, 40, 80, 100]
+const LOCK_BUSY_CODES = new Set(['EEXIST', 'EPERM', 'EBUSY', 'EACCES'])
+const lockFor = sessionId => fileFor(sessionId)?.replace(/\.json$/, '.lock') ?? null
+
+function alive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return e?.code === 'EPERM'
+  }
+}
+
+// Stale: owned by this process (update is synchronous, so that is a lock a failed release left), its owner is
+// gone, or older than staleMs by its recorded time, else by its mtime.
+function lockStale(lock, text, staleMs) {
+  let owner = null
+  try {
+    owner = JSON.parse(text)
+  } catch {}
+  const pid = owner?.pid
+  if (Number.isInteger(pid) && pid > 0 && (pid === process.pid || !alive(pid))) return true
+  const at = Date.parse(owner?.at)
+  return Date.now() - (Number.isNaN(at) ? fs.statSync(lock).mtimeMs : at) > staleMs
+}
+
+function acquireLock(lock, waitMs, staleMs) {
+  const deadline = Date.now() + waitMs
+  for (let i = 0; ; i++) {
+    const mine = JSON.stringify({ pid: process.pid, at: new Date().toISOString() })
+    try {
+      fs.writeFileSync(lock, mine, { flag: 'wx' })
+      return mine
+    } catch (e) {
+      if (!LOCK_BUSY_CODES.has(e?.code)) return null
+    }
+    try {
+      const text = fs.readFileSync(lock, 'utf8')
+      if (lockStale(lock, text, staleMs) && fs.readFileSync(lock, 'utf8') === text) {
+        fs.rmSync(lock, { force: true })
+        debug(`state ${path.basename(lock, '.lock')}: removed a stale lock ${text}`)
+        if (Date.now() < deadline) continue
+      }
+    } catch {}
+    const left = deadline - Date.now()
+    if (left <= 0) return null
+    sleep(Math.min(LOCK_BACKOFF_MS[Math.min(i, LOCK_BACKOFF_MS.length - 1)], left))
+  }
+}
+
+// Removes the lock only while it holds what this process wrote.
+function releaseLock(lock, mine) {
+  for (let i = 0; ; i++) {
+    try {
+      if (fs.readFileSync(lock, 'utf8') === mine) fs.rmSync(lock, { force: true })
+      return
+    } catch (e) {
+      if (!RENAME_RETRY_CODES.has(e?.code) || i >= LOCK_BACKOFF_MS.length) return
+      sleep(LOCK_BACKOFF_MS[i])
+    }
+  }
+}
+
+// Reads the state, passes it to fn (null when there is none), and writes what fn returns, all under the state
+// lock; fn returning null or undefined writes nothing. Returns { ok, state }; ok is false when the lock was not
+// had, fn threw or the write failed, so a caller can take the lost-state path (saveLost). fn must be
+// synchronous. Not reentrant.
+function update(sessionId, fn, { waitMs = LOCK_WAIT_MS, staleMs = LOCK_STALE_MS } = {}) {
+  const lock = lockFor(sessionId)
+  if (!lock || typeof fn !== 'function') return { ok: false, state: null }
+  try {
+    fs.mkdirSync(sessionsDir(), { recursive: true })
+  } catch {
+    return { ok: false, state: null }
+  }
+  const mine = acquireLock(lock, waitMs, staleMs)
+  if (mine === null) {
+    debug(`state ${path.basename(lock, '.lock')}: the lock was not taken within ${waitMs} ms`)
+    return { ok: false, state: null }
+  }
+  try {
+    const current = read(sessionId)
+    const next = fn(current)
+    if (next == null) return { ok: true, state: current }
+    return { ok: write(sessionId, next), state: next }
+  } catch (e) {
+    debug(`state ${path.basename(lock, '.lock')}: update failed (${e?.message})`)
+    return { ok: false, state: null }
+  } finally {
+    releaseLock(lock, mine)
+  }
+}
+
 // Removes the state file, the lost-state note and the session's attempt claims.
 function remove(sessionId) {
   try {
@@ -285,6 +383,7 @@ module.exports = {
   fileFor,
   read,
   write,
+  update,
   remove,
   attemptKey,
   claimAttempt,

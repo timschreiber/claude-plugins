@@ -214,6 +214,59 @@ test('the rules marker is set, read and cleared apart from the flag, and deactiv
   }
 })
 
+test('update reads, changes and writes the state under the lock, leaving only the state file', () => {
+  state.write('s1', { n: 1 })
+  assert.deepEqual(state.update('s1', s => ({ n: s.n + 1 })), { ok: true, state: { n: 2 } })
+  assert.equal(state.read('s1').n, 2)
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'sessions')), ['s1.json'])
+})
+
+test('update gives fn null for a missing state', () => {
+  let seen
+  state.update('s1', s => {
+    seen = s
+    return { n: 1 }
+  })
+  assert.equal(seen, null)
+  assert.deepEqual(state.read('s1'), { n: 1 })
+})
+
+test('update writes nothing when fn returns null or undefined', () => {
+  state.write('s1', { n: 1 })
+  assert.deepEqual(state.update('s1', () => null), { ok: true, state: { n: 1 } })
+  assert.deepEqual(state.update('s1', () => undefined), { ok: true, state: { n: 1 } })
+  assert.deepEqual(state.read('s1'), { n: 1 })
+  assert.deepEqual(state.update('missing', () => undefined), { ok: true, state: null })
+  assert.equal(fs.existsSync(path.join(dir, 'sessions', 'missing.json')), false)
+})
+
+test('update with no usable session id or a non-function fn does nothing', () => {
+  for (const id of [undefined, null, '', '///']) {
+    assert.deepEqual(state.update(id, s => s), { ok: false, state: null })
+  }
+  assert.deepEqual(state.update('s1', 'nope'), { ok: false, state: null })
+})
+
+test('update with a throwing fn fails, leaves no lock and the state unchanged, and the next update succeeds', () => {
+  state.write('s1', { n: 1 })
+  assert.deepEqual(state.update('s1', () => { throw new Error('boom') }), { ok: false, state: null })
+  assert.equal(fs.existsSync(path.join(dir, 'sessions', 's1.lock')), false)
+  assert.deepEqual(state.read('s1'), { n: 1 })
+  assert.deepEqual(state.update('s1', s => ({ n: s.n + 1 })), { ok: true, state: { n: 2 } })
+})
+
+test('update reports a failed write as not ok and leaves no lock', () => {
+  mock.method(fs, 'renameSync', () => {
+    throw lockError('EXDEV')
+  })
+  try {
+    assert.deepEqual(state.update('s1', () => ({ n: 5 })), { ok: false, state: { n: 5 } })
+    assert.equal(fs.existsSync(path.join(dir, 'sessions', 's1.lock')), false)
+  } finally {
+    mock.restoreAll()
+  }
+})
+
 test('prune removes old rules markers too', () => {
   state.markRulesShown('old')
   state.markRulesShown('new')
