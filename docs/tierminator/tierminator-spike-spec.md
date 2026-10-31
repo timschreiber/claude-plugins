@@ -25,7 +25,7 @@ A Claude Code plugin that turns an approved plan-mode plan into serial subagent 
 
 **Non-goals**
 
-- Parallel task execution. Tasks run one at a time.
+- Parallel task execution. This spike specifies serial execution only. Parallel execution was designed later and is described in [tierminator-parallel-spec.md](tierminator-parallel-spec.md).
 - Approval gates between tasks. The workflow runtime cannot pause for user input mid-run.
 - Nested subagents. Workers cannot spawn workers.
 - A dependency on `opusplan`. The session model only matters for planning.
