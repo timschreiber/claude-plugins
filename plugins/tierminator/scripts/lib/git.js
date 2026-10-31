@@ -299,6 +299,9 @@ function cherryPickAbort(cwd, delays = LOCK_RETRY_MS) {
   return r.ok ? { ok: true } : { ok: false, failure: `git cherry-pick --abort failed: ${firstLine(r.stderr)}` }
 }
 
+// The main working tree's path (the first worktree of the repository), in worktreeList's path form, from the main tree or a linked worktree; null when cwd is not in a repository.
+const repoRoot = cwd => worktreeList(cwd)[0]?.path ?? null
+
 // True while a cherry-pick is in progress in this worktree (Git keeps CHERRY_PICK_HEAD per worktree).
 const pickInProgress = cwd => git(cwd, ['rev-parse', '-q', '--verify', 'CHERRY_PICK_HEAD']).ok
 
@@ -324,4 +327,4 @@ function excludeWorktrees(cwd) {
   }
 }
 
-module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd, cherryPick, cherryPickAbort, pickInProgress, excludeWorktrees }
+module.exports = { git, installed, problem, head, branch, isClean, commitsSince, committedTasks, isPushed, resetTo, LOCK_RETRY_MS, sleep, toWorktreePath, samePath, worktreeList, branchesMatching, worktreesMatching, worktreePrune, branchDelete, worktreeRemove, worktreeAdd, cherryPick, cherryPickAbort, pickInProgress, excludeWorktrees, repoRoot }

@@ -485,3 +485,24 @@ test('excludeWorktrees is false for a directory that is not a repository', () =>
   assert.equal(g.excludeWorktrees(plain), false)
   assert.equal(g.excludeWorktrees(path.join(dir, 'missing')), false)
 })
+
+test('repoRoot is the main working tree path', () => {
+  const r = repo()
+  assert.equal(g.repoRoot(r), g.worktreeList(r)[0].path)
+})
+
+test('repoRoot from a linked worktree is the main working tree path', () => {
+  const r = repo()
+  const wt = slot(r, 'tierminator-aaaa1111-T01')
+  assert.equal(g.worktreeAdd(r, wt, 'tierminator/aaaa1111/T01', g.head(r)).ok, true)
+  assert.equal(g.repoRoot(wt), g.repoRoot(r))
+})
+
+test('repoRoot is null outside a repository', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'tierminator-norepo-'))
+  try {
+    assert.equal(g.repoRoot(d), null)
+  } finally {
+    fs.rmSync(d, { recursive: true, force: true })
+  }
+})
