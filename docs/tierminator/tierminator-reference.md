@@ -958,6 +958,162 @@ branch. The turn-limit resume and the single request for a missing report work p
   base a tier up, within the usual retry limit. The other slots are not touched.
 - **No `reset --hard`** is run in a parallel wave.
 
+### Closing a wave and integration
+
+A wave closes when every slot has settled: none is in flight and none is queued to start. A task that
+exhausted the ladder or hit a fatal prefix stops anything still queued from starting; the in-flight siblings
+finish and are judged as usual. A halting wave still integrates its passers, so their work is kept and
+`/tierminator:execute` later skips them.
+
+Integration ([`lib/integrate.js`](../../plugins/tierminator/scripts/lib/integrate.js)) is done by hook code, with
+no model, in the main tree on the run branch:
+
+1. The main tree must be on the wave base with a clean status. If not, the run halts with a `MAIN TREE:`
+   reason and the slot worktrees and branches are left in place.
+2. Each done task of the wave, in id order, is cherry-picked from its slot branch (`git cherry-pick`, without
+   `-x`, so the message and its `Tierminator-` trailers are kept; `committedTasks` reads them when resuming).
+   The result is one commit per task and a linear history.
+3. If something was picked, the wave had two or more tasks and the wave is not halting, the plan's `verify`
+   runs (see [Plan-level verify](#plan-level-verify)).
+4. The worktree and branch of each picked task are removed. A failure to remove one is reported in the notice
+   (`Cleanup left: ...`) and does not stop the run.
+
+If the run halts in the middle of a wave, the picks already made stay on the branch.
+
+The notice after integration says what was picked, then gives the next wave's dispatch text, the completion text
+or the halt text, so Claude is told only what is true at that moment.
+
+### Conflicts
+
+There is no conflict resolver. A pick that conflicts is aborted (`git cherry-pick --abort`, leaving the tree as
+it was), and the task is set aside; the other tasks of the wave are still picked. A task whose slot branch is
+missing is set aside the same way. A set-aside task is taken off the done list, and after the wave (and its
+verify) it runs again as a serial wave of one, in id order, on the new HEAD, in the main tree. A serial task
+runs alone, so it cannot conflict again, and its own `Verify:` runs as always. The cost is one task's work done
+twice. If aborting a failed pick leaves the main tree changed, the run halts with a `MAIN TREE:` reason
+instead.
+
+### Setup
+
+The `setup` list is run by the worker, not by hook code: the worker's Parallel rules say to run the tasks
+file's `setup` commands in order, in its worktree, before the task, and to stop at the first failure. A failed
+setup is the environment's fault, not the worker's, so the worker reports `FAILED` with a `NOTE:` starting
+`SETUP FAILED:`, and that is fatal: the wave halts with no retry up the tiers. Setup is for what Git does not
+track in a fresh worktree, such as a restore, `node_modules` or a copied `.env`. It does not run for a serial
+wave, whose tree is already set up.
+
+### Plan-level verify
+
+The plan's `verify` command runs in the main tree after the picks of a parallel wave, never after a serial wave
+(whose task's own `Verify:` covers it) and not for a wave that is halting. It guards against picks that apply
+cleanly and still break together. It runs through the platform shell with a bounded output: only the last 4000
+characters are kept.
+
+- **Passing** is exit status 0; the notice says so and the run goes on to the next wave.
+- **Failing** halts the run. The halt names the command, its exit status (or that it did not finish) and the
+  tail of its output. Nothing repairs it, and nothing is reset: the picks stay on the run branch, each of them a
+  commit that passed its own `Verify:`, and the slot worktrees and branches are left in place. The user fixes the
+  break and types `/tierminator:execute`. Verify runs again after the next parallel wave, not on resume.
+- **Timeout.** The command has its own timeout of 3300 s (`VERIFY_TIMEOUT_MS`), under the 3600 s timeout of the
+  hooks that settle a wave ([`hooks/hooks.json`](../../plugins/tierminator/hooks/hooks.json): H1 on
+  `UserPromptSubmit`, and H4 `post`, `failure`, `resume-failure` and `stop`). A hook that passes its timeout is
+  stopped silently, so a verify that hangs ends first, with its output. H4 `pre`, which makes the worktrees,
+  stays at 30 s. 3600 s was chosen from probe P5 (a hook runs to its end under a raised timeout and the session
+  waits for it).
+
+### Resuming and cleanup
+
+- **Graph plans resume from what is committed.** The tasks whose `Tierminator-Task:` commits for this plan are
+  on the branch are done, wherever they sit in the plan; the waves are recomputed over the rest, with a done
+  dependency counting as satisfied.
+- **`--from` is refused** for a graph plan, with a note that graph plans resume from what is committed.
+  Plans without `after` keep `--from`.
+- **Leftovers are removed by name** before a tiered plan starts ([`lib/leftovers.js`](../../plugins/tierminator/scripts/lib/leftovers.js)):
+  worktrees directly in `.claude/worktrees/` named `tierminator-<8 hex>-T<n>`, and branches
+  `tierminator/<8 hex>/T<n>`. Anything else is the user's and is never touched, as is a matching branch that is
+  checked out in a worktree that is kept. The start note reports what was removed, and says when a removed
+  worktree had uncommitted changes (which are discarded) or when removing something failed (it is left in place).
+
+### Limiting parallelism
+
+`TIERMINATOR_MAX_PARALLEL` caps the tasks ready or running at once. It must be a positive integer; unset, empty
+or invalid means 5. The rest of a wave is queued and starts in id order as slots free.
+
+### Permissions for unattended runs
+
+In the default and `acceptEdits` permission modes every worker command asks for approval, and a command that
+starts with `cd` cannot be allowed permanently, so a person must answer a request for each commit for the life
+of the run. A run with nobody to answer (headless `claude -p`, Grindinator, an overnight run) must therefore
+use `auto` or `bypassPermissions` mode; in the default mode its workers finish the work and cannot commit.
+`auto` and `bypassPermissions` ask nothing. The start notice of a graph plan says so when the permission mode is
+`default` or `acceptEdits`. The guard hook only denies; tierminator still grants no permission.
+
+### The state lock
+
+Several workers can stop within milliseconds, in separate hook processes, so the read, change, write of the
+state has to be one step. `state.update(sessionId, fn)` ([`lib/state.js`](../../plugins/tierminator/scripts/lib/state.js))
+reads the state, passes it to `fn`, writes what `fn` returns and releases, all under an exclusive lock file,
+`<session_id>.lock`, beside the state file:
+
+- **Taking it.** The file is created with the `wx` flag and holds its owner's pid and time. If it exists, the
+  caller retries with backoff (5, 10, 20, 40, 80, then 100 ms) for up to 10 s; failing that, `update` returns
+  `ok: false`, and the caller takes the lost-state path.
+- **Stale locks.** A lock is stale when its owner is this process (a failed release), its owner process is gone,
+  or it is older than 30 s by its recorded time (its mtime when the record cannot be read). A stale lock is
+  removed and taken.
+- **`fn`** must be synchronous. Returning `null` or `undefined` writes nothing. A throw gives `ok: false`.
+  `update` is not reentrant.
+- **Release.** The lock is removed only while it still holds what this process wrote.
+
+Every parallel-wave mutation goes through `update`. The rename retries in `write` (the Windows lock errors) are
+unchanged, and the removal of a session's files also removes its lock.
+
+### New files and tests
+
+New or changed for parallel execution, under `plugins/tierminator/`:
+
+- `scripts/h8-worktree-guard.js`, the worktree guard hook.
+- `scripts/lib/waves.js` (waves, startable set, `maxParallel`), `lib/wave-run.js` (slots, dispatch checks,
+  judging, notices), `lib/h4-wave.js` (H4 for parallel waves), `lib/integrate.js` (integration, verify,
+  cleanup) and `lib/leftovers.js` (finding and removing what an earlier run left).
+- Changes to `lib/tasks.js`, `lib/git.js`, `lib/state.js` (the lock), `lib/execute.js`, the other hooks that
+  read the run state, the tier agents (the Parallel section), `hooks/hooks.json` and `rules/tiering.md`.
+
+Tests, under `tests/tierminator/`: `waves.test.js`, `wave-run.test.js`, `wave-hooks.test.js`,
+`integrate.test.js`, `leftovers.test.js`, `git-worktree.test.js`, `resume.test.js`, `state.test.js` (with the
+concurrent writers), and `tasks.test.js` and `sizing.test.js` for the plan format and the overlap flag.
+
+The end-to-end harness is in `tests/tierminator/e2e/` (`setup.js`, `run-headless.js`, `check.js`, `checks.js`,
+`scenarios.js`, `lib.js`), tested by the `e2e-*.test.js` files, and a person runs it from the runbook
+[`tierminator-parallel-run.md`](tierminator-parallel-run.md). Results are written to
+`tests/tierminator/e2e/results/scenario-N/`.
+
+### Limitations and deferred
+
+**Deferred** (designed, not built):
+
+- the conflict resolver (a conflicting task is run again serially instead);
+- the repair of a failed plan verify (it halts);
+- the usage-limit rule for waves: a limit ends the run once as before, and what happens to the other slots that
+  end because of the same limit is not handled; the leftovers are removed by name at the next start;
+- the result file's new fields (`waves`, `parallelPeak`, `wallClockSeconds`);
+- the display and summary lines (run lines for waves, the wall-clock and speed-up in the end summary, the wave
+  field on spend records). A parallel run's summary otherwise shows what a serial run's does.
+
+**Not built, by design:**
+
+- ready-set scheduling: a task waits for the whole previous wave, not only its own dependencies;
+- enforcing independence: there is no `files` field and H2 does not reject overlapping tasks.
+
+**Built:** the overlap flag in the sizing review. It flags the later of two tasks that may run at the same time
+and name the same file on their `Files to change:` lines; it asks the planner to confirm and never rejects, and
+an `after` or a `Keep Txx:` line clears it.
+
+**End-to-end results.** The headless scenarios of the runbook were run on 2026-10-31 with Claude Code 2.1.316.
+Scenarios 1, 2, 3, 4, 5, 6 and 8 passed every check. Scenario 7 (the start notice's permission line, and
+approving each worker commit in the default mode) needs a person in an interactive session and awaits a hand
+run. No headless scenario failed. The worker rules and the guard were measured on small tasks, not long ones.
+
 ## Executing a saved plan
 
 A run ends when it completes or halts, when the user types a prompt during it, or with its session, and a
