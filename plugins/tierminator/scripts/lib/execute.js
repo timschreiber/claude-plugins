@@ -6,6 +6,8 @@
 //   - A tierminator plan (a task table or a raw task block) runs tiered, from its first task that is
 //     not already committed on this branch, and the session is active.
 //   - A graph plan starts in its first wave (a serial wave when that has one task).
+//   - A graph plan resumes from every task committed on this branch, wherever it is in the plan; nextWave
+//     recomputes the waves over the rest. --from is refused for it.
 //   - A plain plan runs without tierminator: Claude implements it as usual.
 //   - A tierminator plan whose tasks cannot be loaded is refused: its prompts are not in the plan.
 //   - In a headless session (opts.record), a plan that does not start writes the result file (lib/result.js).
@@ -136,6 +138,15 @@ function startPoint(tasks, committed, from) {
   return { start, done: tasks.slice(0, start).map(t => entry(t, 'committed')) }
 }
 
+// Where a graph plan's run starts: every task already committed on the branch is done, wherever it is in the
+// plan, and nextWave recomputes the waves over the rest. start is the first task not committed (tasks.length
+// when every task is), for startRun.
+function graphStartPoint(tasks, committed) {
+  const done = tasks.filter(t => committed[t.id]).map(t => skippedEntry(t.id, committed[t.id], 'committed'))
+  const first = tasks.findIndex(t => !committed[t.id])
+  return { start: first < 0 ? tasks.length : first, done }
+}
+
 // opts.approved: the user has just approved the plan in plan mode (H3), so plan mode is not refused and
 // the note says the user wants it run.
 function startPlan(input, rest, opts, seen) {
@@ -194,6 +205,14 @@ function startPlan(input, rest, opts, seen) {
     )
   }
 
+  if (result.graph && args.from) {
+    return (
+      `${PREFIX} the plan in ${planFile} was not started: --from cannot be used with a graph plan (one whose tasks ` +
+      'have after); graph plans resume from what is committed on this branch. ' +
+      `Tell the user, and that /tierminator:execute "${planFile}" without --from runs the tasks not committed yet.`
+    )
+  }
+
   const problem = git.problem(cwd)
   if (problem) {
     return (
@@ -204,7 +223,7 @@ function startPlan(input, rest, opts, seen) {
 
   const planId = planIdOf(result, text)
   const committed = git.committedTasks(cwd, planId)
-  const point = startPoint(result.tasks, committed, args.from)
+  const point = result.graph ? graphStartPoint(result.tasks, committed) : startPoint(result.tasks, committed, args.from)
   if (point.error) return `${PREFIX} the plan in ${planFile} was not started: ${point.error}.`
   if (point.start >= result.tasks.length) {
     seen.allDone = { tasks: result.tasks, done: point.done }
@@ -285,4 +304,4 @@ function recordNotStarted(input, note, seen) {
   return resultFile.writeOutcome(input, null, 'declined', resultFile.reasonOf(note), where)
 }
 
-module.exports = { executePlan, parseArgs, recentPlans, startPoint, plansDir }
+module.exports = { executePlan, parseArgs, recentPlans, startPoint, graphStartPoint, plansDir }
