@@ -414,8 +414,9 @@ function haltText(state) {
 function lostText(state) {
   const done = state.done.map(doneLabel).join(', ') || 'none'
   const resume = state.planFile ? `/tierminator:execute "${state.planFile}"` : '/tierminator:execute with the plan\'s path'
+  const what = state.current ? currentTask(state).id : (state.wave?.size ?? []).join(', ')
   return (
-    `tierminator: the run stopped: ${currentTask(state).id} was not dispatched because the run's state could not be saved. ` +
+    `tierminator: the run stopped: ${what} ${state.current ? 'was' : 'were'} not dispatched because the run's state could not be saved. ` +
     `Done: ${done}. To resume, the user types ${resume}; tasks already committed are skipped. ` +
     'Tell the user, and dispatch nothing more.'
   )

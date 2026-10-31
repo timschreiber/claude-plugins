@@ -264,6 +264,12 @@ test('lostText tells Claude the run stopped because its state could not be saved
   assert.ok(r.lostText({ ...start(), planFile: null }).includes('Done: none'))
 })
 
+test('lostText names the tasks of a wave when there is no current task', () => {
+  const s = { ...r.advance(start(), { ok: true, commit: 'aaa1111' }).state, planFile: 'C:/plans/p.md' }
+  const state = { ...s, current: null, wave: { size: ['T02', 'T03'] } }
+  assert.match(r.lostText(state), /T02, T03 were not dispatched because the run/)
+})
+
 test('a failure at the top tier, or a fatal one, halts at once', () => {
   let s = start()
   s = r.advance(s, { ok: true, commit: 'a' }).state
