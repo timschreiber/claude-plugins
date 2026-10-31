@@ -23,6 +23,7 @@ without an evidence file behind it.
 | `decidinator/` | Do the hook inputs, plan-mode tools, deny delivery and model settings Decidinator's spec assumes hold? | WP-02 onward | **Headless run, interactive pending.** `evidence/decidinator-probe-*` (7 cells) and `decidinator-verification-results.json`. See `docs/decidinator/decidinator-verification.md` |
 | `tierminator/` | Does a headless `claude -p "/plugin:command args"` give hooks the raw text and an `sdk` entrypoint, expand `$ARGUMENTS` and pass `additionalContext` to the model? | The tierminator redesign | **Run.** `evidence/tierminator-headless-probe-*` (1 session). See `docs/tierminator/tierminator-headless-command-findings.md` |
 | `grindinator/` | Do the headless behaviors Grindinator's spec assumes hold: `StopFailure`, stream-json shapes and exit codes, the reset time, `SessionEnd` on a limit, headless `/tierminator:execute`, Decidinator in `-p`, decision-log writes versus the clean tree, permissions, and model resolution? | Grindinator WP-02 onward | **Run.** `evidence/grindinator-<cell>-*` (20 cells) and `grindinator-verification-results.json`. See `docs/grindinator/grindinator-verification.md` and `probes/grindinator/README.md` |
+| `tierminator-bash-timeout/` | Can a plugin hook raise a Bash call's timeout with `updatedInput`, in the main session and in a subagent, and what beats it? | The H9 worker timeout hook | **Run.** `evidence/tierminator-bash-timeout-results.json` (14 cells). See `docs/tierminator/tierminator-bash-timeout-findings.md` |
 
 ## Run order
 
