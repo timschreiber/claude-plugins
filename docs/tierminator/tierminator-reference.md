@@ -38,9 +38,10 @@ Tested on Claude Code 2.1.283 (Windows).
 
 ## What it is
 
-tierminator turns an approved plan-mode plan into serial subagent execution. Each task in the plan runs
-as its own subagent, one at a time, on the model and effort chosen for it while planning, and commits its
-own work.
+tierminator turns an approved plan-mode plan into subagent execution. Each task in the plan runs as its
+own subagent, on the model and effort chosen for it while planning, and commits its own work. The tasks run
+one at a time, unless the plan declares independent tasks with `after`, in which case they run in parallel in
+Git worktrees (see [Parallel execution](#parallel-execution)).
 
 The plugin does nothing until the user types `/tierminator:plan <request>` or `/tierminator:execute`
 (see [Commands](#commands)). After `/tierminator:plan`, the user's experience is plain plan mode: plan,
@@ -54,7 +55,8 @@ approve, watch. The plugin adds four things:
 3. **Automatic hand-off.** After approval, Claude is given the exact Agent call for each task in turn and
    dispatches it. Hooks refuse any other dispatch. Nothing is typed after approval.
 4. **Commits and retries.** Each task is one commit. A failed attempt is reset to the commit before it and
-   retried one tier up, twice at most, and then the run stops.
+   retried one tier up, twice at most, and then the run stops. (In a parallel wave, a failed attempt is
+   retried in a fresh worktree instead of being reset.)
 
 ### Design goals
 
@@ -119,6 +121,10 @@ plan made in plan mode without `/tierminator:plan` is not tiered.
 
 Either command first ends whatever the session was doing: a run in progress stops (as for a typed prompt,
 below), and the session is made inactive before the command starts anew.
+
+`--from` is refused for a graph plan (one whose tasks use `after`). Such a plan resumes from what is
+committed, with the waves recomputed over the rest. Leftover worktrees and branches of an earlier run are
+removed by name first, and the start note reports them.
 
 **How tierminator's part ends.** The session is made inactive, and its state removed, when:
 
@@ -242,7 +248,7 @@ agree.
 
 ### Fields
 
-Every task has exactly these five keys, all strings. Any other key is an error.
+Every task has exactly these five required keys, all strings, plus the optional `after`. Any other key is an error.
 
 | Field | Rule |
 |---|---|
@@ -251,10 +257,13 @@ Every task has exactly these five keys, all strings. Any other key is an error.
 | `model` | `sonnet` or `opus`. |
 | `effort` | `low`, `medium` or `high` for `sonnet`; `medium` or `high` for `opus`. `sonnet` / `xhigh` and `opus` / `low` are accepted as aliases for `opus` / `medium`, and `opus` / `xhigh` for `opus` / `high`. |
 | `prompt` | Non-empty and contains the text `Verify:`. |
+| `after` | Optional. An array of earlier task ids that this task waits for. Absent means the previous task. No duplicates and no reference to the task itself. |
 
 ### Whole-block rules
 
-- The block must be a JSON object of the form `{"tasks": [...]}` with a non-empty `tasks` array.
+- The block must be a JSON object of the form `{"tasks": [...]}` with a non-empty `tasks` array. The
+  top-level object may hold only `tasks`, `setup` (an array of up to 10 non-empty single-line commands) and
+  `verify` (one non-empty single-line command).
 - At most 99 tasks.
 - Exactly one `json tiered-tasks` block in the plan. Two or more is an error.
 - The block and the opt-out line (below) cannot both appear.
@@ -1148,6 +1157,7 @@ It then checks, in order:
 | `git.problem()` finds a problem | Refused with the reason, as for `/tierminator:plan`, and told to type `/tierminator:execute "<plan file>"` once it is fixed. |
 | A gap: a task is committed while an earlier one is not | Refused; `--from` chooses the start. |
 | `--from` names no task in the plan | Refused, naming the plan's first and last task. |
+| `--from` with a graph plan | Refused: a graph plan resumes from what is committed, with the waves recomputed over the rest. Run it without `--from`. |
 | Every task is committed | Nothing runs; the note lists the commits. |
 | Otherwise | Activates the session, saves a `running` state starting at the first task not done, and gives the first dispatch. |
 
@@ -1165,6 +1175,9 @@ show them as `T01 abc1234 (earlier run)` or `T01 (skipped by --from)`.
 **Tasks file.** A table's tasks file is used as it is. A plan that still has its raw block (H2 never moved
 it) gets its block written to `<plan>.tasks.json` beside it, or beside the session state if that fails. The
 plan file itself is never rewritten.
+
+Before a graph plan starts, the worktrees and branches an earlier run left are removed by name and reported
+in the start note (see [Parallel execution](#parallel-execution)).
 
 From there the run is the same as one started by approval: H4 checks each dispatch and judges each attempt,
 and H5 guards the main thread.
@@ -1586,6 +1599,7 @@ How the plugin behaves when something goes wrong:
 | `CLAUDE_PLUGIN_ROOT` | Set by Claude Code. Used to locate the hook scripts and the rules file. |
 | `CLAUDE_CODE_ENTRYPOINT` | Set by Claude Code. A value starting with `sdk` (`sdk-cli` for `claude -p`) makes `/tierminator:plan` start an [unattended run](#unattended-runs); anything else, or unset, plans interactively. |
 | `TIERMINATOR_RESULT_FILE` | When set, the absolute path where a run's [result file](#the-result-file) is written instead of beside the plan. |
+| `TIERMINATOR_MAX_PARALLEL` | A positive integer: the cap on tasks running at once. Default 5; an unset or invalid value means 5. |
 | `CLAUDE_CODE_EFFORT_LEVEL` | If set, overrides the agents' effort. Leave unset. |
 | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` | If set, overrides the agents' models. Leave unset. |
 
@@ -1601,6 +1615,8 @@ There is no plugin-specific settings file. The tiers, limits and wording are con
 | Plan id | First 16 hex characters of the sha256 of the task block | `lib/sidecar.js` `planIdOf` |
 | Plans listed by `/tierminator:execute` | 5, from `${CLAUDE_CONFIG_DIR ?? ~/.claude}/plans` | `lib/execute.js` |
 | Maximum tasks | 99 | `lib/tasks.js` |
+| Tasks run at once | `DEFAULT_MAX_PARALLEL` 5 | `lib/waves.js` |
+| Slot worktree and branch | `<repo>/.claude/worktrees/tierminator-<run id>-<task id>` and `tierminator/<run id>/<task id>` | `lib/wave-run.js` `slotPlacement` |
 | Maximum title length | 100 characters | `lib/tasks.js` |
 | Block info string | `json tiered-tasks` | `lib/tasks.js` |
 | Opt-out line | `Tiered execution: off` | `lib/tasks.js` |
