@@ -6,6 +6,7 @@ const fs = require('fs')
 const git = require('./git.js')
 const r = require('./run.js')
 const w = require('./wave-run.js')
+const integrate = require('./integrate.js')
 const { maxParallel } = require('./waves.js')
 
 const short = sha => String(sha ?? '').slice(0, 7)
@@ -87,6 +88,9 @@ function settle(s, cwd, failure) {
     next = step.state
     action = step.kind === 'complete' ? 'complete' : 'next'
     started = step.kind === 'wave'
+    // A set-aside task's slot is kept until its serial re-run finishes; sweep what is done now.
+    const aside = next.setAside ?? []
+    integrate.sweepSlots(cwd, s.runId, next.done.map(d => d.id).filter(id => !aside.includes(id)))
   }
 
   if (action === 'retry') {
