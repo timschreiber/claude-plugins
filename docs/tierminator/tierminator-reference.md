@@ -18,6 +18,7 @@ Tested on Claude Code 2.1.283 (Windows).
 - [Opting out of tiering](#opting-out-of-tiering)
 - [The hooks](#the-hooks)
 - [The run](#the-run)
+- [Parallel execution](#parallel-execution)
 - [Executing a saved plan](#executing-a-saved-plan)
 - [Unattended runs](#unattended-runs)
 - [The result file](#the-result-file)
@@ -867,6 +868,96 @@ in a `Plan:` line, and every worker commit carries `Tierminator-Plan: <id>` besi
 `Tierminator-Task: <task id>`. Task ids repeat from plan to plan (every plan has a T01); the plan line is
 what tells one plan's T01 from another's.
 
+## Parallel execution
+
+A plan can say which tasks do not depend on each other. Tasks that can run at the same time are grouped into
+a wave, and a wave of two or more tasks runs its tasks at once, each in its own Git worktree made at the same
+commit, then lands them on the run branch in task id order. This section covers the plan format, the waves, the
+worktrees and how a slot is judged. The design is in
+[`tierminator-parallel-spec.md`](tierminator-parallel-spec.md) and the measurements behind it in
+[`tierminator-parallel-findings.md`](tierminator-parallel-findings.md) (the "Option C" section). Where the code
+differs from the spec, the code is described here.
+
+### The plan format
+
+The task block ([`lib/tasks.js`](../../plugins/tierminator/scripts/lib/tasks.js)) takes three additions:
+
+| Field | Rule |
+|---|---|
+| `tasks[].after` | Optional array of task ids the task needs done first. |
+| `setup` | Optional top-level array of command strings, run in order in each new worktree. At most 10, each a non-empty single line. |
+| `verify` | Optional top-level string, one non-empty single-line command, run after a parallel wave is integrated. |
+
+- **The default `after`.** A task with no `after` gets the previous task's id, and `T01` gets `[]`. Everything
+  downstream reads this normalized array.
+- **Graph plan versus serial plan.** A plan is a graph plan when at least one task writes `after`. Any other
+  plan is a serial plan and runs one task at a time as before; its approval table is unchanged, and `setup`
+  and `verify` are ignored.
+- **Validation (H2).** Each `after` must be an array of task id strings, each naming an earlier task, with no
+  duplicates and no task naming itself, so a cycle cannot be written. Redundant edges are allowed. `setup` and
+  `verify` must have the shapes above, and the top-level object may hold only `tasks`, `setup` and `verify`.
+  Errors are collected as for the rest of the block. Ids still run `T01`, `T02`, ... in order.
+
+For a graph plan only, the approval table gains a `Wave` and an `After` column (`—` for none), and is followed
+by one `Setup:` line per command, a `Verify (after each parallel wave):` line, and a `Waves:` line such as
+`1: T01, T02, T03 · 2: T04`. Setup and verify are shown verbatim because approving the plan makes tierminator
+run them. The tasks file and its hash cover the whole block, so neither can change after approval.
+
+### Waves
+
+- **The wave rule.** A task's wave is 1 when it has no unfinished dependency, else 1 plus the largest wave
+  among its unfinished dependencies ([`lib/waves.js`](../../plugins/tierminator/scripts/lib/waves.js)). A task
+  therefore also waits for every other task of the wave before its own. Done tasks count as satisfied.
+- **Serial and parallel waves.** A wave of one task is a serial wave: it runs in the main working tree through
+  the serial machinery described under [The run](#the-run). A wave of two or more tasks is a parallel wave and
+  runs through the slot machinery ([`lib/wave-run.js`](../../plugins/tierminator/scripts/lib/wave-run.js)).
+- **A wave starts when the previous one settles.** The hook that settles the previous wave (or approval, for
+  wave 1) computes the next wave from the tasks not yet done.
+- **The cap.** At most `TIERMINATOR_MAX_PARALLEL` tasks are ready or running at once (a positive integer;
+  unset or invalid means 5). The rest are queued and start in id order as slots free. Claude is told to make
+  every startable Agent call in one message.
+
+### Worktrees
+
+- **Path and branch.** Each task of a parallel wave gets the worktree
+  `<repo>/.claude/worktrees/tierminator-<run>-<task>`, in drive-letter, forward-slash form, and the branch
+  `tierminator/<runId>/<task>`.
+- **The exclude entry.** `.claude/worktrees/` is added once to the repository's `info/exclude`, so the main
+  tree does not show `?? .claude/` and fail the clean-tree check.
+- **Made by H4.** H4's `pre` mode runs `git worktree add -b <branch> <path> <wave base>` for the slot the
+  `Task:` line names, serialized through the state lock. The wave base is the run branch's HEAD when the wave
+  starts. The Agent call itself is not changed, and a call that carries `isolation` is denied.
+- **The worker is not isolated.** It is an ordinary subagent that works in the worktree under the Parallel
+  section of the [tier agents](#the-tier-agents): run the tasks file's `setup` first, prefix every Bash command
+  with `cd "<worktree>" && `, never use PowerShell, give file tools absolute paths under the worktree, pass
+  `path` to Glob and Grep, and commit on the branch already checked out.
+- **The prompt.** A parallel wave's prompt is the serial one plus a `Parallel: yes` line and a
+  `Worktree: <path>` line after the `Task:` line.
+
+### The worktree guard
+
+[H8](#h8-worktree-guard) denies a tierminator worker's call while a wave works if it would reach the main
+tree: a Bash command without a `cd` into a worktree of this run, any PowerShell call, a Write or Edit outside
+it, and a Glob or Grep without a `path` inside it. It only denies.
+
+### Judging a slot
+
+A finished slot is judged as an attempt is under [Judging an attempt](#judging-an-attempt), at the slot's
+worktree: a readable report (or the Git evidence that stands in for it), exactly one new commit with the
+task's `Tierminator-Task:` and `Tierminator-Plan:` lines, a clean tree, and the worker still on its own
+branch. The turn-limit resume and the single request for a missing report work per slot.
+
+- **The main-tree check.** The main tree must still be on the wave base with an empty status. If not, a worker
+  left its worktree; the leaking slot cannot be told, so the wave halts.
+- **Fatal prefixes.** These halt the wave with no retry up the tiers:
+  - `MAIN TREE:` the main tree was touched.
+  - `SETUP FAILED:` a `setup` command failed (the worker's `NOTE:` starts with it). A bigger model cannot fix
+    a missing tool.
+  - `WORKTREE CREATE:` `git worktree add` failed.
+- **A failed attempt** discards the slot's worktree and branch, and a fresh one is made from the same wave
+  base a tier up, within the usual retry limit. The other slots are not touched.
+- **No `reset --hard`** is run in a parallel wave.
+
 ## Executing a saved plan
 
 A run ends when it completes or halts, when the user types a prompt during it, or with its session, and a
@@ -1442,7 +1533,7 @@ and type `/tierminator:plan` with a small multi-step change.
 
 ## Limitations and non-goals
 
-- **Serial only.** Tasks run one at a time. Parallel execution is a non-goal.
+- **Parallel execution is for graph plans only.** A plan whose tasks have no `after` runs one task at a time. See [Parallel execution](#parallel-execution) for what is built and what is deferred.
 - **No pauses between tasks.** There are no per-task approval gates.
 - **No pushing.** Each task is a local commit on the current branch.
 - **Spend is an estimate.**
