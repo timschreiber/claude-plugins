@@ -654,3 +654,88 @@ test('haltText names the task, the also-failed, the passers, the skipped and the
   assert.ok(!text.includes('Also failed'))
   assert.ok(!text.includes('Not started'))
 })
+
+const GRAPH = [
+  task(1, { after: [] }),
+  task(2, { after: ['T01'] }),
+  task(3, { after: ['T01'] }),
+  task(4, { after: ['T01'] }),
+  task(5, { after: ['T02', 'T03', 'T04'] }),
+]
+const graphRun = () =>
+  r.startRun({ tasks: GRAPH, tasksFile: 'x.tasks.json', planFile: 'x.md', branch: 'main', planId: 'p', graph: true })
+const doneEntry = id => ({ id, tier: 'sonnet-medium', commit: 'abc1234', attempts: 1 })
+const withDone = (state, ids) => ({ ...state, done: [...state.done, ...ids.map(doneEntry)] })
+const closedWave = (state, over = {}) => {
+  const started = w.nextWave(withDone(state, ['T01']), 'base000', REPO, 5).state
+  return { ...started, phase: 'integrating', wave: { ...started.wave, phase: 'integrating', ...over } }
+}
+
+test('nextWave starts the first task as a serial wave', () => {
+  const next = w.nextWave(graphRun(), 'base000', REPO, 5)
+  assert.equal(next.kind, 'serial')
+  assert.deepEqual(next.ids, ['T01'])
+  assert.equal(next.state.current.index, 0)
+  assert.ok(!('wave' in next.state))
+})
+
+test('nextWave starts a parallel wave once its dependencies are done', () => {
+  const base = graphRun()
+  const next = w.nextWave(withDone(base, ['T01']), 'base000', REPO, 5)
+  assert.equal(next.kind, 'wave')
+  assert.deepEqual(next.ids, ['T02', 'T03', 'T04'])
+  assert.equal(next.state.wave.n, 2)
+  assert.equal(next.state.wave.base, 'base000')
+  assert.equal(next.state.wave.cap, 5)
+  assert.equal(next.state.current, null)
+  for (const id of next.ids) {
+    assert.ok(slot(next.state, id).worktree.startsWith(`${REPO}/.claude/worktrees/tierminator-${base.runId}-`))
+  }
+  const capped = w.nextWave(withDone(base, ['T01']), 'base000', REPO, 2)
+  assert.deepEqual(next.ids.map(id => slot(capped.state, id).status), ['ready', 'ready', 'queued'])
+})
+
+test('nextWave moves from a closed wave to the next serial wave', () => {
+  const closed = withDone(closedWave(graphRun()), ['T02', 'T03', 'T04'])
+  assert.equal(closed.phase, 'integrating')
+  const next = w.nextWave(closed, 'base111', REPO, 5)
+  assert.equal(next.kind, 'serial')
+  assert.deepEqual(next.ids, ['T05'])
+  assert.ok(!('wave' in next.state))
+})
+
+test('nextWave completes when every task is done', () => {
+  const next = w.nextWave(withDone(graphRun(), ['T01', 'T02', 'T03', 'T04', 'T05']), 'base000', REPO, 5)
+  assert.equal(next.kind, 'complete')
+  assert.equal(next.state.phase, 'complete')
+  assert.deepEqual(next.ids, [])
+})
+
+test('nextWave runs a set-aside task again as a serial wave', () => {
+  const closed = withDone(closedWave(graphRun(), { setAside: ['T03'] }), ['T02', 'T03', 'T04'])
+  const next = w.nextWave(closed, 'base111', REPO, 5)
+  assert.equal(next.kind, 'serial')
+  assert.deepEqual(next.ids, ['T03'])
+  assert.ok(!next.state.done.some(d => d.id === 'T03'))
+  assert.deepEqual(next.state.setAside, [])
+})
+
+test('nextWave runs several set-aside tasks one at a time', () => {
+  const closed = withDone(closedWave(graphRun(), { setAside: ['T03', 'T04'] }), ['T02', 'T03', 'T04'])
+  const first = w.nextWave(closed, 'base111', REPO, 5)
+  assert.equal(first.kind, 'serial')
+  assert.deepEqual(first.ids, ['T03'])
+  assert.deepEqual(first.state.setAside, ['T04'])
+  assert.ok(!first.state.done.some(d => d.id === 'T03' || d.id === 'T04'))
+  const second = w.nextWave(withDone(first.state, ['T03']), 'base222', REPO, 5)
+  assert.equal(second.kind, 'serial')
+  assert.deepEqual(second.ids, ['T04'])
+  assert.deepEqual(second.state.setAside, [])
+})
+
+test('startText names the wave and gives the dispatch instruction', () => {
+  const next = w.nextWave(withDone(graphRun(), ['T01']), 'base000', REPO, 5)
+  assert.ok(
+    w.startText(next.state).startsWith('Wave 2 runs 3 tasks in parallel (T02, T03, T04). Call the Agent tool 3 times')
+  )
+})

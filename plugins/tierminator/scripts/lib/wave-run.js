@@ -17,7 +17,7 @@
 'use strict'
 
 const r = require('./run.js')
-const { DEFAULT_MAX_PARALLEL, waveOf, startable: freeIds } = require('./waves.js')
+const { DEFAULT_MAX_PARALLEL, waveOf, waves, startable: freeIds } = require('./waves.js')
 const { toWorktreePath } = require('./git.js')
 const { nextTier } = require('./tasks.js')
 
@@ -70,6 +70,23 @@ function startWave(state, taskIds, base, cap, repoRoot) {
     setAside: [],
   }
   return { ...state, current: null, wave }
+}
+
+// The state that starts the next wave, with its kind (serial | wave | complete) and task ids. A wave of one
+// task is a serial wave. Set-aside tasks come first, one serial wave each, and their done entries are
+// dropped so they run again.
+function nextWave(state, base, repoRoot, cap) {
+  const { wave: closed, ...rest } = state
+  const pending = closed?.setAside ?? state.setAside ?? []
+  const done = state.done.filter(d => !pending.includes(d.id))
+  const ids = pending.length > 0 ? [pending[0]] : waves(state.tasks, done.map(d => d.id))[0] ?? []
+  if (ids.length === 0) return { state: { ...state, phase: 'complete' }, kind: 'complete', ids: [] }
+  const open = { ...rest, phase: 'running', done, setAside: pending.slice(1) }
+  if (ids.length === 1) {
+    const i = state.tasks.findIndex(t => t.id === ids[0])
+    return { state: { ...open, current: r.fresh(state.tasks[i], i) }, kind: 'serial', ids }
+  }
+  return { state: startWave(open, ids, base, cap, repoRoot), kind: 'wave', ids }
 }
 
 // The ids that may be dispatched now, in size order.
@@ -328,6 +345,10 @@ function dispatchText(state) {
   return lines.join('\n')
 }
 
+// What Claude is told when a parallel wave starts: the wave's size, then the dispatch instruction.
+const startText = state =>
+  `Wave ${state.wave.n} runs ${state.wave.size.length} tasks in parallel (${state.wave.size.join(', ')}). ${dispatchText(state)}`
+
 const runningIds = state => state.wave.size.filter(id => state.wave.slots[id].status === 'running')
 
 // What Claude is told when its Agent calls return while the tasks run in the background.
@@ -406,6 +427,8 @@ module.exports = {
   withSlot,
   slotPlacement,
   startWave,
+  nextWave,
+  startText,
   startable,
   dispatched,
   taskOfPrompt,
