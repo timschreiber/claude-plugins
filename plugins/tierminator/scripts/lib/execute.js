@@ -5,6 +5,7 @@
 // approved in plan mode.
 //   - A tierminator plan (a task table or a raw task block) runs tiered, from its first task that is
 //     not already committed on this branch, and the session is active.
+//   - A graph plan starts in its first wave (a serial wave when that has one task).
 //   - A plain plan runs without tierminator: Claude implements it as usual.
 //   - A tierminator plan whose tasks cannot be loaded is refused: its prompts are not in the plan.
 //   - In a headless session (opts.record), a plan that does not start writes the result file (lib/result.js).
@@ -20,9 +21,14 @@ const { resolvePlan, planIdOf, sidecarPath, writeTasksFile } = require('./sideca
 const { extractBlock } = require('./tasks.js')
 const { startRun, dispatchText, skippedEntry, doneLabel } = require('./run.js')
 const { recordRunStart } = require('./spend.js')
+const w = require('./wave-run.js')
+const { maxParallel } = require('./waves.js')
 
 const PREFIX = 'tierminator:'
 const LISTED = 5
+const PARALLEL_MODES = ['default', 'acceptEdits']
+const PERMISSION_LINE =
+  'Parallel workers ask for permission for each commit in this mode; a shell command that starts with cd cannot be allowed permanently. Use auto or bypassPermissions mode to run unattended.'
 
 // Claude Code's default plans directory. A custom plansDirectory setting is not visible to hooks.
 const plansDir = () => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'plans')
@@ -208,6 +214,13 @@ function startPlan(input, rest, opts, seen) {
     )
   }
 
+  if (result.graph && !git.excludeWorktrees(cwd)) {
+    return (
+      `${PREFIX} the plan cannot run here: .claude/worktrees/ could not be added to the repository's info/exclude, ` +
+      `which parallel workers need. Tell the user what to fix, then to type /tierminator:execute "${planFile}".`
+    )
+  }
+
   const block = result.section ? null : extractBlock(text).blocks[0]
   const sessionTasks = state.fileFor(id)?.replace(/\.json$/, '.tasks.json')
   const tasksFile = result.section?.file ?? writeTasksFile([sidecarPath(planFile), sessionTasks], block)
@@ -216,7 +229,7 @@ function startPlan(input, rest, opts, seen) {
     return `${PREFIX} the session could not be activated (its flag file could not be written), so the plan cannot run. Tell the user.`
   }
 
-  const run = {
+  let run = {
     ...startRun({
       tasks: result.tasks,
       setup: result.setup,
@@ -232,6 +245,10 @@ function startPlan(input, rest, opts, seen) {
     }),
     cwd,
   }
+  if (result.graph) {
+    const first = w.nextWave(run, git.head(cwd), git.repoRoot(cwd), maxParallel())
+    if (first.kind !== 'complete') run = first.state
+  }
   if (!state.write(id, run)) return `${PREFIX} the run could not be saved, so the plan cannot run. Tell the user.`
   recordRunStart(input, run)
 
@@ -244,9 +261,10 @@ function startPlan(input, rest, opts, seen) {
     : `${PREFIX} running the plan in ${planFile} (${count}).`
   return (
     opening +
-    `${skipped} Dispatch the tasks one at a time, exactly as tierminator says. ` +
+    `${skipped} ${result.graph ? 'Dispatch the tasks exactly as tierminator says.' : 'Dispatch the tasks one at a time, exactly as tierminator says.'} ` +
     'Do not implement the plan yourself. ' +
-    dispatchText(run)
+    (result.graph && PARALLEL_MODES.includes(input.permission_mode) ? PERMISSION_LINE + ' ' : '') +
+    (run.wave ? w.startText(run) : dispatchText(run))
   )
 }
 

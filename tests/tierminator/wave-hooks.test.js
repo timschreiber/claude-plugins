@@ -874,3 +874,44 @@ test('H1 moves a graph run from its serial task to the next wave', () => {
   assert.ok(res.stdout.includes('Call the Agent tool 3 times'))
   assertWaveStarted(state.read(S))
 })
+
+// Approves a plan holding `tasks` in plan mode on a fresh repository and returns the note H3 gives.
+function approve(tasks, mode) {
+  repo = makeRepo(path.join(dir, 'repo'))
+  state.write(S, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0 })
+  const filePath = path.join(dir, 'plan.md')
+  const text = '# Plan\n\n## Tasks\n\n```json tiered-tasks\n' + JSON.stringify({ tasks }, null, 2) + '\n```\n'
+  fs.writeFileSync(filePath, text)
+  const res = hook('h3-post-approval.js', {
+    session_id: S,
+    cwd: repo,
+    permission_mode: mode,
+    tool_name: 'ExitPlanMode',
+    tool_input: { plan: 'x' },
+    tool_response: { plan: text, isAgent: false, filePath },
+  })
+  return res.json.hookSpecificOutput.additionalContext
+}
+
+test('H3 starts a graph plan in its first parallel wave', () => {
+  const note = approve([task(1, { after: [] }), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })], 'auto')
+  const s = state.read(S)
+  assert.deepEqual(s.wave.size, ['T01', 'T02'])
+  assert.equal(s.current, null)
+  assert.ok(note.includes('Call the Agent tool 2 times'))
+  assert.ok(note.includes('Wave 1 runs 2 tasks in parallel'))
+})
+
+test('H3 starts a graph plan whose first wave is one task as a serial task', () => {
+  const note = approve([task(1, { after: [] }), task(2, { after: ['T01'] }), task(3, { after: ['T02'] })], 'auto')
+  const s = state.read(S)
+  assert.equal(s.current.index, 0)
+  assert.equal(s.wave, undefined)
+  assert.ok(note.includes('Call the Agent tool now with subagent_type'))
+})
+
+test('H3 starts a plan with no after as a serial run', () => {
+  const note = approve([task(1), task(2), task(3)], 'auto')
+  assert.equal(state.read(S).current.index, 0)
+  assert.ok(note.includes('Dispatch the tasks one at a time'))
+})
