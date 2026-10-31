@@ -1,0 +1,724 @@
+{
+  "probe": "tierminator-bash-timeout",
+  "date": "2026-10-31T12:46:25.424Z",
+  "claudeVersion": "2.1.316 (Claude Code)",
+  "cells": [
+    {
+      "name": "r0",
+      "expect": "completes",
+      "roles": [
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 16,
+      "exit": 0,
+      "claudeSessionId": "b891981b-7684-4960-b6af-48900b6a7ca6",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "SLOWDONE Shell cwd was reset to C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-bash-timeout-vOdBXx\\work"
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "b891981b-7684-4960-b6af-48900b6a7ca6",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"SLOWDONE\",\"stderr\":\"\\nShell cwd was reset to C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-bash-timeout-vOdBXx\\\\work\",\"interrupted\":false,\"isIm"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r1",
+      "expect": "backgrounded",
+      "roles": [
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 14,
+      "exit": 0,
+      "claudeSessionId": "a7a7bb10-3320-4e3c-b6bf-19abf81fee3a",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: blzvuh5jt). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\a7a7bb10-3320-4e3c-b6bf-19abf81fee3a\\tasks\\blzvuh5jt.output. You"
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a7a7bb10-3320-4e3c-b6bf-19abf81fee3a",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a7a7bb10-3320-4e3c-b6bf-19abf81fee3a",
+          "permission_mode": "bypassPermissions",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"blzvuh5jt\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r2",
+      "expect": "backgrounded",
+      "roles": [
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": true,
+      "durationS": 20,
+      "exit": 0,
+      "claudeSessionId": "d17a7243-6543-4b63-8c62-0359cbb2e4c9",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "[{\"type\":\"text\",\"text\":\"Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ace71abb34fa81f70 (internal ID - do not mention to user. Use SendMessage with to: 'ace71abb34fa81"
+        },
+        {
+          "sub": true,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: bve76du7f). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\d17a7243-6543-4b63-8c62-0359cbb2e4c9\\tasks\\bve76du7f.output. You"
+        },
+        {
+          "sub": true,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": "ace71abb34fa81f70",
+          "agent_type": "general-purpose",
+          "session_id": "d17a7243-6543-4b63-8c62-0359cbb2e4c9",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": "ace71abb34fa81f70",
+          "agent_type": "general-purpose",
+          "session_id": "d17a7243-6543-4b63-8c62-0359cbb2e4c9",
+          "permission_mode": "bypassPermissions",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"bve76du7f\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r3a",
+      "expect": "info",
+      "roles": [
+        "timeout",
+        "rewrite",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 14,
+      "exit": 0,
+      "claudeSessionId": "fc1d105e-af6c-4bcd-814c-79c3e6990709",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: bxn6r8xeu). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\fc1d105e-af6c-4bcd-814c-79c3e6990709\\tasks\\bxn6r8xeu.output. You"
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "fc1d105e-af6c-4bcd-814c-79c3e6990709",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "rewrite",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "fc1d105e-af6c-4bcd-814c-79c3e6990709",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "fc1d105e-af6c-4bcd-814c-79c3e6990709",
+          "permission_mode": "bypassPermissions",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"bxn6r8xeu\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "winner": "timeout"
+    },
+    {
+      "name": "r3b",
+      "expect": "info",
+      "roles": [
+        "timeout",
+        "rewrite",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 15,
+      "exit": 0,
+      "claudeSessionId": "68ec40cf-d42b-4ad4-99d2-99c846796c25",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "REWRITTEN SLOWDONE Shell cwd was reset to C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-bash-timeout-vOdBXx\\work"
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "rewrite",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "68ec40cf-d42b-4ad4-99d2-99c846796c25",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "68ec40cf-d42b-4ad4-99d2-99c846796c25",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "68ec40cf-d42b-4ad4-99d2-99c846796c25",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "echo REWRITTEN; node -e \"setTimeout(()=>",
+          "resp": "{\"stdout\":\"REWRITTEN\\nSLOWDONE\",\"stderr\":\"\\nShell cwd was reset to C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-bash-timeout-vOdBXx\\\\work\",\"interrupted\":"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "winner": "rewrite"
+    },
+    {
+      "name": "r3c",
+      "expect": "info",
+      "roles": [
+        "timeout",
+        "rewrite",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 15,
+      "exit": 0,
+      "claudeSessionId": "06e04228-154c-4e2a-a2c1-e92c48194d82",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "REWRITTEN SLOWDONE Shell cwd was reset to C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-bash-timeout-vOdBXx\\work"
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "06e04228-154c-4e2a-a2c1-e92c48194d82",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "rewrite",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "06e04228-154c-4e2a-a2c1-e92c48194d82",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "06e04228-154c-4e2a-a2c1-e92c48194d82",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "echo REWRITTEN; node -e \"setTimeout(()=>",
+          "resp": "{\"stdout\":\"REWRITTEN\\nSLOWDONE\",\"stderr\":\"\\nShell cwd was reset to C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-bash-timeout-vOdBXx\\\\work\",\"interrupted\":"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "winner": "rewrite"
+    },
+    {
+      "name": "r4a",
+      "expect": "info",
+      "roles": [
+        "rewrite",
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 13,
+      "exit": 0,
+      "claudeSessionId": "a06bb4f2-4e05-4aa8-b9b7-bdd76254e78b",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "REWRITTEN SLOWDONE Shell cwd was reset to C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-bash-timeout-vOdBXx\\work"
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a06bb4f2-4e05-4aa8-b9b7-bdd76254e78b",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "rewrite",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a06bb4f2-4e05-4aa8-b9b7-bdd76254e78b",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a06bb4f2-4e05-4aa8-b9b7-bdd76254e78b",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "echo REWRITTEN; node -e \"setTimeout(()=>",
+          "resp": "{\"stdout\":\"REWRITTEN\\nSLOWDONE\",\"stderr\":\"\\nShell cwd was reset to C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-bash-timeout-vOdBXx\\\\work\",\"interrupted\":"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "winner": "rewrite"
+    },
+    {
+      "name": "r4b",
+      "expect": "info",
+      "roles": [
+        "rewrite",
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 17,
+      "exit": 0,
+      "claudeSessionId": "68700ab4-512e-40f8-8702-86bd67951089",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: btc8tq8e6). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\68700ab4-512e-40f8-8702-86bd67951089\\tasks\\btc8tq8e6.output. You"
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "rewrite",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "68700ab4-512e-40f8-8702-86bd67951089",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "68700ab4-512e-40f8-8702-86bd67951089",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "68700ab4-512e-40f8-8702-86bd67951089",
+          "permission_mode": "bypassPermissions",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"btc8tq8e6\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "winner": "timeout"
+    },
+    {
+      "name": "r4c",
+      "expect": "info",
+      "roles": [
+        "rewrite",
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 15,
+      "exit": 0,
+      "claudeSessionId": "b2e56ceb-9f55-4e2c-ac2b-0631828ad682",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "REWRITTEN SLOWDONE Shell cwd was reset to C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-bash-timeout-vOdBXx\\work"
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "rewrite",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "b2e56ceb-9f55-4e2c-ac2b-0631828ad682",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "b2e56ceb-9f55-4e2c-ac2b-0631828ad682",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "b2e56ceb-9f55-4e2c-ac2b-0631828ad682",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "echo REWRITTEN; node -e \"setTimeout(()=>",
+          "resp": "{\"stdout\":\"REWRITTEN\\nSLOWDONE\",\"stderr\":\"\\nShell cwd was reset to C:\\\\Users\\\\timsc\\\\AppData\\\\Local\\\\Temp\\\\tierminator-bash-timeout-vOdBXx\\\\work\",\"interrupted\":"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "winner": "rewrite"
+    },
+    {
+      "name": "r5",
+      "expect": "backgrounded",
+      "roles": [
+        "log"
+      ],
+      "env": {
+        "BASH_DEFAULT_TIMEOUT_MS": "3000"
+      },
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 14,
+      "exit": 0,
+      "claudeSessionId": "0bb8c7fe-5c8e-4552-8e59-32690b1ea1ac",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: ba0q6mha6). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\0bb8c7fe-5c8e-4552-8e59-32690b1ea1ac\\tasks\\ba0q6mha6.output. You"
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "0bb8c7fe-5c8e-4552-8e59-32690b1ea1ac",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"ba0q6mha6\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r6",
+      "expect": "backgrounded",
+      "roles": [
+        "log"
+      ],
+      "env": {
+        "BASH_DEFAULT_TIMEOUT_MS": "3000"
+      },
+      "mode": "bypassPermissions",
+      "sub": true,
+      "durationS": 26,
+      "exit": 0,
+      "claudeSessionId": "f45efeae-55c5-47ed-8c8c-2d021424434c",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "[{\"type\":\"text\",\"text\":\"Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ae579c21a4a4d6ba5 (internal ID - do not mention to user. Use SendMessage with to: 'ae579c21a4a4d6"
+        },
+        {
+          "sub": true,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: b5rghjibs). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\f45efeae-55c5-47ed-8c8c-2d021424434c\\tasks\\b5rghjibs.output. You"
+        },
+        {
+          "sub": true,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": "ae579c21a4a4d6ba5",
+          "agent_type": "general-purpose",
+          "session_id": "f45efeae-55c5-47ed-8c8c-2d021424434c",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"b5rghjibs\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r7",
+      "expect": "backgrounded",
+      "roles": [
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "default",
+      "sub": false,
+      "durationS": 16,
+      "exit": 0,
+      "claudeSessionId": "a26cceab-7365-42c6-a344-11f036b0565e",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: bcomu1ddf). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\a26cceab-7365-42c6-a344-11f036b0565e\\tasks\\bcomu1ddf.output. You"
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a26cceab-7365-42c6-a344-11f036b0565e",
+          "permission_mode": "default",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "a26cceab-7365-42c6-a344-11f036b0565e",
+          "permission_mode": "default",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"bcomu1ddf\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r8",
+      "expect": "backgrounded",
+      "roles": [
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "default",
+      "sub": true,
+      "durationS": 20,
+      "exit": 0,
+      "claudeSessionId": "85ed37c4-d6cc-4bb1-a7b5-526fda8ace3b",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "[{\"type\":\"text\",\"text\":\"Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ab93e7f38618b5ef5 (internal ID - do not mention to user. Use SendMessage with to: 'ab93e7f38618b5"
+        },
+        {
+          "sub": true,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: bb47hngxe). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\C--Users-timsc-AppData-Local-Temp-tierminator-bash-timeout-vOdBXx-work\\85ed37c4-d6cc-4bb1-a7b5-526fda8ace3b\\tasks\\bb47hngxe.output. You"
+        },
+        {
+          "sub": true,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": "ab93e7f38618b5ef5",
+          "agent_type": "general-purpose",
+          "session_id": "85ed37c4-d6cc-4bb1-a7b5-526fda8ace3b",
+          "permission_mode": "default",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": "ab93e7f38618b5ef5",
+          "agent_type": "general-purpose",
+          "session_id": "85ed37c4-d6cc-4bb1-a7b5-526fda8ace3b",
+          "permission_mode": "default",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"bb47hngxe\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    },
+    {
+      "name": "r9",
+      "expect": "denied",
+      "roles": [
+        "deny",
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "bypassPermissions",
+      "sub": false,
+      "durationS": 5,
+      "exit": 0,
+      "claudeSessionId": "69c3d023-404b-4bdb-a4f3-a1904fef30d9",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "PreToolUse:Bash hook error: PROBE_DENY"
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "deny",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "69c3d023-404b-4bdb-a4f3-a1904fef30d9",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "69c3d023-404b-4bdb-a4f3-a1904fef30d9",
+          "permission_mode": "bypassPermissions",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        }
+      ],
+      "pass": true,
+      "sessionIdMatches": true
+    }
+  ]
+}
