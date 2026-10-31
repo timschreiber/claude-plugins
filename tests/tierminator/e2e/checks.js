@@ -133,6 +133,95 @@ function scenario1(facts) {
   ]
 }
 
+const lastTask = (facts) => {
+  const ids = taskIds(arr((facts.final || {}).commits))
+  return ids.length > 0 ? ids[ids.length - 1] : null
+}
+
+function scenario2(facts) {
+  const t1 = attempts(facts.telemetry, 'T01')
+  const t2 = attempts(facts.telemetry, 'T02')
+  const file = String((((facts.final || {}).files) || {})['src/registry.js'] ?? '')
+  const markers = file.split('// REGISTER-HERE').length - 1
+  return [
+    ...common(facts, { runs: 1, outcomes: ['complete'], ids: ['T01', 'T02'] }),
+    check('T01 ran once', t1.length === 1, `${t1.length} attempt records`),
+    check(
+      'T02 ran twice',
+      t2.length === 2 &&
+        t2.every((r) => r.outcome === 'done') &&
+        t2[0].agentId !== t2[1].agentId,
+      `T02 attempts: ${t2.map((r) => `${r.outcome}/${r.agentId}`).join(', ') || 'none'}`
+    ),
+    check(
+      'registry has both',
+      file.includes('exports.alpha') && file.includes('exports.beta') && markers === 1,
+      `alpha ${file.includes('exports.alpha')}, beta ${file.includes('exports.beta')}, ${markers} markers`
+    )
+  ]
+}
+
+function scenario4(facts) {
+  const r0 = arr(facts.results)[0] || {}
+  const r1 = arr(facts.results)[1] || {}
+  const snap = arr(facts.snapshots)[0] || {}
+  const done = arr(r0.tasksDone)
+  const picked = taskIds(snap.commits).sort()
+  const first = attempts(facts.telemetry, 'T02')[0]
+  return [
+    ...common(facts, { runs: 2, outcomes: ['halted', 'complete'], ids: ['T01', 'T02', 'T03', 'T04'] }),
+    check(
+      'halted at T02',
+      r0.haltedAt === 'T02' && done.includes('T01') && done.includes('T03') && !done.includes('T02') && !done.includes('T04'),
+      `haltedAt ${JSON.stringify(r0.haltedAt)}, done ${JSON.stringify(done)}`
+    ),
+    check('passers integrated', sameList(picked, ['T01', 'T03']), `run 1 task commits ${picked.join(', ') || 'none'}`),
+    check(
+      'T02 exhausted at opus-high',
+      first !== undefined && first.tier === 'opus-high' && first.outcome === 'halt',
+      first ? `first attempt ${first.tier}/${first.outcome}` : 'no T02 attempt'
+    ),
+    check(
+      'run 2 finished the rest',
+      arr(r1.tasksNotRun).length === 0 && lastTask(facts) === 'T04',
+      `not run ${JSON.stringify(r1.tasksNotRun)}, last task commit ${lastTask(facts)}`
+    )
+  ]
+}
+
+function scenario5(facts) {
+  const r0 = arr(facts.results)[0] || {}
+  const r1 = arr(facts.results)[1] || {}
+  const snap = arr(facts.snapshots)[0] || {}
+  const reason = String(r0.reason ?? '')
+  const picked = taskIds(snap.commits).sort()
+  const kept = arr(snap.branches).length > 0
+  return [
+    ...common(facts, { runs: 2, outcomes: ['halted', 'complete'], ids: IDS3 }),
+    check(
+      'verify named',
+      reason.includes('plan verify failed') && reason.includes('gate.js'),
+      `reason ${JSON.stringify(reason)}`
+    ),
+    check('picks stayed', sameList(picked, ['T01', 'T02']), `run 1 task commits ${picked.join(', ') || 'none'}`),
+    check('slot branches kept', true, kept ? 'branches kept' : 'no branches kept'),
+    check(
+      'run 2 ran T03 only',
+      arr(r1.tasksDone).includes('T03') && lastTask(facts) === 'T03',
+      `done ${JSON.stringify(r1.tasksDone)}, last task commit ${lastTask(facts)}`
+    )
+  ]
+}
+
+function scenario7(facts) {
+  const o = facts.observed || {}
+  return [
+    ...common(facts, { runs: 0, outcomes: ['complete'], ids: IDS3 }),
+    check('permission line shown', o.permissionLine === 'yes', o.permissionLine ? `saw ${JSON.stringify(o.permissionLine)}` : 'not observed'),
+    check('every request answerable', o.allAnswerable === 'yes', o.allAnswerable ? `saw ${JSON.stringify(o.allAnswerable)}` : 'not observed')
+  ]
+}
+
 function scenario3(facts) {
   const t1 = attempts(facts.telemetry, 'T01')
   const [first, second] = t1
@@ -192,7 +281,16 @@ function scenario8(facts) {
   ]
 }
 
-const SCENARIOS = { 1: scenario1, 3: scenario3, 6: scenario6, 8: scenario8 }
+const SCENARIOS = {
+  1: scenario1,
+  2: scenario2,
+  3: scenario3,
+  4: scenario4,
+  5: scenario5,
+  6: scenario6,
+  7: scenario7,
+  8: scenario8
+}
 
 function scenarioChecks(n, facts) {
   const fn = SCENARIOS[n]
