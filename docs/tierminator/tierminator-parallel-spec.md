@@ -1,6 +1,6 @@
 # Parallel Task Execution — Specification
 
-Oct 19, 2026 · revised Oct 20, 2026 · @Tim · Branch `parallelism` · Status: design settled after the probes, nothing built
+Oct 19, 2026 · revised Oct 20, 2026 · @Tim · Branch `parallelism` · Status: built (first release), 2026-10-31. The headless end-to-end scenarios are in tierminator-parallel-run.md; all of them passed; scenario 7 awaits a hand run
 
 Today a tierminator run is serial: one worker at a time, in one working tree, with a failed attempt undone
 by `git reset --hard`. This spec adds parallel execution of independent tasks. The planner declares which
@@ -442,6 +442,8 @@ The overlap flag (WP-05) was built on 2026-10-22, ahead of its place.
 - A failed plan-level `verify` halts the run with the output named.
 - The same holds headless in auto or `bypassPermissions` mode, and the permission restriction is documented.
 
+The headless scenarios of the end-to-end run are recorded in docs/tierminator/tierminator-parallel-run.md.
+
 ## Risks
 
 - **The state race** is the main correctness risk; it is why the lock is a phase of its own with real
@@ -462,10 +464,10 @@ The overlap flag (WP-05) was built on 2026-10-22, ahead of its place.
 | # | Question | Status |
 |---|---|---|
 | O1 | Keep serial waves on today's code, with `wave` state only for parallel waves, or unify on slots? | **Decided 2026-10-19:** keep both; revisit unifying once parallel runs have evidence. |
-| O2 | On a failed plan-level `verify`, what happens? | **Revised 2026-10-20:** halt, with no repair (it was: send the resolver in once, then halt). |
+| O2 | On a failed plan-level `verify`, what happens? | **Decided 2026-10-20** (revised): halt, with no repair (it was: send the resolver in once, then halt). |
 | O3 | Is `setup` run by the worker or by hook code at worktree creation? | **Decided 2026-10-19:** the worker. |
 | O4 | `setup` shape. | **Decided 2026-10-19:** a list of command strings. |
-| O5 | Add the result file's fields without bumping its version? | **Deferred** with WP-15. |
-| O6 | A review flag in the sizing check for two independent tasks that name the same file. | Deferred 2026-10-20; **built 2026-10-22** (WP-05): the sizing review flags the later task, and an `after` or a `Keep` line clears it. |
-| O7 | Names: `TIERMINATOR_MAX_PARALLEL`, branches `tierminator/<runId>/<task>`, worktrees `tierminator-<run>-<task>`. | As written. `TIERMINATOR_VERIFY_TIMEOUT` and the agent `tierminator:resolver` are dropped. |
+| O5 | Add the result file's fields without bumping its version? | **Decided 2026-10-31:** deferred with WP-15. |
+| O6 | A review flag in the sizing check for two independent tasks that name the same file. | **Decided 2026-10-20**; built 2026-10-22 (WP-05): the sizing review flags the later task, and an `after` or a `Keep` line clears it. |
+| O7 | Names: `TIERMINATOR_MAX_PARALLEL`, branches `tierminator/<runId>/<task>`, worktrees `tierminator-<run>-<task>`. | **Decided 2026-10-20** as written. `TIERMINATOR_VERIFY_TIMEOUT` and the agent `tierminator:resolver` are dropped. |
 | O8 | A failed `verify` leaves the picks on the run branch (no reset to the wave base). | **Decided 2026-10-20** (the user delegated the call): the picks stay. It is simpler, and each pick passed its own `Verify:`; the alternative, a `reset --hard` that unwinds the whole wave, would need the slot branches re-picked on resume. The halt text says which verify failed and that the run branch holds the picks. |
