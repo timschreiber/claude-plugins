@@ -1,0 +1,242 @@
+{
+  "scenario": 5,
+  "title": "a failed plan verify halts the run",
+  "date": "2026-10-31T17:24:16.575Z",
+  "claudeVersion": "2.1.316 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "sessions finished",
+      "ok": true,
+      "detail": "2 runs (want 2); timed out: 0"
+    },
+    {
+      "name": "result outcome",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "clean tree",
+      "ok": true,
+      "detail": "uncommitted: \"\""
+    },
+    {
+      "name": "on run branch",
+      "ok": true,
+      "detail": "on \"main\""
+    },
+    {
+      "name": "linear history",
+      "ok": true,
+      "detail": "0 merge commits"
+    },
+    {
+      "name": "one commit per task",
+      "ok": true,
+      "detail": "task commits T01, T02, T03; want T01, T02, T03"
+    },
+    {
+      "name": "one plan id",
+      "ok": true,
+      "detail": "plan ids [\"c369ae7c84a1784e\",\"c369ae7c84a1784e\",\"c369ae7c84a1784e\"]"
+    },
+    {
+      "name": "no leftovers",
+      "ok": true,
+      "detail": "branches [], worktrees 1"
+    },
+    {
+      "name": "verify named",
+      "ok": true,
+      "detail": "reason \"the plan verify failed: node scripts/gate.js \\\"C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/marker/s5\\\" (exit 1)\""
+    },
+    {
+      "name": "picks stayed",
+      "ok": true,
+      "detail": "run 1 task commits T01, T02"
+    },
+    {
+      "name": "slot branches kept",
+      "ok": true,
+      "detail": "branches kept"
+    },
+    {
+      "name": "run 2 ran T03 only",
+      "ok": true,
+      "detail": "done [\"T01\",\"T02\",\"T03\"], last task commit T03"
+    }
+  ],
+  "runs": [
+    {
+      "exit": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 23913,
+      "startedAt": "2026-10-31T17:22:26.618Z",
+      "args": [
+        "-p",
+        "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/plans/plan.md\"",
+        "--plugin-dir",
+        "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/plugins/tierminator",
+        "--setting-sources",
+        "project",
+        "--model",
+        "sonnet",
+        "--permission-mode",
+        "bypassPermissions",
+        "--output-format",
+        "stream-json",
+        "--verbose"
+      ]
+    },
+    {
+      "exit": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 81046,
+      "startedAt": "2026-10-31T17:22:50.640Z",
+      "args": [
+        "-p",
+        "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/plans/plan.md\"",
+        "--plugin-dir",
+        "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/plugins/tierminator",
+        "--setting-sources",
+        "project",
+        "--model",
+        "sonnet",
+        "--permission-mode",
+        "bypassPermissions",
+        "--output-format",
+        "stream-json",
+        "--verbose"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "version": 1,
+      "sessionId": "b4f79a31-9be1-4787-ba23-72ca952a12a7",
+      "outcome": "halted",
+      "planFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s5-20261031132226\\plans\\plan.md",
+      "tasksFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s5-20261031132226\\plans\\plan.tasks.json",
+      "tasksDone": [
+        "T01",
+        "T02"
+      ],
+      "tasksNotRun": [
+        "T03"
+      ],
+      "haltedAt": null,
+      "reason": "the plan verify failed: node scripts/gate.js \"C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/marker/s5\" (exit 1)",
+      "limit": null,
+      "headCommit": "bf43fdd0f063aa756081fe4add9f09eb0cba5205",
+      "endedAt": "2026-10-31T17:22:46.339Z"
+    },
+    {
+      "version": 1,
+      "sessionId": "08fd981c-744f-4dfe-80fb-8c9da9591110",
+      "outcome": "complete",
+      "planFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s5-20261031132226\\plans\\plan.md",
+      "tasksFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s5-20261031132226\\plans\\plan.tasks.json",
+      "tasksDone": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "tasksNotRun": [],
+      "haltedAt": null,
+      "reason": null,
+      "limit": null,
+      "headCommit": "4b6d9c52e112bad8ba4b30dd727a6c7719cc4268",
+      "endedAt": "2026-10-31T17:24:11.191Z"
+    }
+  ],
+  "snapshots": [
+    {
+      "commits": [
+        {
+          "subject": "fixture",
+          "body": ""
+        },
+        {
+          "subject": "Add src/alpha.js",
+          "body": "Tierminator-Task: T01\n\nTierminator-Plan: c369ae7c84a1784e\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        },
+        {
+          "subject": "Add src/beta.js",
+          "body": "Tierminator-Task: T02\n\nTierminator-Plan: c369ae7c84a1784e\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        }
+      ],
+      "branches": [
+        "tierminator/addbaf4e/T01",
+        "tierminator/addbaf4e/T02"
+      ],
+      "worktrees": [
+        "C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/repo",
+        "C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/repo/.claude/worktrees/tierminator-addbaf4e-T01",
+        "C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/repo/.claude/worktrees/tierminator-addbaf4e-T02"
+      ]
+    },
+    {
+      "commits": [
+        {
+          "subject": "fixture",
+          "body": ""
+        },
+        {
+          "subject": "Add src/alpha.js",
+          "body": "Tierminator-Task: T01\n\nTierminator-Plan: c369ae7c84a1784e\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        },
+        {
+          "subject": "Add src/beta.js",
+          "body": "Tierminator-Task: T02\n\nTierminator-Plan: c369ae7c84a1784e\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        },
+        {
+          "subject": "Add src/gamma.js",
+          "body": "Tierminator-Task: T03\n\nTierminator-Plan: c369ae7c84a1784e\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        }
+      ],
+      "branches": [],
+      "worktrees": [
+        "C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s5-20261031132226/repo"
+      ]
+    }
+  ],
+  "finalCommits": [
+    "fixture",
+    "Add src/alpha.js",
+    "Add src/beta.js",
+    "Add src/gamma.js"
+  ],
+  "attempts": [
+    {
+      "task": "T01",
+      "tier": "haiku-high",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a0c367955053f3b80",
+      "at": "2026-10-31T17:22:44.371Z",
+      "durationMs": 12603
+    },
+    {
+      "task": "T02",
+      "tier": "haiku-high",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a174861946aa509bc",
+      "at": "2026-10-31T17:22:44.708Z",
+      "durationMs": 11210
+    },
+    {
+      "task": "T03",
+      "tier": "haiku-high",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a5df98e4d09d66014",
+      "at": "2026-10-31T17:24:08.070Z",
+      "durationMs": 11473
+    }
+  ],
+  "observed": {},
+  "note": null
+}
