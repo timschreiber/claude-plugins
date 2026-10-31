@@ -6,6 +6,8 @@
 
 const { spawnSync } = require('child_process')
 const git = require('./git.js')
+const w = require('./wave-run.js')
+const r = require('./run.js')
 
 const VERIFY_TAIL = 4000
 // Just under the 3600 s hook timeout, so a verify that hangs ends here, with its output, not silently there.
@@ -132,4 +134,67 @@ function integrateWave(state, cwd) {
   return result
 }
 
-module.exports = { VERIFY_TAIL, VERIFY_TIMEOUT_MS, runVerify, integrateWave, removeSlot, sweepSlots }
+// The closed state after integration, and what Claude is told next. Pure. `state` is the closed state (wave.phase
+// 'integrating'; phase 'running', or 'halted' when the wave was halting); `result` is integrateWave's result.
+function applyIntegration(state, result, { head, root, cap } = {}) {
+  const done = state.done.filter(d => !result.setAside.includes(d.id))
+  const wave = { ...state.wave, phase: 'integrated', setAside: result.setAside, picked: result.picked }
+  const base = { ...state, done, wave }
+  const picked = result.picked.length ? result.picked.join(', ') : 'none'
+  const ids = result.setAside.join(', ')
+  const conflictLine = result.setAside.length
+    ? `${ids} conflicted when picked, so ${result.setAside.length > 1 ? 'they were' : 'it was'} left out of the picks and will run again serially on the new HEAD`
+    : ''
+  const cleanLine = result.cleanFailures?.length ? `Cleanup left: ${result.cleanFailures.join('; ')}.` : ''
+  const { branch, planFile: file } = state
+  const n = state.wave.n
+  const join = parts => parts.filter(Boolean).join(' ')
+
+  if (state.phase === 'halted') {
+    return {
+      state: base,
+      tail: join([
+        result.problem ? `Integrating the passers stopped: ${result.problem}.` : '',
+        conflictLine ? `${conflictLine}.` : '',
+        cleanLine,
+      ]),
+    }
+  }
+  if (result.problem) {
+    return {
+      state: { ...base, phase: 'halted', halt: { task: null, tried: [], reason: result.problem } },
+      tail:
+        `tierminator: wave ${n} stopped: ${result.problem}. Picked onto ${branch} before it stopped: ${picked}. ` +
+        'Slot worktrees and branches are left in place. Tell the user what stopped the run; to resume they type ' +
+        `/tierminator:execute "${file}". Do not dispatch more tasks.`,
+    }
+  }
+  if (result.verify && !result.verify.ok) {
+    const v = result.verify
+    const reason = `the plan verify failed: ${v.command} (${v.status == null ? 'did not finish' : `exit ${v.status}`})`
+    return {
+      state: { ...base, phase: 'halted', halt: { task: null, tried: [], reason } },
+      tail:
+        `tierminator: wave ${n} stopped: the plan verify failed after the picks: ${v.command} ended with ` +
+        `${v.status == null ? 'no exit status' : `exit status ${v.status}`}. Output (last part): ${v.tail}. ` +
+        `The run branch ${branch} holds the picks (${picked}); nothing was reset, and the slot worktrees and ` +
+        'branches are left in place. Tell the user which verify failed and what it printed; to resume they type ' +
+        `/tierminator:execute "${file}" (verify runs again after the next parallel wave, not on resume). ` +
+        'Do not fix it or dispatch more tasks.',
+    }
+  }
+  const step = w.nextWave({ ...base, phase: 'running' }, head, root, cap)
+  const next = step.kind === 'serial' ? r.dispatchText(step.state) : step.kind === 'wave' ? w.startText(step.state) : r.completeText(step.state)
+  return {
+    state: step.state,
+    tail: join([
+      `Integration: picked ${picked} onto ${branch}.`,
+      result.verify ? `The plan verify passed (${result.verify.command}).` : '',
+      conflictLine ? `${conflictLine}.` : '',
+      cleanLine,
+      next,
+    ]),
+  }
+}
+
+module.exports = { VERIFY_TAIL, VERIFY_TIMEOUT_MS, runVerify, integrateWave, applyIntegration, removeSlot, sweepSlots }
