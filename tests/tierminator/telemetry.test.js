@@ -295,3 +295,13 @@ test('the summary flags attempts over 70% of their turn limit', () => {
   assert.match(t.summary([at(29)], { planId: 'P', runId: 'r' }), /Near the turn limit: T04 29\/40 turns \(sonnet-low\)/)
   assert.doesNotMatch(t.summary([at(28)], { planId: 'P', runId: 'r' }), /Near the turn limit/)
 })
+
+test('the summary lists tasks that conflicted when picked', () => {
+  const a = { kind: 'attempt', runId: 'r', task: 'T01', attempt: 1, agentId: 'x', tier: 'sonnet-low', outcome: 'done', ...usage(0.02) }
+  const c = task => ({ kind: 'conflict', runId: 'r', task })
+  const id = { planId: 'P', runId: 'r' }
+  assert.ok(t.summary([a, c('T02'), c('T04')], id).endsWith('Conflicts: 2 tasks conflicted when picked and ran again serially (T02, T04)'))
+  assert.ok(t.summary([a, c('T02')], id).endsWith('Conflicts: 1 task conflicted when picked and ran again serially (T02)'))
+  assert.doesNotMatch(t.summary([a, { ...c('T02'), runId: 'other' }], id), /Conflicts/)
+  assert.doesNotMatch(t.summary([a], id), /Conflicts/)
+})

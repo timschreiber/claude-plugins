@@ -231,10 +231,14 @@ function summary(allRecords, { planId, runId }) {
   }
   const near = attempts.filter(a => typeof a.messages === 'number' && typeof a.maxTurns === 'number' && a.messages > 0.7 * a.maxTurns)
   const nearLine = near.length ? `Near the turn limit: ${near.map(a => `${a.task} ${a.messages}/${a.maxTurns} turns (${a.tier})`).join(', ')}` : null
+  const conflicts = records.filter(x => x.kind === 'conflict' && x.runId === runId)
+  const conflictLine = conflicts.length
+    ? `Conflicts: ${conflicts.length} task${conflicts.length === 1 ? '' : 's'} conflicted when picked and ran again serially (${conflicts.map(c => c.task).join(', ')})`
+    : null
   const width = Math.max(...rows.map(r => r[0].length))
   const col = Math.max(...rows.map(r => r[1].length))
   const lines = rows.map(([a, b, c]) => `  ${a.padEnd(width)}  ${b.padEnd(col)}  ${c}`.trimEnd())
-  return [`tierminator spend (estimated, prices as of ${AS_OF}):`, ...lines, ...(nearLine ? [nearLine] : [])].join('\n')
+  return [`tierminator spend (estimated, prices as of ${AS_OF}):`, ...lines, ...(nearLine ? [nearLine] : []), ...(conflictLine ? [conflictLine] : [])].join('\n')
 }
 
 module.exports = { fileFor, append, read, usageFields, fmtTokens, fmtUsd, attemptLine, planningFor, mainAgentEstimate, summary }
