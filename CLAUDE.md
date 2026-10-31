@@ -11,12 +11,17 @@ cataloged in `.claude-plugin/marketplace.json`:
   commands in-flight to add quiet flags, so verbose build/test output never
   enters Claude's context.
 - `tierminator`: hooks and six tier agents (`<model>-<effort>`, the floor being haiku-high) that turn an
-  approved plan-mode plan into serial subagent execution, each task at the
+  approved plan-mode plan into subagent execution that is serial by default, each task at the
   model and effort chosen during planning and committed by its worker, with
   failed attempts reset and retried a tier up. A worker that reaches its
   turn limit is resumed, at most twice, then the run halts. A worker that
   ends without its report is accepted on its commit, or asked once for the
-  report, before a retry. It needs Git (a commit
+  report, before a retry. A plan whose tasks declare `after` is a graph plan:
+  the independent tasks of a wave run at once, each in a Git worktree
+  tierminator makes, and are cherry-picked onto the run branch in plan order,
+  with a conflicting task re-run serially; `TIERMINATOR_MAX_PARALLEL` caps it
+  (default 5); unattended parallel runs need auto or bypassPermissions mode.
+  It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
   `/tierminator:plan <request>`, which enters plan mode; approving the plan
   runs it. `/tierminator:execute [plan path | list number] [--from Txx]` runs
@@ -35,7 +40,11 @@ cataloged in `.claude-plugin/marketplace.json`:
   `scripts/lib/prices.js`, held equal to `probes/evidence/planandtier-pricing.json`.
   The hooks are Node scripts under `plugins/tierminator/scripts/`, tested with
   `node --test tests/tierminator/*.test.js` (the tests need `git`).
-  The design and the measurements behind it are in `docs/tierminator/`, with
+  The design and the measurements behind it are in `docs/tierminator/`
+  (parallel runs: `docs/tierminator/tierminator-parallel-spec.md` and
+  `tierminator-parallel-findings.md`, and the runbook
+  `docs/tierminator/tierminator-parallel-run.md`, with its fixture and checks
+  in `tests/tierminator/e2e/` and results in `tests/tierminator/e2e/results/`), with
   evidence under `probes/evidence/planandtier-*`.
 - `decidinator`: hooks that send every `AskUserQuestion` call to a read-only
   oracle subagent first, so only questions research cannot settle reach a
@@ -103,7 +112,8 @@ Invoke-Pester ./tests/CommandSegmentation.Tests.ps1
 
 # Run tierminator's hook and library tests. Pass the files, not the directory:
 # on Node 24, `node --test tests/tierminator/` treats the directory as one file
-# and fails. Node expands the glob itself, so this works in pwsh too.
+# and fails. Node expands the glob itself, so this works in pwsh too. The glob
+# also runs the e2e harness tests, which never start claude.
 node --test tests/tierminator/*.test.js
 
 # Run decidinator's hook and library tests (same glob rule).
