@@ -1,0 +1,171 @@
+{
+  "scenario": 1,
+  "title": "three independent tasks",
+  "date": "2026-10-31T17:16:20.688Z",
+  "claudeVersion": "2.1.316 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "sessions finished",
+      "ok": true,
+      "detail": "1 runs (want 1); timed out: 0"
+    },
+    {
+      "name": "result outcome",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "clean tree",
+      "ok": true,
+      "detail": "uncommitted: \"\""
+    },
+    {
+      "name": "on run branch",
+      "ok": true,
+      "detail": "on \"main\""
+    },
+    {
+      "name": "linear history",
+      "ok": true,
+      "detail": "0 merge commits"
+    },
+    {
+      "name": "one commit per task",
+      "ok": true,
+      "detail": "task commits T01, T02, T03; want T01, T02, T03"
+    },
+    {
+      "name": "one plan id",
+      "ok": true,
+      "detail": "plan ids [\"032ab6509dcf8ba9\",\"032ab6509dcf8ba9\",\"032ab6509dcf8ba9\"]"
+    },
+    {
+      "name": "no leftovers",
+      "ok": true,
+      "detail": "branches [], worktrees 1"
+    },
+    {
+      "name": "three done attempts",
+      "ok": true,
+      "detail": "3 attempts: T01:done, T02:done, T03:done"
+    },
+    {
+      "name": "ran at once",
+      "ok": true,
+      "detail": "yes"
+    },
+    {
+      "name": "about the slowest",
+      "ok": true,
+      "detail": "wall 110.2s, longest attempt 107.5s, limit 172.1s"
+    }
+  ],
+  "runs": [
+    {
+      "exit": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 120526,
+      "startedAt": "2026-10-31T17:14:16.501Z",
+      "args": [
+        "-p",
+        "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s1-20261031131416/plans/plan.md\"",
+        "--plugin-dir",
+        "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/plugins/tierminator",
+        "--setting-sources",
+        "project",
+        "--model",
+        "sonnet",
+        "--permission-mode",
+        "bypassPermissions",
+        "--output-format",
+        "stream-json",
+        "--verbose"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "version": 1,
+      "sessionId": "e477931e-1da8-4a43-8c6c-153770701fc6",
+      "outcome": "complete",
+      "planFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s1-20261031131416\\plans\\plan.md",
+      "tasksFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s1-20261031131416\\plans\\plan.tasks.json",
+      "tasksDone": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "tasksNotRun": [],
+      "haltedAt": null,
+      "reason": null,
+      "limit": null,
+      "headCommit": "f3ee018c3fa6d7e0607e050b736a6a2235f2a3fb",
+      "endedAt": "2026-10-31T17:16:16.603Z"
+    }
+  ],
+  "snapshots": [
+    {
+      "commits": [
+        {
+          "subject": "fixture",
+          "body": ""
+        },
+        {
+          "subject": "Add src/alpha.js",
+          "body": "Tierminator-Task: T01\n\nTierminator-Plan: 032ab6509dcf8ba9\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        },
+        {
+          "subject": "Add src/beta.js",
+          "body": "Tierminator-Task: T02\n\nTierminator-Plan: 032ab6509dcf8ba9\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        },
+        {
+          "subject": "Add src/gamma.js",
+          "body": "Tierminator-Task: T03\n\nTierminator-Plan: 032ab6509dcf8ba9\n\nCo-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>"
+        }
+      ],
+      "branches": [],
+      "worktrees": [
+        "C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s1-20261031131416/repo"
+      ]
+    }
+  ],
+  "finalCommits": [
+    "fixture",
+    "Add src/alpha.js",
+    "Add src/beta.js",
+    "Add src/gamma.js"
+  ],
+  "attempts": [
+    {
+      "task": "T01",
+      "tier": "haiku-high",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a811cc3fe519f8a71",
+      "at": "2026-10-31T17:15:20.828Z",
+      "durationMs": 58644
+    },
+    {
+      "task": "T02",
+      "tier": "haiku-high",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a876c53be7ddc78c6",
+      "at": "2026-10-31T17:15:25.062Z",
+      "durationMs": 61260
+    },
+    {
+      "task": "T03",
+      "tier": "haiku-high",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a892921b9d8a22d56",
+      "at": "2026-10-31T17:16:12.370Z",
+      "durationMs": 107542
+    }
+  ],
+  "observed": {},
+  "note": null
+}
