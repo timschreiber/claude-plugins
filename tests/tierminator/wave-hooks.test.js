@@ -915,3 +915,52 @@ test('H3 starts a plan with no after as a serial run', () => {
   assert.equal(state.read(S).current.index, 0)
   assert.ok(note.includes('Dispatch the tasks one at a time'))
 })
+
+const GRAPH_START = () => [task(1, { after: [] }), task(2, { after: [] }), task(3, { after: ['T01', 'T02'] })]
+const SERIAL_START = () => [task(1), task(2), task(3)]
+const PERMISSION_LINE = 'Parallel workers ask for permission for each commit in this mode'
+
+// The text of the repository's info/exclude file, or '' when it is missing.
+function excludeText() {
+  const file = path.resolve(repo, gitIn(repo, 'rev-parse', '--git-path', 'info/exclude'))
+  try {
+    return fs.readFileSync(file, 'utf8')
+  } catch {
+    return ''
+  }
+}
+const worktreeLines = () => excludeText().split(/\r?\n/).filter(l => l === '.claude/worktrees/')
+
+test('H3 excludes .claude/worktrees/ once for a graph plan', () => {
+  approve(GRAPH_START(), 'auto')
+  assert.equal(worktreeLines().length, 1)
+  git.excludeWorktrees(repo)
+  assert.equal(worktreeLines().length, 1)
+})
+
+test('H3 does not exclude .claude/worktrees/ for a serial plan', () => {
+  approve(SERIAL_START(), 'auto')
+  assert.ok(!excludeText().includes('.claude/worktrees/'))
+})
+
+for (const mode of ['default', 'acceptEdits']) {
+  test(`H3 warns about commit permission for a graph plan in ${mode} mode`, () => {
+    assert.ok(approve(GRAPH_START(), mode).includes(PERMISSION_LINE))
+  })
+}
+
+for (const mode of ['auto', 'bypassPermissions', undefined]) {
+  test(`H3 gives no commit permission warning for a graph plan in ${mode} mode`, () => {
+    assert.ok(!approve(GRAPH_START(), mode).includes(PERMISSION_LINE))
+  })
+}
+
+test('H3 gives no commit permission warning for a serial plan in default mode', () => {
+  assert.ok(!approve(SERIAL_START(), 'default').includes(PERMISSION_LINE))
+})
+
+test('H3 puts the permission line before the Agent call instruction', () => {
+  const note = approve(GRAPH_START(), 'default')
+  assert.ok(note.indexOf(PERMISSION_LINE) >= 0)
+  assert.ok(note.indexOf(PERMISSION_LINE) < note.indexOf('Call the Agent tool'))
+})
