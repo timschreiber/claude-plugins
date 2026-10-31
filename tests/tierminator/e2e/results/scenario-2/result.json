@@ -1,0 +1,165 @@
+{
+  "scenario": 2,
+  "title": "a forced conflict",
+  "date": "2026-10-31T17:17:23.397Z",
+  "claudeVersion": "2.1.316 (Claude Code)",
+  "pass": true,
+  "checks": [
+    {
+      "name": "sessions finished",
+      "ok": true,
+      "detail": "1 runs (want 1); timed out: 0"
+    },
+    {
+      "name": "result outcome",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "clean tree",
+      "ok": true,
+      "detail": "uncommitted: \"\""
+    },
+    {
+      "name": "on run branch",
+      "ok": true,
+      "detail": "on \"main\""
+    },
+    {
+      "name": "linear history",
+      "ok": true,
+      "detail": "0 merge commits"
+    },
+    {
+      "name": "one commit per task",
+      "ok": true,
+      "detail": "task commits T01, T02; want T01, T02"
+    },
+    {
+      "name": "one plan id",
+      "ok": true,
+      "detail": "plan ids [\"194d2fe92e18c140\",\"194d2fe92e18c140\"]"
+    },
+    {
+      "name": "no leftovers",
+      "ok": true,
+      "detail": "branches [], worktrees 1"
+    },
+    {
+      "name": "T01 ran once",
+      "ok": true,
+      "detail": "1 attempt records"
+    },
+    {
+      "name": "T02 ran twice",
+      "ok": true,
+      "detail": "T02 attempts: done/af5fa2bea14a358b7, done/aba75018f3819b4a0"
+    },
+    {
+      "name": "registry has both",
+      "ok": true,
+      "detail": "alpha true, beta true, 1 markers"
+    }
+  ],
+  "runs": [
+    {
+      "exit": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 36143,
+      "startedAt": "2026-10-31T17:16:43.388Z",
+      "args": [
+        "-p",
+        "/tierminator:execute \"C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s2-20261031131642/plans/plan.md\"",
+        "--plugin-dir",
+        "C:/Users/timsc/Source/Repos/GitHub/timschreiber/claude-plugins/plugins/tierminator",
+        "--setting-sources",
+        "project",
+        "--model",
+        "sonnet",
+        "--permission-mode",
+        "bypassPermissions",
+        "--output-format",
+        "stream-json",
+        "--verbose"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "version": 1,
+      "sessionId": "8d535a6a-52b9-40db-98c1-2227b62433c7",
+      "outcome": "complete",
+      "planFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s2-20261031131642\\plans\\plan.md",
+      "tasksFile": "C:\\Users\\timsc\\AppData\\Local\\Temp\\tierminator-e2e\\s2-20261031131642\\plans\\plan.tasks.json",
+      "tasksDone": [
+        "T01",
+        "T02"
+      ],
+      "tasksNotRun": [],
+      "haltedAt": null,
+      "reason": null,
+      "limit": null,
+      "headCommit": "a792c5b794abba4370e6cd4c5f2d473b640847f8",
+      "endedAt": "2026-10-31T17:17:19.108Z"
+    }
+  ],
+  "snapshots": [
+    {
+      "commits": [
+        {
+          "subject": "fixture",
+          "body": ""
+        },
+        {
+          "subject": "Add src/alpha.js",
+          "body": "Tierminator-Task: T01\n\nTierminator-Plan: 194d2fe92e18c140"
+        },
+        {
+          "subject": "Add src/beta.js",
+          "body": "Tierminator-Task: T02\n\nTierminator-Plan: 194d2fe92e18c140"
+        }
+      ],
+      "branches": [],
+      "worktrees": [
+        "C:/Users/timsc/AppData/Local/Temp/tierminator-e2e/s2-20261031131642/repo"
+      ]
+    }
+  ],
+  "finalCommits": [
+    "fixture",
+    "Add src/alpha.js",
+    "Add src/beta.js"
+  ],
+  "attempts": [
+    {
+      "task": "T01",
+      "tier": "sonnet-medium",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "a7ec89d6746532ab8",
+      "at": "2026-10-31T17:17:00.020Z",
+      "durationMs": 9554
+    },
+    {
+      "task": "T02",
+      "tier": "sonnet-medium",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "af5fa2bea14a358b7",
+      "at": "2026-10-31T17:17:00.573Z",
+      "durationMs": 8967
+    },
+    {
+      "task": "T02",
+      "tier": "sonnet-medium",
+      "attempt": 1,
+      "outcome": "done",
+      "agentId": "aba75018f3819b4a0",
+      "at": "2026-10-31T17:17:16.029Z",
+      "durationMs": 7945
+    }
+  ],
+  "observed": {},
+  "note": null
+}
