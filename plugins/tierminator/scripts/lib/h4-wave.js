@@ -21,6 +21,9 @@ const { readReport } = require('./settle.js')
 const { MAX_TURNS } = require('./tasks.js')
 const { transcriptUsage, subagentsDir } = require('./usage.js')
 const { emit } = require('./hook.js')
+const integrate = require('./integrate.js')
+const { maxParallel } = require('./waves.js')
+const telemetry = require('./telemetry.js')
 
 const ours = type => typeof type === 'string' && type.startsWith(r.AGENT_PREFIX)
 
@@ -37,8 +40,6 @@ function discardSlot(cwd, slot) {
   git.branchDelete(cwd, slot.branch)
   return gone
 }
-
-const STUB_REASON = 'integration is not built yet'
 
 // The task id a worker's transcript names in its first prompt, else null.
 function slotFromTranscript(file, planId) {
@@ -95,17 +96,39 @@ const lostText = (s, id) =>
   s.planFile +
   '". Tell the user, and dispatch nothing more.'
 
-function stubHalt(next, id, notice) {
-  return {
-    state: { ...next, phase: 'halted', halt: { task: id, tried: next.wave.slots[id].tried, reason: STUB_REASON } },
-    notice:
-      notice +
-      ' The run stops here: ' +
-      STUB_REASON +
-      '. The finished tasks are on their branches (' +
-      next.wave.size.map(x => next.wave.slots[x].branch).join(', ') +
-      ') and their worktrees are left in place. Tell the user; dispatch nothing more.',
+// Integrates the closed wave: the Git work runs outside the state lock (a verify can run for minutes), then a
+// second state.update applies the result. Returns the text to add to the notice, or null when the wave was not
+// closed for integration or the state could not be saved.
+function finishWave(input, s, id, { deliver = false } = {}) {
+  const cwd = cwdOf(s, input)
+  const closed = state.read(input.session_id)
+  if (!closed?.wave || closed.wave.phase !== 'integrating') return null
+  const result = integrate.integrateWave(closed, cwd)
+  for (const task of result.setAside) {
+    try {
+      telemetry.append(telemetry.fileFor(closed.planFile, input.session_id), {
+        kind: 'conflict',
+        sessionId: input.session_id,
+        planId: closed.planId ?? null,
+        runId: closed.runId ?? null,
+        task,
+        wave: closed.wave.n,
+        files: result.conflicts[task] ?? [],
+      })
+    } catch {}
   }
+  let tail = null
+  const res = state.update(input.session_id, cur => {
+    if (cur?.wave?.phase !== 'integrating') return null
+    const applied = integrate.applyIntegration(cur, result, { head: git.head(cwd), root: git.repoRoot(cwd), cap: maxParallel() })
+    tail = applied.tail
+    return { ...applied.state, notice: deliver ? cur.notice : joinNotice(cur.notice, applied.tail) }
+  })
+  if (!res.ok) {
+    state.saveLost(input.session_id, lostText(closed, id))
+    return null
+  }
+  return tail ?? ''
 }
 
 function pre(input, s) {
@@ -167,18 +190,15 @@ function settleSlot(input, s, id, { report = null, failure = null, agentId = nul
   const cwd = cwdOf(s, input)
   const outcome = failure ?? w.judgeSlot({ report, taskId: id, planId: s.planId, ...slotFacts(cwd, s, id) })
   let text = null
+  let closing = false
   const res = state.update(input.session_id, cur => {
     if (!w.judgeable(cur, id, agentId)) return null
     let base = agentId ? w.recordAgent(cur, id, agentId) : cur
     base = w.withSlot(base, id, { ...base.wave.slots[id], report })
     const step = !failure && w.shouldAsk(base, id, outcome) ? w.askForReport(base, id) : w.advanceSlot(base, id, outcome)
     let next = step.state
-    let notice = w.noticeText(base, next, id, step.action, outcome)
-    if (step.action === 'integrate') {
-      const h = stubHalt(next, id, notice)
-      next = h.state
-      notice = h.notice
-    }
+    const notice = w.noticeText(base, next, id, step.action, outcome)
+    closing = step.action === 'integrate' || step.action === 'halt'
     if (record) {
       next = spend.recordAttempt({ ...input, agent_id: agentId ?? input.agent_id }, base, next, { slotId: id, transcript, ran, stopReason }).next
     }
@@ -194,6 +214,11 @@ function settleSlot(input, s, id, { report = null, failure = null, agentId = nul
   if (!res.ok) {
     state.saveLost(input.session_id, lostText(s, id))
     return null
+  }
+  if (closing) {
+    const tail = finishWave(input, s, id, { deliver })
+    if (tail === null) return null
+    text = joinNotice(text, tail)
   }
   return text
 }
@@ -230,6 +255,7 @@ function stop(input, s) {
 // Returns the text Claude is told, or null when the slot is not in that state or the state cannot be saved.
 function turnLimit(input, id, turns, agentId = null) {
   let text = null
+  let closing = false
   const res = state.update(input.session_id, cur => {
     const sl = cur.wave?.slots?.[id]
     if (cur.phase !== 'running' || !sl || sl.status !== 'running' || !sl.inFlight || sl.resumePending) return null
@@ -239,13 +265,20 @@ function turnLimit(input, id, turns, agentId = null) {
       text = w.resumeText(step.state, id)
       return step.state
     }
+    closing = step.action === 'integrate' || step.action === 'halt'
     const now = base.wave.slots[id].agentId
     const dir = subagentsDir(input.transcript_path)
     const transcript = now && dir ? path.join(dir, 'agent-' + now + '.jsonl') : undefined
     text = w.noticeText(base, step.state, id, step.action, { ok: false, fatal: step.state.wave.slots[id].failure })
     return spend.recordAttempt({ ...input, agent_id: now }, base, step.state, { slotId: id, transcript, stopReason: 'turn-limit' }).next
   })
-  return res.ok ? text : null
+  if (!res.ok) return null
+  if (closing) {
+    const tail = finishWave(input, state.read(input.session_id) ?? {}, id, { deliver: true })
+    if (tail === null) return null
+    text = joinNotice(text, tail)
+  }
+  return text
 }
 
 function post(input, s) {
@@ -347,10 +380,9 @@ module.exports = {
   cwdOf,
   joinNotice,
   discardSlot,
-  STUB_REASON,
   slotFromTranscript,
   slotOfStop,
   slotFacts,
   lostText,
-  stubHalt,
+  finishWave,
 }

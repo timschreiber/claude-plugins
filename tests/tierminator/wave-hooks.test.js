@@ -327,14 +327,6 @@ test('slotFacts reports commits, cleanliness and the main tree', () => {
   assert.match(h4.slotFacts(repo, state.read(S), 'T01').mainTree, /uncommitted/)
 })
 
-test('stubHalt halts the run and names the slot branches', () => {
-  const s = startWaveRun()
-  const res = h4.stubHalt(s, 'T01', 'Note.')
-  assert.equal(res.state.phase, 'halted')
-  assert.equal(res.state.halt.reason, h4.STUB_REASON)
-  for (const id of s.wave.size) assert.ok(res.notice.includes(s.wave.slots[id].branch))
-})
-
 // Dispatches all three slots with the pre hook.
 function dispatchAll() {
   startWaveRun()
@@ -757,7 +749,7 @@ function hookAsync(script, stdin, args = []) {
   })
 }
 
-test('a wave of three runs to the integration stub with its stops arriving together', async () => {
+test('a wave of three is integrated when its stops arrive together', async () => {
   startWaveRun()
   const ids = ['T01', 'T02', 'T03']
   for (const id of ids) assert.equal(preOf(callOf(id)).stdout, '')
@@ -771,12 +763,13 @@ test('a wave of three runs to the integration stub with its stops arriving toget
   const s = state.read(S)
   for (const id of ids) assert.equal(s.wave.slots[id].status, 'done', id)
   assert.deepEqual(s.done.map(x => x.id).sort(), ['T01', 'T02', 'T03'])
-  assert.equal(s.phase, 'halted')
-  assert.equal(s.halt.reason, 'integration is not built yet')
-  assert.equal(s.wave.phase, 'integrating')
-  assert.equal(git.head(repo), s.wave.base)
+  assert.equal(s.phase, 'complete')
+  assert.equal(s.wave.phase, 'integrated')
+  assert.deepEqual(gitIn(repo, 'log', '--format=%s').split('\n'), ['Task T03', 'Task T02', 'Task T01', 'init'])
+  assert.deepEqual(Object.keys(git.committedTasks(repo, PLAN_ID)).sort(), ['T01', 'T02', 'T03'])
+  for (const id of ids) assert.ok(!fs.existsSync(s.wave.slots[id].worktree), id)
+  assert.deepEqual(git.branchesMatching(repo, 'tierminator/'), [])
   assert.ok(git.isClean(repo))
-  for (const id of ids) assert.ok(fs.existsSync(s.wave.slots[id].worktree), id)
   const rows = attemptRows()
   assert.deepEqual(rows.map(x => x.task).sort(), ['T01', 'T02', 'T03'])
   const by = id => rows.find(x => x.task === id)
@@ -785,7 +778,7 @@ test('a wave of three runs to the integration stub with its stops arriving toget
     assert.equal(row.attempt, 1)
     assert.equal(row.outcome, 'done')
   }
-  assert.equal(s.notice.split('integration is not built yet').length - 1, 1)
+  assert.equal(s.notice.split('Integration: picked T01, T02, T03').length - 1, 1)
 })
 
 test('a retry runs in place while the others finish, then the run halts with the failed task', () => {
@@ -808,8 +801,7 @@ test('a retry runs in place while the others finish, then the run halts with the
   assert.equal(slotOf('T01').attempt, 2)
   assert.equal(slotOf('T01').tier, 'sonnet-high')
   assert.equal(slotOf('T01').status, 'done')
-  assert.equal(s.phase, 'halted')
-  assert.equal(s.halt.reason, 'integration is not built yet')
+  assert.equal(s.phase, 'complete')
   const rows = attemptRows()
   assert.equal(rows.length, 4)
   assert.deepEqual(rows.filter(x => x.task === 'T01').map(x => x.outcome), ['retry', 'done'])
@@ -1049,8 +1041,7 @@ function planWorkerCommits(id, planId) {
   return gitIn(wt, 'rev-parse', 'HEAD')
 }
 
-// The move into the third wave after integration is WP-11's; here it is checked on nextWave directly.
-test('waves of 1, 3 and 1 run to the integration stub and the third wave is serial', async () => {
+test('waves of 1, 3 and 1 run to completion', async () => {
   approve(
     [task(1, { after: [] }), task(2, { after: ['T01'] }), task(3, { after: ['T01'] }), task(4, { after: ['T01'] }), task(5, { after: ['T02', 'T03', 'T04'] })],
     'auto'
@@ -1074,15 +1065,18 @@ test('waves of 1, 3 and 1 run to the integration stub and the third wave is seri
   for (const id of ids) shas[id] = planWorkerCommits(id, planId)
   await Promise.all(ids.map(id => hookAsync('h4-dispatch.js', subStop(id, report('DONE', shas[id])), ['stop'])))
   const s = state.read(S)
-  assert.equal(s.phase, 'halted')
-  assert.equal(s.halt.reason, 'integration is not built yet')
-  for (const id of ids) assert.equal(s.wave.slots[id].status, 'done', id)
-  assert.deepEqual(s.done.map(x => x.id).sort(), ['T01', 'T02', 'T03', 'T04'])
-  assert.equal(git.head(repo), s.wave.base)
+  assert.equal(s.phase, 'running')
+  assert.equal(s.wave, undefined)
+  assert.equal(s.current.index, 4)
+  assert.deepEqual(gitIn(repo, 'log', '--format=%s').split('\n'), ['Task T04', 'Task T03', 'Task T02', 'Task T01', 'init'])
+  assert.ok(s.notice.includes('Call the Agent tool now'))
   assert.ok(git.isClean(repo))
-  // The third wave.
-  const step = w.nextWave({ ...s, phase: 'running' }, git.head(repo), git.repoRoot(repo), 5)
-  assert.equal(step.kind, 'serial')
-  assert.deepEqual(step.ids, ['T05'])
-  assert.equal(step.state.current.index, 4)
+  // The third wave: T05 runs serially.
+  assert.equal(preOf(r.expectedCall(state.read(S))).stdout, '')
+  fs.writeFileSync(path.join(repo, 'T05.txt'), 'T05')
+  gitIn(repo, 'add', '-A')
+  gitIn(repo, 'commit', '-q', '-m', 'Task T05', '-m', 'Tierminator-Task: T05', '-m', 'Tierminator-Plan: ' + planId)
+  const sha5 = gitIn(repo, 'rev-parse', 'HEAD')
+  stopHook({ session_id: S, agent_id: 'w5', agent_type: 'tierminator:sonnet-medium', last_assistant_message: report('DONE', sha5) })
+  assert.equal(state.read(S).phase, 'complete')
 })
