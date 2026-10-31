@@ -231,3 +231,99 @@ test('sweepSlots removes only the named tasks slot worktree and branch', () => {
   assert.ok(fs.existsSync(s.wave.slots.T02.worktree))
   assert.deepEqual(slotBranches(), [s.wave.slots.T02.branch])
 })
+
+// ---- applyIntegration: hand-made results, no Git ----
+
+const APPLY_ROOT = 'C:/repo'
+const FLAT = [task(1), task(2), task(3)]
+const GRAPH = [
+  { ...task(1), after: [] },
+  { ...task(2), after: ['T01'] },
+  { ...task(3), after: ['T01'] },
+  { ...task(4), after: ['T01'] },
+  { ...task(5), after: ['T02', 'T03', 'T04'] },
+]
+const startGraph = tasks =>
+  r.startRun({ tasks, tasksFile: 'x.tasks.json', planFile: 'x.md', branch: 'main', planId: 'p', graph: true })
+const doneEntry = id => ({ id, tier: 'sonnet-medium', commit: 'abc1234', attempts: 1 })
+// The closed state of a wave: every slot done, done entries for them, phase 'integrating'.
+function closedState(tasks, doneBefore = []) {
+  let s = startGraph(tasks)
+  s = { ...s, done: doneBefore.map(doneEntry) }
+  const started = w.nextWave(s, 'base000', APPLY_ROOT, 5).state
+  let c = started
+  for (const id of Object.keys(started.wave.slots)) c = w.withSlot(c, id, { ...c.wave.slots[id], status: 'done' })
+  c = { ...c, done: [...c.done, ...Object.keys(started.wave.slots).map(doneEntry)] }
+  return { ...c, phase: 'integrating', wave: { ...c.wave, phase: 'integrating' } }
+}
+const okResult = (over = {}) => ({ problem: null, picked: [], setAside: [], conflicts: {}, verify: null, cleanFailures: [], ...over })
+const apply = (state, result) => integrate.applyIntegration(state, result, { head: 'h1', root: APPLY_ROOT, cap: 5 })
+
+test('applyIntegration completes a plan whose only wave is done', () => {
+  const closed = closedState(FLAT.map(t => ({ ...t, after: [] })))
+  const out = apply({ ...closed, branch: 'main' }, okResult({ picked: ['T01', 'T02', 'T03'] }))
+  assert.equal(out.state.phase, 'complete')
+  assert.equal(out.state.wave.phase, 'integrated')
+  assert.ok(out.tail.includes('Integration: picked T01, T02, T03 onto main'))
+  assert.ok(out.tail.includes('all 3 tasks are done'))
+})
+
+test('applyIntegration moves on to the serial task after the wave', () => {
+  const closed = closedState(GRAPH, ['T01'])
+  const out = apply(closed, okResult({ picked: ['T02', 'T03', 'T04'] }))
+  assert.equal(out.state.current.index, 4)
+  assert.ok(!('wave' in out.state))
+  assert.ok(out.tail.includes('Call the Agent tool now'))
+})
+
+test('applyIntegration sets a conflicted task aside to run again serially', () => {
+  const closed = closedState(GRAPH, ['T01'])
+  const out = apply(closed, okResult({ picked: ['T02', 'T04'], setAside: ['T03'], conflicts: { T03: ['a.txt'] } }))
+  assert.equal(out.state.current.index, 2)
+  assert.ok(!out.state.done.some(d => d.id === 'T03'))
+  assert.equal(out.state.current.tier, closed.wave.slots.T03.tier)
+  assert.ok(out.tail.includes('T03 conflicted when picked'))
+  assert.ok(out.tail.includes('run again serially'))
+})
+
+test('applyIntegration halts on a main tree problem', () => {
+  const closed = closedState(GRAPH, ['T01'])
+  const out = apply(closed, okResult({ problem: 'MAIN TREE: x' }))
+  assert.equal(out.state.phase, 'halted')
+  assert.equal(out.state.halt.reason, 'MAIN TREE: x')
+  assert.equal(out.state.halt.task, null)
+  assert.ok(out.tail.includes('MAIN TREE: x'))
+  assert.ok(out.tail.includes('Slot worktrees and branches are left in place'))
+  assert.ok(out.tail.includes(closed.planFile))
+})
+
+test('applyIntegration halts when the plan verify fails', () => {
+  const closed = closedState(GRAPH, ['T01'])
+  const out = apply(closed, okResult({ picked: ['T02', 'T03', 'T04'], verify: { command: 'npm test', ok: false, status: 1, tail: 'FAIL 3' } }))
+  assert.equal(out.state.phase, 'halted')
+  assert.ok(out.state.halt.reason.includes('npm test'))
+  assert.ok(out.tail.includes('npm test'))
+  assert.ok(out.tail.includes('FAIL 3'))
+  assert.ok(out.tail.includes(closed.branch))
+  assert.ok(out.tail.includes('holds the picks'))
+})
+
+test('applyIntegration reports a passing plan verify', () => {
+  const closed = closedState(GRAPH, ['T01'])
+  const out = apply(closed, okResult({ picked: ['T02', 'T03', 'T04'], verify: { command: 'npm test', ok: true, status: 0, tail: '' } }))
+  assert.ok(out.tail.includes('The plan verify passed (npm test)'))
+})
+
+test('applyIntegration keeps a halting wave halted', () => {
+  const halt = { task: 'T03', tried: [], reason: 'dead' }
+  const closed = closedState(GRAPH, ['T01'])
+  const halted = { ...closed, phase: 'halted', halt, wave: { ...closed.wave, halting: halt } }
+  const plain = apply(halted, okResult({ picked: ['T02'] }))
+  assert.equal(plain.state.phase, 'halted')
+  assert.equal(plain.state.halt, halt)
+  assert.equal(plain.tail, '')
+  const conflicted = apply(halted, okResult({ picked: ['T02'], setAside: ['T04'], conflicts: { T04: ['a.txt'] } }))
+  assert.equal(conflicted.state.phase, 'halted')
+  assert.equal(conflicted.state.halt, halt)
+  assert.ok(conflicted.tail.includes('conflicted when picked'))
+})
