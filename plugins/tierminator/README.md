@@ -1,13 +1,13 @@
 # Tierminator
 
-Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, one at a
-time, on the model and effort chosen for it during planning, and commits its own work. A task that fails
-is rolled back and retried on a stronger tier.
+Plan in plan mode, approve, and watch. Each task in the approved plan runs as its own subagent, on the model
+and effort chosen for it during planning, and commits its own work. Tasks the plan marks as independent run
+at the same time, in separate Git worktrees. A task that fails is rolled back and retried on a stronger tier.
 
 Type `/tierminator:plan` and what you want: Claude plans it in plan mode, the plugin adds a task list to
 the end of the plan, and it runs after you approve. There is nothing to type after approval.
 
-For a project too big for one plan (milestones, parallel work, planned reviews), use
+For a project too big for one plan (milestones, planned reviews), use
 [Orchestratinator](https://github.com/timschreiber/claude-plugins/tree/main/plugins/orchestratinator)
 instead. Tierminator is for a plan that fits in one plan-mode session.
 
@@ -111,6 +111,31 @@ with parallel tasks, it also flags two tasks that may run at the same time yet l
 `Files to change:` lines; Claude makes one wait for the other with `after`, or keeps it with a `Keep` line. These
 are guidelines, so after two reviews the plan goes to the approval dialog either way.
 
+### Parallel tasks
+
+When a task has no need of the one before it, the planner writes `after: []` (or a list of the task ids it
+needs) on it. A task with no `after` waits for the task before it, so a plan without any `after` runs one
+task at a time, as before. Tasks are grouped into waves: a task's wave is one more than the latest wave it
+waits for, and a wave of two or more tasks runs its tasks at once, each in its own Git worktree. The next wave
+starts when the whole wave has finished.
+
+- **Tierminator makes the worktrees** (under `.claude/worktrees/` in your repository) and removes them
+  when it is done. You do nothing.
+- **Finished tasks are cherry-picked onto your branch in plan order,** one commit per task, so the history
+  stays linear.
+- **A task whose pick conflicts runs again,** by itself, on the new head of your branch. There is no
+  conflict resolver. See [Conflicts](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#conflicts).
+- **The plan's optional `setup` commands run in each worktree** before its task (a restore, say), and its
+  optional `verify` command runs in your tree after each parallel wave. If `verify` fails, the run halts
+  with the picked commits kept. See [Plan-level verify](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#plan-level-verify).
+  The approval table shows both, because approving the plan runs them.
+- **A failed task retries in its own fresh worktree** while the others carry on. A task that runs out of
+  retries halts the run once the others have settled, and the tasks that passed are kept.
+- **`/tierminator:execute` resumes from what is committed.** `--from` is refused for such a plan. Leftover
+  worktrees and branches from an earlier run are removed by name before it starts.
+
+For the details, see [Parallel execution](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md#parallel-execution).
+
 ### Stopping a run
 
 Typing anything while a run is in progress stops it: nothing more is dispatched, and Claude tells you which
@@ -211,6 +236,9 @@ sets to `sdk-cli` for `claude -p`. Interactive sessions plan in plan mode and ap
 - **Requirements:** not plan mode (headless sessions have no `ExitPlanMode`), a clean Git tree with a commit
   identity, and permissions for workers to edit, run their `Verify:` commands and `git commit` unattended
   (`bypassPermissions` in a sandbox or CI, or `acceptEdits` with `--allowedTools` rules).
+- **A plan with parallel tasks needs `--permission-mode auto` or `bypassPermissions`.** In the default and
+  `acceptEdits` modes every worker command asks for approval, and a command starting with `cd` cannot be
+  allowed permanently, so an unattended run cannot commit.
 - **An invalid plan gets three chances and then nothing runs.** It never falls back to untiered work. After
   a compaction the rules are given again.
 - **A result file is written when the run ends:** `<plan>.result.json` beside the plan, or the path in
@@ -260,7 +288,7 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
 
 ## What it does not do
 
-- Run tasks in parallel. They run one at a time.
+- Run tasks in parallel unless the plan declares them independent (see Parallel tasks).
 - Pause between tasks for your approval.
 - Push. Each task is a local commit on your current branch.
 - Catch work that a task's `Verify:` step doesn't check.
@@ -275,6 +303,14 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
   back, so a long plan adds some main-session cost.
 - **Manual permissions:** workers may ask for permission as they edit files or run commands. Allow rules
   for the tools your tasks use will reduce that.
+- **Parallel tasks and permissions:** in the default and `acceptEdits` modes every command of a parallel
+  worker asks for approval, and a command starting with `cd` offers no permanent "allow" rule, so you answer
+  one request per commit. Use `--permission-mode auto` or `bypassPermissions` for a plan with parallel tasks.
+- **Not built yet for parallel tasks:** a resolver for conflicting picks (the task just runs again), repair of
+  a failed `verify`, a rule for what other tasks of a wave do when a usage limit ends the run, wave fields in
+  the result file, and the wave and speed-up lines of the spend summary.
+- **`TIERMINATOR_MAX_PARALLEL` caps the tasks running at once** (default 5). The rest of a wave waits for a
+  free slot.
 - **A run does not outlive its session, or a prompt you type during it.** Tasks that finished are
   committed, and `/tierminator:execute` can pick the plan up again.
 - **Spend is an estimate,** from transcripts and a price table fixed in the plugin with its date. A
@@ -300,6 +336,8 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
   behind are removed after 7 days. The tasks
   file sits next to the plan file in Claude Code's plans directory and is kept as a record of what ran.
   The only changes to your repository are the tasks' own commits.
+- Set `TIERMINATOR_MAX_PARALLEL` to a positive integer to cap how many tasks of a parallel wave run at once.
+  Unset or invalid means 5.
 - Set `TIERMINATOR_DEBUG=1` to log hook errors and every state change to `tierminator-debug.log` in the
   temp directory.
 - `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` in your own settings `env` are Claude Code's settings
