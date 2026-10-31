@@ -24,7 +24,7 @@
 //               claims it judges it. When H4 claimed it first, H1 waits briefly for H4's saved notice and
 //               prints that instead. When a judged attempt's state could not be saved (H1's own, or H4's lost-state note),
 //               the run ends here with a message saying how to resume. In plan mode these prompts never show the rules;
-//               A wave's hand-backs are judged by WP-10, not here; here a wave only gets the turn-limit resume.
+//               A wave's hand-backs are judged per slot (waveHandBack), through the same settleSlot as the SubagentStop path.
 //             - while planning, a prompt typed in plan mode shows the rules once per plan-mode stint
 //               (unless /tierminator:plan or EnterPlanMode already did); one typed outside plan mode means
 //               the user left plan mode without approving, so the session is made inactive, silently;
@@ -130,6 +130,48 @@ async function awaitNotice(input, key) {
   }
 }
 
+// The wave form of awaitNotice: H4 claimed slot `id`'s attempt `key`; wait for its saved notice.
+async function awaitWaveNotice(input, id, key) {
+  const until = Date.now() + NOTICE_WAIT_MS
+  for (let i = 0; ; i++) {
+    const lost = state.takeLost(input.session_id)
+    if (lost) return endLost(input, lost)
+    const s = state.read(input.session_id)
+    const slot = s?.wave?.slots?.[id]
+    if (s?.notice && slot && (slot.status !== 'running' || state.slotAttemptKey(s, id) !== key)) {
+      state.update(input.session_id, c => ({ ...c, notice: null, noticeByNotification: false }))
+      emitText(s.notice)
+      return
+    }
+    if (Date.now() >= until) return
+    await new Promise(resolve => setTimeout(resolve, NOTICE_POLL_MS[Math.min(i, NOTICE_POLL_MS.length - 1)]))
+  }
+}
+
+// A worker's report arrived as an <agent-message> in a wave: judge it for its slot, the way H4's stop does.
+async function waveHandBack(input, s) {
+  const from = /^\s*<agent-message\s+from="([A-Za-z0-9_-]+)"/.exec(input.prompt)?.[1] ?? null
+  if (!from) return
+  const dir = subagentsDir(input.transcript_path)
+  const transcript = dir ? path.join(dir, 'agent-' + from + '.jsonl') : null
+  const id = w.slotOfAgent(s, from) ?? (transcript ? h4wave.slotFromTranscript(transcript, s.planId) : null)
+  if (!id || !s.wave.slots[id] || !w.judgeable(s, id, from)) return
+  const key = state.slotAttemptKey(s, id)
+  if (!state.claimAttempt(input.session_id, key)) return awaitWaveNotice(input, id, key)
+  const report = readReport(input.prompt, transcript)
+  const text = h4wave.settleSlot(input, s, id, {
+    report,
+    agentId: from,
+    transcript,
+    stopReason: report ? 'report' : 'no-report',
+    deliver: true,
+    handBack: true,
+  })
+  if (text) return emitText(text)
+  const lost = state.takeLost(input.session_id)
+  if (lost) endLost(input, lost)
+}
+
 // A harness prompt in an active session: deliver H4's notice, or judge a hand-back.
 async function runNote(input) {
   const lost = state.takeLost(input.session_id)
@@ -142,6 +184,7 @@ async function runNote(input) {
     emitText(s.notice)
     return
   }
+  if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.wave) return waveHandBack(input, s)
   if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.current?.inFlight && !s.current.resumePending) await handBack(input, s)
   else if (/^\s*<task-notification\b/.test(input.prompt) && s.phase === 'running' && (s.current?.inFlight || s.wave)) turnLimitNote(input, s)
 }

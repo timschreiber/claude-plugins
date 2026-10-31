@@ -964,3 +964,59 @@ test('H3 puts the permission line before the Agent call instruction', () => {
   assert.ok(note.indexOf(PERMISSION_LINE) >= 0)
   assert.ok(note.indexOf(PERMISSION_LINE) < note.indexOf('Call the Agent tool'))
 })
+
+// Dispatches all three slots and posts each launch as a background worker named 'worker-' + id.
+function launchAll() {
+  dispatchAll()
+  for (const id of ['T01', 'T02', 'T03']) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+}
+const handBackPrompt = (id, sha) =>
+  '<agent-message from="worker-' + id + '">\n  STATUS: DONE\n  COMMIT: ' + sha + '\n  VERIFY: PASS\n  NOTE: ok\n</agent-message>'
+const h1Hand = (id, prompt) =>
+  hookAsync('h1-plan-rules.js', { session_id: S, permission_mode: 'default', cwd: repo, transcript_path: path.join(dir, 'main.jsonl'), prompt })
+
+test('two hand-backs arriving together are each judged for their own slot', async () => {
+  launchAll()
+  const sha1 = workerCommits('T01')
+  const sha2 = workerCommits('T02')
+  const [a, b] = await Promise.all([h1Hand('T01', handBackPrompt('T01', sha1)), h1Hand('T02', handBackPrompt('T02', sha2))])
+  assert.ok(a.stdout.includes('T01 done'))
+  assert.ok(!a.stdout.includes('T02 done'))
+  assert.ok(b.stdout.includes('T02 done'))
+  assert.ok(!b.stdout.includes('T01 done'))
+  assert.equal(slotOf('T01').status, 'done')
+  assert.equal(slotOf('T02').status, 'done')
+  const s = state.read(S)
+  assert.deepEqual(s.done.map(x => x.id).sort(), ['T01', 'T02'])
+  const before = fs.readFileSync(state.fileFor(S))
+  stopHook(subStop('T01', report('DONE', sha1)))
+  assert.ok(fs.readFileSync(state.fileFor(S)).equals(before))
+})
+
+test('a hand-back after the slot was already settled by its stop gives the stop notice', async () => {
+  launchAll()
+  const sha = workerCommits('T01')
+  stopHook(subStop('T01', report('DONE', sha)))
+  const res = await h1Hand('T01', handBackPrompt('T01', sha))
+  assert.ok(res.stdout.includes('T01 done'))
+  assert.equal(state.read(S).notice, null)
+})
+
+test('a hand-back with no report block and no commit asks the worker for it', async () => {
+  launchAll()
+  const res = await h1Hand('T01', '<agent-message from="worker-T01">\n  Task complete.\n</agent-message>')
+  assert.ok(res.stdout.includes('without its report block'))
+  assert.equal(slotOf('T01').resumePending, true)
+})
+
+test('a hand-back whose slot H4 claimed first waits for H4 and gives its notice', async () => {
+  launchAll()
+  const sha = workerCommits('T01')
+  assert.ok(state.claimAttempt(S, state.slotAttemptKey(state.read(S), 'T01')))
+  const pending = h1Hand('T01', handBackPrompt('T01', sha))
+  await new Promise(resolve => setTimeout(resolve, 300))
+  state.update(S, cur => ({ ...w.advanceSlot(cur, 'T01', { ok: true, commit: sha }).state, notice: 'tierminator: T01 done (settled by H4).' }))
+  const res = await pending
+  assert.ok(res.stdout.includes('settled by H4'))
+  assert.equal(state.read(S).notice, null)
+})

@@ -163,7 +163,7 @@ function pre(input, s) {
 
 // The one place a slot's attempt is judged and saved; used by stop, failure and resume-failure. Returns the
 // notice text, or null when the attempt was not judged or the state could not be saved.
-function settleSlot(input, s, id, { report = null, failure = null, agentId = null, transcript, stopReason, ran = true, record = true, deliver = false } = {}) {
+function settleSlot(input, s, id, { report = null, failure = null, agentId = null, transcript, stopReason, ran = true, record = true, deliver = false, handBack = false } = {}) {
   const cwd = cwdOf(s, input)
   const outcome = failure ?? w.judgeSlot({ report, taskId: id, planId: s.planId, ...slotFacts(cwd, s, id) })
   let text = null
@@ -183,8 +183,10 @@ function settleSlot(input, s, id, { report = null, failure = null, agentId = nul
       next = spend.recordAttempt({ ...input, agent_id: agentId ?? input.agent_id }, base, next, { slotId: id, transcript, ran, stopReason }).next
     }
     text = notice
+    const handedBack = handBack && agentId && step.action !== 'ask' ? [...(cur.handedBack ?? []), agentId].slice(-20) : cur.handedBack
     return {
       ...next,
+      ...(handedBack === undefined ? {} : { handedBack }),
       notice: deliver ? cur.notice : joinNotice(cur.notice, notice),
       noticeByNotification: !deliver && !!base.wave.slots[id].background,
     }
