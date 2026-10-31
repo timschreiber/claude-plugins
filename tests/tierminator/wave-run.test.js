@@ -733,6 +733,29 @@ test('nextWave runs several set-aside tasks one at a time', () => {
   assert.deepEqual(second.state.setAside, [])
 })
 
+test('nextWave re-runs a set-aside task at the tier its slot last ran', () => {
+  const c = closedWave(graphRun(), { setAside: ['T03'] })
+  const closed = withDone(w.withSlot(c, 'T03', { ...c.wave.slots.T03, tier: 'opus-high' }), ['T02', 'T03', 'T04'])
+  const next = w.nextWave(closed, 'base111', REPO, 5)
+  assert.equal(next.kind, 'serial')
+  assert.equal(next.state.current.tier, 'opus-high')
+  assert.equal(next.state.current.attempt, 1)
+  assert.deepEqual(next.state.current.tried, [])
+  assert.equal(next.state.current.index, 2)
+  assert.ok(!('setAsideTier' in next.state))
+})
+
+test('nextWave keeps the tiers of the set-aside tasks still waiting', () => {
+  const c0 = closedWave(graphRun(), { setAside: ['T03', 'T04'] })
+  const c1 = w.withSlot(c0, 'T03', { ...c0.wave.slots.T03, tier: 'opus-high' })
+  const c = w.withSlot(c1, 'T04', { ...c1.wave.slots.T04, tier: 'sonnet-high' })
+  const first = w.nextWave(withDone(c, ['T02', 'T03', 'T04']), 'base111', REPO, 5)
+  assert.deepEqual(first.state.setAsideTier, { T04: 'sonnet-high' })
+  const second = w.nextWave(withDone(first.state, ['T03']), 'base222', REPO, 5)
+  assert.equal(second.state.current.tier, 'sonnet-high')
+  assert.ok(!('setAsideTier' in second.state))
+})
+
 test('startText names the wave and gives the dispatch instruction', () => {
   const next = w.nextWave(withDone(graphRun(), ['T01']), 'base000', REPO, 5)
   assert.ok(

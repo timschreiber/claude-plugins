@@ -11,7 +11,7 @@
 //            failure}; status queued | ready (may be dispatched now, counts against the cap) | running
 //            (dispatched, inFlight true) | done | failed | skipped (never started: the wave halted first)
 //   queue    the ids with status 'queued', in order
-//   phase    working | integrating | verifying
+//   phase    working | integrating | integrated (integrated is set by lib/integrate.js once the picks are made)
 //   halting  null | {task, tried, reason}
 //   setAside []
 'use strict'
@@ -78,13 +78,25 @@ function startWave(state, taskIds, base, cap, repoRoot) {
 function nextWave(state, base, repoRoot, cap) {
   const { wave: closed, ...rest } = state
   const pending = closed?.setAside ?? state.setAside ?? []
+  const tiers = { ...(state.setAsideTier ?? {}) }
+  for (const id of pending) {
+    if (closed?.slots?.[id]?.tier) tiers[id] = closed.slots[id].tier
+  }
   const done = state.done.filter(d => !pending.includes(d.id))
   const ids = pending.length > 0 ? [pending[0]] : waves(state.tasks, done.map(d => d.id))[0] ?? []
   if (ids.length === 0) return { state: { ...state, phase: 'complete' }, kind: 'complete', ids: [] }
-  const open = { ...rest, phase: 'running', done, setAside: pending.slice(1) }
+  const { setAsideTier: _stale, ...fresh } = rest
+  const open = { ...fresh, phase: 'running', done, setAside: pending.slice(1) }
+  const left = {}
+  for (const id of pending.slice(1)) {
+    if (tiers[id]) left[id] = tiers[id]
+  }
+  if (Object.keys(left).length > 0) open.setAsideTier = left
   if (ids.length === 1) {
     const i = state.tasks.findIndex(t => t.id === ids[0])
-    return { state: { ...open, current: r.fresh(state.tasks[i], i) }, kind: 'serial', ids }
+    const current = r.fresh(state.tasks[i], i)
+    if (pending.length > 0 && tiers[ids[0]]) current.tier = tiers[ids[0]]
+    return { state: { ...open, current }, kind: 'serial', ids }
   }
   return { state: startWave(open, ids, base, cap, repoRoot), kind: 'wave', ids }
 }
