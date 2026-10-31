@@ -233,7 +233,7 @@ A failure in the fixture, the worker, the wait or the checks themselves (a bad p
 | Scenario 4 | 2026-10-31 | 2.1.316 (Claude Code) | PASS | `tests/tierminator/e2e/results/scenario-4/result.json` |
 | Scenario 5 | 2026-10-31 | 2.1.316 (Claude Code) | PASS | `tests/tierminator/e2e/results/scenario-5/result.json` |
 | Scenario 6 | 2026-10-31 | 2.1.316 (Claude Code) | PASS | `tests/tierminator/e2e/results/scenario-6/result.json` |
-| Scenario 7 | - | - | pending hand run | `tests/tierminator/e2e/results/scenario-7/result.json` |
+| Scenario 7 | - | - | pending hand run | - |
 | Scenario 8 | 2026-10-31 | 2.1.316 (Claude Code) | PASS | `tests/tierminator/e2e/results/scenario-8/result.json` |
 
 Scenarios 1, 2, 3, 4, 5, 6 and 8 ran headless on 2026-10-31 with Claude Code 2.1.316, and all seven passed every check. Scenario 7 needs an interactive session in `default` permission mode, so it awaits a hand run.

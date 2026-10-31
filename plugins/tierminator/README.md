@@ -120,7 +120,7 @@ waits for, and a wave of two or more tasks runs its tasks at once, each in its o
 starts when the whole wave has finished.
 
 - **Tierminator makes the worktrees** (under `.claude/worktrees/` in your repository) and removes them
-  when it is done. You do nothing.
+  when it is done; a halted run's are removed when the plan next starts. You do nothing.
 - **Finished tasks are cherry-picked onto your branch in plan order,** one commit per task, so the history
   stays linear.
 - **A task whose pick conflicts runs again,** by itself, on the new head of your branch. There is no
@@ -284,6 +284,7 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
 | Hand-off (H3) | On approval of a plan made after `/tierminator:plan`, starts the run and gives Claude the first dispatch |
 | Dispatch (H4) | Lets through only the expected dispatch; when the worker finishes, reads its report, checks its commit, and decides the next dispatch, a retry after a reset, or a stop |
 | Guard (H5) | Blocks main-thread file edits and stopping while a task is due, and gives up after a few blocks |
+| Worktree guard (H8) | While a parallel wave works, denies a worker's command, write or search that would reach your working tree instead of its worktree |
 | Cleanup (H6) | Deletes the run's state and the activation flag when the session ends |
 
 ## What it does not do
@@ -335,7 +336,8 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
   the activation flag beside it in `<session_id>.active`. Both are deleted when the session ends, and any left
   behind are removed after 7 days. The tasks
   file sits next to the plan file in Claude Code's plans directory and is kept as a record of what ran.
-  The only changes to your repository are the tasks' own commits.
+  The only changes to your repository are the tasks' own commits, and for a plan with parallel tasks the
+  worktrees and branches tierminator removes again and a `.claude/worktrees/` line in `.git/info/exclude`.
 - Set `TIERMINATOR_MAX_PARALLEL` to a positive integer to cap how many tasks of a parallel wave run at once.
   Unset or invalid means 5.
 - Set `TIERMINATOR_DEBUG=1` to log hook errors and every state change to `tierminator-debug.log` in the

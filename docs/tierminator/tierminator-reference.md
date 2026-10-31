@@ -105,7 +105,8 @@ claude --plugin-dir ./plugins/tierminator
 The plugin's state is one JSON file per session under the plugin's data directory, plus an activation flag
 beside it (see [Session state](#session-state)). It also writes a tasks file next to each approved plan's
 file, and shortens that plan file (see [The tasks file](#the-tasks-file)). The only changes to the
-project are the tasks' own commits.
+project are the tasks' own commits, and for a graph plan the slot worktrees and branches it removes again
+and a `.claude/worktrees/` line in `info/exclude` (see [Worktrees](#worktrees)).
 
 ## Commands
 
@@ -465,19 +466,19 @@ Nine scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered 
 
 | Hook | Event | Matcher | Script and mode | Timeout |
 |---|---|---|---|---|
-| H1 Rules | `UserPromptSubmit` | none | `h1-plan-rules.js` | 15 s |
+| H1 Rules | `UserPromptSubmit` | none | `h1-plan-rules.js` | 3600 s |
 | H1 Rules | `PostToolUse` | `EnterPlanMode` | `h1-plan-rules.js enter` | 15 s |
 | H1 Rules | `PreCompact` | none | `h1-plan-rules.js compact` | 15 s |
 | H1 Rules | `SessionStart` | `compact` | `h1-plan-rules.js session` | 15 s |
 | H2 Gate | `PreToolUse` | `ExitPlanMode` | `h2-gate-exit-plan.js` | 30 s |
 | H3 Hand-off | `PostToolUse` | `ExitPlanMode` | `h3-post-approval.js` | 30 s |
 | H4 Dispatch | `PreToolUse` | `Agent` | `h4-dispatch.js pre` | 30 s |
-| H4 Dispatch | `SubagentStop` | none | `h4-dispatch.js stop` | 15 s |
-| H4 Dispatch | `PostToolUse` | `Agent` | `h4-dispatch.js post` | 60 s |
-| H4 Dispatch | `PostToolUseFailure` | `Agent` | `h4-dispatch.js failure` | 60 s |
+| H4 Dispatch | `SubagentStop` | none | `h4-dispatch.js stop` | 3600 s |
+| H4 Dispatch | `PostToolUse` | `Agent` | `h4-dispatch.js post` | 3600 s |
+| H4 Dispatch | `PostToolUseFailure` | `Agent` | `h4-dispatch.js failure` | 3600 s |
 | H4 Dispatch | `PreToolUse` | `SendMessage` | `h4-dispatch.js resume-pre` | 30 s |
 | H4 Dispatch | `PostToolUse` | `SendMessage` | `h4-dispatch.js resume-post` | 30 s |
-| H4 Dispatch | `PostToolUseFailure` | `SendMessage` | `h4-dispatch.js resume-failure` | 60 s |
+| H4 Dispatch | `PostToolUseFailure` | `SendMessage` | `h4-dispatch.js resume-failure` | 3600 s |
 | H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `h5-guard.js pre` | 15 s |
 | H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
 | H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
@@ -486,8 +487,8 @@ Nine scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered 
 | H9 Worker timeout | `PreToolUse` | `Bash` | `h9-worker-timeout.js` | 15 s |
 
 Every hook ignores calls made by subagents (any input with an `agent_id`), so workers and other agents are
-never gated, guarded or given the rules. H4's `stop` mode is the exception: `SubagentStop` comes from the
-subagent itself.
+never gated, guarded or given the rules. H4's `stop` mode is an exception: `SubagentStop` comes from the
+subagent itself. H8 and H9 are the others: they act only on a worker's calls.
 
 **Every hook is gated on activation.** Unless the session's flag exists, each hook returns without output:
 
@@ -549,7 +550,7 @@ subagent itself.
   exclusively beside the state, `<session_id>.<run>-<task index>-<attempt>.claim` (`state.claimAttempt()`);
   only the first hook to create it judges the attempt. When H4 claimed it first, H1 judges nothing: it
   waits up to 10 seconds (H4's slowest settle is a reset and a clean with their lock retries; the hook's
-  timeout is 15), polling every 50 ms, for H4's saved state to show the attempt settled with a
+  timeout is 3600 s), polling every 50 ms, for H4's saved state to show the attempt settled with a
   notice, then gives that notice and clears it. If none comes in time it prints nothing and leaves the state
   as it is; the notice stays flagged `noticeByNotification`, and H5 lets the turn end. A claim that cannot
   be written for any reason but an existing claim is granted, so an attempt is never left unjudged.
@@ -1176,7 +1177,7 @@ show them as `T01 abc1234 (earlier run)` or `T01 (skipped by --from)`.
 it) gets its block written to `<plan>.tasks.json` beside it, or beside the session state if that fails. The
 plan file itself is never rewritten.
 
-Before a graph plan starts, the worktrees and branches an earlier run left are removed by name and reported
+Before a tiered plan starts, the worktrees and branches an earlier run left are removed by name and reported
 in the start note (see [Parallel execution](#parallel-execution)).
 
 From there the run is the same as one started by approval: H4 checks each dispatch and judges each attempt,
@@ -1859,7 +1860,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | `permission_mode` on `UserPromptSubmit`; `ExitPlanMode` hooks fire; deny makes Claude revise; `tool_input.plan` can be stale; `additionalContext` reaches the model; Haiku ignores effort (*workflow era*) | [`tierminator-spike-findings.md`](tierminator-spike-findings.md) | `planandtier-spike-headless-results.json`, `planandtier-spike-interactive-results.json` |
 | All eight Sonnet and Opus pairs run at exactly the requested effort (*workflow era*, per-call effort) | [`tierminator-spike-findings.md`](tierminator-spike-findings.md) | `planandtier-effort-pairs-results.json` |
 | Parallel workers: tierminator makes each task's Git worktree itself, in H4's `PreToolUse` hook on the Agent call, and the worker is an ordinary non-isolated subagent given its path on a `Worktree:` line; a guard hook that only denies rescued the calls that would have reached the main tree; in the default and `acceptEdits` modes every worker command asks for approval | [`tierminator-parallel-findings.md`](tierminator-parallel-findings.md) (the "Option C" and "Recommendation" sections) | `tierminator-parallel-*.json` |
-| Parallel execution end to end, headless in `bypassPermissions` mode: independent tasks run at once, a forced conflict is re-run serially, a failed task retries in place, an exhausted task and a failed plan verify each halt with the passers kept (scenario 7, the default mode, awaits a hand run) | [`tierminator-parallel-run.md`](tierminator-parallel-run.md) | `tests/tierminator/e2e/results/` |
+| Parallel execution end to end, headless in `bypassPermissions` mode (and in `auto` mode, scenario 8): independent tasks run at once, a forced conflict is re-run serially, a failed task retries in place, an exhausted task and a failed plan verify each halt with the passers kept (scenario 7, the default mode, awaits a hand run) | [`tierminator-parallel-run.md`](tierminator-parallel-run.md) | `tests/tierminator/e2e/results/` |
 | A CRLF workflow script fails the launch (*workflow era*; no longer applies) | [`tierminator-dialog-findings.md`](tierminator-dialog-findings.md) | `planandtier-launch-shapes-results.json` |
 | End to end in auto mode and with manual permissions (*workflow era*) | [`tierminator-e2e-findings.md`](tierminator-e2e-findings.md), [`tierminator-manual-mode-findings.md`](tierminator-manual-mode-findings.md) | `planandtier-e2e-results.json`, `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 

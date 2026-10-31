@@ -13,7 +13,8 @@ Decisions were made with the user on 2026-10-19 and 2026-10-20 and are in
 [`tierminator-parallel-findings.md`](tierminator-parallel-findings.md) (evidence under `probes/evidence/`); where
 the design depends on a measurement, it says which. The spec was revised on 2026-10-20 after the probes and a
 design review: tierminator makes the worktrees (option C), conflicts re-run serially, integration happens in the
-main tree, and the resolver, the overlap flag and parts of resume, limit handling and display are deferred.
+main tree, and the resolver, the overlap flag and parts of resume, limit handling and display are deferred (the
+overlap flag was built later, on 2026-10-22).
 
 ## Goals and non-goals
 
@@ -279,7 +280,7 @@ break together.
   user fixes the break and `/tierminator:execute` resumes with the remaining tasks. Verify runs again after the
   next parallel wave, not on resume.
 - It runs under the hook's timeout in `hooks.json`: **3600 s** on the hooks that settle a wave, and so integrate
-  and verify (H1 and H4 `stop`, `post` and `failure`), from probe P5
+  and verify (H1 and H4 `stop`, `post`, `failure` and `resume-failure`), from probe P5
   ([findings, "Hook timeouts: recommendation"](tierminator-parallel-findings.md#hook-timeouts-recommendation)). A
   hook timeout is silent, so the command should be bounded below it.
 
@@ -387,7 +388,7 @@ happens to the other slots that end because of the same limit, and the worktrees
 | `h8-worktree-guard.js` (new) | The guard hook. |
 | `h1-plan-rules.js`, `h5-guard.js`, `h7-limit.js`, `lib/result.js`, `lib/spend.js` | Handle a wave state (see Readers of `state.current`); hand-back and wait-states per slot. |
 | all tier agents | A "Parallel" section in the shared worker body. |
-| `hooks/hooks.json` | The guard hook; a timeout of 3600 s for the hooks that integrate and verify (H1 on `UserPromptSubmit`, H4 `stop`, `post` and `failure`); H4 `pre`, which makes the worktrees, stays at 30 s (P5, [findings](tierminator-parallel-findings.md#hook-timeouts-recommendation)). |
+| `hooks/hooks.json` | The guard hook; a timeout of 3600 s for the hooks that integrate and verify (H1 on `UserPromptSubmit`, H4 `stop`, `post`, `failure` and `resume-failure`); H4 `pre`, which makes the worktrees, stays at 30 s (P5, [findings](tierminator-parallel-findings.md#hook-timeouts-recommendation)). |
 | `rules/tiering.md` | The dependency section. |
 | `lib/sizing.js`, `h2-gate-exit-plan.js`, `h5-guard.js` | The overlap flag (O6, WP-05, built 2026-10-22): the sizing review flags the later of two tasks that may run at the same time and name the same file. |
 | Docs | `tierminator-reference.md` (replace the "Serial only" non-goal), `README.md`, `CLAUDE.md`, `docs/README.md`, the spike spec's non-goal note. |
