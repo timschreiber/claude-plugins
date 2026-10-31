@@ -1455,6 +1455,27 @@ asked for a missing report, and `resumeFor` says what the pending `SendMessage` 
 accepted on its commit without a report. `sizingReviews`, at the top level, counts
 the sizing reviews of the plan (see [The sizing review](#the-sizing-review)).
 
+While a parallel wave works, `current` is `null` and the wave lives in a `wave` key beside it (a serial wave
+keeps `current`; see [Parallel execution](#parallel-execution)):
+
+```json
+"wave": {
+  "n": 1, "size": ["T01", "T02", "T03"], "base": "<the wave base sha>", "cap": 5,
+  "slots": { "T01": { "...": "a current's fields, plus the ones below" } },
+  "queue": [], "phase": "working", "halting": null, "setAside": []
+}
+```
+
+`n` is the wave number the approval table shows, `size` the wave's task ids in task order, `base` the commit
+every worktree starts from, and `cap` how many tasks may be ready or running at once. Each slot has the fields
+of `current` and `worktree`, `branch`, `head`, `status`, `startedAt`, `pastAgents` and `failure`. `status` is
+`queued`, `ready` (may be dispatched now, counts against the cap), `running`, `done`, `failed` or `skipped`
+(never started, because the wave halted first). `queue` holds the ids still `queued`, in order. `phase` is
+`working`, then `integrating` when every slot has settled, then `integrated` once the picks are made. `halting`
+is `null` or `{task, tried, reason}` for the task that stopped the wave. `setAside` lists the tasks whose pick
+conflicted; they run again serially after the wave. Integration sets `phase` to `integrated`, `setAside` to the
+conflicted tasks and `picked` to the ids it cherry-picked.
+
 `notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
 `post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A halted run
 also has `halt: {task, tried, reason}`. A run started part-way (by `/tierminator:execute`, or by approving
@@ -1589,6 +1610,11 @@ How the plugin behaves when something goes wrong:
 | Claude edits files or stops instead of dispatching | H5 blocks a few times, then steps aside and marks the run `abandoned`. |
 | The tasks file or the table changes after the table is written | H2 denies a resubmission and asks for the full block again. After approval, H3 runs nothing and tells Claude to say so. |
 | H2 cannot write the tasks file or the plan | The plan reaches the dialog with its block, and H3 writes a tasks file beside the state. A plan with a very long line is then withheld by the dialog. |
+| A task of a parallel wave exhausts the ladder | Nothing more in the wave starts; its in-flight siblings finish and are judged, the passers are integrated onto the run branch, and the run halts. |
+| A worker of a parallel wave leaves its worktree | The judge finds the main tree off the wave base or dirty and the wave halts with a `MAIN TREE:` reason; the slot worktrees are left in place. H8 denies most such calls first. |
+| A `setup` command fails in a worktree | The worker reports `FAILED` with a `NOTE:` starting `SETUP FAILED:`; that is fatal, so the wave halts with no retry up the tiers. |
+| A pick conflicts at integration | It is aborted, the task is set aside, and it is run again serially after the wave; the other tasks are still picked. |
+| The plan's `verify` fails after a parallel wave | The run halts naming the command, its exit status and the output tail; the picks stay on the run branch and the slot worktrees are left in place. |
 
 ## Configuration and environment
 
@@ -1647,12 +1673,18 @@ plugins/tierminator/
     h5-guard.js
     h6-cleanup.js
     h7-limit.js
-    lib/git.js                   # the Git commands a run needs; never throws
+    h8-worktree-guard.js         # denies a worker's call that would reach the main tree while a wave works
+    h9-worker-timeout.js         # gives a worker's Bash call without a timeout 10 minutes
+    lib/git.js                   # the Git commands a run needs, worktrees included; never throws
+    lib/h4-wave.js               # H4 for a parallel wave: worktree at dispatch, judging per slot
     lib/hook.js                  # stdin, output, debug logging, never-throw wrapper
+    lib/integrate.js             # integrating a closed wave: picks in id order, plan verify, cleanup
+    lib/leftovers.js             # finding and removing the worktrees and branches an earlier run left
     lib/limit.js                 # usage limits: a limit or another API error, the reset time from the transcript
     lib/execute.js               # /tierminator:execute and H3's approval: arguments, the plan listing, where to start
     lib/prices.js                # per-model prices by token category, from Anthropic's pricing page
     lib/settle.js                # judging a worker's report: the report from a transcript, and settle()
+    lib/sizing.js                # the sizing review: tasks that may be too large, or may run at once and name the same file
     lib/spend.js                 # what each hook records for telemetry, and the UI text
     lib/telemetry.js             # <plan>.telemetry.jsonl: records, the attempt line, the summary
     lib/usage.js                 # token usage from transcripts: de-duplicated, windowed, by mode
@@ -1661,9 +1693,11 @@ plugins/tierminator/
     lib/sidecar.js               # the tasks file: move the block, load and check it; the plan id
     lib/state.js                 # per-session state file, activation flag and telemetry cursor: read, atomic write, locked update, remove, activate, prune
     lib/tasks.js                 # the only parser, validator and rewriter of plan text; the tiers
+    lib/turnlimit.js             # a worker stopped at its turn limit: resume it while resumes are left, else halt
     lib/unattended.js            # headless runs: the CLAUDE_CODE_ENTRYPOINT check, the plan file name, the final message, the note
+    lib/wave-run.js              # a parallel wave as pure functions: slots, dispatch checks, judging, notices
+    lib/waves.js                 # waves of a graph plan, the startable set, TIERMINATOR_MAX_PARALLEL
 ```
-
 The plugin is pure Node and Markdown, with no dependencies and nothing vendored from `shared/`. It is
 cataloged in [`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json) as
 `tierminator` (display name "Tierminator").
@@ -1698,6 +1732,27 @@ file and fails.
 | `tests/tierminator/telemetry.test.js` | The telemetry file's place, appending and reading records, formatting, the per-attempt line, and the summary's rows, order and per-run separation. |
 | `tests/tierminator/unattended.test.js` | The headless check (`sdk-cli`, `sdk-ts`, `cli`, empty and unset entrypoints), the plan file name, the final message from the Stop input or the transcript, and the planning note. |
 | `tests/tierminator/hooks.test.js` | Each hook run as a child process against real stdin, with no `CLAUDE_CODE_ENTRYPOINT` unless a test sets one: `/tierminator:plan` (activating and asking for plan mode outside it, the rules inside it, refusing an empty request or a repository where a plan could not run, drafting when headless and refusing headless plan mode, stopping a run first), a plan-mode plan made without the command not being tiered, approval running the plan or, with a dirty tree, naming `/tierminator:execute`, leaving plan mode deactivating silently, a typed prompt stopping a run while harness prompts do not, a background task's next step given with its notification and not by a Stop block, every hook silent when inactive, `/tierminator:execute` in every case it handles (stopping a run first, by list number, a raw block, a moved block, resuming after committed tasks, a gap, `--from`, all done, path forms, a plain plan, refusals, the plan listing), spend telemetry (attempt records and lines, an unreadable transcript, a failed Agent call, planning records at H2 and the cursor, the end summary once, a halted run, nothing when inactive), the gate and its Git checks (including a repository with no identity), the tasks file, starting a run, the dispatch check, whole runs through real commits, retries with a real reset, halts, the guard, silent exit on bad input and an unwritable data directory, debug logging, `hooks.json`, and that no script ever grants permission. |
+| `tests/tierminator/waves.test.js` | The wave of each task for chains, independent tasks and a diamond, done tasks counting as satisfied, the default `after`, the startable ids under a cap, and `TIERMINATOR_MAX_PARALLEL`. |
+| `tests/tierminator/wave-run.test.js` | A parallel wave's pure functions: slot placement, starting a wave under a cap, the startable set, reading the `Task:` and `Worktree:` lines, mapping an agent to a slot, the expected call, refusing isolation and another slot's worktree, and judging a slot. |
+| `tests/tierminator/wave-hooks.test.js` | The hooks on a wave state: spend and result reading a slot, H4 `pre` making the slot worktree, passing calls one after another, denying isolation or a wrong tier, a worktree that cannot be made, and a retry making a fresh one. |
+| `tests/tierminator/integrate.test.js` | Integration of a closed wave: picks in id order with a linear history, a conflicting task aborted and set aside, a halting wave, a main tree that moved or is dirty, the plan verify (run once, skipped, failing, output kept to 4000 characters), and the slots removed. |
+| `tests/tierminator/leftovers.test.js` | Finding only tierminator's own leftover worktrees and branches, removing them and reporting what was discarded or could not be removed, and saying nothing when none are left. |
+| `tests/tierminator/git-worktree.test.js` | The worktree helpers of `lib/git.js` in real repositories: path forms, listing, matching tierminator slots and branches, pruning, deleting branches, removing dirty, locked or held worktrees, refusing the main tree, and adding a worktree at a base. |
+| `tests/tierminator/resume.test.js` | `/tierminator:execute` for a graph plan: resuming at the next parallel wave, a done dependency counting wherever it is, an all-committed plan, `--from` refused for a graph plan (and a declined result headless), and a run halted mid-wave not redoing integrated tasks. |
+| `tests/tierminator/worker-timeout.test.js` | H9: a worker's Bash call without a timeout gets 600000 and no permission decision, other values are left alone, every tier gets it, and other tools, non-workers and ended or inactive runs print nothing. |
+| `tests/tierminator/rules.test.js` | That `rules/tiering.md` has the dependencies and parallel tasks section, lists `after` in the field table, names `setup` and `verify`, shows an independent task, and no longer has the old dependency line. |
+| `tests/tierminator/sizing.test.js` | The sizing review: the flags, the `Keep` lines that clear them, the overlap flag for tasks that may run at once and name the same file, and the review text. |
+| `tests/tierminator/e2e-lib.test.js` | The end-to-end harness's helpers in `e2e/lib.js`: running Git, forward-slash paths, the default run base, listing commits, and the snapshot of worktrees and tierminator branches. |
+| `tests/tierminator/e2e-scenarios.test.js` | That each scenario in `e2e/scenarios.js` parses to its expected graph and waves, where the failure markers sit, which scenarios run twice, and that an unknown scenario is rejected. |
+| `tests/tierminator/e2e-setup.test.js` | That `e2e/setup.js` builds the scratch repo, plan and `scenario.json`, writes a marker path that does not exist for scenario 4, and rejects an unknown scenario. |
+| `tests/tierminator/e2e-checks.test.js` | The per-scenario checks in `e2e/checks.js` on fixture runs: each scenario passes on a correct run and fails when its key fact is missing, such as no overlap in scenario 1 or a missing verify text in scenario 5. |
+| `tests/tierminator/e2e-check.test.js` | `e2e/check.js` on a finished serial scenario: gathering the facts from the run and its `main` printing the checks. |
+| `tests/tierminator/e2e-runner.test.js` | `e2e/run-headless.js`: the cleaned environment, the exact `claude` arguments, waiting for a worker (done, failed, timed out, dead, no status file), and the command line refusing scenario 7 and no arguments. |
+
+The files in `tests/tierminator/e2e/` are the end-to-end harness, not tests; the `e2e-*.test.js` files above
+test it. A person runs the harness against the real model from the runbook
+[`tierminator-parallel-run.md`](tierminator-parallel-run.md), and its results are written to
+`tests/tierminator/e2e/results/`.
 
 The agents' behavior cannot be unit tested; it is checked by the end-to-end run under [Evidence](#evidence).
 To try the plugin by hand, load it with `claude --plugin-dir ./plugins/tierminator` in a clean repository
@@ -1776,6 +1831,10 @@ and type `/tierminator:plan` with a small multi-step change.
 | Unattended run says plan mode | The session was launched in plan mode, where a headless session has no `ExitPlanMode`. Relaunch without `--permission-mode plan`. |
 | Workers fail on permissions in an unattended run | Nobody can answer a prompt. Use `--permission-mode bypassPermissions` in a sandbox, or allow rules for the tools your tasks use. |
 | Workers stop at permission prompts | Expected under manual permissions. Add allow rules for the tools your tasks use, or use auto mode. |
+| A parallel run halted with `MAIN TREE:` | A worker left its worktree and changed the main tree, or the main tree moved before the picks. Nothing was reset and the slot worktrees are left in place. Look at `git status` and `git log` in the main tree, fix or discard the change, then type `/tierminator:execute`. |
+| A parallel run halted because the plan's verify failed | The picks applied cleanly but break together. The halt names the command, its exit status and the output tail. The picks stay on the run branch. Fix the break, commit, then type `/tierminator:execute`. |
+| `.claude/worktrees/tierminator-*` directories and `tierminator/*` branches remain | A halted or stopped parallel run leaves them. `/tierminator:execute` removes the ones named `tierminator-<8 hex>-T<n>` and `tierminator/<8 hex>/T<n>` before it starts, and its start note says what it removed. |
+| A parallel run asks for approval of every worker commit | Expected in the default and `acceptEdits` permission modes, where a command that starts with `cd` cannot be allowed permanently. Answer each request, or use `auto` or `bypassPermissions` mode; a run with nobody to answer must. |
 
 ## Evidence
 
@@ -1799,6 +1858,8 @@ their findings about plan mode, hooks and the dialog still apply.
 | Rejecting a plan after the move: Claude writes a new block and H2 replaces the table; workflow agents are shown the latest typed prompt as overriding their task, and dialog feedback is never relayed (*workflow era*) | [`tierminator-dialog-findings.md`](tierminator-dialog-findings.md), steps in [`tierminator-reject-run.md`](tierminator-reject-run.md) | `planandtier-reject-observations.json`, `planandtier-reject-probe.log`, `planandtier-reject-debug.log`, `planandtier-reject-plan.md`, `planandtier-reject-plan.tasks.json`, `planandtier-reject-worker-frames.json` |
 | `permission_mode` on `UserPromptSubmit`; `ExitPlanMode` hooks fire; deny makes Claude revise; `tool_input.plan` can be stale; `additionalContext` reaches the model; Haiku ignores effort (*workflow era*) | [`tierminator-spike-findings.md`](tierminator-spike-findings.md) | `planandtier-spike-headless-results.json`, `planandtier-spike-interactive-results.json` |
 | All eight Sonnet and Opus pairs run at exactly the requested effort (*workflow era*, per-call effort) | [`tierminator-spike-findings.md`](tierminator-spike-findings.md) | `planandtier-effort-pairs-results.json` |
+| Parallel workers: tierminator makes each task's Git worktree itself, in H4's `PreToolUse` hook on the Agent call, and the worker is an ordinary non-isolated subagent given its path on a `Worktree:` line; a guard hook that only denies rescued the calls that would have reached the main tree; in the default and `acceptEdits` modes every worker command asks for approval | [`tierminator-parallel-findings.md`](tierminator-parallel-findings.md) (the "Option C" and "Recommendation" sections) | `tierminator-parallel-*.json` |
+| Parallel execution end to end, headless in `bypassPermissions` mode: independent tasks run at once, a forced conflict is re-run serially, a failed task retries in place, an exhausted task and a failed plan verify each halt with the passers kept (scenario 7, the default mode, awaits a hand run) | [`tierminator-parallel-run.md`](tierminator-parallel-run.md) | `tests/tierminator/e2e/results/` |
 | A CRLF workflow script fails the launch (*workflow era*; no longer applies) | [`tierminator-dialog-findings.md`](tierminator-dialog-findings.md) | `planandtier-launch-shapes-results.json` |
 | End to end in auto mode and with manual permissions (*workflow era*) | [`tierminator-e2e-findings.md`](tierminator-e2e-findings.md), [`tierminator-manual-mode-findings.md`](tierminator-manual-mode-findings.md) | `planandtier-e2e-results.json`, `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 
