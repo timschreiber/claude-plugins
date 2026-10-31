@@ -287,6 +287,11 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
   step.
 - **The model dispatches the tasks.** The plugin gives the exact call and refuses any other, but it cannot
   make the call itself. If Claude keeps doing something else, the guard steps aside after a few blocks.
+- **A worker's Bash command that sets no timeout gets 10 minutes** instead of Claude Code's 2-minute
+  default, so a long test run in a task's `Verify:` step finishes in the foreground. A command with its own
+  timeout, a background command, the main session and the PowerShell tool are not changed. If another
+  plugin's hook also rewrites a Bash command's input, one of the two changes is lost, unpredictably (see
+  [the findings](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-bash-timeout-findings.md)).
 
 ## Configuration notes
 
@@ -297,6 +302,8 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
   The only changes to your repository are the tasks' own commits.
 - Set `TIERMINATOR_DEBUG=1` to log hook errors and every state change to `tierminator-debug.log` in the
   temp directory.
+- `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` in your own settings `env` are Claude Code's settings
+  for the same limits, for every command rather than only a worker's, and a plugin cannot set them.
 - Everything the plugin does is described in
   [the reference](https://github.com/timschreiber/claude-plugins/blob/main/docs/tierminator/tierminator-reference.md),
   with the measurements behind it.

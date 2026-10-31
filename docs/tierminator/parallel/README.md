@@ -16,6 +16,7 @@ Seventeen packages describe the feature in `../tierminator-parallel-spec.md`, in
 | WP-08 | Parallel wave engine (pure functions) | WP-03 | first |
 | WP-09 | Dispatch hooks for parallel waves (and the audit of readers of `state.current`) | WP-01, WP-06, WP-07, WP-08 | first |
 | WP-10 | Starting waves and the hand-back and stop-guard hooks | WP-09 | first |
+| WP-10A | Worker Bash timeout (probe, hook H9) | WP-10 | built 2026-10-31 (ahead of the first release) |
 | WP-11 | Integration (main tree, conflicts re-run serially, halt-only verify) | WP-06, WP-09, WP-10 | first |
 | WP-12 | Conflict resolver (and probe P7) | WP-11 | **deferred** |
 | WP-13 | Plan-level verify: repair with the resolver | WP-12 | **deferred** (the halt-only part is in WP-11) |

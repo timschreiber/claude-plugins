@@ -449,7 +449,7 @@ reached). The opt-out line inside a code fence does not count.
 
 ## The hooks
 
-Seven scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered in
+Nine scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered in
 [`hooks/hooks.json`](../../plugins/tierminator/hooks/hooks.json). Each runs as
 `node "${CLAUDE_PLUGIN_ROOT}/scripts/<script>.js" [mode]`.
 
@@ -472,6 +472,8 @@ Seven scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered
 | H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
 | H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
 | H7 Limit | `StopFailure` | none | `h7-limit.js` | 15 s |
+| H8 Worktree guard | `PreToolUse` | `Bash\|PowerShell\|Write\|Edit\|Glob\|Grep` | `h8-worktree-guard.js` | 15 s |
+| H9 Worker timeout | `PreToolUse` | `Bash` | `h9-worker-timeout.js` | 15 s |
 
 Every hook ignores calls made by subagents (any input with an `agent_id`), so workers and other agents are
 never gated, guarded or given the rules. H4's `stop` mode is the exception: `SubagentStop` comes from the
@@ -713,6 +715,20 @@ finished are already committed. Before deleting, it writes the result file for a
 - It marks the state `resultWritten`, deletes nothing (the plan, tasks and telemetry files stay), and prints nothing, since Claude Code ignores StopFailure output. SessionEnd follows with `reason: "other"` and keeps the result.
 - It never waits or relaunches; a caller such as Grindinator does.
 - The payload has no reset field. WP-01 measured all of this against a mock 429 ([V1, V3, V4](../grindinator/grindinator-verification.md)).
+
+### H8: worktree guard
+
+- On `PreToolUse` for `Bash`, `PowerShell`, `Write`, `Edit`, `Glob` and `Grep`, H8 acts only for a `tierminator:*` worker (an input with an `agent_id`) while the run is `running` and a wave is `working`.
+- It checks by path prefix that the worker runs commands, writes files and searches inside a tierminator worktree of this run, not in the main tree. It cannot tell one slot's worktree from another's.
+- It returns only a `deny` with a reason, and never rewrites a tool input. Everything else prints nothing.
+
+### H9: worker timeout
+
+- On `PreToolUse` for `Bash` ([`h9-worker-timeout.js`](../../plugins/tierminator/scripts/h9-worker-timeout.js)), H9 acts only for a `tierminator:*` worker (an input with an `agent_id`) in an active session whose phase is `running`.
+- A Bash call that sets no `timeout` and is not `run_in_background` gets `timeout: 600000` (10 minutes) through `updatedInput`, with the rest of the input unchanged. Claude Code's default is 2 minutes, so a long `Verify:` step would otherwise be moved to the background.
+- A call with its own timeout, a background call, the main session, other agents and an input that is not an object are left alone and print nothing.
+- It never sets `permissionDecision`, never denies, and never throws. If another plugin's hook also returns `updatedInput` for the same call, one of the two rewrites is lost, unpredictably. Measured in [`tierminator-bash-timeout-findings.md`](tierminator-bash-timeout-findings.md).
+- `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` in a user's settings `env` are Claude Code's own settings for the same limits, for every command. A plugin cannot set them.
 
 ## The run
 
@@ -1356,7 +1372,7 @@ plugins/tierminator/
   .claude-plugin/plugin.json     # name, displayName, description; no version field
   README.md                      # user-facing quick start
   agents/<model>-<effort>.md     # the six tier agents, one shared body
-  hooks/hooks.json               # H1-H7 registrations
+  hooks/hooks.json               # H1-H9 registrations
   rules/tiering.md               # text H1 adds, and H2 appends when the block is missing
   skills/plan/SKILL.md           # /tierminator:plan (user-only; H1 starts planning, the body passes $ARGUMENTS)
   skills/execute/SKILL.md        # /tierminator:execute (user-only; H1 starts the plan)
