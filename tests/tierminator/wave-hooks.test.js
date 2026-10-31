@@ -1185,3 +1185,21 @@ test('a passing plan verify runs once for a parallel wave', () => {
   assert.equal(s.phase, 'complete')
   assert.equal(fs.readFileSync(path.join(dir, 'count.txt'), 'utf8').split('\n').filter(Boolean).length, 1)
 })
+
+test('hooks.json gives the wave-settling hooks a 3600 s timeout', () => {
+  const hooks = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks
+  const timeoutOf = (event, commandEnd) => {
+    for (const group of hooks[event]) {
+      for (const h of group.hooks) if (h.command.endsWith(commandEnd)) return h.timeout
+    }
+    return undefined
+  }
+  assert.equal(timeoutOf('UserPromptSubmit', 'h1-plan-rules.js"'), 3600)
+  assert.equal(timeoutOf('PostToolUse', 'h4-dispatch.js" post'), 3600)
+  assert.equal(timeoutOf('PostToolUseFailure', 'h4-dispatch.js" failure'), 3600)
+  assert.equal(timeoutOf('PostToolUseFailure', 'h4-dispatch.js" resume-failure'), 3600)
+  assert.equal(timeoutOf('SubagentStop', 'h4-dispatch.js" stop'), 3600)
+  assert.equal(timeoutOf('PreToolUse', 'h4-dispatch.js" pre'), 30)
+  assert.equal(timeoutOf('SessionStart', 'h1-plan-rules.js" session'), 15)
+  assert.equal(timeoutOf('PreCompact', 'h1-plan-rules.js" compact'), 15)
+})
