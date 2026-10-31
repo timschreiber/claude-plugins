@@ -11,6 +11,9 @@ const PLUGIN = path.join(__dirname, '..', '..', 'plugins', 'tierminator')
 const state = require(path.join(PLUGIN, 'scripts', 'lib', 'state.js'))
 const sidecar = require(path.join(PLUGIN, 'scripts', 'lib', 'sidecar.js'))
 const { extractBlock } = require(path.join(PLUGIN, 'scripts', 'lib', 'tasks.js'))
+const r = require(path.join(PLUGIN, 'scripts', 'lib', 'run.js'))
+const w = require(path.join(PLUGIN, 'scripts', 'lib', 'wave-run.js'))
+const git = require(path.join(PLUGIN, 'scripts', 'lib', 'git.js'))
 
 // Git in a test repository; fails the test on an error.
 const gitIn = (cwd, ...args) => {
@@ -145,4 +148,86 @@ test('a headless --from on a graph plan writes a declined result', () => {
   assert.match(r.reason, /graph plans resume from what is committed/)
   assert.equal(r.planFile, plan)
   assert.deepEqual(r.tasksDone, [])
+})
+
+const report = (status, commit = 'NONE', note = 'did it') => `STATUS: ${status}\nCOMMIT: ${commit}\nVERIFY: PASS\nNOTE: ${note}`
+const h4 = (input, mode) => hook('h4-dispatch.js', input, [mode])
+const agentPre = toolInput => ({ session_id: S, cwd: repo, tool_name: 'Agent', tool_input: toolInput })
+function commitIn(cwd, id, planId) {
+  fs.writeFileSync(path.join(cwd, `${id}.txt`), id)
+  gitIn(cwd, 'add', '-A')
+  gitIn(cwd, 'commit', '-q', '-m', `Task ${id}`, '-m', `Tierminator-Task: ${id}`, '-m', `Tierminator-Plan: ${planId}`)
+  return gitIn(cwd, 'rev-parse', 'HEAD')
+}
+
+test('a run halted in the middle of a parallel wave resumes without redoing the integrated tasks', () => {
+  const planId = writePlan([
+    task(1, { after: [] }),
+    task(2, { after: [] }),
+    task(3, { model: 'opus', effort: 'high', after: [] }),
+    task(4, { after: ['T01', 'T02', 'T03'] }),
+  ])
+  assert.ok(execute(`"${plan}"`).includes('Wave 1 runs 3 tasks in parallel'))
+  const oldRunId = state.read(S).runId
+  for (const id of ['T01', 'T02', 'T03']) {
+    const call = w.expectedCall(state.read(S), id)
+    assert.equal(h4(agentPre(call), 'pre').stdout, '')
+    h4({ ...agentPre(call), tool_response: { isAsync: true, status: 'async_launched', agentId: 'worker-' + id } }, 'post')
+  }
+  const slots = state.read(S).wave.slots
+  const sha1 = commitIn(slots.T01.worktree, 'T01', planId)
+  const sha2 = commitIn(slots.T02.worktree, 'T02', planId)
+  const stop = (id, text) =>
+    h4(
+      {
+        session_id: S,
+        agent_id: 'worker-' + id,
+        agent_type: 'tierminator:' + slots[id].tier,
+        hook_event_name: 'SubagentStop',
+        last_assistant_message: text,
+      },
+      'stop',
+    )
+  stop('T03', report('FAILED', 'NONE', 'cannot do it'))
+  stop('T01', report('DONE', sha1))
+  stop('T02', report('DONE', sha2))
+  let s = state.read(S)
+  assert.equal(s.phase, 'halted')
+  assert.equal(s.halt.task, 'T03')
+  assert.deepEqual(Object.keys(git.committedTasks(repo, planId)).sort(), ['T01', 'T02'])
+  const t03 = s.wave.slots.T03.worktree
+  assert.ok(fs.existsSync(t03))
+
+  // Uncommitted work in the kept slot, and things that belong to the user.
+  fs.writeFileSync(path.join(t03, 'half.txt'), 'half')
+  const mine = path.join(repo, '.claude', 'worktrees', 'mine')
+  gitIn(repo, 'worktree', 'add', '-q', '-b', 'mine', mine, 'HEAD')
+  gitIn(repo, 'branch', 'tierminator/experiment')
+
+  const out = execute(`"${plan}"`)
+  assert.ok(out.includes('tierminator removed what an earlier run left'))
+  assert.ok(out.includes(t03))
+  assert.ok(out.includes(`tierminator/${oldRunId}/T03`))
+  assert.ok(out.includes('half.txt'))
+  assert.match(out, /T01 [0-9a-f]{7} \(earlier run\), T02 [0-9a-f]{7} \(earlier run\) are not run again\./)
+  assert.equal(fs.existsSync(t03), false)
+  assert.deepEqual(git.branchesMatching(repo, 'tierminator/'), ['tierminator/experiment'])
+  assert.ok(fs.existsSync(mine))
+  s = state.read(S)
+  assert.equal(s.wave, undefined)
+  assert.equal(s.current.index, 2)
+  assert.equal(s.current.tier, 'opus-high')
+  assert.deepEqual(s.done.map(d => d.id), ['T01', 'T02'])
+  assert.notEqual(s.runId, oldRunId)
+
+  // T03 then T04 run serially.
+  assert.equal(h4(agentPre(r.expectedCall(state.read(S))), 'pre').stdout, '')
+  const sha3 = commitIn(repo, 'T03', planId)
+  h4({ session_id: S, agent_id: 'w3', agent_type: 'tierminator:opus-high', last_assistant_message: report('DONE', sha3) }, 'stop')
+  assert.equal(state.read(S).current.index, 3)
+  assert.equal(h4(agentPre(r.expectedCall(state.read(S))), 'pre').stdout, '')
+  const sha4 = commitIn(repo, 'T04', planId)
+  h4({ session_id: S, agent_id: 'w4', agent_type: 'tierminator:sonnet-medium', last_assistant_message: report('DONE', sha4) }, 'stop')
+  assert.equal(state.read(S).phase, 'complete')
+  assert.deepEqual(gitIn(repo, 'log', '--format=%s').split('\n'), ['Task T04', 'Task T03', 'Task T02', 'Task T01', 'init'])
 })
