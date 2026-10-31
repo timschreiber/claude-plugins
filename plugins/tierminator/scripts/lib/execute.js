@@ -8,6 +8,7 @@
 //   - A graph plan starts in its first wave (a serial wave when that has one task).
 //   - A graph plan resumes from every task committed on this branch, wherever it is in the plan; nextWave
 //     recomputes the waves over the rest. --from is refused for it.
+//   - Before a tiered plan starts, what an earlier run left (lib/leftovers.js) is removed, and the note says so.
 //   - A plain plan runs without tierminator: Claude implements it as usual.
 //   - A tierminator plan whose tasks cannot be loaded is refused: its prompts are not in the plan.
 //   - In a headless session (opts.record), a plan that does not start writes the result file (lib/result.js).
@@ -19,6 +20,7 @@ const path = require('path')
 const state = require('./state.js')
 const git = require('./git.js')
 const resultFile = require('./result.js')
+const leftovers = require('./leftovers.js')
 const { resolvePlan, planIdOf, sidecarPath, writeTasksFile } = require('./sidecar.js')
 const { extractBlock } = require('./tasks.js')
 const { startRun, dispatchText, skippedEntry, doneLabel } = require('./run.js')
@@ -221,31 +223,37 @@ function startPlan(input, rest, opts, seen) {
     )
   }
 
+  // What an earlier run left is removed first; every note from here on reports it.
+  const tidied = leftovers.tidy(cwd)
+  const told = note => (tidied ? `${note} ${tidied}` : note)
+
   const planId = planIdOf(result, text)
   const committed = git.committedTasks(cwd, planId)
   const point = result.graph ? graphStartPoint(result.tasks, committed) : startPoint(result.tasks, committed, args.from)
-  if (point.error) return `${PREFIX} the plan in ${planFile} was not started: ${point.error}.`
+  if (point.error) return told(`${PREFIX} the plan in ${planFile} was not started: ${point.error}.`)
   if (point.start >= result.tasks.length) {
     seen.allDone = { tasks: result.tasks, done: point.done }
-    return (
+    return told(
       `${PREFIX} every task in ${planFile} is already committed on this branch: ` +
-      `${point.done.map(doneLabel).join(', ')}. Nothing was run. Tell the user.`
+        `${point.done.map(doneLabel).join(', ')}. Nothing was run. Tell the user.`
     )
   }
 
   if (result.graph && !git.excludeWorktrees(cwd)) {
-    return (
+    return told(
       `${PREFIX} the plan cannot run here: .claude/worktrees/ could not be added to the repository's info/exclude, ` +
-      `which parallel workers need. Tell the user what to fix, then to type /tierminator:execute "${planFile}".`
+        `which parallel workers need. Tell the user what to fix, then to type /tierminator:execute "${planFile}".`
     )
   }
 
   const block = result.section ? null : extractBlock(text).blocks[0]
   const sessionTasks = state.fileFor(id)?.replace(/\.json$/, '.tasks.json')
   const tasksFile = result.section?.file ?? writeTasksFile([sidecarPath(planFile), sessionTasks], block)
-  if (!tasksFile) return `${PREFIX} the plan's tasks could not be saved to a tasks file, so it cannot run. Tell the user.`
+  if (!tasksFile) return told(`${PREFIX} the plan's tasks could not be saved to a tasks file, so it cannot run. Tell the user.`)
   if (!state.isActive(id) && !state.activate(id)) {
-    return `${PREFIX} the session could not be activated (its flag file could not be written), so the plan cannot run. Tell the user.`
+    return told(
+      `${PREFIX} the session could not be activated (its flag file could not be written), so the plan cannot run. Tell the user.`
+    )
   }
 
   let run = {
@@ -268,7 +276,7 @@ function startPlan(input, rest, opts, seen) {
     const first = w.nextWave(run, git.head(cwd), git.repoRoot(cwd), maxParallel())
     if (first.kind !== 'complete') run = first.state
   }
-  if (!state.write(id, run)) return `${PREFIX} the run could not be saved, so the plan cannot run. Tell the user.`
+  if (!state.write(id, run)) return told(`${PREFIX} the run could not be saved, so the plan cannot run. Tell the user.`)
   recordRunStart(input, run)
 
   const count = `${result.tasks.length} tiered tasks`
@@ -280,7 +288,7 @@ function startPlan(input, rest, opts, seen) {
     : `${PREFIX} running the plan in ${planFile} (${count}).`
   return (
     opening +
-    `${skipped} ${result.graph ? 'Dispatch the tasks exactly as tierminator says.' : 'Dispatch the tasks one at a time, exactly as tierminator says.'} ` +
+    `${skipped}${tidied ? ` ${tidied}` : ''} ${result.graph ?'Dispatch the tasks exactly as tierminator says.' : 'Dispatch the tasks one at a time, exactly as tierminator says.'} ` +
     'Do not implement the plan yourself. ' +
     (result.graph && PARALLEL_MODES.includes(input.permission_mode) ? PERMISSION_LINE + ' ' : '') +
     (run.wave ? w.startText(run) : dispatchText(run))
