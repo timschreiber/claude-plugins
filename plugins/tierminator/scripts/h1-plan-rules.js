@@ -80,7 +80,7 @@ async function handBack(input, s) {
   const { next } = spend.recordAttempt({ ...input, agent_id: id }, s, settledState, { transcript, stopReason: report ? 'report' : 'no-report' })
   // A report request to the worker (an ask) leaves the attempt in flight: its next stop is still judged, so the
   // agent is not marked as handed back.
-  const asking = next.phase === 'running' && !!next.current.inFlight && !!next.current.resumePending
+  const asking = next.phase === 'running' && !!next.current?.inFlight && !!next.current?.resumePending
   const saved = {
     ...next,
     notice: null,

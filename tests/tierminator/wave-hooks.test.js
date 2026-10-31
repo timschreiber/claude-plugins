@@ -814,3 +814,63 @@ test('a retry runs in place while the others finish, then the run halts with the
   assert.equal(rows.length, 4)
   assert.deepEqual(rows.filter(x => x.task === 'T01').map(x => x.outcome), ['retry', 'done'])
 })
+
+// Five tasks as a graph: T01, then T02 T03 T04 together, then T05.
+const GRAPH_TASKS = [
+  task(1, { after: [] }),
+  task(2, { after: ['T01'] }),
+  task(3, { after: ['T01'] }),
+  task(4, { after: ['T01'] }),
+  task(5, { after: ['T02', 'T03', 'T04'] }),
+]
+
+// Starts a graph run at its serial first task, on its own repository.
+function startGraphRun() {
+  repo = makeRepo(path.join(dir, 'repo'))
+  git.excludeWorktrees(repo)
+  const tasksFile = path.join(dir, 'plan.tasks.json')
+  fs.writeFileSync(tasksFile, JSON.stringify({ tasks: GRAPH_TASKS }))
+  state.write(S, {
+    ...r.startRun({ tasks: GRAPH_TASKS, tasksFile, planFile: path.join(dir, 'plan.md'), branch: 'main', planId: PLAN_ID, graph: true }),
+    cwd: repo,
+  })
+}
+
+// What a serial worker does for T01: a file and one commit with the trailers, in the main tree.
+function serialWorker() {
+  fs.writeFileSync(path.join(repo, 'T01.txt'), 'T01')
+  gitIn(repo, 'add', '-A')
+  gitIn(repo, 'commit', '-q', '-m', 'Task T01', '-m', 'Tierminator-Task: T01', '-m', 'Tierminator-Plan: ' + PLAN_ID)
+  return gitIn(repo, 'rev-parse', 'HEAD')
+}
+
+function assertWaveStarted(s) {
+  assert.equal(s.current, null)
+  assert.deepEqual(s.wave.size, ['T02', 'T03', 'T04'])
+  assert.equal(s.wave.base, git.head(repo))
+  assert.deepEqual(s.done.map(d => d.id), ['T01'])
+  assert.equal(s.phase, 'running')
+}
+
+test('H4 moves a graph run from its serial task to the next wave', () => {
+  startGraphRun()
+  assert.equal(preOf(r.expectedCall(state.read(S))).stdout, '')
+  const sha = serialWorker()
+  stopHook({ session_id: S, agent_id: 'w1', agent_type: 'tierminator:sonnet-medium', last_assistant_message: report('DONE', sha) })
+  const s = state.read(S)
+  assertWaveStarted(s)
+  assert.ok(s.notice.includes('Call the Agent tool 3 times'))
+  assert.ok(s.notice.includes('T01 done'))
+  assert.equal(preOf(callOf('T02')).stdout, '')
+})
+
+test('H1 moves a graph run from its serial task to the next wave', () => {
+  startGraphRun()
+  assert.equal(preOf(r.expectedCall(state.read(S))).stdout, '')
+  const sha = serialWorker()
+  const res = h1({
+    prompt: '<agent-message from="w1">\n  STATUS: DONE\n  COMMIT: ' + sha + '\n  VERIFY: PASS\n  NOTE: ok\n</agent-message>',
+  })
+  assert.ok(res.stdout.includes('Call the Agent tool 3 times'))
+  assertWaveStarted(state.read(S))
+})

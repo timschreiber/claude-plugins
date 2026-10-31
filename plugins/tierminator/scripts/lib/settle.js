@@ -5,6 +5,8 @@
 const fs = require('fs')
 const git = require('./git.js')
 const r = require('./run.js')
+const w = require('./wave-run.js')
+const { maxParallel } = require('./waves.js')
 
 const short = sha => String(sha ?? '').slice(0, 7)
 
@@ -49,6 +51,13 @@ function readReport(text, transcript) {
   return readable(again) ? again : (first ?? again)
 }
 
+// What Claude is told when a serial task is done and the next wave is a parallel one.
+function waveStartNotice(next) {
+  const d = next.done[next.done.length - 1]
+  const how = d.unreported ? `${d.tier}; no report block, accepted on its commit` : d.tier
+  return `tierminator: ${d.id} done (commit ${short(d.commit)}, ${how}). ${w.startText(next)}`
+}
+
 // Judges the finished attempt (from its report, or the given failure), moves the run on, and returns
 // the new state with the notice Claude must be told next. Does the Git work: the checks, and the
 // reset before a retry. A worker that ended without a readable report, when Git does not show the task
@@ -70,6 +79,15 @@ function settle(s, cwd, failure) {
     })
   if (!failure && r.shouldAsk(s, outcome)) return settled(s, r.askForReport(s), outcome)
   let { state: next, action } = r.advance(s, outcome)
+  let started = false
+  // A graph plan follows its waves, not task order.
+  if (s.graph && outcome.ok) {
+    const cur = { ...s.current, inFlight: false, tried: [...s.current.tried, s.current.tier] }
+    const step = w.nextWave({ ...next, phase: 'running', current: cur }, git.head(cwd), git.repoRoot(cwd), maxParallel())
+    next = step.state
+    action = step.kind === 'complete' ? 'complete' : 'next'
+    started = step.kind === 'wave'
+  }
 
   if (action === 'retry') {
     // Never reset away a commit that may have been pushed; stop instead.
@@ -82,6 +100,7 @@ function settle(s, cwd, failure) {
         : null
     if (fatal) return settled(s, r.advance(s, { ok: false, fatal }), { ok: false, fatal })
   }
+  if (started) return { ...next, notice: waveStartNotice(next) }
   return settled(s, { state: next, action }, outcome)
 }
 const settled = (s, { state: next, action }, outcome) => ({ ...next, notice: r.noticeText(s, next, action, outcome) })
