@@ -1080,3 +1080,108 @@ test('waves of 1, 3 and 1 run to completion', async () => {
   stopHook({ session_id: S, agent_id: 'w5', agent_type: 'tierminator:sonnet-medium', last_assistant_message: report('DONE', sha5) })
   assert.equal(state.read(S).phase, 'complete')
 })
+
+// Like workerCommits, but the worker writes the named file with `content`.
+function commitFile(id, file, content) {
+  const wt = slotOf(id).worktree
+  fs.writeFileSync(path.join(wt, file), content)
+  gitIn(wt, 'add', '-A')
+  gitIn(wt, 'commit', '-q', '-m', 'Task ' + id, '-m', 'Tierminator-Task: ' + id, '-m', 'Tierminator-Plan: ' + PLAN_ID)
+  return gitIn(wt, 'rev-parse', 'HEAD')
+}
+const launchedAll = () => {
+  dispatchAll()
+  for (const id of ['T01', 'T02', 'T03']) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+}
+const fwd = p => p.replace(/\\/g, '/')
+
+test('a conflicting pick is set aside and its serial re-run lands as one commit', async () => {
+  launchedAll()
+  const ids = ['T01', 'T02', 'T03']
+  const shas = { T01: commitFile('T01', 'shared.txt', 'one'), T02: workerCommits('T02'), T03: commitFile('T03', 'shared.txt', 'three') }
+  for (const id of ids) await hookAsync('h4-dispatch.js', stopOf(id, report('DONE', shas[id])), ['stop'])
+  let s = state.read(S)
+  assert.equal(s.phase, 'running')
+  assert.equal(s.wave, undefined)
+  assert.equal(s.current.index, 2)
+  assert.equal(s.current.tier, 'opus-high')
+  assert.equal(s.current.attempt, 1)
+  assert.deepEqual(s.done.map(x => x.id).sort(), ['T01', 'T02'])
+  assert.ok(s.notice.includes('T03 conflicted when picked'))
+  assert.ok(s.notice.includes('tierminator:opus-high'))
+  assert.ok(git.isClean(repo))
+  assert.deepEqual(gitIn(repo, 'log', '--format=%s').split('\n'), ['Task T02', 'Task T01', 'init'])
+  assert.ok(git.branchesMatching(repo, 'tierminator/').some(b => b.endsWith('/T03')))
+  assert.ok(git.worktreesMatching(repo).some(x => x.path.endsWith('-T03')))
+  // The serial re-run of T03 on the new HEAD.
+  assert.equal(preOf(r.expectedCall(state.read(S))).stdout, '')
+  fs.writeFileSync(path.join(repo, 'shared.txt'), 'three')
+  gitIn(repo, 'add', '-A')
+  gitIn(repo, 'commit', '-q', '-m', 'Task T03', '-m', 'Tierminator-Task: T03', '-m', 'Tierminator-Plan: ' + PLAN_ID)
+  const sha = gitIn(repo, 'rev-parse', 'HEAD')
+  stopHook({ session_id: S, agent_id: 'w3', agent_type: 'tierminator:opus-high', last_assistant_message: report('DONE', sha) })
+  s = state.read(S)
+  assert.equal(s.phase, 'complete')
+  assert.deepEqual(gitIn(repo, 'log', '--format=%s').split('\n'), ['Task T03', 'Task T02', 'Task T01', 'init'])
+  assert.equal(gitIn(repo, 'log', '--merges', '--format=%H'), '')
+  assert.deepEqual(git.branchesMatching(repo, 'tierminator/'), [])
+  assert.deepEqual(git.worktreesMatching(repo), [])
+  const conflicts = telemetry.read(path.join(dir, 'plan.telemetry.jsonl')).filter(x => x.kind === 'conflict')
+  assert.equal(conflicts.length, 1)
+  assert.equal(conflicts[0].task, 'T03')
+})
+
+test('a halting wave integrates its passers and keeps the failed slot', async () => {
+  launchedAll()
+  const sha1 = workerCommits('T01')
+  const sha2 = workerCommits('T02')
+  stopHook(stopOf('T03', report('FAILED', 'NONE', 'cannot do it')))
+  stopHook(stopOf('T01', report('DONE', sha1)))
+  stopHook(stopOf('T02', report('DONE', sha2)))
+  const s = state.read(S)
+  assert.equal(s.phase, 'halted')
+  assert.equal(s.halt.task, 'T03')
+  assert.deepEqual(Object.keys(git.committedTasks(repo, PLAN_ID)).sort(), ['T01', 'T02'])
+  for (const id of ['T01', 'T02']) {
+    assert.ok(!fs.existsSync(s.wave.slots[id].worktree), id)
+    assert.ok(!git.branchesMatching(repo, 'tierminator/').some(b => b.endsWith('/' + id)), id)
+  }
+  assert.ok(fs.existsSync(s.wave.slots.T03.worktree))
+  assert.ok(git.branchesMatching(repo, 'tierminator/').some(b => b.endsWith('/T03')))
+  assert.ok(git.isClean(repo))
+  assert.match(s.notice, /wave 1 stopped/)
+  assert.ok(s.notice.includes('T03'))
+})
+
+// Dispatches a wave with `verify` as the plan verify and settles all three passers.
+function settleAllWith(verify) {
+  startWaveRun({ verify })
+  const ids = ['T01', 'T02', 'T03']
+  for (const id of ids) assert.equal(preOf(callOf(id)).stdout, '')
+  for (const id of ids) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+  for (const id of ids) {
+    const sha = workerCommits(id)
+    stopHook(stopOf(id, report('DONE', sha)))
+  }
+  return state.read(S)
+}
+
+test('a failing plan verify halts with its output and keeps the picks', () => {
+  fs.writeFileSync(path.join(dir, 'verify-fail.js'), "process.stderr.write('boom')\nprocess.exit(3)\n")
+  const s = settleAllWith('node "' + fwd(dir) + '/verify-fail.js"')
+  assert.equal(s.phase, 'halted')
+  assert.ok(s.halt.reason.includes('verify failed'))
+  assert.ok(s.notice.includes('boom'))
+  assert.ok(s.notice.includes('holds the picks'))
+  assert.deepEqual(Object.keys(git.committedTasks(repo, PLAN_ID)).sort(), ['T01', 'T02', 'T03'])
+  for (const id of ['T01', 'T02', 'T03']) assert.ok(fs.existsSync(s.wave.slots[id].worktree), id)
+  assert.equal(git.branchesMatching(repo, 'tierminator/').length, 3)
+})
+
+test('a passing plan verify runs once for a parallel wave', () => {
+  fs.writeFileSync(path.join(dir, 'verify-ok.js'), "require('fs').appendFileSync(process.argv[2], 'x\\n')\n")
+  const count = fwd(path.join(dir, 'count.txt'))
+  const s = settleAllWith('node "' + fwd(dir) + '/verify-ok.js" "' + count + '"')
+  assert.equal(s.phase, 'complete')
+  assert.equal(fs.readFileSync(path.join(dir, 'count.txt'), 'utf8').split('\n').filter(Boolean).length, 1)
+})
