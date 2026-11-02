@@ -665,6 +665,48 @@ test('H2 lets an unchanged overlapping plan through after two reviews', () => {
   assert.ok(fs.existsSync(TASKS_FILE()))
 })
 
+const CHAIN = planText([1, 2, 3, 4, 5, 6].map(n => task(n)))
+
+test('H2 denies a long plan with no after, and lets it through once it has a Serial line', () => {
+  planning()
+  const file = writePlanFile(CHAIN)
+  const first = hook('h2-gate-exit-plan.js', exitPre(CHAIN, file))
+  assert.equal(first.json.hookSpecificOutput.permissionDecision, 'deny')
+  const reason = denyReason(first)
+  assert.match(reason, /the plan has 6 tasks and none gives "after"/)
+  assert.match(reason, /This is a guideline, not a rule\. Then call ExitPlanMode again\.$/)
+  assert.equal(state.read(S).sizingReviews, 1)
+  assert.equal(fs.readFileSync(file, 'utf8'), CHAIN, 'the block is not moved by a review')
+
+  const serial = CHAIN + '\nSerial: every task edits src/a.js.\n'
+  fs.writeFileSync(file, serial)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(serial, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
+test('H2 passes a plan of 5 tasks, and a plan of 6 with an after, on the first call', () => {
+  for (const tasks of [
+    [1, 2, 3, 4, 5].map(n => task(n)),
+    [1, 2, 3, 4, 5, 6].map(n => (n === 2 ? task(n, { after: ['T01'] }) : task(n))),
+  ]) {
+    planning()
+    const text = planText(tasks)
+    assert.equal(hook('h2-gate-exit-plan.js', exitPre(text, writePlanFile(text))).stdout, '')
+    assert.equal(state.read(S).sizingReviews, undefined)
+  }
+})
+
+test('H2 lets an unchanged long plan with no after through after two reviews', () => {
+  planning()
+  const file = writePlanFile(CHAIN)
+  for (let i = 1; i <= 2; i++) {
+    assert.equal(hook('h2-gate-exit-plan.js', exitPre(CHAIN, file)).json.hookSpecificOutput.permissionDecision, 'deny')
+    assert.equal(state.read(S).sizingReviews, i)
+  }
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(CHAIN, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
 test('H2 never flags a serial plan whose tasks share a file', () => {
   planning()
   const text = planText([task(1), task(2), task(3)])
@@ -1922,6 +1964,18 @@ test('H5 stop with parallel tasks sharing a file while drafting blocks with the 
   assert.equal(state.read(S).phase, 'drafting')
 
   const again = draftStop(SHARED + '\nKeep T02: x.\n')
+  assert.match(again.json.reason, /Dispatch/)
+  assert.equal(state.read(S).phase, 'running')
+})
+
+test('H5 stop with a long plan with no after while drafting blocks once, then runs it with a Serial line', () => {
+  state.write(S, draftingState())
+  const r = draftStop(CHAIN)
+  assert.equal(r.json.decision, 'block')
+  assert.match(r.json.reason, /the plan has 6 tasks/)
+  assert.match(r.json.reason, /then end your turn again with the complete plan as your final message\.$/i)
+  assert.ok(!r.json.reason.includes('ExitPlanMode'))
+  const again = draftStop(CHAIN + '\nSerial: one chain.\n')
   assert.match(again.json.reason, /Dispatch/)
   assert.equal(state.read(S).phase, 'running')
 })
