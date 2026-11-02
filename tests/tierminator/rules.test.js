@@ -56,3 +56,18 @@ test('the example shows an independent task', () => {
 test('the old dependency line is gone', () => {
   assert.ok(!RULES.includes('A task can depend only on earlier tasks'));
 });
+
+test('the rules make the planner decide and report dependencies', () => {
+  const s = section('Dependencies and parallel tasks');
+  for (const needle of [
+    "Don't default to a chain",
+    'edits a file that task edits',
+    '`Parallelism:` paragraph',
+    '`Serial: <why>`',
+    "Don't force it",
+    'a plan of 6 or more tasks',
+  ]) {
+    assert.ok(s.includes(needle), `missing: ${needle}`);
+  }
+  assert.ok(!RULES.includes('which is the common case'));
+});

@@ -154,8 +154,20 @@ yourself writing every edit out, the task belongs on `sonnet`.
 
 ## Dependencies and parallel tasks
 
-By default a task waits for the task before it. Leave `after` off when each task needs the one before it,
-which is the common case. Write it only for tasks that can truly run at once:
+A task waits for the task before it unless it has an `after`. Before you write the block, decide each
+task's dependencies. Don't default to a chain:
+
+1. List each task's `Files to change:` and what it needs from earlier tasks.
+2. A task needs an earlier task only if it edits a file that task edits, uses a type, function or file that
+   task creates, or has to see its result in a build or test. If it needs none, write `"after": []`;
+   otherwise name only the tasks it needs.
+3. In the plan summary, add a `Parallelism:` paragraph giving the waves (wave 1: T01, T02, T05 · wave 2:
+   T03, T04). If every task needs the one before it, write instead a line `Serial: <why>` outside the task
+   block, with the specific reason (for example, `Serial: T06–T11 all edit LabelResolutions.java`).
+4. Parallelism pays only when tasks share nothing, since a task that conflicts is run again on its own.
+   Don't force it: an honest chain is a fine answer when its `Serial:` line says why.
+
+How `after` works:
 
 - `"after": []` means the task needs no earlier task; `"after": ["T02", "T03"]` means it needs just those.
   An `after` names only earlier tasks.
@@ -170,6 +182,9 @@ which is the common case. Write it only for tasks that can truly run at once:
 `ExitPlanMode` flags two tasks that may run at the same time and name the same file on their
 `Files to change:` lines. Make the later one wait for the other by adding it to its `after`, or keep it with a
 line `Keep T04: <why these can share files>`.
+
+`ExitPlanMode` also flags a plan of 6 or more tasks in which no task has `after` and no line starts with
+`Serial:`. It is a guideline too: give the tasks that need no earlier task an `after`, or add the `Serial:` line.
 
 Two optional fields beside `tasks` are used only when some task has `after`. Approving the plan runs them as
 written:
