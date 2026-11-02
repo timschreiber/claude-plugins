@@ -62,6 +62,7 @@ overlap flag was built later, on 2026-10-22).
 | D12 | **2026-10-20, option C:** tierminator makes each task's worktree itself (H4 `pre`, at the wave base), and the worker is not isolated: it works there under rules in its prompt, and a guard hook denies calls that would reach the main tree. No `isolation`, no `worktree.baseRef`. |
 | D13 | **2026-10-20:** in the default and `acceptEdits` permission modes every worker command asks for approval and a `cd ... && git ...` command offers no permanent rule; unattended and headless parallel runs use `auto` or `bypassPermissions`. It is documented as a restriction of unattended mode. |
 | D14 | **2026-10-20:** the first release is the packages listed in [Rollout](#rollout); the resolver, the overlap flag, the usage-limit rule, the result-file fields and the display and summary changes are deferred. The overlap flag was built on 2026-10-22 (WP-05). |
+| D15 | **2026-11-02:** the planner decides each task's dependencies by a stated test and reports them in a `Parallelism:` paragraph or a `Serial: <why>` line. The sizing review flags a plan of 6 or more tasks with no `after` and no `Serial:` line (`MIN_CHAIN = 6`); the flag is plan-wide, shares `MAX_REVIEWS = 2`, and is a guideline. How often independent-looking tasks conflict is still unmeasured, so the rules say not to force parallelism. |
 
 ## Concepts
 
@@ -135,14 +136,16 @@ graph plan only; a serial plan's table is byte for byte as it is.
 
 New section "Dependencies and parallel tasks". The rules tell the planner to:
 
-- leave `after` off when each task needs the one before it (the common case);
+- decide each task's dependencies before writing the block: a task needs an earlier task only if it edits a file that task edits, uses a type, function or file that task creates, or has to see its result in a build or test (D15);
+- report what it found: a `Parallelism:` paragraph giving the waves or, for a chain, a line `Serial: <why>` outside the task block. Parallelism is not forced; an honest chain is fine when its Serial line says why (D15);
 - write `after: []` or a list only when tasks truly can run at once: they read and change different files,
   need none of each other's output and share no build output;
 - give each parallel task its own `Files to change:` line and keep those lines disjoint (guidance only);
 - remember that a task also waits for every other task in its dependencies' wave, so splitting a chain into
   a wide graph helps only if the waves are wide;
 - put work every task needs (a shared interface, a rename) in an earlier wave;
-- expect the sizing review to flag two tasks that may run at the same time and name the same file on their `Files to change:` lines, and add an `after` or a `Keep Txx:` line (O6, WP-05).
+- expect the sizing review to flag two tasks that may run at the same time and name the same file on their `Files to change:` lines, and add an `after` or a `Keep Txx:` line (O6, WP-05);
+- expect the sizing review to flag a plan of 6 or more tasks in which no task gives `after` and no line starts with `Serial:` and a reason; any `after`, a Serial line or fewer than 6 tasks clears it (D15).
 
 The existing line "A task can depend only on earlier tasks" is replaced.
 
@@ -391,6 +394,7 @@ happens to the other slots that end because of the same limit, and the worktrees
 | `hooks/hooks.json` | The guard hook; a timeout of 3600 s for the hooks that integrate and verify (H1 on `UserPromptSubmit`, H4 `stop`, `post`, `failure` and `resume-failure`); H4 `pre`, which makes the worktrees, stays at 30 s (P5, [findings](tierminator-parallel-findings.md#hook-timeouts-recommendation)). |
 | `rules/tiering.md` | The dependency section. |
 | `lib/sizing.js`, `h2-gate-exit-plan.js`, `h5-guard.js` | The overlap flag (O6, WP-05, built 2026-10-22): the sizing review flags the later of two tasks that may run at the same time and name the same file. |
+| `lib/sizing.js`, `h2-gate-exit-plan.js`, `h5-guard.js`, `rules/tiering.md` | The serial-plan flag (D15): the sizing review flags a plan of 6 or more tasks with no `after` and no `Serial:` line, and the rules tell the planner to decide dependencies and report them. |
 | Docs | `tierminator-reference.md` (replace the "Serial only" non-goal), `README.md`, `CLAUDE.md`, `docs/README.md`, the spike spec's non-goal note. |
 
 Deferred, with their packages: `agents/resolver.md` and `lib/resolver.js`

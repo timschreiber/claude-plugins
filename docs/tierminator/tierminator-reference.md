@@ -1412,6 +1412,12 @@ task carries the flag, which names the other task, the shared files and the two 
 `after`, or keep it with `Keep T04: <why these can share files>`. The flag is part of the same review and
 counted by the same `MAX_REVIEWS`; a serial plan is never checked for it.
 
+A plan of `MIN_CHAIN = 6` or more tasks in which no task gives `after` and no line starts with `Serial:`
+followed by a reason is also flagged, as one flag for the whole plan, not per task. Any `after`, a `Serial:`
+line or fewer than 6 tasks clears it. It is combined with the other flags by `planReview`, is a guideline, and
+shares `MAX_REVIEWS = 2`, so after two reviews the plan goes to approval either way. H2 and headless drafting
+(H5) both apply it.
+
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
@@ -1742,7 +1748,7 @@ file and fails.
 | `tests/tierminator/resume.test.js` | `/tierminator:execute` for a graph plan: resuming at the next parallel wave, a done dependency counting wherever it is, an all-committed plan, `--from` refused for a graph plan (and a declined result headless), and a run halted mid-wave not redoing integrated tasks. |
 | `tests/tierminator/worker-timeout.test.js` | H9: a worker's Bash call without a timeout gets 600000 and no permission decision, other values are left alone, every tier gets it, and other tools, non-workers and ended or inactive runs print nothing. |
 | `tests/tierminator/rules.test.js` | That `rules/tiering.md` has the dependencies and parallel tasks section, lists `after` in the field table, names `setup` and `verify`, shows an independent task, and no longer has the old dependency line. |
-| `tests/tierminator/sizing.test.js` | The sizing review: the flags, the `Keep` lines that clear them, the overlap flag for tasks that may run at once and name the same file, and the review text. |
+| `tests/tierminator/sizing.test.js` | The sizing review: the flags, the `Keep` lines that clear them, the overlap flag for tasks that may run at once and name the same file, the serial-plan flag, and the review text. |
 | `tests/tierminator/e2e-lib.test.js` | The end-to-end harness's helpers in `e2e/lib.js`: running Git, forward-slash paths, the default run base, listing commits, and the snapshot of worktrees and tierminator branches. |
 | `tests/tierminator/e2e-scenarios.test.js` | That each scenario in `e2e/scenarios.js` parses to its expected graph and waves, where the failure markers sit, which scenarios run twice, and that an unknown scenario is rejected. |
 | `tests/tierminator/e2e-setup.test.js` | That `e2e/setup.js` builds the scratch repo, plan and `scenario.json`, writes a marker path that does not exist for scenario 4, and rejects an unknown scenario. |

@@ -109,13 +109,18 @@ files are only expected, so they are not counted), a very long prompt, or "and",
 or ";" in its title. Claude splits the task, or keeps it and says why in a `Keep T03: <why>` line. In a plan
 with parallel tasks, it also flags two tasks that may run at the same time yet list the same file on their
 `Files to change:` lines; Claude makes one wait for the other with `after`, or keeps it with a `Keep` line. These
-are guidelines, so after two reviews the plan goes to the approval dialog either way.
+are guidelines, so after two reviews the plan goes to the approval dialog either way. It also flags a plan of 6
+or more tasks in which no task gives `after` and no line starts with `Serial:` and a reason; this flag is for
+the whole plan, not one task. An `after`, a `Serial:` line or fewer than 6 tasks clears it.
 
 ### Parallel tasks
 
-When a task has no need of the one before it, the planner writes `after: []` (or a list of the task ids it
-needs) on it. A task with no `after` waits for the task before it, so a plan without any `after` runs one
-task at a time, as before. Tasks are grouped into waves: a task's wave is one more than the latest wave it
+The planner decides each task's dependencies before it writes the plan. A task needs an earlier one only if it
+edits a file that task edits, uses something that task creates, or has to see its result in a build or test.
+The plan reports what it found in a `Parallelism:` paragraph that gives the waves, or, for a chain, in a
+`Serial: <why>` line. When a task has no need of the one before it, the planner writes `after: []` (or a list
+of the task ids it needs) on it. A task with no `after` waits for the task before it, so a plan without any
+`after` runs one task at a time, as before. Tasks are grouped into waves: a task's wave is one more than the latest wave it
 waits for, and a wave of two or more tasks runs its tasks at once, each in its own Git worktree. The next wave
 starts when the whole wave has finished.
 
