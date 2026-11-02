@@ -1,10 +1,12 @@
 // Task sizing: flags a task that may be too large for one worker. These are guidelines, not rules:
 // ExitPlanMode (H2) and a headless draft (H5) ask the planner to split a flagged task or to keep it
 // with a "Keep T03: <why>" line in the plan, a limited number of times. For a graph plan it also flags
-// two tasks that may run at the same time yet name the same file. Never throws.
+// two tasks that may run at the same time yet name the same file. A plan of MIN_CHAIN or more tasks in
+// which no task gives "after" and no line starts "Serial: <why>" gets a plan-wide flag. Never throws.
 'use strict'
 
 const OVERLAP_PREFIX = 'may run at the same time as '
+const MIN_CHAIN = 6
 const MAX_FILES = 4
 const MAX_PROMPT = { haiku: 3000, sonnet: 4000, opus: 5000 }
 const MAX_REVIEWS = 2
@@ -152,11 +154,43 @@ function reviewText(pending) {
   )
 }
 
+// True when the plan text has a "Serial: <why>" line that gives a reason.
+function serial(text) {
+  return /^[ \t]*Serial:[ \t]*\S/m.test(typeof text === 'string' ? text : '')
+}
+
+// The plan-wide flag for a long plan in which no task gives "after", or null.
+function chainFlag(tasks, text, { graph = false } = {}) {
+  if (graph === true || !Array.isArray(tasks) || tasks.length < MIN_CHAIN || serial(text)) return null
+  const n = tasks.length
+  return (
+    `the plan has ${n} tasks and none gives "after", so they will run one at a time. ` +
+    'A task needs an earlier task only if it edits a file that task edits, uses a type, function or file that task creates, or has to see its result in a build or test. ' +
+    'Give each task that needs no earlier task "after": [] and each other task an "after" naming only the tasks it needs, ' +
+    'and add a "Parallelism:" paragraph to the summary giving the waves. ' +
+    'If every task really needs the one before it, add a line "Serial: <why the tasks form a chain>" to the plan, outside the task block, instead'
+  )
+}
+
+// The whole review text (task flags and the plan-wide flag), or null when nothing is flagged.
+function planReview(tasks, text, opts = {}) {
+  const pending = review(tasks, text, opts)
+  const flag = chainFlag(tasks, text, opts)
+  if (pending.length === 0 && flag === null) return null
+  if (flag === null) return reviewText(pending)
+  if (pending.length === 0) return `tierminator: ${flag}. This is a guideline, not a rule. Then call ExitPlanMode again.`
+  return `${reviewText(pending).replace(/ Then call ExitPlanMode again\.$/, '')}\n\nThe plan as a whole: ${flag}. Then call ExitPlanMode again.`
+}
+
 module.exports = {
   MAX_FILES,
   MAX_PROMPT,
   MAX_REVIEWS,
+  MIN_CHAIN,
   OVERLAP_PREFIX,
+  serial,
+  chainFlag,
+  planReview,
   filesToChange,
   flags,
   kept,

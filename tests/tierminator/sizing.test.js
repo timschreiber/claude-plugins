@@ -158,6 +158,59 @@ test('reviewText names each task and its flags, and the two ways out', () => {
   )
 })
 
+const { MIN_CHAIN, serial, chainFlag, planReview } = sizing
+const six = () => [1, 2, 3, 4, 5, 6].map(n => task(n))
+
+test('MIN_CHAIN is 6', () => {
+  assert.equal(MIN_CHAIN, 6)
+})
+
+test('serial needs a Serial line that gives a reason', () => {
+  assert.equal(serial('Serial: all edit a.js'), true)
+  assert.equal(serial('  Serial:\tx'), true)
+  assert.equal(serial('Serial:'), false)
+  assert.equal(serial('Serial:   '), false)
+  assert.equal(serial('The Serial: x'), false)
+  assert.equal(serial(''), false)
+})
+
+test('chainFlag', () => {
+  assert.equal(chainFlag([1, 2, 3, 4, 5].map(n => task(n)), ''), null)
+  const flag = chainFlag(six(), '')
+  assert.ok(flag.startsWith('the plan has 6 tasks'))
+  assert.equal(
+    flag,
+    'the plan has 6 tasks and none gives "after", so they will run one at a time. ' +
+      'A task needs an earlier task only if it edits a file that task edits, uses a type, function or file that task creates, or has to see its result in a build or test. ' +
+      'Give each task that needs no earlier task "after": [] and each other task an "after" naming only the tasks it needs, ' +
+      'and add a "Parallelism:" paragraph to the summary giving the waves. ' +
+      'If every task really needs the one before it, add a line "Serial: <why the tasks form a chain>" to the plan, outside the task block, instead'
+  )
+  assert.equal(chainFlag(six(), '', { graph: true }), null)
+  assert.equal(chainFlag(six(), 'Serial: one chain'), null)
+  assert.equal(chainFlag(six(), 'Serial:'), flag)
+  assert.equal(chainFlag('x', ''), null)
+})
+
+test('planReview', () => {
+  assert.equal(planReview(six(), 'Serial: one chain'), null)
+  const two = [task(1), task(2, { title: 'Wire it in and test it' })]
+  assert.equal(planReview(two, ''), reviewText(review(two, '')))
+  assert.equal(
+    planReview(six(), ''),
+    'tierminator: ' + chainFlag(six(), '') + '. This is a guideline, not a rule. Then call ExitPlanMode again.'
+  )
+  const mixed = six()
+  mixed[1] = task(2, { title: 'Wire it in and test it' })
+  const out = planReview(mixed, '')
+  const first = reviewText(review(mixed, '')).split('\n')[0]
+  assert.ok(out.startsWith(first))
+  assert.ok(out.includes('\n\nThe plan as a whole: the plan has 6 tasks'))
+  const end = 'Then call ExitPlanMode again.'
+  assert.equal(out.split(end).length - 1, 1)
+  assert.ok(out.endsWith(end))
+})
+
 const { normalizeFile, overlaps, overlapFlag } = sizing
 const g = (n, files, after) =>
   task(n, { prompt: `Files to change: ${files}\nVerify: x`, ...(after === undefined ? {} : { after }) })
