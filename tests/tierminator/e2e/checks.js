@@ -72,7 +72,9 @@ function common(facts, { runs, outcomes, ids }) {
     check(
       'result outcome',
       mismatched.length === 0,
-      mismatched.map((o) => `run ${o.i + 1}: ${JSON.stringify(o.got)}, want ${JSON.stringify(o.want)}`).join('; ')
+      mismatched.length > 0
+        ? mismatched.map((o) => `run ${o.i + 1}: ${JSON.stringify(o.got)}, want ${JSON.stringify(o.want)}`).join('; ')
+        : `outcomes: ${arr(outcomes).map((o, i) => `run ${i + 1} ${o}`).join(', ') || 'none expected'}`
     ),
     check('clean tree', final.status === '', `uncommitted: ${JSON.stringify(final.status)}`),
     check('on run branch', final.branch === 'main', `on ${JSON.stringify(final.branch)}`),
@@ -268,7 +270,11 @@ function scenario6(facts) {
     check(
       'ran one at a time',
       spans.length > 0 && bad.length === 0,
-      bad.length > 0 ? `attempt ${bad.map((i) => i + 1).join(', ')} started before the previous ended` : 'no attempts'
+      spans.length === 0
+        ? 'no attempts'
+        : bad.length > 0
+          ? `attempt ${bad.map((i) => i + 1).join(', ')} started before the previous ended`
+          : `${spans.length} attempts, each started after the previous ended`
     )
   ]
 }

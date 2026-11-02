@@ -80,7 +80,9 @@ test('scenario 3 fails when the first attempt is done', () => {
 })
 
 test('scenario 6 passes on a serial run', () => {
-  assert.deepEqual(failing(scenarioChecks(6, facts(serial()))), [])
+  const out = scenarioChecks(6, facts(serial()))
+  assert.deepEqual(failing(out), [])
+  assert.equal(named(out, 'ran one at a time').detail, '3 attempts, each started after the previous ended')
 })
 
 test('scenario 6 fails when the spans overlap', () => {
