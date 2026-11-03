@@ -1,0 +1,336 @@
+{
+  "about": "Derived summary of one real tierminator run with parallel waves (plan snug-sleeping-nova, a 20-task plan in an unrelated project). Computed by scratchpad make-evidence.js from tierminator-parallel-real-run-telemetry.jsonl and -result.json (raw copies, same folder) and the run's tasks file; the tasks file holds the project's prompts and is not copied, so its model, effort and after fields are kept here.",
+  "runId": "1d2c709c",
+  "planId": "f6d377085972fc3b",
+  "outcome": "complete",
+  "tasks": [
+    {
+      "id": "T01",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [],
+      "wave": 1,
+      "attemptMs": 82574
+    },
+    {
+      "id": "T02",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [],
+      "wave": 1,
+      "attemptMs": 41836
+    },
+    {
+      "id": "T03",
+      "model": "opus",
+      "effort": "medium",
+      "after": [],
+      "wave": 1,
+      "attemptMs": 144495
+    },
+    {
+      "id": "T04",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [],
+      "wave": 1,
+      "attemptMs": 58977
+    },
+    {
+      "id": "T05",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [],
+      "wave": 1,
+      "attemptMs": 69291
+    },
+    {
+      "id": "T06",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T01"
+      ],
+      "wave": 2,
+      "attemptMs": 57225
+    },
+    {
+      "id": "T07",
+      "model": "sonnet",
+      "effort": "high",
+      "after": [
+        "T01"
+      ],
+      "wave": 2,
+      "attemptMs": 172875
+    },
+    {
+      "id": "T08",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T01"
+      ],
+      "wave": 2,
+      "attemptMs": 74974
+    },
+    {
+      "id": "T09",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T01",
+        "T05"
+      ],
+      "wave": 2,
+      "attemptMs": 104367
+    },
+    {
+      "id": "T10",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T02",
+        "T05"
+      ],
+      "wave": 2,
+      "attemptMs": 89288
+    },
+    {
+      "id": "T11",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T08"
+      ],
+      "wave": 3,
+      "attemptMs": 62018
+    },
+    {
+      "id": "T12",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T07",
+        "T11"
+      ],
+      "wave": 4,
+      "attemptMs": 70324
+    },
+    {
+      "id": "T13",
+      "model": "opus",
+      "effort": "medium",
+      "after": [
+        "T06",
+        "T12"
+      ],
+      "wave": 5,
+      "attemptMs": 168620
+    },
+    {
+      "id": "T14",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T13"
+      ],
+      "wave": 6,
+      "attemptMs": 32201
+    },
+    {
+      "id": "T15",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T13"
+      ],
+      "wave": 6,
+      "attemptMs": 109693
+    },
+    {
+      "id": "T16",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T03",
+        "T04",
+        "T14"
+      ],
+      "wave": 7,
+      "attemptMs": 62570
+    },
+    {
+      "id": "T17",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T15",
+        "T16"
+      ],
+      "wave": 8,
+      "attemptMs": 57976
+    },
+    {
+      "id": "T18",
+      "model": "opus",
+      "effort": "medium",
+      "after": [
+        "T17"
+      ],
+      "wave": 9,
+      "attemptMs": 169190
+    },
+    {
+      "id": "T19",
+      "model": "sonnet",
+      "effort": "medium",
+      "after": [
+        "T17"
+      ],
+      "wave": 9,
+      "attemptMs": 45728
+    },
+    {
+      "id": "T20",
+      "model": "opus",
+      "effort": "medium",
+      "after": [
+        "T18",
+        "T19"
+      ],
+      "wave": 10,
+      "attemptMs": 147645
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "tasks": [
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05"
+      ],
+      "size": 5,
+      "slowestTaskMs": 144495
+    },
+    {
+      "wave": 2,
+      "tasks": [
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10"
+      ],
+      "size": 5,
+      "slowestTaskMs": 172875
+    },
+    {
+      "wave": 3,
+      "tasks": [
+        "T11"
+      ],
+      "size": 1,
+      "slowestTaskMs": 62018
+    },
+    {
+      "wave": 4,
+      "tasks": [
+        "T12"
+      ],
+      "size": 1,
+      "slowestTaskMs": 70324
+    },
+    {
+      "wave": 5,
+      "tasks": [
+        "T13"
+      ],
+      "size": 1,
+      "slowestTaskMs": 168620
+    },
+    {
+      "wave": 6,
+      "tasks": [
+        "T14",
+        "T15"
+      ],
+      "size": 2,
+      "slowestTaskMs": 109693
+    },
+    {
+      "wave": 7,
+      "tasks": [
+        "T16"
+      ],
+      "size": 1,
+      "slowestTaskMs": 62570
+    },
+    {
+      "wave": 8,
+      "tasks": [
+        "T17"
+      ],
+      "size": 1,
+      "slowestTaskMs": 57976
+    },
+    {
+      "wave": 9,
+      "tasks": [
+        "T18",
+        "T19"
+      ],
+      "size": 2,
+      "slowestTaskMs": 169190
+    },
+    {
+      "wave": 10,
+      "tasks": [
+        "T20"
+      ],
+      "size": 1,
+      "slowestTaskMs": 147645
+    }
+  ],
+  "counts": {
+    "tasks": 20,
+    "waves": 10,
+    "parallelWaves": 4,
+    "tasksInParallelWaves": 14,
+    "attempts": 21,
+    "retries": [
+      {
+        "task": "T10",
+        "tier": "sonnet-medium",
+        "reason": "Changes are done and uncommitted; Verify's `node --test <directory>` errors on Node 24 (the named test file passes 18 of 18), so Verify needs the test file named or a glob."
+      }
+    ],
+    "conflictRecords": 0,
+    "concurrentPairsSharingAFile": 0,
+    "tasksWithoutFilesLine": 2,
+    "filesToChangePerTask": {
+      "min": 0,
+      "max": 8
+    },
+    "resumes": 0
+  },
+  "timing": {
+    "runWallMs": 1270283,
+    "runWallMin": 21.2,
+    "sumOfAttemptMs": 1821867,
+    "sumOfAttemptMin": 30.4,
+    "barrierCriticalPathMs": 1165406,
+    "barrierCriticalPathMin": 19.4,
+    "overheadMs": 104877,
+    "note": "sumOfAttempt is the time a one-at-a-time run would spend in workers (it includes the failed T10 attempt); barrierCriticalPath is the sum over waves of the slowest task, since a wave ends when its last task does; overhead is the rest of the wall time (worktrees, picks, dispatch). Derived, not measured separately."
+  },
+  "costUsd": {
+    "planning": 6.0690273999999995,
+    "attempts": 7.865092899999999,
+    "orchestration": 1.1792428000000004,
+    "estimateHadPlanningModelRunTasks": 23.958139900000003
+  }
+}

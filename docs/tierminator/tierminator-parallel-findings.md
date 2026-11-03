@@ -1097,6 +1097,51 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
   state's recorded `cwd` (`s.cwd ?? input.cwd`), so it is not misled (**inferred** from
   `plugins/tierminator/scripts/h4-dispatch.js`); WP-09 must keep that for slot judging.
 
+## A real run: 20 tasks, four parallel waves
+
+The first run of a parallel plan on a real project, not a probe: a 20-task plan (plan `snug-sleeping-nova`) in an
+unrelated project, planned on 2026-11-03 (01:25 to 01:38 UTC) and run from 01:42:02 to 02:03:12 UTC with the
+built plugin. The run is recorded by the plugin's own files, copied unchanged:
+
+- `probes/evidence/tierminator-parallel-real-run-telemetry.jsonl`: 25 records (planning, run, 21 attempts,
+  orchestration, estimate).
+- `probes/evidence/tierminator-parallel-real-run-result.json`: outcome `complete`, 20 tasks done, none not run.
+- `probes/evidence/tierminator-parallel-real-run-graph.json`: derived from those two and the run's tasks file
+  (not copied: it holds the project's prompts), so it keeps each task's model, effort and `after`. It holds the
+  waves and the sums below.
+
+What the files show:
+
+- **The plan.** Every task has an `after`, and the plan has a `Parallelism:` table of its waves. This is the block
+  the rules added on 2026-11-02 ask for (D15); that the run used those rules is **inferred** from the table, since
+  the files do not record the rules version. The plan has no `setup` or `verify`.
+- **The waves.** 10 waves of 5, 5, 1, 1, 1, 2, 1, 1, 2 and 1 tasks: four parallel waves holding 14 of the 20
+  tasks, and six waves of one task (T11, T12, T13, T16, T17 and T20), each of which waits on a task in the wave
+  before it. The 21 attempts were 15 `sonnet-medium`, 2 `sonnet-high` (T07 and T10's retry) and 4 `opus-medium`.
+- **Disjoint files by the plan's own lines.** `sizing.overlaps` run on the tasks file finds no two tasks that may
+  run at the same time and name the same file on their `Files to change:` lines (`concurrentPairsSharingAFile: 0`
+  in the graph file). All 14 tasks in the parallel waves have such a line; the two tasks without one, T13 and T20,
+  are alone in their waves. This compares what the planner declared, not what the workers changed.
+- **No conflicts.** The telemetry has no `conflict` record, so no pick conflicted and no task was re-run serially.
+  None of the 21 attempts was resumed or asked for its report.
+- **One retry, not a conflict.** T10 ran twice: its `sonnet-medium` attempt did the work but failed on the
+  plan's own `Verify:`, which used `node --test <directory>` (an error on Node 24, the rule in CLAUDE.md); the
+  `sonnet-high` retry passed in 46 s. It happened inside wave 2 beside the other four tasks and did not slow the wave:
+  T07 was the slowest there, at 173 s.
+- **Time.** The run took 21.2 minutes (orchestration window, 1,270 s). The workers' attempts add up to 30.4 minutes
+  (1,822 s), which is what one task at a time would spend in workers. Summing the slowest task of each wave gives
+  19.4 minutes (1,165 s), so about 1.7 minutes (105 s) of the 21.2 is everything else: worktrees, picks and
+  dispatch. The three figures are derived in the graph file, not timed separately. A 32-minute serial estimate
+  was reported by the user and is not in these files.
+- **Cost.** Planning $6.07, workers $7.87, orchestration $1.18: $15.11 in all, against the run's own estimate of
+  $23.96 had the planning model run every task.
+
+What it does and does not show. It is one run, in one project, with 14 tasks in parallel waves and no conflict:
+a first data point for how often independent-looking tasks conflict, not a rate. The files do not record the
+permission mode or whether the session was interactive. The six single-task waves cap the speed-up: T11 to T13
+alone take 301 s of the 1,165 s. A task also waits for its whole wave, not only for its dependencies, so T11, which
+needs only T08 (75 s into wave 2), could start only after T07, the slowest of that wave, at 173 s.
+
 ## Not measured
 
 - **The interactive cells** (see Pending above): background dispatch, the user's permission mode, and
@@ -1104,8 +1149,9 @@ has no resolver (see "Decided 2026-10-20: simplifications" above).
   did the P4 cells. The P3 cell `p3-bg` did, once, in the default mode (13 permission requests; see P3).
 - **The user-level settings file** (`~/.claude/settings.json` with `worktree.baseRef: "head"`): pending above
   as `m1-baseref-user`.
-- **How often independent-looking tasks conflict.** Nothing measured; the first release re-runs a conflicting task
-  serially and counts the conflicts.
+- **How often independent-looking tasks conflict.** One real run only: none of 14 tasks in four parallel waves
+  conflicted (see "A real run" above). No rate; the first release re-runs a conflicting task serially and counts
+  the conflicts.
 - **Option C, under real conditions.** Tasks of 30 to 60 turns (the probes' took 8 to 10), setup commands, builds
   (including `denoizinator-net`'s rewrite of a `dotnet` command after a `cd ... &&` prefix), opus workers,
   sonnet and haiku in the default and auto modes (haiku only was run there), workers that use the PowerShell tool,
