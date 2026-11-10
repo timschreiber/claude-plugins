@@ -98,7 +98,9 @@ const lostText = (s, id) =>
 
 // Integrates the closed wave: the Git work runs outside the state lock (a verify can run for minutes), then a
 // second state.update applies the result. Returns the text to add to the notice, or null when the wave was not
-// closed for integration or the state could not be saved.
+// closed for integration or the state could not be saved. An integration whose run ended meanwhile (the run's
+// phase changed while the picks and the verify ran) is not applied: its picks stay on the branch and
+// /tierminator:execute skips them.
 function finishWave(input, s, id, { deliver = false } = {}) {
   const cwd = cwdOf(s, input)
   const closed = state.read(input.session_id)
@@ -119,7 +121,7 @@ function finishWave(input, s, id, { deliver = false } = {}) {
   }
   let tail = null
   const res = state.update(input.session_id, cur => {
-    if (cur?.wave?.phase !== 'integrating') return null
+    if (cur?.wave?.phase !== 'integrating' || cur.phase !== closed.phase) return null
     const applied = integrate.applyIntegration(cur, result, { head: git.head(cwd), root: git.repoRoot(cwd), cap: maxParallel() })
     tail = applied.tail
     return { ...applied.state, notice: deliver ? cur.notice : joinNotice(cur.notice, applied.tail) }

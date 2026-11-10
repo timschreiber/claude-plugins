@@ -1166,6 +1166,32 @@ function settleAllWith(verify) {
   return state.read(S)
 }
 
+test('an integration that ends after the run was abandoned does not reopen it', async () => {
+  fs.writeFileSync(path.join(dir, 'verify-slow.js'), 'setTimeout(() => {}, 1500)\n')
+  startWaveRun({ verify: 'node "' + fwd(path.join(dir, 'verify-slow.js')) + '"' })
+  const ids = ['T01', 'T02', 'T03']
+  for (const id of ids) assert.equal(preOf(callOf(id)).stdout, '')
+  for (const id of ids) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+  const sha1 = workerCommits('T01')
+  const sha2 = workerCommits('T02')
+  const sha3 = workerCommits('T03')
+  stopHook(stopOf('T01', report('DONE', sha1)))
+  stopHook(stopOf('T02', report('DONE', sha2)))
+  const pending = hookAsync('h4-dispatch.js', stopOf('T03', report('DONE', sha3)), ['stop'])
+  const started = Date.now()
+  for (;;) {
+    if (state.read(S)?.wave?.phase === 'integrating') break
+    assert.ok(Date.now() - started < 5000, 'wave never reached integrating')
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+  state.update(S, c => ({ ...c, phase: 'abandoned' }))
+  await pending
+  const s = state.read(S)
+  assert.equal(s.phase, 'abandoned')
+  assert.equal(s.wave.phase, 'integrating')
+  assert.deepEqual(Object.keys(git.committedTasks(repo, PLAN_ID)).sort(), ['T01', 'T02', 'T03'])
+})
+
 test('a failing plan verify halts with its output and keeps the picks', () => {
   fs.writeFileSync(path.join(dir, 'verify-fail.js'), "process.stderr.write('boom')\nprocess.exit(3)\n")
   const s = settleAllWith('node "' + fwd(dir) + '/verify-fail.js"')
