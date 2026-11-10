@@ -331,6 +331,16 @@ function saveLost(sessionId, text) {
   }
 }
 
+// True when the session has a lost-state note. Reads nothing and removes nothing.
+function hasLost(sessionId) {
+  try {
+    const file = lostFor(sessionId)
+    return !!file && fs.existsSync(file)
+  } catch {
+    return false
+  }
+}
+
 function takeLost(sessionId) {
   try {
     const file = lostFor(sessionId)
@@ -407,6 +417,7 @@ module.exports = {
   markRulesShown,
   clearRulesShown,
   saveLost,
+  hasLost,
   takeLost,
   prune,
 }

@@ -133,6 +133,30 @@ function finishWave(input, s, id, { deliver = false } = {}) {
   return tail ?? ''
 }
 
+// Above integrate.VERIFY_TIMEOUT_MS (3300 s) plus the picks, under the 3600 s timeout of H1 and H5.
+const INTEGRATION_WAIT_MS = 3400 * 1000
+const INTEGRATION_POLL_MS = [50, 100, 200, 250, 500, 1000]
+
+const integrating = s => !!s?.wave && s.wave.phase === 'integrating' && (s.phase === 'running' || s.phase === 'halted')
+
+// Waits while another hook integrates the closed wave; returns the state last read.
+async function awaitIntegration(sessionId, s, { waitMs = INTEGRATION_WAIT_MS, pollMs = INTEGRATION_POLL_MS } = {}) {
+  if (!integrating(s)) return s
+  const n = s.wave.n
+  let last = s
+  const until = Date.now() + waitMs
+  for (let i = 0; ; i++) {
+    if (!state.isActive(sessionId) || state.hasLost(sessionId)) return last
+    const cur = state.read(sessionId)
+    if (cur !== null) {
+      last = cur
+      if (!(integrating(cur) && cur.wave.n === n)) return cur
+    }
+    if (Date.now() >= until) return last
+    await new Promise(resolve => setTimeout(resolve, pollMs[Math.min(i, pollMs.length - 1)]))
+  }
+}
+
 function pre(input, s) {
   const toolInput = input.tool_input ?? {}
   if (!ours(toolInput.subagent_type)) return
@@ -387,4 +411,8 @@ module.exports = {
   slotFacts,
   lostText,
   finishWave,
+  INTEGRATION_WAIT_MS,
+  INTEGRATION_POLL_MS,
+  integrating,
+  awaitIntegration,
 }
