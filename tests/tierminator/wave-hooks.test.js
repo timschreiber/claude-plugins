@@ -1192,6 +1192,83 @@ test('an integration that ends after the run was abandoned does not reopen it', 
   assert.deepEqual(Object.keys(git.committedTasks(repo, PLAN_ID)).sort(), ['T01', 'T02', 'T03'])
 })
 
+const PARTIAL = 'tierminator: T03 done. All 3 tasks of wave 1 are done.'
+// Launches the wave, makes every worker commit, settles T01 and T02 and returns T03's commit.
+function settleTwo() {
+  launchAll()
+  const sha1 = workerCommits('T01')
+  const sha2 = workerCommits('T02')
+  const sha3 = workerCommits('T03')
+  stopHook(stopOf('T01', report('DONE', sha1)))
+  stopHook(stopOf('T02', report('DONE', sha2)))
+  // Their notices were given in earlier turns.
+  state.update(S, cur => ({ ...cur, notice: null, noticeByNotification: false }))
+  return sha3
+}
+// T03 settles as H4 saves it before the integration: the wave is integrating and the notice is partial.
+const settleT03 = sha3 =>
+  state.update(S, cur => ({
+    ...w.advanceSlot(cur, 'T03', { ok: true, commit: sha3 }).state,
+    notice: PARTIAL,
+    noticeByNotification: true,
+  }))
+// The integration finishes with the next step appended to the notice.
+const finishIntegration = () =>
+  state.update(S, cur => ({ ...cur, phase: 'complete', wave: { ...cur.wave, phase: 'integrated' }, notice: cur.notice + ' NEXT-STEP' }))
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+test('a hand-back that arrives while H4 integrates gives the next step', async () => {
+  const sha3 = settleTwo()
+  assert.ok(state.claimAttempt(S, state.slotAttemptKey(state.read(S), 'T03')))
+  settleT03(sha3)
+  assert.equal(state.read(S).wave.phase, 'integrating')
+  const pending = h1Hand('T03', handBackPrompt('T03', sha3))
+  await sleep(300)
+  finishIntegration()
+  const res = await pending
+  assert.ok(res.stdout.includes('T03 done'))
+  assert.ok(res.stdout.includes('NEXT-STEP'))
+  assert.equal(state.read(S).notice, null)
+})
+
+test('a hand-back that waits for H4 to settle gives the next step after the integration', async () => {
+  const sha3 = settleTwo()
+  assert.ok(state.claimAttempt(S, state.slotAttemptKey(state.read(S), 'T03')))
+  const pending = h1Hand('T03', handBackPrompt('T03', sha3))
+  await sleep(300)
+  settleT03(sha3)
+  await sleep(400)
+  finishIntegration()
+  const res = await pending
+  assert.ok(res.stdout.includes('NEXT-STEP'))
+  assert.equal(state.read(S).notice, null)
+})
+
+test('a hand-back that races H4 integrating gives the whole notice', async () => {
+  fs.writeFileSync(path.join(dir, 'verify-slow.js'), 'setTimeout(() => {}, 1500)\n')
+  startWaveRun({ verify: 'node "' + fwd(path.join(dir, 'verify-slow.js')) + '"' })
+  const ids = ['T01', 'T02', 'T03']
+  for (const id of ids) assert.equal(preOf(callOf(id)).stdout, '')
+  for (const id of ids) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+  const sha1 = workerCommits('T01')
+  const sha2 = workerCommits('T02')
+  const sha3 = workerCommits('T03')
+  stopHook(stopOf('T01', report('DONE', sha1)))
+  stopHook(stopOf('T02', report('DONE', sha2)))
+  const pending = hookAsync('h4-dispatch.js', stopOf('T03', report('DONE', sha3)), ['stop'])
+  const started = Date.now()
+  for (;;) {
+    if (state.read(S)?.wave?.phase === 'integrating') break
+    assert.ok(Date.now() - started < 5000, 'wave never reached integrating')
+    await sleep(50)
+  }
+  const [, res] = await Promise.all([pending, h1Hand('T03', handBackPrompt('T03', sha3))])
+  assert.ok(res.stdout.includes('Integration: picked T01, T02, T03'))
+  const s = state.read(S)
+  assert.equal(s.phase, 'complete')
+  assert.ok(!s.notice)
+})
+
 test('a failing plan verify halts with its output and keeps the picks', () => {
   fs.writeFileSync(path.join(dir, 'verify-fail.js'), "process.stderr.write('boom')\nprocess.exit(3)\n")
   const s = settleAllWith('node "' + fwd(dir) + '/verify-fail.js"')

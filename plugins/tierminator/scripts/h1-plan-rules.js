@@ -25,6 +25,9 @@
 //               prints that instead. When a judged attempt's state could not be saved (H1's own, or H4's lost-state note),
 //               the run ends here with a message saying how to resume. In plan mode these prompts never show the rules;
 //               A wave's hand-backs are judged per slot (waveHandBack), through the same settleSlot as the SubagentStop path.
+//               A notice is given only once its wave is no longer being integrated: while H4's SubagentStop runs the
+//               picks and the plan verify of a closed wave (wave.phase 'integrating'), H1 waits for it
+//               (lib/h4-wave.js awaitIntegration) and then gives the whole notice, the next step included.
 //             - while planning, a prompt typed in plan mode shows the rules once per plan-mode stint
 //               (unless /tierminator:plan or EnterPlanMode already did); one typed outside plan mode means
 //               the user left plan mode without approving, so the session is made inactive, silently;
@@ -130,17 +133,41 @@ async function awaitNotice(input, key) {
   }
 }
 
-// The wave form of awaitNotice: H4 claimed slot `id`'s attempt `key`; wait for its saved notice.
-async function awaitWaveNotice(input, id, key) {
-  const until = Date.now() + NOTICE_WAIT_MS
+// Gives the run's notice and clears it. The notice is read again inside the update, so one H4 appended meanwhile
+// (the next step after an integration) is given whole; `fallback` is printed when there is none to read or the
+// state could not be updated, since the notice is printed even if clearing fails (a repeat is harmless: the next
+// dispatch's pre clears it).
+function giveNotice(sessionId, fallback) {
+  let text = null
+  state.update(sessionId, c => {
+    text = c?.notice ?? null
+    return c?.notice ? { ...c, notice: null, noticeByNotification: false } : null
+  })
+  emitText(text ?? fallback)
+}
+
+// The wave form of awaitNotice: H4 claimed slot `id`'s attempt `key` in wave `n`; wait for its saved notice.
+// H4's notice is saved before it integrates the closed wave (picks, plan verify) and the next step is appended
+// after, so a notice is given only once the attempt is settled and wave `n` is not being integrated: when it
+// is, H1 waits for the integration once (awaitIntegration), then keeps the 10 s bound for the rest.
+async function awaitWaveNotice(input, id, key, n) {
+  let until = Date.now() + NOTICE_WAIT_MS
+  let waited = false
   for (let i = 0; ; i++) {
     const lost = state.takeLost(input.session_id)
     if (lost) return endLost(input, lost)
     const s = state.read(input.session_id)
+    const mine = s?.wave?.n === n
+    if (!waited && mine && h4wave.integrating(s)) {
+      waited = true
+      await h4wave.awaitIntegration(input.session_id, s)
+      until = Date.now() + NOTICE_WAIT_MS
+      continue
+    }
     const slot = s?.wave?.slots?.[id]
-    if (s?.notice && slot && (slot.status !== 'running' || state.slotAttemptKey(s, id) !== key)) {
-      state.update(input.session_id, c => ({ ...c, notice: null, noticeByNotification: false }))
-      emitText(s.notice)
+    const settled = !s?.wave || !mine || !slot || slot.status !== 'running' || state.slotAttemptKey(s, id) !== key
+    if (s?.notice && settled && !(mine && h4wave.integrating(s))) {
+      giveNotice(input.session_id, s.notice)
       return
     }
     if (Date.now() >= until) return
@@ -157,7 +184,7 @@ async function waveHandBack(input, s) {
   const id = w.slotOfAgent(s, from) ?? (transcript ? h4wave.slotFromTranscript(transcript, s.planId) : null)
   if (!id || !s.wave.slots[id] || !w.judgeable(s, id, from)) return
   const key = state.slotAttemptKey(s, id)
-  if (!state.claimAttempt(input.session_id, key)) return awaitWaveNotice(input, id, key)
+  if (!state.claimAttempt(input.session_id, key)) return awaitWaveNotice(input, id, key, s.wave.n)
   const report = readReport(input.prompt, transcript)
   const text = h4wave.settleSlot(input, s, id, {
     report,
@@ -172,16 +199,23 @@ async function waveHandBack(input, s) {
   if (lost) endLost(input, lost)
 }
 
-// A harness prompt in an active session: deliver H4's notice, or judge a hand-back.
+// A harness prompt in an active session: deliver H4's notice, or judge a hand-back. While H4 integrates a closed
+// wave, its notice so far is partial (the next step comes after the picks and the plan verify), so H1 waits for
+// the integration first and gives the whole notice.
 async function runNote(input) {
   const lost = state.takeLost(input.session_id)
   if (lost) return endLost(input, lost)
-  const s = state.read(input.session_id)
+  let s = state.read(input.session_id)
   if (!s) return
+  if (h4wave.integrating(s)) {
+    s = await h4wave.awaitIntegration(input.session_id, s)
+    const late = state.takeLost(input.session_id)
+    if (late) return endLost(input, late)
+    if (!s) return
+  }
   if (s.notice) {
     // Given whether or not it could be cleared: a repeat is harmless, since the next dispatch's pre clears it.
-    state.write(input.session_id, { ...s, notice: null, noticeByNotification: false })
-    emitText(s.notice)
+    giveNotice(input.session_id, s.notice)
     return
   }
   if (/^\s*<agent-message\b/.test(input.prompt) && s.phase === 'running' && s.wave) return waveHandBack(input, s)
