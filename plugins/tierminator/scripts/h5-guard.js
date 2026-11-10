@@ -8,6 +8,7 @@
 //         spend lines H4 queued for finished attempts, and the first Stop after the run has ended records
 //         its orchestration and adds the run's spend summary (lib/spend.js). A Stop hook's systemMessage
 //         is displayed; a SubagentStop hook's is not, for a background worker.
+// Stop waits while another hook integrates a closed wave (lib/h4-wave.js awaitIntegration), then decides.
 // Both give up after a few blocks and mark the run "abandoned", so a stuck session cannot loop
 // forever. Workers are subagents, which every hook ignores.
 // A run that has ended writes its result file at its first Stop (lib/result.js); recordResult marks the state.
@@ -27,6 +28,7 @@ const resultFile = require('./lib/result.js')
 const sizing = require('./lib/sizing.js')
 const { dispatchText, resumeText } = require('./lib/run.js')
 const w = require('./lib/wave-run.js')
+const h4wave = require('./lib/h4-wave.js')
 const { executePlan } = require('./lib/execute.js')
 const { resolvePlan, planIdOf } = require('./lib/sidecar.js')
 const { run, readInput, emit } = require('./lib/hook.js')
@@ -137,8 +139,9 @@ function draftingStop(input, s) {
   )
 }
 
-function stop(input, current) {
+async function stop(input, current) {
   if (current?.phase === 'drafting') return draftingStop(input, current)
+  if (h4wave.integrating(current)) current = (await h4wave.awaitIntegration(input.session_id, current)) ?? current
   let { s, text } = spendText(input, current)
   s = recordResult(input, s)
   const shown = extra => emit({ ...extra, ...(text ? { systemMessage: text } : {}) })

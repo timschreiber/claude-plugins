@@ -91,3 +91,55 @@ test('awaitIntegration gives up after waitMs and returns the integrating state',
   assert.equal(h4wave.integrating(got), true)
   await sleep(0)
 })
+
+const { spawn } = require('node:child_process')
+const PLUGIN = path.join(__dirname, '..', '..', 'plugins', 'tierminator')
+
+function h5Async(stdin, arg) {
+  const env = { ...process.env, CLAUDE_PLUGIN_DATA: process.env.CLAUDE_PLUGIN_DATA }
+  delete env.CLAUDE_CODE_ENTRYPOINT
+  return new Promise(resolve => {
+    const child = spawn(process.execPath, [path.join(PLUGIN, 'scripts', 'h5-guard.js'), arg], { env })
+    let stdout = ''
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', chunk => (stdout += chunk))
+    child.on('close', status => resolve({ status, stdout }))
+    child.stdin.end(JSON.stringify(stdin))
+  })
+}
+
+test('H5 stop waits for a wave being integrated and gives its next step', async () => {
+  const r = require('../../plugins/tierminator/scripts/lib/run.js')
+  const w = require('../../plugins/tierminator/scripts/lib/wave-run.js')
+  const mk = n => ({
+    id: `T0${n}`,
+    title: `Task ${n}`,
+    model: 'sonnet',
+    effort: 'medium',
+    after: [],
+    prompt: 'Do it.\nFiles to change: src/a.js\nVerify: node --test passes.',
+  })
+  const tasks = [mk(1), mk(2), mk(3)]
+  const tasksFile = path.join(dir, 'plan.tasks.json')
+  fs.writeFileSync(tasksFile, JSON.stringify({ tasks }))
+  let s = r.startRun({ tasks, tasksFile, planFile: path.join(dir, 'plan.md'), branch: 'main', planId: 'feedfacecafebeef', graph: true })
+  s = w.startWave(s, ['T01', 'T02', 'T03'], 'a'.repeat(40), 5, path.join(dir, 'repo'))
+  const slots = {}
+  for (const id of s.wave.size) slots[id] = { ...s.wave.slots[id], status: 'done', inFlight: false }
+  state.write(S, { ...s, notice: null, wave: { ...s.wave, slots, phase: 'integrating' } })
+  const pending = h5Async({ session_id: S, stop_hook_active: false }, 'stop')
+  await sleep(300)
+  state.update(S, c => ({ ...c, wave: { ...c.wave, phase: 'integrated' }, notice: 'NEXT-STEP', noticeByNotification: false }))
+  const res = await pending
+  const json = JSON.parse(res.stdout)
+  assert.equal(json.decision, 'block')
+  assert.ok(json.reason.includes('NEXT-STEP'))
+  assert.equal(state.read(S).notice, null)
+})
+
+test('hooks.json gives H5 stop a 3600 s timeout', () => {
+  const hooks = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
+  const found = hooks.hooks.Stop.flatMap(g => g.hooks).find(h => h.command.endsWith('h5-guard.js" stop'))
+  assert.ok(found)
+  assert.equal(found.timeout, 3600)
+})
