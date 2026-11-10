@@ -1,0 +1,36 @@
+{
+  "about": "Parallel waves whose run did not move on after the wave's last task. Read on 2026-11-10 from one session transcript, four plans' telemetry and result files and that project's Git reflog, in an unrelated project; Claude Code 2.1.322 on Windows; tierminator c8e6824, whose scripts equal the repository's at 9984388. Only times, tierminator's own hook texts and run records are kept.",
+  "session": {
+    "plan": "memoized-noodling-wolf",
+    "runId": "ac1d5f93",
+    "planVerify": true,
+    "wave": 1,
+    "waveTasks": ["T01", "T02", "T03", "T04", "T05"],
+    "timeline": [
+      ["2026-11-10T19:59:58.947Z", "T04, the wave's last task, hands back: <agent-message> enqueued"],
+      ["2026-11-10T19:59:59.309Z", "H1 (UserPromptSubmit, 310 ms) prints: tierminator: T04 done (commit 5cf18d9, sonnet-medium). All 5 tasks of wave 1 are done."],
+      ["2026-11-10T19:59:59Z", "reflog (whole seconds): four cherry-picks onto the run branch"],
+      ["2026-11-10T20:00:00Z", "reflog: the fifth cherry-pick"],
+      ["2026-11-10T20:00:03.367Z", "H5 Stop blocks: tierminator: a run is in progress, and its subagents do the work, not you. tierminator: wave 1 has nothing to dispatch now; tell the user."],
+      ["2026-11-10T20:00:05.301Z", "the next Stop ends the run: orchestration record, end abandoned"],
+      ["2026-11-10T20:00:23.041Z", "T04's <task-notification> is written to the transcript; no turn and no hook output follow"],
+      ["2026-11-10T20:17:22.779Z", "a typed prompt; H1: the run stopped because the user typed a new prompt (the state's phase was running)"],
+      ["2026-11-10T20:18:13.605Z", "/tierminator:execute finds T01 to T05 committed and dispatches T06"]
+    ]
+  },
+  "runsHeader": ["plan", "planVerify", "runId", "startTask", "attempts", "lastAttemptAt", "endedAt", "end"],
+  "runs": [
+    ["memoized-noodling-wolf", true, "ac1d5f93", "T01", 5, "2026-11-10T19:59:59.239Z", "2026-11-10T20:00:05.301Z", "abandoned"],
+    ["memoized-noodling-wolf", true, "cf8b7232", "T06", 10, "2026-11-10T20:51:17.490Z", "2026-11-10T20:53:02.831Z", "complete"],
+    ["a-previous-session-went-sorted-giraffe", true, "68d91b96", "T01", 5, "2026-11-10T01:42:53.425Z", "2026-11-10T01:43:00.675Z", "abandoned"],
+    ["a-previous-session-went-sorted-giraffe", true, "08030fcc", "T06", 5, "2026-11-10T01:47:42.139Z", "2026-11-10T01:47:48.534Z", "abandoned"],
+    ["a-previous-session-went-sorted-giraffe", true, "180b00b2", "T11", 5, "2026-11-10T02:03:20.816Z", "2026-11-10T02:03:32.860Z", "abandoned"],
+    ["a-previous-session-went-sorted-giraffe", true, "758b19d5", "T16", 5, "2026-11-10T02:08:52.556Z", "2026-11-10T02:09:05.889Z", "abandoned"],
+    ["a-previous-session-went-sorted-giraffe", true, "731ffaa3", "T21", 8, "2026-11-10T02:14:08.157Z", "2026-11-10T02:14:13.289Z", "abandoned"],
+    ["a-previous-session-went-sorted-giraffe", true, "4522e257", "T29", 2, "2026-11-10T02:24:47.382Z", "2026-11-10T02:26:56.366Z", "complete"],
+    ["hashed-plotting-peacock", true, "e6a8ffa2", "T01", 3, "2026-11-09T17:20:51.017Z", "2026-11-09T17:20:56.200Z", "abandoned"],
+    ["hashed-plotting-peacock", true, "38024f91", "T04", 8, "2026-11-09T17:32:32.172Z", "2026-11-09T17:32:40.067Z", "abandoned"],
+    ["hashed-plotting-peacock", true, "26adb6f1", "T12", 1, "2026-11-09T18:34:10.910Z", "2026-11-09T18:35:03.671Z", "complete"],
+    ["optimized-swinging-stroustrup", false, "6dd8ad88", "T01", 21, "2026-11-07T00:14:34.785Z", "2026-11-07T00:16:14.672Z", "complete"]
+  ]
+}
