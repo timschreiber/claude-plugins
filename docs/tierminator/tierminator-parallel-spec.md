@@ -328,7 +328,9 @@ back-to-back, the notice says only what is true at that moment:
 - queued tasks and free slots: dispatch the next startable one(s);
 - others still running: end your turn (the next hand-back will say more);
 - the last task settled: integration ran in the hook, so the notice gives the next wave's dispatch text, the
-  completion text or the halt text.
+  completion text or the halt text. When H4's SubagentStop integrates while the hand-back reaches H1, H1 (and H5
+  at a Stop) waits for the integration and gives the whole notice (2026-11-10; see the findings section
+  "A wave that did not move on").
 
 H5 keeps blocking main-thread edits and early stops; its wait-states understand that several workers are in
 flight.

@@ -1142,6 +1142,48 @@ permission mode or whether the session was interactive. The six single-task wave
 alone take 301 s of the 1,165 s. A task also waits for its whole wave, not only for its dependencies, so T11, which
 needs only T08 (75 s into wave 2), could start only after T07, the slowest of that wave, at 173 s.
 
+## A wave that did not move on
+
+A parallel plan in an unrelated project (plan `memoized-noodling-wolf`, run `ac1d5f93`, wave 1 of T01 to T05, with a
+plan verify) went idle after its first wave. Read on 2026-11-10 from one session transcript, four plans' telemetry
+and result files and that project's Git reflog, with tierminator `c8e6824`, whose scripts equal the repository's at
+`9984388`. The evidence is `probes/evidence/tierminator-parallel-wave-stall.json`: one session timeline and 12 run
+records.
+
+What the file shows:
+
+- **The timeline.** T04, the wave's last task, handed back at 19:59:58.947Z. H1 printed
+  "T04 done ... All 5 tasks of wave 1 are done." 310 ms later, at 19:59:59.309Z. The reflog shows the four
+  cherry-picks at 19:59:59Z and the fifth at 20:00:00Z, after that print. H1 therefore gave the notice while the
+  picks had not finished, so H4's `SubagentStop` held the claim and was integrating (**inferred** from the order).
+- **No turn after the hand-back.** T04's `<task-notification>` was written to the transcript at 20:00:23.041Z, and
+  no turn and no hook output followed it.
+- **H5 blocked, then abandoned.** At 20:00:03.367Z H5's Stop blocked with "wave 1 has nothing to dispatch now; tell
+  the user", and the next Stop at 20:00:05.301Z ended the run as `abandoned`.
+- **Found running again 17 minutes later.** A typed prompt at 20:17:22.779Z made H1 report that the run stopped
+  because the user typed a new prompt, with the state's phase still `running`. `/tierminator:execute` then found
+  T01 to T05 committed and dispatched T06 at 20:18:13.605Z.
+- **The runs.** In the three plans with a plan verify, every run but each plan's last ended `abandoned` 5.1 to
+  13.3 s after its last attempt (8 runs). The plan without a verify ran 21 attempts to completion in one run. That the
+  verify widens the window is **inferred**.
+
+Cause: `finishWave` runs the picks and the plan verify outside the state lock, then applies the result with a second
+`state.update`. `settleSlot` had already saved the partial notice, so H1 gave it at once and cleared it; the next step,
+appended afterwards, was never shown, because the hand-back's task-notification starts no turn. H5's Stop found no
+notice and blocked. A late integration could also reopen a run that H5 had ended meanwhile.
+
+Fix:
+
+- `finishWave` applies nothing when the run's phase changed during the integration; its picks stay on the branch and
+  `/tierminator:execute` skips them.
+- H1 (`runNote`, `awaitWaveNotice`) and H5's Stop wait while the closed wave is integrating, up to
+  `INTEGRATION_WAIT_MS` (3400 s), then act on the state it left. H1 gives a notice only once the wave is no
+  longer integrating.
+- The H5 Stop timeout is now 3600 s, as for H1 and H4.
+
+Tests: `tests/tierminator/wave-hooks.test.js` (a late integration does not reopen an abandoned run; H1 hand-backs
+that arrive while H4 integrates) and `tests/tierminator/wave-integration.test.js` (the wait, and H5 Stop).
+
 ## Not measured
 
 - **The interactive cells** (see Pending above): background dispatch, the user's permission mode, and

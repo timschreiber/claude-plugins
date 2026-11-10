@@ -480,7 +480,7 @@ Nine scripts under [`scripts/`](../../plugins/tierminator/scripts/), registered 
 | H4 Dispatch | `PostToolUse` | `SendMessage` | `h4-dispatch.js resume-post` | 30 s |
 | H4 Dispatch | `PostToolUseFailure` | `SendMessage` | `h4-dispatch.js resume-failure` | 3600 s |
 | H5 Guard | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `h5-guard.js pre` | 15 s |
-| H5 Guard | `Stop` | none | `h5-guard.js stop` | 15 s |
+| H5 Guard | `Stop` | none | `h5-guard.js stop` | 3600 s |
 | H6 Cleanup | `SessionEnd` | none | `h6-cleanup.js end` | 15 s |
 | H7 Limit | `StopFailure` | none | `h7-limit.js` | 15 s |
 | H8 Worktree guard | `PreToolUse` | `Bash\|PowerShell\|Write\|Edit\|Glob\|Grep` | `h8-worktree-guard.js` | 15 s |
@@ -554,6 +554,10 @@ subagent itself. H8 and H9 are the others: they act only on a worker's calls.
   notice, then gives that notice and clears it. If none comes in time it prints nothing and leaves the state
   as it is; the notice stays flagged `noticeByNotification`, and H5 lets the turn end. A claim that cannot
   be written for any reason but an existing claim is granted, so an attempt is never left unjudged.
+- When the hand-back is a parallel wave's last task, H4 integrates the closed wave (picks and plan verify, up to
+  3300 s) before it saves the next step. H1 waits while the wave's phase is `integrating`, up to 3400 s
+  (`INTEGRATION_WAIT_MS`), and gives the notice only once the wave is no longer integrating, so the notice holds
+  the next step and not only "All N tasks of wave K are done."
 - A `<task-notification>` that says a worker "stopped at its N-turn limit" does start a turn, but no
   `SubagentStop` judged the worker (see
   [the findings](tierminator-agent-dispatch-findings.md#a-worker-that-reaches-its-turn-limit-claude-code-21286)).
@@ -699,7 +703,8 @@ instruction as the reason.
   dispatch.
 - **`stop`:** blocks the turn from ending, with the same reason, or with H4's notice if one is waiting
   (which it then clears). The exception is a background worker's notice (`noticeByNotification`): that
-  stop is allowed and the notice left for H1. Claude Code labels a blocked stop "Stop hook error", and in
+  stop is allowed and the notice left for H1. While H4 integrates a closed wave, `stop` first waits for the
+  integration (up to 3400 s, hence its 3600 s timeout) and then acts on the state it left. Claude Code labels a blocked stop "Stop hook error", and in
   the live runs every task's hand-off went through that block. If Claude Code reports the stop hook is already active (a second consecutive
   stop), it allows the stop and marks the run `abandoned`. While a task is in flight it is silent, so
   Claude can end its turn while a background worker runs.
@@ -1484,7 +1489,9 @@ conflicted; they run again serially after the wave. Integration sets `phase` to 
 conflicted tasks and `picked` to the ids it cherry-picked.
 
 `notice` is written by H4 when it judges an attempt, and cleared by whichever hook shows it first: H4's
-`post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A halted run
+`post` for a foreground run, H1 when the worker's report arrives, or H5 if Claude stops first. A notice is given
+only once its wave is no longer integrating, and an integration that finishes after its run ended is not applied
+to the ended run. A halted run
 also has `halt: {task, tried, reason}`. A run started part-way (by `/tierminator:execute`, or by approving
 a plan some of whose tasks are already committed) has the skipped tasks in `done` (see
 [Executing a saved plan](#executing-a-saved-plan)). Before approval the file holds the `planning` phase
@@ -1830,7 +1837,7 @@ and type `/tierminator:plan` with a small multi-step change.
 | `/tierminator:execute` reports a gap in the committed tasks | A later task is committed on this branch but an earlier one is not. Check `git log`, then type the command again with `--from` and the task to start at. |
 | `/tierminator:execute` says the plan's tasks cannot be loaded | The tasks file beside the plan is missing or was changed, or the table was edited. The prompts are gone from the plan, so plan it again. |
 | `/tierminator:execute` reruns tasks that an old run finished | Those commits predate the `Tierminator-Plan:` line. Use `--from` to start after them. |
-| The run goes idle after a task reports | A hand-back is judged when it arrives, so idling means something else. Check the run state, or type `/tierminator:execute` with the plan, which stops the run and resumes it, skipping committed tasks. |
+| The run goes idle after a task reports | A hand-back is judged when it arrives, so idling means something else. A parallel wave that went idle at its end was a bug, fixed on 2026-11-10 (the notice was given before the wave's integration finished); `/tierminator:execute` resumes it. Otherwise check the run state, or type `/tierminator:execute` with the plan, which stops the run and resumes it, skipping committed tasks. |
 | A dispatch is refused | Claude's call did not match the expected one. The refusal repeats the right call; Claude should make it. |
 | The run stopped at a task | Read Claude's report: the task, the tiers tried and the reason. The last attempt's changes are in the working tree. Fix or discard them, then plan the rest again. |
 | The run stopped because of uncommitted changes or a branch change | Something other than a task changed the tree or the branch during the run. Nothing was reset. |
