@@ -482,7 +482,10 @@ test('H3 starts the run and gives the exact first dispatch', () => {
   assert.match(out.additionalContext, /^tierminator: the user approved 3 tiered tasks and wants them run\./)
   assert.equal(state.isActive(S), true)
   assert.match(out.additionalContext, /subagent_type "tierminator:sonnet-medium", description "T01: Task 1", and as its prompt exactly the/)
-  assert.ok(out.additionalContext.includes(`as its prompt exactly the 3 lines inside this fence, without the fence lines:\n\`\`\`\nTasks file: ${TASKS_FILE()}\nPlan: ${s.planId}\nTask: T01\n\`\`\`\n`))
+  // The whole task, never a pointer to the tasks file.
+  const prompt = `Plan: ${s.planId}\nTask: T01\nTitle: Task 1\nTask prompt:\nRead docs/spec.md.\nFiles to change: src/a.js\nDo the work. Verify: node --test passes.`
+  assert.ok(out.additionalContext.includes(`as its prompt exactly the 7 lines inside this fence, without the fence lines:\n\`\`\`\n${prompt}\n\`\`\`\n`))
+  assert.ok(!out.additionalContext.includes(TASKS_FILE()))
   assert.match(out.additionalContext, /Do not implement the plan yourself/)
 })
 
@@ -2251,7 +2254,8 @@ test('execute runs a saved plan with a raw block: activates, saves the run, and 
   const out = execute(file)
   const planId = idOf(VALID)
   assert.match(out, /^tierminator: running the plan in .*plan\.md \(3 tiered tasks\)\./)
-  assert.ok(out.includes(`as its prompt exactly the 3 lines inside this fence, without the fence lines:\n\`\`\`\nTasks file: ${TASKS_FILE()}\nPlan: ${planId}\nTask: T01\n\`\`\`\n`))
+  const prompt = `Plan: ${planId}\nTask: T01\nTitle: Task 1\nTask prompt:\nRead docs/spec.md.\nFiles to change: src/a.js\nDo the work. Verify: node --test passes.`
+  assert.ok(out.includes(`as its prompt exactly the 7 lines inside this fence, without the fence lines:\n\`\`\`\n${prompt}\n\`\`\`\n`))
   assert.match(out, /Do not implement the plan yourself/)
   assert.equal(state.isActive(S), true)
   const s = state.read(S)

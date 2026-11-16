@@ -78,19 +78,48 @@ function doneLabel(d) {
 
 const currentTask = state => state.tasks[state.current.index]
 
-// The dispatch prompt: a pointer to the task, plus the reason for a retry.
-function expectedPrompt(state) {
+// The line after which a dispatch prompt holds the task's own prompt, verbatim.
+const PROMPT_LINE = 'Task prompt:'
+
+// The dispatch prompt: the whole task, never a pointer to it. Auto mode judges a worker's actions against the
+// worker's own prompt, and text the worker reads from a file is data to it, not the request, so a task read
+// from the tasks file left innocuous edits looking unrequested (tierminator-agent-prompt-findings.md).
+// Header lines first (the plan, the task, its title, a retry's reason, a wave slot's lines), then
+// PROMPT_LINE and the task's prompt. `parallel` is {worktree, setup} for a wave slot.
+function expectedPrompt(state, parallel = null) {
   const { attempt, lastFailure } = state.current
-  const lines = [`Tasks file: ${state.tasksFile}`]
+  const task = currentTask(state)
+  const lines = []
   if (state.planId) lines.push(`Plan: ${state.planId}`)
-  lines.push(`Task: ${currentTask(state).id}`)
+  lines.push(`Task: ${task.id}`, `Title: ${task.title}`)
+  if (parallel) {
+    lines.push('Parallel: yes', `Worktree: ${parallel.worktree}`)
+    for (const command of parallel.setup ?? []) lines.push(`Setup: ${command}`)
+  }
   if (attempt > 1 && lastFailure) {
     lines.push(
       `Retry: attempt ${attempt} of ${MAX_RETRIES + 1}; the attempt at ${lastFailure.tier} failed and was rolled back.`,
       `Reason: ${lastFailure.reason}`
     )
   }
+  lines.push(PROMPT_LINE, normalize(task.prompt))
   return lines.join('\n')
+}
+
+// A Markdown fence for `text`: longer than any run of backticks in it, so a task prompt that holds a fence
+// cannot close it early.
+function fenceFor(text) {
+  const longest = Math.max(0, ...(String(text).match(/`+/g) ?? []).map(run => run.length))
+  return '`'.repeat(Math.max(3, longest + 1))
+}
+
+// The instruction to pass `prompt` exactly, fenced.
+const fenced = prompt => {
+  const fence = fenceFor(prompt)
+  return (
+    `as its prompt exactly the ${prompt.split('\n').length} lines inside this fence, without the fence lines:\n` +
+    fence + '\n' + prompt + '\n' + fence
+  )
 }
 
 // The Agent call the run expects next. Whether it runs in the foreground is not part of it: in an
@@ -110,9 +139,7 @@ function dispatchText(state) {
   const call = expectedCall(state)
   return (
     `Call the Agent tool now with subagent_type "${call.subagent_type}", description ` +
-    `${JSON.stringify(call.description)}, and as its prompt exactly the ` +
-    `${call.prompt.split('\n').length} lines inside this fence, without the fence lines:\n` +
-    '```\n' + call.prompt + '\n```\n' +
+    `${JSON.stringify(call.description)}, and ${fenced(call.prompt)}\n` +
     'Do not do the task yourself. If it runs in the background, end your turn.'
   )
 }
@@ -155,6 +182,18 @@ const normalize = text =>
     .join('\n')
     .trim()
 
+// Why a prompt is not the expected one: the first line that differs, so a slip in copying a long task
+// prompt can be put right.
+function promptMismatch(got, want) {
+  const a = normalize(got).split('\n')
+  const b = normalize(want).split('\n')
+  const clip = line => (line === undefined ? 'nothing' : JSON.stringify(line.length > 120 ? line.slice(0, 120) + '...' : line))
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) return `the prompt is not the expected one (line ${i + 1} is ${clip(a[i])}, expected ${clip(b[i])})`
+  }
+  return null
+}
+
 // null when the Agent call is the dispatch the run expects, else what is wrong with it.
 function checkDispatch(state, toolInput) {
   if (!state || state.phase !== 'running') return 'no tierminator run is in progress'
@@ -163,8 +202,7 @@ function checkDispatch(state, toolInput) {
   if (toolInput?.subagent_type !== want.subagent_type) {
     return `the next task runs on ${want.subagent_type}, not ${toolInput?.subagent_type}`
   }
-  if (normalize(toolInput?.prompt) !== normalize(want.prompt)) return 'the prompt is not the expected one'
-  return null
+  return promptMismatch(toolInput?.prompt, want.prompt)
 }
 
 // The worker's closing block, read from its final message. The block is the last STATUS line and the
@@ -433,7 +471,11 @@ module.exports = {
   skippedEntry,
   doneLabel,
   currentTask,
+  PROMPT_LINE,
   expectedPrompt,
+  fenceFor,
+  fenced,
+  promptMismatch,
   expectedCall,
   dispatchText,
   runningText,

@@ -11,9 +11,10 @@ You execute one task from an approved tierminator plan. Your prompt gives the go
 
 ## Your task
 
-Your message has a `Tasks file:` line, usually a `Plan:` line, and a `Task:` line; a retry adds `Retry:`
-and `Reason:` lines. The tasks file is JSON, `{"tasks": [...]}`. Your task is the `prompt` of the task
-whose `id` matches `Task:`. Ignore the other tasks, and never edit the file.
+Your message holds your whole task. It starts with header lines: usually `Plan:`, then `Task:` (the
+task's id) and `Title:` (its title); a retry adds `Retry:` and `Reason:` lines. After the `Task prompt:`
+line comes your task, everything to the end of the message. Everything you are asked to do is in this
+message: don't look for your task in a plan or tasks file.
 
 On a retry, an earlier attempt failed and was rolled back. Read `Reason:` and don't repeat what failed.
 
@@ -30,11 +31,11 @@ On a retry, an earlier attempt failed and was rolled back. Read `Reason:` and do
 
 ## Parallel
 
-When your message has a `Parallel: yes` line, you work in a Git worktree that was made for you, not in the directory your shell starts in. The `Worktree:` line gives its absolute path in drive-letter form (`C:/...`); WT is that path. The `Tasks file:` path is outside the worktree: read it with the Read tool, as given.
+When your message has a `Parallel: yes` line, you work in a Git worktree that was made for you, not in the directory your shell starts in. The `Worktree:` line gives its absolute path in drive-letter form (`C:/...`); WT is that path.
 
-- First run the `setup` commands, if the tasks file's top-level object has a `setup` list: one at a time, in order, each as a Bash command that starts with `cd "<WT>" && `. Stop at the first one that fails: don't do the task and don't commit. End with `STATUS: FAILED`, `COMMIT: NONE`, `VERIFY: NOT RUN` and a NOTE that starts with `SETUP FAILED:` and names the command and its error.
+- First run the command of each `Setup:` line, if your message has any: one at a time, in order, each as a Bash command that starts with `cd "<WT>" && `. Stop at the first one that fails: don't do the task and don't commit. End with `STATUS: FAILED`, `COMMIT: NONE`, `VERIFY: NOT RUN` and a NOTE that starts with `SETUP FAILED:` and names the command and its error.
 - Your shell forgets any `cd` as soon as a command ends. Start every Bash command with `cd "<WT>" && ` followed by the command. Use the Bash tool for every command, never PowerShell.
-- Every Write, Edit and Read call takes an absolute path that starts with WT (the tasks file is the one exception). Every Glob and Grep call passes `path` set to WT; without it they search the main tree.
+- Every Write, Edit and Read call takes an absolute path that starts with WT. Every Glob and Grep call passes `path` set to WT; without it they search the main tree.
 - Never build a path from `pwd` output: it prints `/tmp/...` forms that the file tools resolve to the wrong place.
 - The branch checked out in WT is already yours: commit there, and never switch branches or leave WT.
 
@@ -44,7 +45,7 @@ Only if Verify passed, commit all your changes as one commit:
 
 ```
 git add -A
-git commit -m "<the task's title>" -m "Tierminator-Task: <the task's id>" -m "Tierminator-Plan: <the Plan: line's id>"
+git commit -m "<the Title: line's title>" -m "Tierminator-Task: <the Task: line's id>" -m "Tierminator-Plan: <the Plan: line's id>"
 ```
 
 Without a `Plan:` line, leave out the last `-m`. Make exactly one commit. Never push, amend, reset,

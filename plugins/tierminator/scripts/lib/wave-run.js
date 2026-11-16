@@ -111,16 +111,30 @@ function startable(state) {
   return wave.size.filter(id => ready.includes(id) || free.includes(id))
 }
 
-// The state once task `id` is dispatched, or the same state when it may not start.
+// The state once task `id` is dispatched, or the same state when it may not start. wave.batch is the set of
+// tasks the dispatch text that `id` came from gave (batchIds), so H4's post knows when all of them were sent.
 function dispatched(state, id, now = new Date().toISOString()) {
   if (!startable(state).includes(id)) return state
+  const prev = state.wave.batch ?? []
+  const given = batchIds(state)
+  const batch = prev.includes(id) ? prev : given.includes(id) ? given : [id]
   const slot = { ...state.wave.slots[id], status: 'running', inFlight: true, report: null, startedAt: now }
   const next = withSlot(state, id, slot)
-  return { ...next, wave: { ...next.wave, queue: next.wave.queue.filter(q => q !== id) } }
+  return { ...next, wave: { ...next.wave, queue: next.wave.queue.filter(q => q !== id), batch } }
 }
 
+// Whether every task of the last dispatch text has been sent, so the next ones may be given (H4's post). Until
+// then, the calls Claude made in the same message are still arriving, and giving the rest would repeat them.
+const batchSent = state => {
+  const open = startable(state)
+  return (state?.wave?.batch ?? []).every(id => !open.includes(id))
+}
+
+// The first header line of a dispatch prompt that matches `re`; the task's own prompt, after PROMPT_LINE, is
+// never read, so a line in it cannot pass for a header.
 const lineOf = (text, re) => {
   for (const line of String(text ?? '').split(/\r?\n/)) {
+    if (line.trim() === r.PROMPT_LINE) return null
     const m = re.exec(line)
     if (m) return m[1]
   }
@@ -145,18 +159,15 @@ function recordAgent(state, id, agentId) {
   return withSlot(state, id, { ...slot, agentId })
 }
 
-// The Agent call a slot expects: the serial prompt with Parallel and Worktree lines after the Task line.
+// The Agent call a slot expects: the serial prompt with the slot's Parallel, Worktree and Setup lines.
 function expectedCall(state, id) {
   const slot = state?.wave?.slots?.[id]
   if (!slot) return null
-  const lines = r.expectedPrompt(asCurrent(state, id)).split('\n')
-  const at = lines.findIndex(l => l.startsWith('Task: '))
-  lines.splice(at + 1, 0, 'Parallel: yes', `Worktree: ${slot.worktree}`)
   const task = state.tasks[slot.index]
   return {
     subagent_type: r.agentName(slot.tier),
     description: `${id}: ${task.title}`,
-    prompt: lines.join('\n'),
+    prompt: r.expectedPrompt(asCurrent(state, id), { worktree: slot.worktree, setup: state.setup ?? [] }),
   }
 }
 
@@ -186,8 +197,7 @@ function checkDispatch(state, toolInput) {
   }
   const got = worktreeOfPrompt(toolInput.prompt)
   if (got !== slot.worktree) return out(`the Worktree: line must be ${slot.worktree}, not ${got ?? 'missing'}`)
-  if (r.normalize(toolInput.prompt) !== r.normalize(want.prompt)) return out('the prompt is not the expected one')
-  return out(null)
+  return out(r.promptMismatch(toolInput.prompt, want.prompt))
 }
 
 const nonEmpty = v => typeof v === 'string' && v !== ''
@@ -334,27 +344,65 @@ function checkResume(state, toolInput) {
 const short = sha => String(sha ?? '').slice(0, 7)
 const lastDone = (state, id) => [...state.done].reverse().find(d => d.id === id)
 
-// The instruction Claude follows to dispatch every task that may start now; '' when none may.
-function dispatchText(state) {
-  const ids = startable(state)
-  if (ids.length === 0) return ''
-  const lines = [
-    ids.length === 1
-      ? 'Call the Agent tool now, once:'
-      : `Call the Agent tool ${ids.length} times now, all in one message, one call per task:`,
-  ]
-  for (const id of ids) {
-    const call = expectedCall(state, id)
-    lines.push(
-      `- subagent_type "${call.subagent_type}", description ${JSON.stringify(call.description)}, and as its ` +
-        `prompt exactly the ${call.prompt.split('\n').length} lines inside this fence, without the fence lines:` +
-        '\n```\n' + call.prompt + '\n```'
-    )
+// The characters of task calls one dispatch text may hold. Each call carries its task's whole prompt, and hook
+// text over about 10,000 characters reaches Claude only as a file to read (measured: 9,000 arrives whole,
+// 20,000 does not; tierminator-agent-prompt-findings.md), so the rest of a wide wave waits for the next text.
+const DISPATCH_BUDGET = 7000
+
+// The first sentence of every dispatch text, and the last line of a wave's: what joined notices cut.
+const DISPATCH_HEAD = 'Call the Agent tool '
+const WAVE_DISPATCH_TAIL = "Do not set isolation: tierminator makes each task's worktree."
+
+const callText = (state, id) => {
+  const call = expectedCall(state, id)
+  return `- subagent_type "${call.subagent_type}", description ${JSON.stringify(call.description)}, and ${r.fenced(call.prompt)}`
+}
+
+// The tasks a dispatch text gives now: those that may start, in order, as many as DISPATCH_BUDGET holds and
+// always at least one; [] when none may.
+function batchIds(state) {
+  const ids = []
+  let used = 0
+  for (const id of startable(state)) {
+    const size = callText(state, id).length
+    if (ids.length > 0 && used + size > DISPATCH_BUDGET) break
+    ids.push(id)
+    used += size
   }
-  lines.push(
-    "Do not set isolation: tierminator makes each task's worktree. Do not do the tasks yourself. If they run in the background, end your turn."
-  )
-  return lines.join('\n')
+  return ids
+}
+
+// The instruction Claude follows to dispatch the tasks of batchIds; '' when none may start. The rest are given
+// once these have been sent (H4's post).
+function dispatchText(state) {
+  const ids = batchIds(state)
+  if (ids.length === 0) return ''
+  const calls = ids.map(id => callText(state, id))
+  const later = startable(state).length - calls.length
+  return [
+    calls.length === 1
+      ? `${DISPATCH_HEAD}now, once:`
+      : `${DISPATCH_HEAD}${calls.length} times now, all in one message, one call per task:`,
+    ...calls,
+    `${WAVE_DISPATCH_TAIL} Do not do the tasks yourself. ` +
+      (later > 0
+        ? `${later} more ${later === 1 ? 'task' : 'tasks'} of this wave ${later === 1 ? 'is' : 'are'} given when these calls return; do not end your turn before then.`
+        : 'If they run in the background, end your turn.'),
+  ].join('\n')
+}
+
+// `text` without the wave dispatch blocks in it: a notice's dispatch is stale once a newer notice is joined to
+// it, since the newer one carries the dispatch for the newer state. Keeps joined notices within hook limits.
+function withoutDispatch(text) {
+  let out = String(text ?? '')
+  for (;;) {
+    const at = out.indexOf(DISPATCH_HEAD)
+    if (at < 0) return out.trimEnd()
+    const tail = out.indexOf(WAVE_DISPATCH_TAIL, at)
+    if (tail < 0) return out.trimEnd()
+    const nl = out.indexOf('\n', tail)
+    out = (out.slice(0, at).trimEnd() + (nl < 0 ? '' : '\n' + out.slice(nl + 1))).trimEnd()
+  }
 }
 
 // What Claude is told when a parallel wave starts: the wave's size, then the dispatch instruction.
@@ -430,7 +478,11 @@ function noticeText(prev, next, id, action, outcome) {
 }
 
 module.exports = {
+  DISPATCH_BUDGET,
+  batchIds,
+  batchSent,
   dispatchText,
+  withoutDispatch,
   runningText,
   resumeText,
   haltText,

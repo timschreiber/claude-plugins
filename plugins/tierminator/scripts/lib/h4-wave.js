@@ -32,7 +32,9 @@ const deny = reason =>
 const context = (event, additionalContext) => emit({ hookSpecificOutput: { hookEventName: event, additionalContext } })
 
 const cwdOf = (s, input) => s.cwd ?? input.cwd
-const joinNotice = (a, b) => [a, b].filter(Boolean).join('\n\n')
+// A notice joined to an earlier one: the earlier one's dispatch is dropped, since the later one was made from the
+// newer state and carries any dispatch still due.
+const joinNotice = (a, b) => [a && b ? w.withoutDispatch(a) : a, b].filter(Boolean).join('\n\n')
 
 // Removes a slot's worktree and then its branch. Returns the worktreeRemove result.
 function discardSlot(cwd, slot) {
@@ -59,8 +61,11 @@ function slotFromTranscript(file, planId) {
     const c = o?.message?.content
     const text = typeof c === 'string' ? c : Array.isArray(c) ? c.filter(b => b?.type === 'text').map(b => b.text).join('\n') : ''
     if (typeof text !== 'string' || !text) continue
-    const rows = text.split('\n')
-    if (rows.some(l => l.startsWith('Tasks file:')) && (!planId || rows.some(l => l.trim() === 'Plan: ' + planId))) return w.taskOfPrompt(text)
+    // A dispatch prompt: header lines, then PROMPT_LINE and the task's own prompt, which is never read here.
+    const rows = text.split(/\r?\n/)
+    const end = rows.findIndex(l => l.trim() === r.PROMPT_LINE)
+    if (end < 0) continue
+    if (!planId || rows.slice(0, end).some(l => l.trim() === 'Plan: ' + planId)) return w.taskOfPrompt(text)
   }
   return null
 }
@@ -345,7 +350,10 @@ function post(input, s) {
       if (text) return context('PostToolUse', text)
     }
   }
-  context('PostToolUse', w.runningText(cur))
+  // Tasks that may start but were not dispatched yet: those a dispatch text left for later (DISPATCH_BUDGET),
+  // given once every task of that text has been sent.
+  const more = w.batchSent(cur) ? w.dispatchText(cur) : ''
+  context('PostToolUse', more ? `tierminator: more tasks of wave ${cur.wave.n} may start now. ${more}` : w.runningText(cur))
 }
 
 function failure(input, s) {

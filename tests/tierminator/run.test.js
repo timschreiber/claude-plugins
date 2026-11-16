@@ -27,21 +27,54 @@ test('startRun begins at T01 on its own tier', () => {
   assert.equal(s.branch, 'main')
 })
 
-test('the dispatch is a pointer to the task, with the reason added on a retry', () => {
+const PROMPT1 = 'Task: T01\nTitle: Task 1\nTask prompt:\nDo it. Verify: node --test passes.'
+
+test('the dispatch holds the whole task, never a pointer to it, with the reason added on a retry', () => {
   const s = start()
-  assert.equal(r.expectedPrompt(s), 'Tasks file: C:/plans/p.tasks.json\nTask: T01')
+  assert.equal(r.expectedPrompt(s), PROMPT1)
+  assert.ok(!r.expectedPrompt(s).includes('p.tasks.json'), 'the tasks file is not named')
   assert.deepEqual(r.expectedCall(s), {
     subagent_type: 'tierminator:sonnet-low',
     description: 'T01: Task 1',
-    prompt: 'Tasks file: C:/plans/p.tasks.json\nTask: T01',
+    prompt: PROMPT1,
   })
   const retry = r.advance(s, { ok: false, reason: 'Verify failed' }).state
   assert.equal(
     r.expectedPrompt(retry),
-    'Tasks file: C:/plans/p.tasks.json\nTask: T01\n' +
+    'Task: T01\nTitle: Task 1\n' +
       'Retry: attempt 2 of 3; the attempt at sonnet-low failed and was rolled back.\n' +
-      'Reason: Verify failed'
+      'Reason: Verify failed\n' +
+      'Task prompt:\nDo it. Verify: node --test passes.'
   )
+})
+
+test('the dispatch carries a multi-line task prompt verbatim, but for line endings and trailing spaces', () => {
+  const prompt = 'Read docs/spec.md.  \r\nFiles to change: a.js\r\n\r\n1. Edit a.js.\r\nVerify: npm test'
+  const s = r.startRun({ tasks: [task(1, { prompt })], tasksFile: 'f', branch: 'main' })
+  assert.equal(
+    r.expectedPrompt(s),
+    'Task: T01\nTitle: Task 1\nTask prompt:\nRead docs/spec.md.\nFiles to change: a.js\n\n1. Edit a.js.\nVerify: npm test'
+  )
+})
+
+test('a wave slot adds its Parallel, Worktree and Setup lines to the header', () => {
+  const s = start()
+  assert.equal(
+    r.expectedPrompt(s, { worktree: 'C:/wt/T01', setup: ['npm ci', 'cp .env.example .env'] }),
+    'Task: T01\nTitle: Task 1\nParallel: yes\nWorktree: C:/wt/T01\nSetup: npm ci\nSetup: cp .env.example .env\n' +
+      'Task prompt:\nDo it. Verify: node --test passes.'
+  )
+})
+
+test('fenceFor is longer than any backtick run in the text', () => {
+  assert.equal(r.fenceFor('plain'), '```')
+  assert.equal(r.fenceFor('use `x`'), '```')
+  assert.equal(r.fenceFor('a\n```js\ncode\n```'), '````')
+  assert.equal(r.fenceFor('``````'), '```````')
+  const s = r.startRun({ tasks: [task(1, { prompt: 'Add:\n```js\nx()\n```\nVerify: ok' })], tasksFile: 'f', branch: 'main' })
+  const text = r.dispatchText(s)
+  assert.ok(text.includes('without the fence lines:\n````\nTask: T01\n'), text)
+  assert.ok(text.includes('\nVerify: ok\n````\nDo not do the task yourself'), text)
 })
 
 test('startRun carries setup, verify and graph', () => {
@@ -60,7 +93,7 @@ test('startRun defaults to no setup, no verify and no graph', () => {
 
 test('with a plan id, the prompt names the plan and judge requires its line in the commit', () => {
   const s = r.startRun({ tasks: TASKS, tasksFile: 'C:/plans/p.tasks.json', branch: 'main', planId: '0123456789abcdef' })
-  assert.equal(r.expectedPrompt(s), 'Tasks file: C:/plans/p.tasks.json\nPlan: 0123456789abcdef\nTask: T01')
+  assert.equal(r.expectedPrompt(s), 'Plan: 0123456789abcdef\n' + PROMPT1)
   const report = { status: 'DONE', commit: 'abc', verify: 'PASS', note: '' }
   const base = { report, taskId: 'T01', planId: '0123456789abcdef', clean: true, sameBranch: true }
   const withPlan = { sha: 'abc123', message: 'Task 1\n\nTierminator-Task: T01\n\nTierminator-Plan: 0123456789abcdef' }
@@ -75,7 +108,7 @@ test('a run picked up part-way starts at its first unfinished task and names the
   const done = [r.skippedEntry('T01', 'aaa1111ffff', 'committed')]
   let s = r.startRun({ tasks: TASKS, tasksFile: 'f', branch: 'main', start: 1, done })
   assert.deepEqual([s.current.index, s.current.tier, s.current.attempt], [1, 'sonnet-medium', 1])
-  assert.match(r.expectedPrompt(s), /Task: T02$/)
+  assert.match(r.expectedPrompt(s), /^Task: T02\nTitle: Task 2\n/)
   s = r.advance(s, { ok: true, commit: 'bbb2222' }).state
   const { state } = r.advance(s, { ok: true, commit: 'ccc3333' })
   const text = r.completeText(state)
@@ -90,7 +123,7 @@ test('dispatchText spells out the exact call', () => {
   assert.match(text, /subagent_type "tierminator:sonnet-low"/)
   assert.match(text, /description "T01: Task 1"/)
   assert.ok(!text.includes('run_in_background'))
-  assert.match(text, /as its prompt exactly the 2 lines inside this fence, without the fence lines:\n```\nTasks file: C:\/plans\/p\.tasks\.json\nTask: T01\n```\nDo not do the task yourself/)
+  assert.ok(text.includes('as its prompt exactly the 4 lines inside this fence, without the fence lines:\n```\n' + PROMPT1 + '\n```\nDo not do the task yourself'), text)
   assert.match(text, /Do not do the task yourself/)
   assert.match(text, /If it runs in the background, end your turn/)
 })
@@ -121,15 +154,24 @@ test('checkDispatch accepts the expected call in the foreground or the backgroun
   assert.equal(r.checkDispatch(s, call(s)), null)
   assert.equal(r.checkDispatch(s, call(s, { run_in_background: false })), null)
   assert.equal(r.checkDispatch(s, call(s, { run_in_background: true })), null)
-  assert.equal(r.checkDispatch(s, call(s, { prompt: 'Tasks file: C:/plans/p.tasks.json  \r\nTask: T01\r\n' })), null)
+  assert.equal(r.checkDispatch(s, call(s, { prompt: PROMPT1.replace(/\n/g, '  \r\n') + '\r\n' })), null)
   assert.equal(r.checkDispatch(s, call(s, { description: 'anything' })), null, 'the description is not checked')
 })
 
 test('checkDispatch names what is wrong', () => {
   const s = start()
   assert.match(r.checkDispatch(s, call(s, { subagent_type: 'tierminator:sonnet-medium' })), /runs on tierminator:sonnet-low, not tierminator:sonnet-medium/)
-  assert.match(r.checkDispatch(s, call(s, { prompt: 'Task: T01' })), /prompt is not the expected one/)
-  assert.match(r.checkDispatch(s, call(s, { prompt: 'Tasks file: C:/plans/p.tasks.json\nTask: T02' })), /not the expected one/)
+  assert.equal(
+    r.checkDispatch(s, call(s, { prompt: 'Task: T01' })),
+    'the prompt is not the expected one (line 2 is nothing, expected "Title: Task 1")'
+  )
+  assert.equal(
+    r.checkDispatch(s, call(s, { prompt: PROMPT1.replace('Do it.', 'Do it!') })),
+    'the prompt is not the expected one (line 4 is "Do it! Verify: node --test passes.", expected "Do it. Verify: node --test passes.")'
+  )
+  assert.match(r.checkDispatch(s, call(s, { prompt: 'Tasks file: C:/plans/p.tasks.json\nTask: T01' })), /line 1 is "Tasks file: /)
+  assert.match(r.checkDispatch(s, call(s, { prompt: PROMPT1 + '\nextra' })), /line 5 is "extra", expected nothing/)
+  assert.match(r.promptMismatch('x'.repeat(300), 'y'), /line 1 is "x{120}\.\.\."/)
   assert.match(r.checkDispatch({ ...s, current: { ...s.current, inFlight: true } }, call(s)), /T01 is already running/)
   assert.match(r.checkDispatch({ ...s, phase: 'halted' }, call(s)), /no tierminator run is in progress/)
   assert.match(r.checkDispatch(null, call(s)), /no tierminator run is in progress/)

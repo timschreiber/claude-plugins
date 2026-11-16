@@ -47,8 +47,12 @@ test('the sonnet bodies match each other and the opus bodies match each other, e
   }
   for (const tier of TIERS) {
     const body = read(tier).body
-    assert.match(body, /Tasks file:/, tier)
-    assert.match(body, /git commit -m "<the task's title>" -m "Tierminator-Task: <the task's id>" -m "Tierminator-Plan: <the Plan: line's id>"/, tier)
+    // The task is in the message, never read from a file (auto mode judges the worker against its prompt).
+    assert.ok(body.includes('Your message holds your whole task.'), tier)
+    assert.ok(body.includes('After the `Task prompt:`\nline comes your task'), tier)
+    assert.ok(body.includes("don't look for your task in a plan or tasks file"), tier)
+    assert.ok(!body.includes('Tasks file:'), tier)
+    assert.match(body, /git commit -m "<the Title: line's title>" -m "Tierminator-Task: <the Task: line's id>" -m "Tierminator-Plan: <the Plan: line's id>"/, tier)
     assert.match(body, /`Plan:` line/, tier)
     assert.match(body, /STATUS: DONE \| FAILED\nCOMMIT: .*\nVERIFY: .*\nNOTE: /, tier)
     assert.match(body, /No line before this block may start with `STATUS:`, `COMMIT:`, `VERIFY:` or `NOTE:`/, tier)
@@ -73,11 +77,11 @@ test('the sonnet bodies match each other and the opus bodies match each other, e
 const PARALLEL = [
   '## Parallel',
   '',
-  'When your message has a `Parallel: yes` line, you work in a Git worktree that was made for you, not in the directory your shell starts in. The `Worktree:` line gives its absolute path in drive-letter form (`C:/...`); WT is that path. The `Tasks file:` path is outside the worktree: read it with the Read tool, as given.',
+  'When your message has a `Parallel: yes` line, you work in a Git worktree that was made for you, not in the directory your shell starts in. The `Worktree:` line gives its absolute path in drive-letter form (`C:/...`); WT is that path.',
   '',
-  "- First run the `setup` commands, if the tasks file's top-level object has a `setup` list: one at a time, in order, each as a Bash command that starts with `cd \"<WT>\" && `. Stop at the first one that fails: don't do the task and don't commit. End with `STATUS: FAILED`, `COMMIT: NONE`, `VERIFY: NOT RUN` and a NOTE that starts with `SETUP FAILED:` and names the command and its error.",
+  "- First run the command of each `Setup:` line, if your message has any: one at a time, in order, each as a Bash command that starts with `cd \"<WT>\" && `. Stop at the first one that fails: don't do the task and don't commit. End with `STATUS: FAILED`, `COMMIT: NONE`, `VERIFY: NOT RUN` and a NOTE that starts with `SETUP FAILED:` and names the command and its error.",
   "- Your shell forgets any `cd` as soon as a command ends. Start every Bash command with `cd \"<WT>\" && ` followed by the command. Use the Bash tool for every command, never PowerShell.",
-  '- Every Write, Edit and Read call takes an absolute path that starts with WT (the tasks file is the one exception). Every Glob and Grep call passes `path` set to WT; without it they search the main tree.',
+  '- Every Write, Edit and Read call takes an absolute path that starts with WT. Every Glob and Grep call passes `path` set to WT; without it they search the main tree.',
   '- Never build a path from `pwd` output: it prints `/tmp/...` forms that the file tools resolve to the wrong place.',
   '- The branch checked out in WT is already yours: commit there, and never switch branches or leave WT.',
   '',

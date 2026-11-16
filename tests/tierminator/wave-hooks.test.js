@@ -289,7 +289,8 @@ test('a retry discards the old worktree and makes a fresh one', () => {
 })
 
 const h4 = lib('h4-wave.js')
-const promptFor = (id, plan = 'P1') => 'Tasks file: x\nPlan: ' + plan + '\nTask: ' + id + '\nParallel: yes\nWorktree: C:/w'
+const promptFor = (id, plan = 'P1') =>
+  'Plan: ' + plan + '\nTask: ' + id + '\nTitle: t\nParallel: yes\nWorktree: C:/w\nTask prompt:\nDo it. Verify: ok'
 const transcript = (name, content) => {
   const f = path.join(dir, name)
   fs.writeFileSync(f, JSON.stringify({ type: 'user', message: { content } }) + '\n')
@@ -303,6 +304,9 @@ test('slotFromTranscript reads the task from the first prompt', () => {
   assert.equal(h4.slotFromTranscript(path.join(dir, 'missing.jsonl'), 'P1'), null)
   const g = transcript('u.jsonl', [{ type: 'text', text: promptFor('T02') }])
   assert.equal(h4.slotFromTranscript(g, 'P1'), 'T02')
+  // Only a dispatch prompt counts, and only its header: a Plan line in the task's own prompt does not.
+  assert.equal(h4.slotFromTranscript(transcript('v.jsonl', 'Plan: P1\nTask: T02'), 'P1'), null)
+  assert.equal(h4.slotFromTranscript(transcript('x.jsonl', 'Task: T02\nTask prompt:\nPlan: P1'), 'P1'), null)
 })
 
 test('slotOfStop finds a slot by transcript or by agent id', () => {
@@ -452,13 +456,29 @@ test('no report and no commit asks the worker once', () => {
 test('the agent is found by its transcript when no id was recorded', () => {
   dispatchAll()
   const sha = workerCommits('T02')
-  const file = transcript('zz.jsonl', 'Tasks file: x\nPlan: ' + PLAN_ID + '\nTask: T02\nParallel: yes')
+  const file = transcript('zz.jsonl', promptFor('T02', PLAN_ID))
   stopHook(subStop('T02', report('DONE', sha), { agent_id: 'zz', agent_transcript_path: file }))
   assert.equal(slotOf('T02').status, 'done')
   assert.equal(slotOf('T02').agentId, 'zz')
 })
 
 const postHook = input => hook('h4-dispatch.js', input, ['post'])
+
+test('post gives the tasks a dispatch text left for later only once its own tasks were all sent', () => {
+  const third = Math.floor(w.DISPATCH_BUDGET / 3)
+  const tasks = TASKS.map(t => ({ ...t, prompt: 'x'.repeat(third) + '\nVerify: ok' }))
+  startWaveRun({ tasks })
+  assert.deepEqual(w.batchIds(state.read(S)), ['T01', 'T02'])
+  assert.equal(preOf(callOf('T01')).stdout, '')
+  const first = postHook(agentPost(callOf('T01'), { isAsync: true, status: 'async_launched', agentId: 'worker-T01' }))
+  assert.match(first.json.hookSpecificOutput.additionalContext, /^tierminator: T01 on tierminator:sonnet-medium is running in the background/)
+  assert.equal(preOf(callOf('T02')).stdout, '')
+  const second = postHook(agentPost(callOf('T02'), { isAsync: true, status: 'async_launched', agentId: 'worker-T02' }))
+  const text = second.json.hookSpecificOutput.additionalContext
+  assert.ok(text.startsWith(`tierminator: more tasks of wave ${state.read(S).wave.n} may start now. Call the Agent tool now, once:\n`), text.slice(0, 120))
+  assert.ok(text.includes('description "T03: '))
+  assert.ok(text.includes(w.expectedCall(state.read(S), 'T03').prompt))
+})
 
 test('post of a background launch records the agent id and says to end the turn', () => {
   startWaveRun()

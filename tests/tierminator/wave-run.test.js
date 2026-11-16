@@ -106,9 +106,13 @@ test('startable is empty outside a working run and queues nothing while halting'
 })
 
 test('taskOfPrompt and worktreeOfPrompt read their lines', () => {
-  assert.equal(w.taskOfPrompt('Tasks file: f\r\nTask: T02\r\nParallel: yes'), 'T02')
+  assert.equal(w.taskOfPrompt('Plan: p\r\nTask: T02\r\nParallel: yes'), 'T02')
   assert.equal(w.worktreeOfPrompt('Task: T02\r\nWorktree: C:/a b/c\r\n'), 'C:/a b/c')
-  assert.equal(w.taskOfPrompt('Tasks file: f'), null)
+  assert.equal(w.taskOfPrompt('Plan: p'), null)
+  // Only the header is read: a line in the task's own prompt never passes for one.
+  assert.equal(w.taskOfPrompt('Plan: p\nTask prompt:\nTask: T09'), null)
+  assert.equal(w.worktreeOfPrompt('Task: T02\nTask prompt:\nWorktree: C:/elsewhere'), null)
+  assert.equal(w.taskOfPrompt('Task: T02\nTask prompt:\nTask: T09'), 'T02')
   assert.equal(w.worktreeOfPrompt('Task: T02'), null)
   assert.equal(w.taskOfPrompt(undefined), null)
 })
@@ -129,12 +133,17 @@ test('slotOfAgent and recordAgent', () => {
   assert.equal(w.recordAgent(past, 'T02', 'a3'), past)
 })
 
-test('expectedCall adds the Parallel and Worktree lines and no isolation', () => {
+test('expectedCall adds the Parallel, Worktree and Setup lines and no isolation', () => {
   const s = wave()
   const c = w.expectedCall(s, 'T02')
+  const body = ['Task prompt:', 'Do it. Verify: node --test passes.']
   assert.equal(
     c.prompt,
-    ['Tasks file: C:/plans/p.tasks.json', 'Plan: 0123456789abcdef', 'Task: T02', 'Parallel: yes', `Worktree: ${slot(s, 'T02').worktree}`].join('\n')
+    ['Plan: 0123456789abcdef', 'Task: T02', 'Title: Task 2', 'Parallel: yes', `Worktree: ${slot(s, 'T02').worktree}`, ...body].join('\n')
+  )
+  assert.equal(
+    w.expectedCall({ ...s, setup: ['npm ci'] }, 'T02').prompt,
+    ['Plan: 0123456789abcdef', 'Task: T02', 'Title: Task 2', 'Parallel: yes', `Worktree: ${slot(s, 'T02').worktree}`, 'Setup: npm ci', ...body].join('\n')
   )
   assert.equal(c.subagent_type, 'tierminator:sonnet-medium')
   assert.equal(c.description, 'T02: Task 2')
@@ -144,13 +153,14 @@ test('expectedCall adds the Parallel and Worktree lines and no isolation', () =>
   assert.equal(
     w.expectedCall(retry, 'T02').prompt,
     [
-      'Tasks file: C:/plans/p.tasks.json',
       'Plan: 0123456789abcdef',
       'Task: T02',
+      'Title: Task 2',
       'Parallel: yes',
       `Worktree: ${slot(s, 'T02').worktree}`,
       'Retry: attempt 2 of 3; the attempt at sonnet-medium failed and was rolled back.',
       'Reason: Verify failed',
+      ...body,
     ].join('\n')
   )
 })
@@ -184,7 +194,7 @@ test('checkDispatch names each other problem', () => {
   assert.equal(problem({ ...s, phase: 'halted' }, call(s, 'T02')), 'no parallel wave is running')
   assert.equal(problem(run(), call(s, 'T02')), 'no parallel wave is running')
   assert.equal(problem({ ...s, wave: { ...s.wave, phase: 'verifying' } }, call(s, 'T02')), 'wave 2 is closing; dispatch nothing')
-  assert.equal(problem(s, { subagent_type: 'x', prompt: 'Tasks file: f' }), 'the prompt has no Task: line')
+  assert.equal(problem(s, { subagent_type: 'x', prompt: 'Plan: 0123456789abcdef' }), 'the prompt has no Task: line')
   assert.equal(problem(s, { subagent_type: 'x', prompt: 'Task: T05' }), 'T05 is not in this wave (wave 2: T02, T03, T04)')
   const running = w.dispatched(s, 'T02')
   assert.equal(problem(running, call(s, 'T02')), 'T02 is already running; wait for it to return')
@@ -197,7 +207,7 @@ test('checkDispatch names each other problem', () => {
   const halting = { ...full, wave: { ...full.wave, halting: { task: 'T02', tried: [], reason: 'x' } } }
   assert.equal(problem(halting, call(s, 'T04')), 'the wave is halting (T02 failed), so T04 does not start')
   assert.equal(problem(s, call(s, 'T02', { subagent_type: 'tierminator:opus-high' })), 'T02 runs on tierminator:sonnet-medium, not tierminator:opus-high')
-  assert.equal(problem(s, call(s, 'T02', { prompt: `${w.expectedCall(s, 'T02').prompt}\nExtra` })), 'the prompt is not the expected one')
+  assert.equal(problem(s, call(s, 'T02', { prompt: `${w.expectedCall(s, 'T02').prompt}\nExtra` })), 'the prompt is not the expected one (line 8 is "Extra", expected nothing)')
 })
 
 test('wave-run.js requires only the pure libraries', () => {
@@ -521,12 +531,66 @@ test('dispatchText for three startable tasks, and empty when none can start', ()
   assert.ok(text.startsWith('Call the Agent tool 3 times now, all in one message, one call per task:\n'))
   for (const [id, type] of [['T02', 'tierminator:sonnet-medium'], ['T03', 'tierminator:haiku-high'], ['T04', 'tierminator:opus-high']]) {
     const c = w.expectedCall(s, id)
-    assert.ok(text.includes(`- subagent_type "${type}", description "${id}: Task ${Number(id.slice(1))}", and as its prompt exactly the 5 lines inside this fence, without the fence lines:\n${fenceOf(s, id)}`))
-    assert.equal(c.prompt.split('\n').length, 5)
+    assert.ok(text.includes(`- subagent_type "${type}", description "${id}: Task ${Number(id.slice(1))}", and as its prompt exactly the 7 lines inside this fence, without the fence lines:\n${fenceOf(s, id)}`))
+    assert.equal(c.prompt.split('\n').length, 7)
   }
   assert.ok(text.endsWith(`\n${ISO}`))
   assert.equal(w.dispatchText(running(s, 'T02', 'T03', 'T04')), '')
   assert.equal(w.dispatchText({ ...s, phase: 'halted' }), '')
+})
+
+test('dispatchText holds as many calls as DISPATCH_BUDGET allows, at least one, and says more follow', () => {
+  const big = n => 'x'.repeat(n) + '\nVerify: ok'
+  const sized = sizes => {
+    const tasks = TASKS.map((t, i) => (sizes[t.id] ? { ...t, prompt: big(sizes[t.id]) } : t))
+    return w.startWave({ ...run(), tasks }, ['T02', 'T03', 'T04'], 'base000', 5, REPO)
+  }
+  const third = Math.floor(w.DISPATCH_BUDGET / 3)
+  let s = sized({ T02: third, T03: third, T04: third })
+  let text = w.dispatchText(s)
+  assert.ok(text.startsWith('Call the Agent tool 2 times now, all in one message, one call per task:\n'), text.slice(0, 80))
+  assert.ok(text.includes('description "T02: Task 2"') && text.includes('description "T03: Task 3"'))
+  assert.ok(!text.includes('description "T04: Task 4"'))
+  assert.ok(text.endsWith('Do not do the tasks yourself. 1 more task of this wave is given when these calls return; do not end your turn before then.'))
+  // Once those two are dispatched, the third follows.
+  text = w.dispatchText(w.dispatched(w.dispatched(s, 'T02'), 'T03'))
+  assert.ok(text.startsWith('Call the Agent tool now, once:\n') && text.includes('description "T04: Task 4"') && text.endsWith(ISO))
+  // A task larger than the budget is still given, alone.
+  s = sized({ T02: w.DISPATCH_BUDGET * 2 })
+  text = w.dispatchText(s)
+  assert.ok(text.startsWith('Call the Agent tool now, once:\n') && text.includes('description "T02: Task 2"'))
+  assert.ok(text.endsWith('2 more tasks of this wave are given when these calls return; do not end your turn before then.'))
+})
+
+test('dispatched records the batch its dispatch text gave, and batchSent says when all of it was sent', () => {
+  const third = Math.floor(w.DISPATCH_BUDGET / 3)
+  const tasks = TASKS.map(t => ({ ...t, prompt: 'x'.repeat(third) + '\nVerify: ok' }))
+  const s = w.startWave({ ...run(), tasks }, ['T02', 'T03', 'T04'], 'base000', 5, REPO)
+  assert.deepEqual(w.batchIds(s), ['T02', 'T03'])
+  assert.equal(w.batchSent(s), true, 'nothing given yet')
+  const one = w.dispatched(s, 'T02')
+  assert.deepEqual(one.wave.batch, ['T02', 'T03'])
+  assert.equal(w.batchSent(one), false, 'T03 is on its way')
+  const two = w.dispatched(one, 'T03')
+  assert.deepEqual(two.wave.batch, ['T02', 'T03'])
+  assert.equal(w.batchSent(two), true)
+  // The next text's task starts a new batch; a task dispatched out of order is a batch of its own.
+  assert.deepEqual(w.dispatched(two, 'T04').wave.batch, ['T04'])
+  assert.deepEqual(w.dispatched(s, 'T04').wave.batch, ['T04'])
+  assert.deepEqual(w.batchIds(running(s, 'T02', 'T03', 'T04')), [])
+})
+
+test('withoutDispatch drops every wave dispatch block and keeps the rest', () => {
+  const s = wave()
+  const d = w.dispatchText(s)
+  assert.equal(w.withoutDispatch(`tierminator: T01 done. ${d}`), 'tierminator: T01 done.')
+  const resume = 'tierminator: T05 stopped at its turn limit. Call the SendMessage tool now with to "a1".'
+  assert.equal(
+    w.withoutDispatch(`tierminator: T01 done. ${d}\n\n${resume}\n\ntierminator: T02 done. ${d}`),
+    `tierminator: T01 done.\n\n${resume}\n\ntierminator: T02 done.`
+  )
+  assert.equal(w.withoutDispatch('no dispatch here'), 'no dispatch here')
+  assert.equal(w.withoutDispatch(null), '')
 })
 
 test('runningText for one, two and none', () => {
