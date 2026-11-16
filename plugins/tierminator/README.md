@@ -319,8 +319,10 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
 - **Not built yet for parallel tasks:** a resolver for conflicting picks (the task just runs again), repair of
   a failed `verify`, a rule for what other tasks of a wave do when a usage limit ends the run, wave fields in
   the result file, and the wave and speed-up lines of the spend summary.
-- **`TIERMINATOR_MAX_PARALLEL` caps the tasks running at once** (default 5). The rest of a wave waits for a
-  free slot.
+- **At most 5 tasks run at once** unless you say otherwise. The rest of a wave waits for a free slot. Set
+  the cap for one plan with `--max-parallel N`: `/tierminator:plan --max-parallel 3 <request>` (before the
+  request; the run you approve uses it) or `/tierminator:execute <plan> --max-parallel 3`. Without the
+  option, `TIERMINATOR_MAX_PARALLEL` sets it, else 5.
 - **A run does not outlive its session, or a prompt you type during it.** Tasks that finished are
   committed, and `/tierminator:execute` can pick the plan up again.
 - **Spend is an estimate,** from transcripts and a price table fixed in the plugin with its date. A
@@ -348,7 +350,8 @@ Every hook does nothing in an inactive session, except H1 handling the `/tiermin
   The only changes to your repository are the tasks' own commits, and for a plan with parallel tasks the
   worktrees and branches tierminator removes again and a `.claude/worktrees/` line in `.git/info/exclude`.
 - Set `TIERMINATOR_MAX_PARALLEL` to a positive integer to cap how many tasks of a parallel wave run at once.
-  Unset or invalid means 5.
+  Unset or invalid means 5. A `--max-parallel N` on `/tierminator:plan` or `/tierminator:execute` wins over it
+  for that run.
 - Set `TIERMINATOR_DEBUG=1` to log hook errors and every state change to `tierminator-debug.log` in the
   temp directory.
 - `BASH_DEFAULT_TIMEOUT_MS` and `BASH_MAX_TIMEOUT_MS` in your own settings `env` are Claude Code's settings

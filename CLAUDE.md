@@ -19,8 +19,10 @@ cataloged in `.claude-plugin/marketplace.json`:
   report, before a retry. A plan whose tasks declare `after` is a graph plan:
   the independent tasks of a wave run at once, each in a Git worktree
   tierminator makes, and are cherry-picked onto the run branch in plan order,
-  with a conflicting task re-run serially; `TIERMINATOR_MAX_PARALLEL` caps it
-  (default 5); unattended parallel runs need auto or bypassPermissions mode.
+  with a conflicting task re-run serially; `--max-parallel N` on
+  `/tierminator:plan` (before the request, kept for the approved run) or
+  `/tierminator:execute` caps it, else `TIERMINATOR_MAX_PARALLEL`, else 5;
+  unattended parallel runs need auto or bypassPermissions mode.
   It needs Git (a commit
   identity and a clean tree). Every hook is silent until the user types
   `/tierminator:plan <request>`, which enters plan mode; approving the plan

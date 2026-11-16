@@ -117,8 +117,8 @@ plan made in plan mode without `/tierminator:plan` is not tiered.
 
 | Command | Effect |
 |---|---|
-| `/tierminator:plan <request>` | Starts planning the request as tiered tasks. Interactively: checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)); if it passes, makes the session **active** (writes `sessions/<session_id>.active` beside the state file) and saves the `planning` phase. Typed in plan mode, it adds the tiering rules at once. Typed outside plan mode, the note asks Claude to call `EnterPlanMode`, loading it with ToolSearch first if it is deferred; the rules then come from H1's `enter` mode. Approving the plan runs it (H3). In a headless session it starts [an unattended run](#unattended-runs) instead. |
-| `/tierminator:execute [plan path \| list number] [--from Txx]` | Runs a saved plan (see [Executing a saved plan](#executing-a-saved-plan)). With no arguments, lists recent plans. |
+| `/tierminator:plan [--max-parallel N] <request>` | Starts planning the request as tiered tasks. A `--max-parallel N` before the request caps the approved run's parallel tasks (see [Limiting parallelism](#limiting-parallelism)). Interactively: checks the working directory with `git.problem()`, the same check H2 makes (see [H2](#h2-gate)); if it passes, makes the session **active** (writes `sessions/<session_id>.active` beside the state file) and saves the `planning` phase. Typed in plan mode, it adds the tiering rules at once. Typed outside plan mode, the note asks Claude to call `EnterPlanMode`, loading it with ToolSearch first if it is deferred; the rules then come from H1's `enter` mode. Approving the plan runs it (H3). In a headless session it starts [an unattended run](#unattended-runs) instead. |
+| `/tierminator:execute [plan path | list number] [--from Txx] [--max-parallel N]` | Runs a saved plan\| list number] [--from Txx]` | Runs a saved plan (see [Executing a saved plan](#executing-a-saved-plan)). With no arguments, lists recent plans. |
 
 Either command first ends whatever the session was doing: a run in progress stops (as for a typed prompt,
 below), and the session is made inactive before the command starts anew.
@@ -943,8 +943,8 @@ run them. The tasks file and its hash cover the whole block, so neither can chan
   runs through the slot machinery ([`lib/wave-run.js`](../../plugins/tierminator/scripts/lib/wave-run.js)).
 - **A wave starts when the previous one settles.** The hook that settles the previous wave (or approval, for
   wave 1) computes the next wave from the tasks not yet done.
-- **The cap.** At most `TIERMINATOR_MAX_PARALLEL` tasks are ready or running at once (a positive integer;
-  unset or invalid means 5). The rest are queued and start in id order as slots free. Claude is told to make
+- **The cap.** At most the run's cap of tasks are ready or running at once (see
+  [Limiting parallelism](#limiting-parallelism)). The rest are queued and start in id order as slots free. Claude is told to make
   the startable Agent calls in one message.
 - **A dispatch text holds at most 7,000 characters of calls** (`DISPATCH_BUDGET`), and always at least one call.
   Each call carries its task's whole prompt, and hook text over about 10,000 characters reaches Claude only as
@@ -1075,8 +1075,24 @@ characters are kept.
 
 ### Limiting parallelism
 
-`TIERMINATOR_MAX_PARALLEL` caps the tasks ready or running at once. It must be a positive integer; unset, empty
-or invalid means 5. The rest of a wave is queued and starts in id order as slots free.
+A run's cap on the tasks ready or running at once is, in order (`maxParallel()` in `lib/waves.js`):
+
+1. **`--max-parallel N`**, a positive integer, given to the command:
+   - `/tierminator:plan --max-parallel N <request>`: only before the request, so a request that mentions a
+     `--max-parallel` flag is left alone. H1 keeps it in the planning (or headless drafting) state as
+     `maxParallel` and says in its note that the option is not part of the request; H3 at approval, or H5 for a
+     headless draft, passes it to the run.
+   - `/tierminator:execute <plan> --max-parallel N` (or `--max-parallel=N`), anywhere among the arguments. It
+     applies to that run only; a plan's earlier `/tierminator:plan` option is not saved with the plan.
+
+   It is saved in the run as `maxParallel`, so every later wave of the run uses it. A value that is not a whole
+   number of at least 1 refuses the command, and nothing starts.
+2. **`TIERMINATOR_MAX_PARALLEL`**, read each time a wave starts. It must be a positive integer; unset, empty or
+   invalid means the next step.
+3. **5.**
+
+The rest of a wave is queued and starts in id order as slots free. The note that starts a graph plan's run says
+the cap ("At most 3 tasks run at once.").
 
 ### Permissions for unattended runs
 
@@ -1158,7 +1174,7 @@ run. No headless scenario failed. The worker rules and the guard were measured o
 A run ends when it completes or halts, when the user types a prompt during it, or with its session, and a
 run starts by itself only when a plan made after `/tierminator:plan` is approved. So a plan left
 unapproved, or a run that stopped partway, does not continue on its own. The plan file and its tasks file
-stay in the plans directory, and `/tierminator:execute [plan path | list number] [--from Txx]` runs them,
+stay in the plans directory, and `/tierminator:execute [plan path | list number] [--from Txx] [--max-parallel N]` runs them,
 in the same session or a new one.
 
 As with `/tierminator:plan`, **H1 does the work.** It first ends whatever the session was doing (a run in
@@ -1484,6 +1500,7 @@ During a run the file looks like this:
   "planId": "<the plan's 16-character id>",
   "branch": "main",
   "cwd": "<the repository's working directory>",
+  "maxParallel": null,
   "current": {
     "index": 1, "attempt": 2, "tier": "sonnet-high", "tried": ["sonnet-medium"],
     "head": "<sha recorded at dispatch>", "inFlight": false, "report": null,
@@ -1506,7 +1523,9 @@ a turn-limit stop until the resume is sent, and `turnLimited` is `{turns}` after
 asked for a missing report, and `resumeFor` says what the pending `SendMessage` is for (`'turn-limit'`,
 `'report'`, or `null`); a retry resets both. A finished task's `done` entry has `unreported: true` when it was
 accepted on its commit without a report. `sizingReviews`, at the top level, counts
-the sizing reviews of the plan (see [The sizing review](#the-sizing-review)).
+the sizing reviews of the plan (see [The sizing review](#the-sizing-review)). `maxParallel` is the run's cap from
+a `--max-parallel` option, or `null` when none was given (see [Limiting parallelism](#limiting-parallelism)); the
+planning and drafting states carry it only when `/tierminator:plan` was given one.
 
 While a parallel wave works, `current` is `null` and the wave lives in a `wave` key beside it (a serial wave
 keeps `current`; see [Parallel execution](#parallel-execution)):
@@ -1687,7 +1706,7 @@ How the plugin behaves when something goes wrong:
 | `CLAUDE_PLUGIN_ROOT` | Set by Claude Code. Used to locate the hook scripts and the rules file. |
 | `CLAUDE_CODE_ENTRYPOINT` | Set by Claude Code. A value starting with `sdk` (`sdk-cli` for `claude -p`) makes `/tierminator:plan` start an [unattended run](#unattended-runs); anything else, or unset, plans interactively. |
 | `TIERMINATOR_RESULT_FILE` | When set, the absolute path where a run's [result file](#the-result-file) is written instead of beside the plan. |
-| `TIERMINATOR_MAX_PARALLEL` | A positive integer: the cap on tasks running at once. Default 5; an unset or invalid value means 5. |
+| `TIERMINATOR_MAX_PARALLEL` | A positive integer: the cap on tasks running at once, unless the command gave `--max-parallel`. Default 5; an unset or invalid value means 5. |
 | `CLAUDE_CODE_EFFORT_LEVEL` | If set, overrides the agents' effort. Leave unset. |
 | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` | If set, overrides the agents' models. Leave unset. |
 
