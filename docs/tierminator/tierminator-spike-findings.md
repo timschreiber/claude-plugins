@@ -78,6 +78,11 @@ could not call the Agent tool, which fits `disallowedTools: Agent`. The seventh 
 said yes while naming only `ListAgents` and `SendMessage`. A model's report of its own tools is
 not proof, so this is unconfirmed either way.
 
+*Confirmed on 2026-11-16 (Claude Code 2.1.325):* each of the six tier agents, told to try the Agent tool,
+made no Agent call, and three of them searched for it with ToolSearch and found nothing. The same run showed
+each worker on the model and effort its frontmatter names. Evidence:
+`probes/evidence/tierminator-agent-frontmatter-results.json`, made by `probes/tierminator-agent-frontmatter/runner.js`.
+
 ## Environment facts
 
 - With `--plugin-dir`, Claude Code sets `CLAUDE_PLUGIN_DATA` itself, to

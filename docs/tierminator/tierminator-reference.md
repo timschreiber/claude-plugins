@@ -1596,7 +1596,14 @@ in frontmatter:
 | `model` | `claude-haiku-5-5` for `haiku` (an id, not the alias; see below), else `sonnet` or `opus` |
 | `effort` | The tier's effort |
 | `maxTurns` | 50 for `haiku` at `high`; 40, 60 and 100 for `sonnet` at `low`, `medium` and `high`; 100 and 150 for `opus` at `medium` and `high` (`MAX_TURNS` in `lib/tasks.js`) |
-| `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows |
+| `disallowedTools` | `Agent, Workflow`, so a worker cannot start subagents or workflows (Claude Code already removes `Workflow` from every subagent; listing it is harmless) |
+
+The `description` is quoted because it holds `: `, which a plain YAML value cannot; a strict parser (the npm
+build's `claude plugin validate`) rejects the unquoted form and says the agent would load with no
+frontmatter. `agents.test.js` requires any value holding `: ` to be quoted. On 2026-11-16 (Claude Code
+2.1.325) every tier agent ran on its frontmatter's model and effort, and none could call the Agent tool
+(`probes/evidence/tierminator-agent-frontmatter-results.json`). `maxTurns` is checked by the turn-limit
+findings, not that run.
 
 ### Haiku on Bedrock, Google Cloud and Foundry
 

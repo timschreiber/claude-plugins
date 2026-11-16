@@ -1,0 +1,166 @@
+{
+  "probe": "tierminator-agent-frontmatter",
+  "date": "2026-11-16T18:59:53.236Z",
+  "claudeVersion": "2.1.325 (Claude Code)",
+  "cells": [
+    {
+      "tier": "haiku-high",
+      "exit": 0,
+      "workerModels": [
+        "claude-haiku-5-5"
+      ],
+      "effortSeen": "high",
+      "stop": {
+        "agent_type": "tierminator:haiku-high",
+        "effort": {
+          "level": "high"
+        }
+      },
+      "workerAgentCalls": [],
+      "workerToolResults": [
+        {
+          "isError": false,
+          "text": "No matching deferred tools found"
+        }
+      ],
+      "finalText": "The probe subagent returned:\n\nThe Agent tool was not available: a ToolSearch for \"Agent\" returned no matching deferred tools, and it is not in my tool list, so I could not call it with subagent_type general-purpose.",
+      "checks": {
+        "dispatched": true,
+        "model": true,
+        "effort": true,
+        "noAgentCall": true
+      },
+      "pass": true
+    },
+    {
+      "tier": "sonnet-low",
+      "exit": 0,
+      "workerModels": [
+        "claude-sonnet-5-5"
+      ],
+      "effortSeen": "low",
+      "stop": {
+        "agent_type": "tierminator:sonnet-low",
+        "effort": {
+          "level": "low"
+        }
+      },
+      "workerAgentCalls": [],
+      "workerToolResults": [],
+      "finalText": "The probe subagent returned this:\n\nThe Agent tool was not available: it isn't in my tool list, so I couldn't call it with subagent_type general-purpose, and nothing was run, edited or committed.\n\nSTATUS: FAILED\nCOMMIT: NONE\nVERIFY: NOT RUN\nNOTE: Probe only. The Agent tool is not among my available t",
+      "checks": {
+        "dispatched": true,
+        "model": true,
+        "effort": true,
+        "noAgentCall": true
+      },
+      "pass": true
+    },
+    {
+      "tier": "sonnet-medium",
+      "exit": 0,
+      "workerModels": [
+        "claude-sonnet-5-5"
+      ],
+      "effortSeen": "medium",
+      "stop": {
+        "agent_type": "tierminator:sonnet-medium",
+        "effort": {
+          "level": "medium"
+        }
+      },
+      "workerAgentCalls": [],
+      "workerToolResults": [],
+      "finalText": "The Agent tool was not available: it isn't in my tool list or the deferred tools, so I couldn't call it and nothing ran.\n\nSTATUS: DONE\nCOMMIT: NONE\nVERIFY: NOT RUN\nNOTE: Probe only. No Agent tool was available, so no subagent was spawned, and I edited no files.",
+      "checks": {
+        "dispatched": true,
+        "model": true,
+        "effort": true,
+        "noAgentCall": true
+      },
+      "pass": true
+    },
+    {
+      "tier": "sonnet-high",
+      "exit": 0,
+      "workerModels": [
+        "claude-sonnet-5-5"
+      ],
+      "effortSeen": "high",
+      "stop": {
+        "agent_type": "tierminator:sonnet-high",
+        "effort": {
+          "level": "high"
+        }
+      },
+      "workerAgentCalls": [],
+      "workerToolResults": [],
+      "finalText": "The Agent tool was not available: it isn't in the subagent's tool list or the deferred tools, so it never made the call and nothing ran.\n\nSTATUS: DONE\nCOMMIT: NONE\nVERIFY: NOT RUN\nNOTE: Probe only. The Agent tool doesn't exist in this session, so the call was not attempted and no files were changed.",
+      "checks": {
+        "dispatched": true,
+        "model": true,
+        "effort": true,
+        "noAgentCall": true
+      },
+      "pass": true
+    },
+    {
+      "tier": "opus-medium",
+      "exit": 0,
+      "workerModels": [
+        "claude-opus-5-5"
+      ],
+      "effortSeen": "medium",
+      "stop": {
+        "agent_type": "tierminator:opus-medium",
+        "effort": {
+          "level": "medium"
+        }
+      },
+      "workerAgentCalls": [],
+      "workerToolResults": [
+        {
+          "isError": false,
+          "text": "No matching deferred tools found"
+        }
+      ],
+      "finalText": "The probe subagent returned this:\n\nThe Agent tool was not available: it isn't in my tool list, and a ToolSearch for `select:Agent` returned \"No matching deferred tools found\", so I could not call it and no subagent ran.\n\nSTATUS: FAILED\nCOMMIT: NONE\nVERIFY: NOT RUN\nNOTE: Probe only: the Agent tool is",
+      "checks": {
+        "dispatched": true,
+        "model": true,
+        "effort": true,
+        "noAgentCall": true
+      },
+      "pass": true
+    },
+    {
+      "tier": "opus-high",
+      "exit": 0,
+      "workerModels": [
+        "claude-opus-5-5"
+      ],
+      "effortSeen": "high",
+      "stop": {
+        "agent_type": "tierminator:opus-high",
+        "effort": {
+          "level": "high"
+        }
+      },
+      "workerAgentCalls": [],
+      "workerToolResults": [
+        {
+          "isError": false,
+          "text": "No matching deferred tools found"
+        }
+      ],
+      "finalText": "The Agent tool was not available: it isn't among my callable tools and a ToolSearch for \"select:Agent\" found no match, so I couldn't call it with general-purpose / \"say hi\".",
+      "checks": {
+        "dispatched": true,
+        "model": true,
+        "effort": true,
+        "noAgentCall": true
+      },
+      "pass": true
+    }
+  ]
+}
