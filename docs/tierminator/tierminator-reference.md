@@ -1447,6 +1447,23 @@ line or fewer than 6 tasks clears it. It is combined with the other flags by `pl
 shares `MAX_REVIEWS = 2`, so after two reviews the plan goes to approval either way. H2 and headless drafting
 (H5) both apply it.
 
+### The prompt limit
+
+One check is a rule, not a guideline: no task's prompt may be over `PROMPT_LIMIT = 7,000` characters
+(`limitText` in `lib/sizing.js`). Every dispatch carries the whole prompt, and hook text over about 10,000
+characters reaches Claude only as a file to read
+([`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md)). A prompt at the limit, with
+its header lines and the call text around it, stays under that. The limit equals a wave's `DISPATCH_BUDGET`.
+
+- **H2** denies `ExitPlanMode` while any prompt is over the limit, listing each task and its length. It is
+  checked before the sizing review, a `Keep` line does not lift it, and it counts toward neither
+  `sizingReviews` nor the invalid-block denials: after those, H2 would let the plan through and H3 run it. Like a
+  Git problem, it is refused every time, since splitting the task is always possible.
+- **H5**, in a headless draft, blocks the final message the same way and counts it as an invalid block: after
+  `MAX_DENIALS = 3` the run is abandoned with outcome `no-plan` and nothing runs.
+- **Not when loading.** `resolvePlan` does not check it, so H3 and `/tierminator:execute` run a plan saved
+  before the limit existed. A longer prompt still dispatches, but reaches Claude as a file to read first.
+
 ## Session state
 
 One JSON file per session: `${CLAUDE_PLUGIN_DATA}/sessions/<session_id>.json`, outside the project.
@@ -1829,7 +1846,9 @@ and type `/tierminator:plan` with a small multi-step change.
   itself. If Claude never dispatches, the guard steps aside after a few blocks.
 - **Claude writes out every task prompt.** Each dispatch costs the main session the task prompt's length in
   output tokens, and the same again in context: a median of about 2,300 characters per task across saved
-  plans. A call longer than about 10,000 characters reaches Claude as a file it has to read first.
+  plans. No new plan has a prompt over 7,000 characters ([The prompt limit](#the-prompt-limit)). A call
+  longer than about 10,000 characters, possible only from a plan saved before that limit, reaches Claude as a
+  file it has to read first.
 - **A run ends with its session, or with any prompt the user types during it.** Neither a resumed session
   nor "continue" carries a run on. The tasks that finished are committed with their plan's id, and
   `/tierminator:execute` picks the plan up from the first task that is not. Commits made before the plan line existed are not recognized; use `--from`.
@@ -1901,7 +1920,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | All eight Sonnet and Opus pairs run at exactly the requested effort (*workflow era*, per-call effort) | [`tierminator-spike-findings.md`](tierminator-spike-findings.md) | `planandtier-effort-pairs-results.json` |
 | Parallel workers: tierminator makes each task's Git worktree itself, in H4's `PreToolUse` hook on the Agent call, and the worker is an ordinary non-isolated subagent given its path on a `Worktree:` line; a guard hook that only denies rescued the calls that would have reached the main tree; in the default and `acceptEdits` modes every worker command asks for approval | [`tierminator-parallel-findings.md`](tierminator-parallel-findings.md) (the "Option C" and "Recommendation" sections) | `tierminator-parallel-*.json` |
 | Parallel execution end to end, headless in `bypassPermissions` mode (and in `auto` mode, scenario 8): independent tasks run at once, a forced conflict is re-run serially, a failed task retries in place, an exhausted task and a failed plan verify each halt with the passers kept (scenario 7, the default mode, awaits a hand run) | [`tierminator-parallel-run.md`](tierminator-parallel-run.md) | `tests/tierminator/e2e/results/` |
-| A `PreToolUse` hook's `updatedInput` changes the prompt an Agent call's subagent receives, but in auto mode every Agent call a hook changed is refused with no verdict (7 of 7); a hook-set Bash `timeout` is not refused in auto mode; `UserPromptSubmit` `additionalContext` arrives whole at 9,000 characters and only as a file at 20,000, while a deny reason arrives whole at 40,000. Hence the whole task in the dispatch prompt, copied by Claude, and the wave dispatch budget | [`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md) | `tierminator-agent-prompt-results.json`, `tierminator-agent-context-size-results.json`, `tierminator-bash-timeout-results.json` (`r10`, `r11`) |
+| A `PreToolUse` hook's `updatedInput` changes the prompt an Agent call's subagent receives, but in auto mode every Agent call a hook changed is refused with no verdict (7 of 7); a hook-set Bash `timeout` is not refused in auto mode; `UserPromptSubmit` `additionalContext` arrives whole at 9,000 characters and only as a file at 20,000, while a deny reason arrives whole at 40,000. Hence the whole task in the dispatch prompt, copied by Claude, and the wave dispatch budget | [`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md) | `tierminator-agent-prompt-results.json`, `tierminator-agent-context-size-results.json`, `tierminator-bash-timeout-results.json` (`r10`, `r11`), `tierminator-prompt-lengths.json` |
 | A CRLF workflow script fails the launch (*workflow era*; no longer applies) | [`tierminator-dialog-findings.md`](tierminator-dialog-findings.md) | `planandtier-launch-shapes-results.json` |
 | End to end in auto mode and with manual permissions (*workflow era*) | [`tierminator-e2e-findings.md`](tierminator-e2e-findings.md), [`tierminator-manual-mode-findings.md`](tierminator-manual-mode-findings.md) | `planandtier-e2e-results.json`, `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 

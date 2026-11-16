@@ -4,7 +4,9 @@ Derived from `probes/evidence/tierminator-agent-prompt-results.json` (12 headles
 `probes/evidence/tierminator-agent-context-size-results.json` (6 headless cells), made by
 `probes/tierminator-agent-prompt/runner.js` and `context-size.js` on 2026-11-16 with Claude Code 2.1.325, and the
 two auto-mode cells `r10` and `r11` added to `probes/evidence/tierminator-bash-timeout-results.json` by
-`probes/tierminator-bash-timeout/runner.js` the same day. Every result below is in those files.
+`probes/tierminator-bash-timeout/runner.js` the same day. The prompt lengths are in
+`probes/evidence/tierminator-prompt-lengths.json`, made by `prompt-lengths.js` from the saved plans' tasks files
+(lengths only). Every result below is in those files.
 
 ## Question
 
@@ -123,10 +125,14 @@ subagent (`r11`).
   and always at least one call, which keeps it under the cutoff in result 4 with room for the text around it.
   The rest of the wave is given by H4's `post` once every call of that text has been sent. Joined notices
   drop the dispatch blocks that a newer notice replaces.
-- **What this costs.** Claude writes each task prompt once per attempt. Across 1,242 task prompts in 104 saved
-  plans, the median prompt was 2,325 characters, the 90th percentile 3,960 and the largest 25,360. A single
-  task whose call alone exceeds the cutoff still reaches Claude, as a file it has to read. Before this change
-  the dispatch was about 100 characters.
+- **No task prompt may be over 7,000 characters** (`PROMPT_LIMIT` in `lib/sizing.js`, equal to the budget). H2
+  and headless drafting refuse a plan until such a task is split, so with the header and the call around it
+  every dispatch stays under the cutoff in result 4. Plans saved before the limit still load and run.
+- **What this costs.** Claude writes each task prompt once per attempt. Across 1,256 task prompts in 105 saved
+  plans, the median prompt was 2,313 characters, the 90th percentile 3,958 and the largest 25,360. 12 (about 1%)
+  were over 7,000, so the limit rarely binds. A task in a plan saved before the limit whose call alone exceeds
+  the cutoff still reaches Claude, as a file it has to read. Before this change the dispatch was about 100
+  characters.
 
 ## Not measured
 
