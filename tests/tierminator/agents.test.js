@@ -38,6 +38,21 @@ test('each agent runs its tier: name, model, effort, maxTurns and no nested agen
   }
 })
 
+// A plain YAML value cannot hold ": ". Claude Code's newer validator (claude plugin validate in CI, 2026-11)
+// rejects such frontmatter and says the agent then loads with all its fields dropped: no model, effort or
+// maxTurns. So a value holding ": " must be quoted.
+test('every frontmatter value that holds ": " is quoted', () => {
+  for (const tier of TIERS) {
+    const text = fs.readFileSync(path.join(DIR, `${tier}.md`), 'utf8').replace(/\r\n/g, '\n')
+    const front = /^---\n([\s\S]*?)\n---\n/.exec(text)[1]
+    for (const line of front.split('\n')) {
+      const value = line.slice(line.indexOf(':') + 1).trim()
+      if (value.includes(': ')) assert.match(value, /^"[^"]*"$/, `${tier}.md: ${line}`)
+    }
+  }
+  assert.equal(read('haiku-high').fields.description, '"tierminator worker: runs one task of an approved plan on haiku at high effort. Dispatched only by tierminator."')
+})
+
 test('the sonnet bodies match each other and the opus bodies match each other, each with the report block and a trailer commit', () => {
   const sonnet = TIERS.filter(t => t.startsWith('sonnet-'))
   const opus = TIERS.filter(t => t.startsWith('opus-'))

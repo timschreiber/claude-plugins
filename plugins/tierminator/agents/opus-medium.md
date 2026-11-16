@@ -1,6 +1,6 @@
 ---
 name: opus-medium
-description: tierminator worker: runs one task of an approved plan on opus at medium effort. Dispatched only by tierminator.
+description: "tierminator worker: runs one task of an approved plan on opus at medium effort. Dispatched only by tierminator."
 model: opus
 effort: medium
 maxTurns: 100

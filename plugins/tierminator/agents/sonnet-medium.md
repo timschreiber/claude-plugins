@@ -1,6 +1,6 @@
 ---
 name: sonnet-medium
-description: tierminator worker: runs one task of an approved plan on sonnet at medium effort. Dispatched only by tierminator.
+description: "tierminator worker: runs one task of an approved plan on sonnet at medium effort. Dispatched only by tierminator."
 model: sonnet
 effort: medium
 maxTurns: 60

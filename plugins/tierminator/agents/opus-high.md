@@ -1,6 +1,6 @@
 ---
 name: opus-high
-description: tierminator worker: runs one task of an approved plan on opus at high effort. Dispatched only by tierminator.
+description: "tierminator worker: runs one task of an approved plan on opus at high effort. Dispatched only by tierminator."
 model: opus
 effort: high
 maxTurns: 150

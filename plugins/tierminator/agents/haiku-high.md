@@ -1,6 +1,6 @@
 ---
 name: haiku-high
-description: tierminator worker: runs one task of an approved plan on haiku at high effort. Dispatched only by tierminator.
+description: "tierminator worker: runs one task of an approved plan on haiku at high effort. Dispatched only by tierminator."
 model: claude-haiku-5-5
 effort: high
 maxTurns: 50
