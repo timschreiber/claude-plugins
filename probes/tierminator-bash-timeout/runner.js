@@ -43,6 +43,10 @@ const CELLS = [
   cell('r7', MAIN, ['timeout'], 'backgrounded', { mode: 'default', tools: 'Bash,Agent' }),
   cell('r8', SUB, ['timeout'], 'backgrounded', { mode: 'default', tools: 'Bash,Agent' }),
   cell('r9', MAIN, ['deny', 'timeout'], 'denied'),
+  // Auto mode: does the server-side classifier accept a call whose timeout a hook changed? (See
+  // tierminator-agent-prompt, where it refused every Agent call a hook had rewritten.)
+  cell('r10', MAIN, ['timeout'], 'info', { mode: 'auto' }),
+  cell('r11', SUB, ['timeout'], 'info', { mode: 'auto' }),
 ]
 
 const readEvidence = () => {
@@ -163,9 +167,14 @@ const main = () => {
   const claudeVersion = String(v.stdout ?? '').trim()
   const prev = readEvidence()
   const kept = (prev?.cells ?? []).filter(x => !wanted.includes(x.name))
-  const cells = [...kept, ...results].sort((a, b) => names.indexOf(a.name) - names.indexOf(b.name))
+  const date = new Date().toISOString()
+  const partial = kept.length > 0
+  // A partial run keeps the file's date and version for the cells it kept, and stamps its own cells instead.
+  const fresh = partial ? results.map(x => ({ ...x, date, claudeVersion })) : results
+  const cells = [...kept, ...fresh].sort((a, b) => names.indexOf(a.name) - names.indexOf(b.name))
+  const top = partial ? { date: prev.date, claudeVersion: prev.claudeVersion } : { date, claudeVersion }
   fs.mkdirSync(path.dirname(EVIDENCE), { recursive: true })
-  fs.writeFileSync(EVIDENCE, JSON.stringify({ probe: 'tierminator-bash-timeout', date: new Date().toISOString(), claudeVersion, cells }, null, 2) + '\n')
+  fs.writeFileSync(EVIDENCE, JSON.stringify({ probe: 'tierminator-bash-timeout', ...top, cells }, null, 2) + '\n')
   return 0
 }
 

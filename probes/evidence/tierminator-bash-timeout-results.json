@@ -719,6 +719,116 @@
       ],
       "pass": true,
       "sessionIdMatches": true
+    },
+    {
+      "name": "r10",
+      "expect": "info",
+      "roles": [
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "auto",
+      "sub": false,
+      "durationS": 17,
+      "exit": 0,
+      "claudeSessionId": "540363fb-d0ae-4c21-bf07-901464dd3038",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: bjopmi92r). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\abd1e8054a2ca781\\540363fb-d0ae-4c21-bf07-901464dd3038\\tasks\\bjopmi92r.output. You will be notified when it completes. If it is still ru"
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "540363fb-d0ae-4c21-bf07-901464dd3038",
+          "permission_mode": "auto",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": null,
+          "agent_type": null,
+          "session_id": "540363fb-d0ae-4c21-bf07-901464dd3038",
+          "permission_mode": "auto",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"bjopmi92r\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "date": "2026-11-16T17:51:16.335Z",
+      "claudeVersion": "2.1.325 (Claude Code)"
+    },
+    {
+      "name": "r11",
+      "expect": "info",
+      "roles": [
+        "timeout",
+        "log"
+      ],
+      "env": null,
+      "mode": "auto",
+      "sub": true,
+      "durationS": 37,
+      "exit": 0,
+      "claudeSessionId": "bee3aa96-9cae-4827-9820-20d36db454e3",
+      "toolResults": [
+        {
+          "sub": false,
+          "text": "[{\"type\":\"text\",\"text\":\"Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: a47df3de7ba31528f (internal ID - do not mention to user. Use SendMessage with to: 'a47df3de7ba315"
+        },
+        {
+          "sub": true,
+          "text": "Command did not complete within its 3s timeout and was moved to the background (ID: bmmq28crw). Output is being written to: C:\\Users\\timsc\\AppData\\Local\\Temp\\claude\\abd1e8054a2ca781\\bee3aa96-9cae-4827-9820-20d36db454e3\\tasks\\bmmq28crw.output. You will be notified when it completes. If it is still ru"
+        },
+        {
+          "sub": true,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        },
+        {
+          "sub": false,
+          "text": "1 SLOWDONE 2 3 [exited with code 0] 4 "
+        }
+      ],
+      "hookLog": [
+        {
+          "role": "timeout",
+          "event": "PreToolUse",
+          "agent_id": "a47df3de7ba31528f",
+          "agent_type": "general-purpose",
+          "session_id": "bee3aa96-9cae-4827-9820-20d36db454e3",
+          "permission_mode": "auto",
+          "timeout": null,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO"
+        },
+        {
+          "role": "log",
+          "event": "PostToolUse",
+          "agent_id": "a47df3de7ba31528f",
+          "agent_type": "general-purpose",
+          "session_id": "bee3aa96-9cae-4827-9820-20d36db454e3",
+          "permission_mode": "auto",
+          "timeout": 3000,
+          "cmdHead": "node -e \"setTimeout(()=>console.log('SLO",
+          "resp": "{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false,\"backgroundTaskId\":\"bmmq28crw\",\"timedOutAfterMs\":3000}"
+        }
+      ],
+      "pass": null,
+      "sessionIdMatches": true,
+      "date": "2026-11-16T17:51:16.335Z",
+      "claudeVersion": "2.1.325 (Claude Code)"
     }
   ]
 }

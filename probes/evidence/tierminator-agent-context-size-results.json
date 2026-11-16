@@ -1,0 +1,146 @@
+{
+  "probe": "tierminator-agent-context-size",
+  "date": "2026-11-16T17:52:42.356Z",
+  "claudeVersion": "2.1.325 (Claude Code)",
+  "cells": [
+    {
+      "name": "ctx-9000",
+      "kind": "context",
+      "size": 9000,
+      "exit": 0,
+      "finalText": "MARMALADE TANGERINE",
+      "tools": [],
+      "results": [],
+      "sawBoth": true,
+      "intactWithoutTools": true
+    },
+    {
+      "name": "deny-9000",
+      "kind": "deny",
+      "size": 9000,
+      "exit": 0,
+      "finalText": "MARMALADE TANGERINE",
+      "tools": [
+        {
+          "name": "Bash",
+          "input": "{\"command\":\"echo PROBE_DENY_ME\",\"description\":\"Run probe echo command\"}"
+        }
+      ],
+      "results": [
+        {
+          "length": 9047,
+          "head": "PreToolUse:Bash hook error: START_WORD: MARMALADE\nfiller line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nfiller line 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+          "hasEnd": true
+        }
+      ],
+      "sawBoth": true,
+      "intactWithoutTools": true
+    },
+    {
+      "name": "ctx-20000",
+      "kind": "context",
+      "size": 20000,
+      "exit": 0,
+      "finalText": "MARMALADE TANGERINE",
+      "tools": [
+        {
+          "name": "Read",
+          "input": "{\"file_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-context-size-Q0SgRL-work\\\\4730bc55-a6bd-40f7-a3ba-da5f9c6c051a\\\\tool-results\\\\hook-6956eb72-f3d5-4638-9"
+        },
+        {
+          "name": "Read",
+          "input": "{\"file_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-context-size-Q0SgRL-work\\\\4730bc55-a6bd-40f7-a3ba-da5f9c6c051a\\\\tool-results\\\\hook-6956eb72-f3d5-4638-9"
+        }
+      ],
+      "results": [
+        {
+          "length": 130,
+          "head": "<system-reminder>Warning: the file exists but is shorter than the provided offset (300). The file has 263 lines.</system-reminder>",
+          "hasEnd": false
+        },
+        {
+          "length": 1076,
+          "head": "250\tfiller line 249 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n251\tfiller line 250 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n252\tfiller line 251 xxxxxxxxxxxxxxxxxx",
+          "hasEnd": true
+        }
+      ],
+      "sawBoth": true,
+      "intactWithoutTools": false
+    },
+    {
+      "name": "deny-20000",
+      "kind": "deny",
+      "size": 20000,
+      "exit": 0,
+      "finalText": "MARMALADE TANGERINE",
+      "tools": [
+        {
+          "name": "Bash",
+          "input": "{\"command\":\"echo PROBE_DENY_ME\",\"description\":\"Run the probe echo command once\"}"
+        }
+      ],
+      "results": [
+        {
+          "length": 20058,
+          "head": "PreToolUse:Bash hook error: START_WORD: MARMALADE\nfiller line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nfiller line 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+          "hasEnd": true
+        }
+      ],
+      "sawBoth": true,
+      "intactWithoutTools": true
+    },
+    {
+      "name": "ctx-40000",
+      "kind": "context",
+      "size": 40000,
+      "exit": 0,
+      "finalText": "MARMALADE TANGERINE",
+      "tools": [
+        {
+          "name": "Read",
+          "input": "{\"file_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-context-size-Q0SgRL-work\\\\bc8eeec5-2d34-458e-8458-e6e2394c6ffa\\\\tool-results\\\\hook-694b7995-f7a6-4cb5-8"
+        },
+        {
+          "name": "Read",
+          "input": "{\"file_path\":\"C:\\\\Users\\\\timsc\\\\.claude\\\\projects\\\\C--Users-timsc-AppData-Local-Temp-tierminator-context-size-Q0SgRL-work\\\\bc8eeec5-2d34-458e-8458-e6e2394c6ffa\\\\tool-results\\\\hook-694b7995-f7a6-4cb5-8"
+        }
+      ],
+      "results": [
+        {
+          "length": 130,
+          "head": "<system-reminder>Warning: the file exists but is shorter than the provided offset (990). The file has 523 lines.</system-reminder>",
+          "hasEnd": false
+        },
+        {
+          "length": 1886,
+          "head": "500\tfiller line 499 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n501\tfiller line 500 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n502\tfiller line 501 xxxxxxxxxxxxxxxxxx",
+          "hasEnd": true
+        }
+      ],
+      "sawBoth": true,
+      "intactWithoutTools": false
+    },
+    {
+      "name": "deny-40000",
+      "kind": "deny",
+      "size": 40000,
+      "exit": 0,
+      "finalText": "MARMALADE TANGERINE",
+      "tools": [
+        {
+          "name": "Bash",
+          "input": "{\"command\":\"echo PROBE_DENY_ME\",\"description\":\"Run probe echo command\"}"
+        }
+      ],
+      "results": [
+        {
+          "length": 40078,
+          "head": "PreToolUse:Bash hook error: START_WORD: MARMALADE\nfiller line 1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nfiller line 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+          "hasEnd": true
+        }
+      ],
+      "sawBoth": true,
+      "intactWithoutTools": true
+    }
+  ]
+}
