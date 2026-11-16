@@ -182,7 +182,9 @@ stateDiagram-v2
 ### The dispatch of one task
 
 The prompt is today's (`Tasks file:`, `Plan:`, `Task:`, and for a retry `Retry:` and `Reason:`) plus, in a
-parallel wave, a `Parallel: yes` line and a `Worktree: <path>` line. Tierminator makes the worktree; the worker
+parallel wave, a `Parallel: yes` line and a `Worktree: <path>` line. (Superseded on 2026-11-16: the prompt now
+holds the whole task, with `Setup:` lines in place of the tasks file's `setup`, and a wave's dispatch text is
+budgeted; see [`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md).) Tierminator makes the worktree; the worker
 is not isolated (D12, measured in the findings, "Option C"):
 
 - **H4 `pre`** finds the slot from the `Task:` line, checks the call, and runs

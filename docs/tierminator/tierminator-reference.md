@@ -63,8 +63,8 @@ approve, watch. The plugin adds four things:
 | Goal | How it is met |
 |---|---|
 | **Seamless** | Built-in plan mode is unchanged; hooks do the hand-off. No command to type after approval. |
-| **Cheap** | Each task runs on the cheapest tier expected to succeed first time. Orchestration costs one short Agent call and one short report per task attempt in the main session. |
-| **Deterministic** | Task order, tier and prompt come from the tasks file named in the approved plan, checked against its hash. Workers read their prompt from that file; no model recalls or retypes a task. Hooks check every dispatch and every result. |
+| **Cheap** | Each task runs on the cheapest tier expected to succeed first time. Orchestration costs one Agent call, carrying the task's prompt, and one short report per task attempt in the main session. |
+| **Deterministic** | Task order, tier and prompt come from the tasks file named in the approved plan, checked against its hash. The hooks give Claude each task's whole prompt to pass to its worker, and refuse any dispatch whose prompt differs from it by so much as a line. Hooks check every dispatch and every result. |
 | **Recoverable** | Every finished task is a commit with `Tierminator-Task:` and `Tierminator-Plan:` lines, and a failed attempt is reset to the commit before it. A run that stopped, or whose session ended, can be picked up again with `/tierminator:execute`, skipping the tasks already committed. |
 | **Built-in first** | Plan mode, `ExitPlanMode` approval, the Agent tool and plugin agents are all Claude Code's own. |
 
@@ -186,7 +186,7 @@ sequenceDiagram
     U->>M: Approves the plan (with the table)
     H-->>M: H3 starts the run and gives the first dispatch
     loop Each task, in order
-        M->>H: Agent(tierminator:<tier>, pointer prompt)
+        M->>H: Agent(tierminator:<tier>, the whole task)
         H-->>H: H4 pre checks the dispatch, records HEAD
         H-->>M: H4 post: the task runs in the background; end the turn
         H->>A: The worker reads its task, does it, runs Verify, commits
@@ -754,22 +754,37 @@ For each attempt, Claude calls the Agent tool with:
 
 - `subagent_type`: `tierminator:<tier>`, for example `tierminator:sonnet-medium`;
 - `description`: `<id>: <title>`;
-- `prompt`: a pointer to the task, never the task itself:
+- `prompt`: the whole task, never a pointer to it:
 
 ```
-Tasks file: C:\Users\me\.claude\plans\brave-fox.tasks.json
 Plan: 0123456789abcdef
 Task: T02
+Title: Add the IClock abstraction
+Task prompt:
+Read docs/spec.md section 3. Create src/IClock.cs with ...
+Files to change: src/IClock.cs, tests/ClockTests.cs
+Verify: dotnet test --filter ClockTests passes.
 ```
 
-`Plan:` is the plan's id (see [Plan identity](#plan-identity)). A retry adds two lines:
+`Plan:` is the plan's id (see [Plan identity](#plan-identity)). After the `Task prompt:` line comes the task's
+`prompt` from the tasks file, verbatim but for line endings and trailing spaces. A retry adds two lines
+before `Task prompt:`:
 
 ```
 Retry: attempt 2 of 3; the attempt at sonnet-medium failed and was rolled back.
 Reason: Verify failed: 2 tests fail in ClockTests
 ```
 
-H3, H4 and H1 always give Claude this call spelled out, and H4 refuses any other.
+The task is in the prompt because auto mode judges a worker's actions against what the worker was asked
+to do. A task the worker read from a file is tool output to it, not its request, so workers that read their
+task from the tasks file had innocuous edits refused as unrequested. A hook cannot add the task to Claude's
+call instead: in auto mode every Agent call a hook changed is refused
+([`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md)). So Claude writes out each
+prompt.
+
+H3, H4 and H1 always give Claude this call spelled out inside a fence longer than any run of backticks in
+the prompt. H4 refuses any other call, and its refusal names the first line that differs from the expected
+prompt.
 
 In an interactive session the worker runs in the background: Claude's Agent call returns at once, H4 tells
 Claude to end its turn, and the run continues when the worker's report arrives as a prompt. So Claude's
@@ -780,8 +795,8 @@ call can run in the foreground, and the run continues within the turn.
 
 ### The worker
 
-The worker reads the tasks file, finds its task by id, and does only what that task's prompt says. It runs
-the `Verify:` step, and only if it passed commits everything as one commit:
+The worker does only what its prompt's task says, and never reads the plan or the tasks file. It runs the
+`Verify:` step, and only if it passed commits everything as one commit, with the `Title:` line as its message:
 
 ```
 git add -A
@@ -930,7 +945,14 @@ run them. The tasks file and its hash cover the whole block, so neither can chan
   wave 1) computes the next wave from the tasks not yet done.
 - **The cap.** At most `TIERMINATOR_MAX_PARALLEL` tasks are ready or running at once (a positive integer;
   unset or invalid means 5). The rest are queued and start in id order as slots free. Claude is told to make
-  every startable Agent call in one message.
+  the startable Agent calls in one message.
+- **A dispatch text holds at most 7,000 characters of calls** (`DISPATCH_BUDGET`), and always at least one call.
+  Each call carries its task's whole prompt, and hook text over about 10,000 characters reaches Claude only as
+  a file to read ([`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md)). A text that
+  leaves startable tasks out says so. H4's `post` gives them once every call of that text has been sent
+  (`wave.batch`), so calls Claude made in the same message are not asked for twice. When notices for several
+  tasks are joined before Claude sees them, the earlier notices' dispatch blocks are dropped, since the newest
+  one carries the dispatch for the newest state.
 
 ### Worktrees
 
@@ -943,11 +965,13 @@ run them. The tasks file and its hash cover the whole block, so neither can chan
   `Task:` line names, serialized through the state lock. The wave base is the run branch's HEAD when the wave
   starts. The Agent call itself is not changed, and a call that carries `isolation` is denied.
 - **The worker is not isolated.** It is an ordinary subagent that works in the worktree under the Parallel
-  section of the [tier agents](#the-tier-agents): run the tasks file's `setup` first, prefix every Bash command
+  section of the [tier agents](#the-tier-agents): run each `Setup:` line's command first, prefix every Bash command
   with `cd "<worktree>" && `, never use PowerShell, give file tools absolute paths under the worktree, pass
   `path` to Glob and Grep, and commit on the branch already checked out.
-- **The prompt.** A parallel wave's prompt is the serial one plus a `Parallel: yes` line and a
-  `Worktree: <path>` line after the `Task:` line.
+- **The prompt.** A parallel wave's prompt is the serial one plus a `Parallel: yes` line, a
+  `Worktree: <path>` line and one `Setup: <command>` line per `setup` command, after the `Title:` line. Hooks
+  read these lines only from the header, before `Task prompt:`, so a line in the task's own prompt never
+  passes for one.
 
 ### The worktree guard
 
@@ -1803,6 +1827,9 @@ and type `/tierminator:plan` with a small multi-step change.
   `EnterPlanMode`.
 - **The model dispatches.** The plugin gives the exact call and refuses any other, but cannot make the call
   itself. If Claude never dispatches, the guard steps aside after a few blocks.
+- **Claude writes out every task prompt.** Each dispatch costs the main session the task prompt's length in
+  output tokens, and the same again in context: a median of about 2,300 characters per task across saved
+  plans. A call longer than about 10,000 characters reaches Claude as a file it has to read first.
 - **A run ends with its session, or with any prompt the user types during it.** Neither a resumed session
   nor "continue" carries a run on. The tasks that finished are committed with their plan's id, and
   `/tierminator:execute` picks the plan up from the first task that is not. Commits made before the plan line existed are not recognized; use `--from`.
@@ -1874,6 +1901,7 @@ their findings about plan mode, hooks and the dialog still apply.
 | All eight Sonnet and Opus pairs run at exactly the requested effort (*workflow era*, per-call effort) | [`tierminator-spike-findings.md`](tierminator-spike-findings.md) | `planandtier-effort-pairs-results.json` |
 | Parallel workers: tierminator makes each task's Git worktree itself, in H4's `PreToolUse` hook on the Agent call, and the worker is an ordinary non-isolated subagent given its path on a `Worktree:` line; a guard hook that only denies rescued the calls that would have reached the main tree; in the default and `acceptEdits` modes every worker command asks for approval | [`tierminator-parallel-findings.md`](tierminator-parallel-findings.md) (the "Option C" and "Recommendation" sections) | `tierminator-parallel-*.json` |
 | Parallel execution end to end, headless in `bypassPermissions` mode (and in `auto` mode, scenario 8): independent tasks run at once, a forced conflict is re-run serially, a failed task retries in place, an exhausted task and a failed plan verify each halt with the passers kept (scenario 7, the default mode, awaits a hand run) | [`tierminator-parallel-run.md`](tierminator-parallel-run.md) | `tests/tierminator/e2e/results/` |
+| A `PreToolUse` hook's `updatedInput` changes the prompt an Agent call's subagent receives, but in auto mode every Agent call a hook changed is refused with no verdict (7 of 7); a hook-set Bash `timeout` is not refused in auto mode; `UserPromptSubmit` `additionalContext` arrives whole at 9,000 characters and only as a file at 20,000, while a deny reason arrives whole at 40,000. Hence the whole task in the dispatch prompt, copied by Claude, and the wave dispatch budget | [`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md) | `tierminator-agent-prompt-results.json`, `tierminator-agent-context-size-results.json`, `tierminator-bash-timeout-results.json` (`r10`, `r11`) |
 | A CRLF workflow script fails the launch (*workflow era*; no longer applies) | [`tierminator-dialog-findings.md`](tierminator-dialog-findings.md) | `planandtier-launch-shapes-results.json` |
 | End to end in auto mode and with manual permissions (*workflow era*) | [`tierminator-e2e-findings.md`](tierminator-e2e-findings.md), [`tierminator-manual-mode-findings.md`](tierminator-manual-mode-findings.md) | `planandtier-e2e-results.json`, `planandtier-default-mode-headless-results.json`, `planandtier-manual-mode-results.json` |
 

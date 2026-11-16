@@ -1,8 +1,9 @@
 # Bash timeout findings
 
-Derived from `probes/evidence/tierminator-bash-timeout-results.json` (14 headless cells), made by
-`probes/tierminator-bash-timeout/runner.js` (hook roles in `hook.js`) on 2026-10-31 with Claude Code 2.1.316.
-Every number below is in that file.
+Derived from `probes/evidence/tierminator-bash-timeout-results.json` (16 headless cells), made by
+`probes/tierminator-bash-timeout/runner.js` (hook roles in `hook.js`): 14 cells on 2026-10-31 with Claude Code
+2.1.316, and the two auto-mode cells `r10` and `r11` on 2026-11-16 with Claude Code 2.1.325, which carry their own
+`date` and `claudeVersion`. Every number below is in that file.
 
 ## Question
 
@@ -42,6 +43,8 @@ Cells are r0 to r9 (r3 and r4 three times each: 14 in all).
 | `r7` | `timeout` hook; `--permission-mode default` with `--allowedTools Bash,Agent`; main session | backgrounded | Backgrounded at 3 s; pass |
 | `r8` | same mode; subagent | backgrounded | Backgrounded at 3 s inside the subagent; pass |
 | `r9` | `deny` hook then `timeout` hook | denied | Tool result `PreToolUse:Bash hook error: PROBE_DENY`; the command never ran (no `PostToolUse`); pass |
+| `r10` | `timeout` hook; `--permission-mode auto`; main session | info | Backgrounded at 3 s; the `log` hook saw `timeout` 3000; not refused |
+| `r11` | same mode; subagent | info | Backgrounded at 3 s inside the subagent; not refused |
 
 ## Findings
 
@@ -59,9 +62,13 @@ Cells are r0 to r9 (r3 and r4 three times each: 14 in all).
 5. **`BASH_DEFAULT_TIMEOUT_MS` in a settings `env` reaches subagents** (`r5`, `r6`): both backgrounded at 3 s with
    no hook. But a plugin cannot ship it. This is from the Claude Code docs read on 2026-10-31, not measured: a
    plugin's `settings.json` honors only `agent` and `subagentStatusLine`.
-6. **A subagent hook's `session_id` equals the main session's** (`sessionIdMatches` true in all 14 cells). The
+6. **A subagent hook's `session_id` equals the main session's** (`sessionIdMatches` true in all 16 cells). The
    hook tells a subagent call from a main-session one by `agent_id` and `agent_type`, which the subagent cells
-   (`r2`, `r6`, `r8`) carry (`general-purpose`) and the main-session cells leave `null`.
+   (`r2`, `r6`, `r8`, `r11`) carry (`general-purpose`) and the main-session cells leave `null`.
+7. **Auto mode lets the hook's timeout through** (`r10`, `r11`). In the main session and in a subagent the call
+   ran with the 3 s timeout and was not refused. Auto mode does refuse an Agent call whose input a hook changed
+   ([`tierminator-agent-prompt-findings.md`](tierminator-agent-prompt-findings.md)), so this was checked for H9.
+   Only this one harmless command was tried.
 
 ## Decision
 
@@ -78,6 +85,6 @@ be the only tierminator hook that returns `updatedInput` for a worker's Bash cal
 
 - Tierminator's own agent types (`tierminator:*`) in a real run; the probe used `general-purpose`.
 - The PowerShell tool.
-- `acceptEdits` mode (only `bypassPermissions` and `default` were run).
+- `acceptEdits` mode (only `bypassPermissions`, `default` and `auto` were run).
 - Models other than Haiku.
 - Other plugins' hooks that return `updatedInput`, beyond the one `rewrite` stand-in.
