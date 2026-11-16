@@ -769,6 +769,22 @@ function hookAsync(script, stdin, args = []) {
   })
 }
 
+test('the integration of a wave starts the next one under the run\'s --max-parallel', async () => {
+  const tasks = [...TASKS, task(4, { after: ['T01', 'T02', 'T03'] }), task(5, { after: ['T01', 'T02', 'T03'] }), task(6, { after: ['T01', 'T02', 'T03'] })]
+  startWaveRun({ tasks, maxParallel: 2 }, 3)
+  const ids = ['T01', 'T02', 'T03']
+  for (const id of ids) assert.equal(preOf(callOf(id)).stdout, '')
+  for (const id of ids) postHook(agentPost(callOf(id), { isAsync: true, status: 'async_launched', agentId: 'worker-' + id }))
+  const shas = {}
+  for (const id of ids) shas[id] = workerCommits(id)
+  await Promise.all(ids.map(id => hookAsync('h4-dispatch.js', subStop(id, report('DONE', shas[id])), ['stop'])))
+  const s = state.read(S)
+  assert.equal(s.phase, 'running')
+  assert.deepEqual(s.wave.size, ['T04', 'T05', 'T06'])
+  assert.equal(s.wave.cap, 2)
+  assert.deepEqual(w.startable(s), ['T04', 'T05'])
+})
+
 test('a wave of three is integrated when its stops arrive together', async () => {
   startWaveRun()
   const ids = ['T01', 'T02', 'T03']
@@ -887,10 +903,11 @@ test('H1 moves a graph run from its serial task to the next wave', () => {
   assertWaveStarted(state.read(S))
 })
 
-// Approves a plan holding `tasks` in plan mode on a fresh repository and returns the note H3 gives.
-function approve(tasks, mode) {
+// Approves a plan holding `tasks` in plan mode on a fresh repository and returns the note H3 gives. `planning`
+// adds to the planning state, as /tierminator:plan's options do.
+function approve(tasks, mode, planning = {}) {
   repo = makeRepo(path.join(dir, 'repo'))
-  state.write(S, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0 })
+  state.write(S, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0, ...planning })
   const filePath = path.join(dir, 'plan.md')
   const text = '# Plan\n\n## Tasks\n\n```json tiered-tasks\n' + JSON.stringify({ tasks }, null, 2) + '\n```\n'
   fs.writeFileSync(filePath, text)
@@ -912,6 +929,42 @@ test('H3 starts a graph plan in its first parallel wave', () => {
   assert.equal(s.current, null)
   assert.ok(note.includes('Call the Agent tool 2 times'))
   assert.ok(note.includes('Wave 1 runs 2 tasks in parallel'))
+})
+
+const THREE_FREE = () => [task(1, { after: [] }), task(2, { after: [] }), task(3, { after: [] })]
+
+test('H3 runs a graph plan under the --max-parallel that /tierminator:plan kept', () => {
+  const note = approve(THREE_FREE(), 'auto', { maxParallel: 2 })
+  const s = state.read(S)
+  assert.equal(s.maxParallel, 2)
+  assert.equal(s.wave.cap, 2)
+  assert.deepEqual(w.startable(s), ['T01', 'T02'])
+  assert.ok(note.includes('At most 2 tasks run at once.'))
+  assert.ok(note.includes('Call the Agent tool 2 times'))
+})
+
+test('H3 says one task runs at a time under --max-parallel 1', () => {
+  assert.ok(approve(THREE_FREE(), 'auto', { maxParallel: 1 }).includes('One task runs at a time.'))
+})
+
+test('H3 runs a graph plan under 5 when /tierminator:plan had no --max-parallel', () => {
+  const note = approve(THREE_FREE(), 'auto')
+  const s = state.read(S)
+  assert.equal(s.maxParallel, null)
+  assert.equal(s.wave.cap, 5)
+  assert.ok(note.includes('At most 5 tasks run at once.'))
+})
+
+test('a serial task that leads into a wave starts it under the run\'s --max-parallel', () => {
+  startGraphRun()
+  state.write(S, { ...state.read(S), maxParallel: 2 })
+  assert.equal(preOf(r.expectedCall(state.read(S))).stdout, '')
+  const sha = serialWorker()
+  stopHook({ session_id: S, agent_id: 'w1', agent_type: 'tierminator:sonnet-medium', last_assistant_message: report('DONE', sha) })
+  const s = state.read(S)
+  assertWaveStarted(s)
+  assert.equal(s.wave.cap, 2)
+  assert.deepEqual(w.startable(s), ['T02', 'T03'])
 })
 
 test('H3 starts a graph plan whose first wave is one task as a serial task', () => {

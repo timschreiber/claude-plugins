@@ -127,7 +127,7 @@ function finishWave(input, s, id, { deliver = false } = {}) {
   let tail = null
   const res = state.update(input.session_id, cur => {
     if (cur?.wave?.phase !== 'integrating' || cur.phase !== closed.phase) return null
-    const applied = integrate.applyIntegration(cur, result, { head: git.head(cwd), root: git.repoRoot(cwd), cap: maxParallel() })
+    const applied = integrate.applyIntegration(cur, result, { head: git.head(cwd), root: git.repoRoot(cwd), cap: maxParallel(process.env, cur) })
     tail = applied.tail
     return { ...applied.state, notice: deliver ? cur.notice : joinNotice(cur.notice, applied.tail) }
   })

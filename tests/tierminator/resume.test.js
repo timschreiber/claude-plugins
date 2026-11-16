@@ -231,3 +231,36 @@ test('a run halted in the middle of a parallel wave resumes without redoing the 
   assert.equal(state.read(S).phase, 'complete')
   assert.deepEqual(gitIn(repo, 'log', '--format=%s').split('\n'), ['Task T04', 'Task T03', 'Task T02', 'Task T01', 'init'])
 })
+
+test('/tierminator:execute --max-parallel caps the run, wins over TIERMINATOR_MAX_PARALLEL, and is checked', () => {
+  const wide = () => [task(1, { after: [] }), task(2, { after: [] }), task(3, { after: [] })]
+  writePlan(wide())
+  let out = execute(`"${plan}" --max-parallel 2`, { TIERMINATOR_MAX_PARALLEL: '3' })
+  let s = state.read(S)
+  assert.equal(s.maxParallel, 2)
+  assert.equal(s.wave.cap, 2)
+  assert.ok(out.includes('At most 2 tasks run at once.'))
+  assert.ok(out.includes('Call the Agent tool 2 times'))
+
+  writePlan(wide())
+  out = execute(`--max-parallel=1 "${plan}"`)
+  assert.equal(state.read(S).wave.cap, 1)
+  assert.ok(out.includes('One task runs at a time.'))
+
+  // Without the option, the variable, else 5; the run keeps no cap of its own.
+  writePlan(wide())
+  out = execute(`"${plan}"`, { TIERMINATOR_MAX_PARALLEL: '3' })
+  s = state.read(S)
+  assert.equal(s.maxParallel, null)
+  assert.equal(s.wave.cap, 3)
+  writePlan(wide())
+  assert.ok(execute(`"${plan}"`).includes('At most 5 tasks run at once.'))
+
+  for (const bad of ['--max-parallel 0', '--max-parallel', '--max-parallel=x', '--max-parallel 2.5']) {
+    writePlan(wide())
+    state.remove(S)
+    out = execute(`"${plan}" ${bad}`)
+    assert.match(out, /--max-parallel needs a whole number of at least 1, such as --max-parallel 3\. Tell the user\./, bad)
+    assert.equal(state.read(S), null, bad)
+  }
+})

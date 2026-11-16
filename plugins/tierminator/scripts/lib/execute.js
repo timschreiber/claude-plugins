@@ -1,4 +1,4 @@
-// /tierminator:execute [plan path | list number] [--from Txx]: runs a saved plan, for when its run
+// /tierminator:execute [plan path | list number] [--from Txx] [--max-parallel N]: runs a saved plan, for when its run
 // ended or its session is gone (SessionEnd deletes the run state and the activation flag). H1 calls
 // executePlan() with the UserPromptSubmit input and prints the note it returns; the skill only tells
 // Claude to follow it. H3 calls it too, with { approved: true }, to start a plan the user has just
@@ -12,6 +12,9 @@
 //   - A plain plan runs without tierminator: Claude implements it as usual.
 //   - A tierminator plan whose tasks cannot be loaded is refused: its prompts are not in the plan.
 //   - In a headless session (opts.record), a plan that does not start writes the result file (lib/result.js).
+//   - --max-parallel N (or opts.maxParallel, from /tierminator:plan's option, when H3 or H5 starts an approved plan)
+//     is saved in the run as maxParallel and caps its parallel tasks (lib/waves.js maxParallel); without it the cap
+//     is TIERMINATOR_MAX_PARALLEL, else 5. The option given to this command wins over opts.
 'use strict'
 
 const fs = require('fs')
@@ -26,7 +29,7 @@ const { extractBlock } = require('./tasks.js')
 const { startRun, dispatchText, skippedEntry, doneLabel } = require('./run.js')
 const { recordRunStart } = require('./spend.js')
 const w = require('./wave-run.js')
-const { maxParallel } = require('./waves.js')
+const { maxParallel, capOf, OPTION, OPTION_ERROR } = require('./waves.js')
 
 const PREFIX = 'tierminator:'
 const LISTED = 5
@@ -37,14 +40,15 @@ const PERMISSION_LINE =
 // Claude Code's default plans directory. A custom plansDirectory setting is not visible to hooks.
 const plansDir = () => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'plans')
 
-// The words after the command: a path (quoted or not; unquoted words are joined with spaces) and an
-// optional --from Txx. Returns {path, from} or {error}.
+// The words after the command: a path (quoted or not; unquoted words are joined with spaces), an
+// optional --from Txx and an optional --max-parallel N. Returns {path, from, maxParallel} or {error}.
 function parseArgs(rest) {
   const tokens = []
   const re = /"([^"]*)"|'([^']*)'|(\S+)/g
   let m
   while ((m = re.exec(String(rest ?? '')))) tokens.push(m[1] ?? m[2] ?? m[3])
   let from = null
+  let maxParallel = null
   const words = []
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]
@@ -52,11 +56,14 @@ function parseArgs(rest) {
       const value = t === '--from' ? tokens[++i] : t.slice('--from='.length)
       if (!/^T\d+$/i.test(value ?? '')) return { error: '--from needs a task id, such as --from T03' }
       from = value.toUpperCase()
+    } else if (t === OPTION || t.startsWith(`${OPTION}=`)) {
+      maxParallel = capOf(t === OPTION ? tokens[++i] : t.slice(OPTION.length + 1))
+      if (maxParallel === null) return { error: OPTION_ERROR }
     } else {
       words.push(t)
     }
   }
-  return { path: words.length ? words.join(' ') : null, from }
+  return { path: words.length ? words.join(' ') : null, from, maxParallel }
 }
 
 function resolvePath(p, cwd) {
@@ -271,9 +278,10 @@ function startPlan(input, rest, opts, seen) {
       done: point.done,
     }),
     cwd,
+    maxParallel: args.maxParallel ?? capOf(opts.maxParallel),
   }
   if (result.graph) {
-    const first = w.nextWave(run, git.head(cwd), git.repoRoot(cwd), maxParallel())
+    const first = w.nextWave(run, git.head(cwd), git.repoRoot(cwd), maxParallel(process.env, run))
     if (first.kind !== 'complete') run = first.state
   }
   if (!state.write(id, run)) return told(`${PREFIX} the run could not be saved, so the plan cannot run. Tell the user.`)
@@ -286,8 +294,11 @@ function startPlan(input, rest, opts, seen) {
   const opening = opts.approved
     ? `${PREFIX} the user approved ${count} and wants them run.`
     : `${PREFIX} running the plan in ${planFile} (${count}).`
+  const k = maxParallel(process.env, run)
+  const cap = result.graph ? (k === 1 ? ' One task runs at a time.' : ` At most ${k} tasks run at once.`) : ''
   return (
     opening +
+    cap +
     `${skipped}${tidied ? ` ${tidied}` : ''} ${result.graph ?'Dispatch the tasks exactly as tierminator says.' : 'Dispatch the tasks one at a time, exactly as tierminator says.'} ` +
     'Do not implement the plan yourself. ' +
     (result.graph && PARALLEL_MODES.includes(input.permission_mode) ? PERMISSION_LINE + ' ' : '') +

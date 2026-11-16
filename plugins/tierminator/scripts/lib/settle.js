@@ -84,7 +84,7 @@ function settle(s, cwd, failure) {
   // A graph plan follows its waves, not task order.
   if (s.graph && outcome.ok) {
     const cur = { ...s.current, inFlight: false, tried: [...s.current.tried, s.current.tier] }
-    const step = w.nextWave({ ...next, phase: 'running', current: cur }, git.head(cwd), git.repoRoot(cwd), maxParallel())
+    const step = w.nextWave({ ...next, phase: 'running', current: cur }, git.head(cwd), git.repoRoot(cwd), maxParallel(process.env, next))
     next = step.state
     action = step.kind === 'complete' ? 'complete' : 'next'
     started = step.kind === 'wave'

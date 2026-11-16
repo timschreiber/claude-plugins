@@ -126,7 +126,7 @@ function draftingStop(input, s) {
       })
     }
     recordPlanning(input, planIdOf(result, text), s.planFile)
-    const note = executePlan(input, JSON.stringify(s.planFile))
+    const note = executePlan(input, JSON.stringify(s.planFile), { maxParallel: s.maxParallel ?? null })
     // If executePlan refused (a dirty tree, for example), Claude reports it and the next stop passes.
     if (state.read(id)?.phase !== 'running') {
       resultFile.writeOutcome(input, s, 'declined', resultFile.reasonOf(note))

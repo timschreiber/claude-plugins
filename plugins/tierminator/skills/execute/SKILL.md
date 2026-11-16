@@ -1,7 +1,7 @@
 ---
 name: execute
-description: Run a saved plan again, for when its session ended before it ran or finished. A tierminator plan runs as tiered tasks, skipping those already committed; --from Txx picks where it starts, except in a plan with parallel tasks, which resumes from what is committed. Worktrees and branches an earlier run left are removed first. A plain plan is implemented normally. With no path, lists recent plans, which a number from the list then picks. Only the user runs this.
-argument-hint: "[plan path | list number] [--from Txx]"
+description: Run a saved plan again, for when its session ended before it ran or finished. A tierminator plan runs as tiered tasks, skipping those already committed; --from Txx picks where it starts, except in a plan with parallel tasks, which resumes from what is committed; --max-parallel N caps how many tasks run at once (default 5). Worktrees and branches an earlier run left are removed first. A plain plan is implemented normally. With no path, lists recent plans, which a number from the list then picks. Only the user runs this.
+argument-hint: "[plan path | list number] [--from Txx] [--max-parallel N]"
 disable-model-invocation: true
 ---
 

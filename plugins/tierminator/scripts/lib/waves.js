@@ -39,10 +39,32 @@ function startable(queued, inFlight, cap) {
   return queued.filter(id => !inFlight.includes(id)).slice(0, room)
 }
 
-// TIERMINATOR_MAX_PARALLEL when it is a positive integer, else 5.
-function maxParallel(env = process.env) {
-  const text = String(env?.TIERMINATOR_MAX_PARALLEL ?? '').trim()
-  return /^[1-9][0-9]*$/.test(text) ? Number(text) : DEFAULT_MAX_PARALLEL
+// `value` as a cap: a positive integer (or its digits), else null.
+const capOf = value => {
+  const text = String(value ?? '').trim()
+  return /^[1-9][0-9]*$/.test(text) ? Number(text) : null
 }
 
-module.exports = { DEFAULT_MAX_PARALLEL, waveOf, waves, startable, maxParallel }
+// The cap on a run's parallel tasks: the run's own `maxParallel` (the --max-parallel option of /tierminator:plan or
+// /tierminator:execute), else TIERMINATOR_MAX_PARALLEL when it is a positive integer, else 5.
+function maxParallel(env = process.env, run = null) {
+  return capOf(run?.maxParallel) ?? capOf(env?.TIERMINATOR_MAX_PARALLEL) ?? DEFAULT_MAX_PARALLEL
+}
+
+const OPTION = '--max-parallel'
+const OPTION_ERROR = `${OPTION} needs a whole number of at least 1, such as ${OPTION} 3`
+
+// The --max-parallel option at the start of /tierminator:plan's words (`--max-parallel N` or `--max-parallel=N`),
+// before the request. Only there, so a request that mentions a --max-parallel flag is left alone. Returns
+// {request, maxParallel, error}: the words after the option, maxParallel null when it is not given, and error
+// when it is given without a valid value.
+function leadingMaxParallel(words) {
+  const text = String(words ?? '').trim()
+  const m = /^--max-parallel(?:=(\S*)|\s+(\S+))?(?=\s|$)/.exec(text)
+  if (!m) return { request: text, maxParallel: null, error: null }
+  const cap = capOf(m[1] ?? m[2])
+  if (cap === null) return { request: text, maxParallel: null, error: OPTION_ERROR }
+  return { request: text.slice(m[0].length).trim(), maxParallel: cap, error: null }
+}
+
+module.exports = { DEFAULT_MAX_PARALLEL, OPTION, OPTION_ERROR, waveOf, waves, startable, maxParallel, capOf, leadingMaxParallel }

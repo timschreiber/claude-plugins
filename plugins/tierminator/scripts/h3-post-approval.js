@@ -44,7 +44,10 @@ run(async () => {
   const input = await readInput()
   if (!input || input.agent_id || input.tool_response?.isAgent) return
   const id = input.session_id
-  if (!state.isActive(id) || state.read(id)?.phase !== 'planning') return
+  const planning = state.isActive(id) ? state.read(id) : null
+  if (planning?.phase !== 'planning') return
+  // /tierminator:plan's --max-parallel, kept in the planning state, caps the run.
+  const maxParallel = planning.maxParallel ?? null
   const end = () => {
     state.deactivate(id)
     state.remove(id)
@@ -95,7 +98,7 @@ run(async () => {
     }
   }
 
-  const note = executePlan(input, JSON.stringify(planFile), { approved: true })
+  const note = executePlan(input, JSON.stringify(planFile), { approved: true, maxParallel })
   if (state.read(id)?.phase !== 'running') end()
   state.prune(PRUNE_DAYS)
   context(note)

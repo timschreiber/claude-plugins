@@ -1,11 +1,12 @@
 // H1: the typed commands, the tiering rules in front of the planner, and a run's next step in front of Claude.
 //   (no arg)  UserPromptSubmit. The commands, as typed (the hook sees the raw text, not the skill body):
-//             - /tierminator:plan <request> makes the session active and starts planning. Interactively it
+//             - /tierminator:plan [--max-parallel N] <request> makes the session active and starts planning
+//               (the option, before the request, is kept for the run approval starts). Interactively it
 //               saves the planning phase and asks Claude to enter plan mode (or, already there, prints the
 //               rules); approving the plan then runs it (H3). In a headless session (lib/unattended.js) it
 //               starts the drafting phase instead and prints the unattended note and the rules.
 //               A headless start it refuses writes a declined result file (lib/result.js) first.
-//             - /tierminator:execute [plan path | list number] [--from Txx] runs a saved plan
+//             - /tierminator:execute [plan path | list number] [--from Txx] [--max-parallel N] runs a saved plan
 //               (lib/execute.js).
 //               A headless one that does not start writes a complete or declined result file there.
 //             Either command first ends whatever the session was doing: a run in progress stops, and
@@ -58,6 +59,7 @@ const { settle, readReport } = require('./lib/settle.js')
 const { subagentsDir } = require('./lib/usage.js')
 const h4wave = require('./lib/h4-wave.js')
 const w = require('./lib/wave-run.js')
+const { leadingMaxParallel } = require('./lib/waves.js')
 const { run, readInput, emit, emitText } = require('./lib/hook.js')
 
 // Subagent reports and task notifications also arrive as prompts; they are not the user speaking.
@@ -295,7 +297,7 @@ function endRun(input) {
 
 // A headless session's /tierminator:plan: make it active, put it in the drafting phase and give Claude the
 // note and the rules. Nothing starts when the session could not run a plan.
-function headlessStart(input) {
+function headlessStart(input, maxParallel = null) {
   // Nothing is active yet, so a refusal is written with allowInactive: the typed command is the activation.
   const declined = reason => resultFile.writeOutcome(input, null, 'declined', reason, { planFile: unattended.planFileFor(input.session_id), allowInactive: true })
   const id = input.session_id
@@ -313,7 +315,7 @@ function headlessStart(input) {
     return 'tierminator: unattended run not started: its flag file could not be written. Report this and stop.'
   }
   const planFile = unattended.planFileFor(id)
-  if (!state.write(id, { phase: 'drafting', planFile, denials: 0, guardDenials: 0 })) {
+  if (!state.write(id, { phase: 'drafting', planFile, denials: 0, guardDenials: 0, ...(maxParallel === null ? {} : { maxParallel }) })) {
     state.deactivate(id)
     declined('its state could not be saved')
     return 'tierminator: unattended run not started: its state could not be saved. Report this and stop.'
@@ -323,14 +325,26 @@ function headlessStart(input) {
   return `${unattended.note(planFile)}\n\n${rules()}`
 }
 
-// /tierminator:plan <request>. Starting checks the repository the way H2 does at approval, so planning
-// that could never run is not started. H2 and H3 still check again: the tree can change while planning.
-function planNote(input, request) {
+// /tierminator:plan [--max-parallel N] <request>. Starting checks the repository the way H2 does at approval, so
+// planning that could never run is not started. H2 and H3 still check again: the tree can change while planning.
+// --max-parallel, given before the request, is kept in the planning (or drafting) state, and the run started at
+// approval (H3, or H5 when headless) uses it as its cap on parallel tasks.
+function planNote(input, words) {
   const id = input.session_id
+  const option = leadingMaxParallel(words)
+  if (option.error) {
+    return `tierminator: planning was not started: ${option.error}, given before the request (/tierminator:plan --max-parallel 3 <request>). Tell the user.`
+  }
+  const { request, maxParallel } = option
   if (!request) {
     return 'tierminator: planning was not started: /tierminator:plan needs a request, for example /tierminator:plan add a --verbose flag. Tell the user.'
   }
-  if (unattended.headless()) return headlessStart(input)
+  // The skill shows Claude every word typed after the command, the option included.
+  const optionNote = maxParallel === null ? '' : ` The --max-parallel ${maxParallel} before the request is tierminator's option, not part of the request: at most ${maxParallel} tasks will run at once.`
+  if (unattended.headless()) {
+    const started = headlessStart(input, maxParallel)
+    return state.read(id)?.phase === 'drafting' ? `${started}${optionNote}` : started
+  }
   const problem = git.problem(input.cwd)
   if (problem) {
     return (
@@ -339,14 +353,14 @@ function planNote(input, request) {
     )
   }
   if (!state.activate(id)) return 'tierminator: planning was not started: its flag file could not be written. Tell the user.'
-  if (!state.write(id, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0 })) {
+  if (!state.write(id, { phase: 'planning', tasks: [], denials: 0, guardDenials: 0, ...(maxParallel === null ? {} : { maxParallel }) })) {
     state.deactivate(id)
     return 'tierminator: planning was not started: its state could not be saved. Tell the user.'
   }
   state.prune(PRUNE_DAYS)
   const note =
     'tierminator: planning started. Plan the request in plan mode; when the user approves the plan, ' +
-    'tierminator runs it as tiered tasks.'
+    `tierminator runs it as tiered tasks.${optionNote}`
   if (input.permission_mode === 'plan') {
     state.markRulesShown(id)
     return `${note}\n\n${rules()}`
@@ -393,7 +407,7 @@ run(async () => {
   if (typed) {
     const stopped = endRun(input)
     const rest = prompt.slice(typed[0].length)
-    const commandNote = typed[1] === 'plan' ? planNote(input, rest.trim()) : executePlan(input, rest, { record: unattended.headless() })
+    const commandNote = typed[1] === 'plan' ? planNote(input, rest) : executePlan(input, rest, { record: unattended.headless() })
     return say([stopped.note, commandNote].filter(Boolean).join('\n\n'), stopped.spent)
   }
 

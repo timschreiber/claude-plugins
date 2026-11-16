@@ -209,6 +209,18 @@ test('with CLAUDE_CODE_ENTRYPOINT=sdk-cli, /tierminator:plan starts drafting and
   assert.ok(r.stdout.includes(RULES))
 })
 
+test('a headless /tierminator:plan --max-parallel keeps the cap in the drafting state', () => {
+  state.deactivate(S)
+  const r = unattendedRun({ prompt: '/tierminator:plan --max-parallel 2 Add a clock' })
+  const s = state.read(S)
+  assert.equal(s.phase, 'drafting')
+  assert.equal(s.maxParallel, 2)
+  assert.ok(r.stdout.includes('at most 2 tasks will run at once'))
+  state.deactivate(S)
+  unattendedRun()
+  assert.equal(state.read(S).maxParallel, undefined)
+})
+
 test('a headless /tierminator:plan in plan mode is refused, and nothing is activated', () => {
   state.deactivate(S)
   const r = unattendedRun({ permission_mode: 'plan' })
@@ -1914,6 +1926,18 @@ test('H5 stop with a valid plan while drafting saves it and starts the run, even
   }
 })
 
+test('H5 stop starts a drafted graph plan under the drafting state\'s --max-parallel', () => {
+  fs.rmSync(path.join(dir, 'plans'), { recursive: true, force: true })
+  const graph = planText([task(1, { after: [] }), task(2, { after: [], prompt: 'Read docs/spec.md.\nFiles to change: src/b.js\nDo the work. Verify: node --test passes.' }), task(3, { after: [], prompt: 'Read docs/spec.md.\nFiles to change: src/c.js\nDo the work. Verify: node --test passes.' })])
+  state.write(S, draftingState({ maxParallel: 1 }))
+  const r = draftStop(graph)
+  const s = state.read(S)
+  assert.equal(s.phase, 'running')
+  assert.equal(s.maxParallel, 1)
+  assert.equal(s.wave.cap, 1)
+  assert.match(r.json.reason, /One task runs at a time\./)
+})
+
 test('H5 stop takes the plan from the transcript when there is no last_assistant_message', () => {
   const transcript = path.join(dir, 'transcript.jsonl')
   const entry = (type, text) => JSON.stringify({ type, message: { content: [{ type: 'text', text }] } })
@@ -2126,6 +2150,39 @@ test('/tierminator:plan outside plan mode activates, writes phase planning and a
   state.activate(S)
   planning()
   assert.equal(typed('please /tierminator:plan x', 'plan').stdout, RULES, 'only at the start of the prompt')
+})
+
+test('/tierminator:plan --max-parallel before the request is kept in the planning state, and checked', () => {
+  for (const words of ['--max-parallel 2 add a --verbose flag', '--max-parallel=2 add a --verbose flag']) {
+    state.deactivate(S)
+    state.remove(S)
+    const out = typed(`/tierminator:plan ${words}`).stdout
+    assert.match(out, /^tierminator: planning started\./, words)
+    assert.ok(out.includes("The --max-parallel 2 before the request is tierminator's option, not part of the request: at most 2 tasks will run at once."), words)
+    assert.deepEqual(state.read(S), { phase: 'planning', tasks: [], denials: 0, guardDenials: 0, maxParallel: 2 })
+  }
+  // In plan mode the note comes before the rules, with the option named.
+  state.deactivate(S)
+  assert.ok(typed('/tierminator:plan --max-parallel 3 add a flag', 'plan').stdout.includes('at most 3 tasks will run at once'))
+
+  // Only before the request: a request about a --max-parallel flag is a request.
+  state.deactivate(S)
+  state.remove(S)
+  const about = typed('/tierminator:plan add a --max-parallel flag to the CLI').stdout
+  assert.match(about, /^tierminator: planning started\./)
+  assert.ok(!about.includes("tierminator's option"))
+  assert.equal(state.read(S).maxParallel, undefined)
+
+  for (const bad of ['--max-parallel 0 add a flag', '--max-parallel=abc add a flag', '--max-parallel']) {
+    state.deactivate(S)
+    state.remove(S)
+    const out = typed(`/tierminator:plan ${bad}`).stdout
+    assert.match(out, /^tierminator: planning was not started: --max-parallel needs a whole number of at least 1/, bad)
+    assert.equal(state.isActive(S), false, bad)
+  }
+  state.deactivate(S)
+  assert.match(typed('/tierminator:plan --max-parallel 2').stdout, /needs a request/)
+  assert.equal(state.isActive(S), false)
 })
 
 test('/tierminator:plan inside plan mode emits the rules', () => {
