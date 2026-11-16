@@ -62,6 +62,15 @@ run(async () => {
       return
     }
 
+    // A prompt over the hard limit is refused every time, like the Git problem above: it cannot be kept, and
+    // it does not count toward the invalid-block denials, after which the plan would pass and H3 run it.
+    // It is checked here, not when a plan is loaded, so a plan saved before the limit still runs.
+    const limit = sizing.limitText(result.tasks)
+    if (limit !== null) {
+      deny(limit)
+      return
+    }
+
     // A task that may be too large for one worker is sent back to the planner, a couple of times: it is
     // split, or kept with a "Keep Txx:" line. In a graph plan two tasks that may run at the same time
     // and name the same file are flagged too. These are guidelines, so the plan then passes. A review

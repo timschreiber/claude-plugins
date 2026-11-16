@@ -3,6 +3,7 @@
 // with a "Keep T03: <why>" line in the plan, a limited number of times. For a graph plan it also flags
 // two tasks that may run at the same time yet name the same file. A plan of MIN_CHAIN or more tasks in
 // which no task gives "after" and no line starts "Serial: <why>" gets a plan-wide flag. Never throws.
+// One rule is not a guideline: a prompt over PROMPT_LIMIT is refused (limitText) and cannot be kept.
 'use strict'
 
 const OVERLAP_PREFIX = 'may run at the same time as '
@@ -10,8 +11,34 @@ const MIN_CHAIN = 6
 const MAX_FILES = 4
 const MAX_PROMPT = { haiku: 3000, sonnet: 4000, opus: 5000 }
 const MAX_REVIEWS = 2
+// The hard limit on a task's prompt, in characters. Each dispatch carries the whole prompt in hook text, and
+// hook text over about 10,000 characters reaches Claude only as a file to read, so with its header lines and
+// the call around it a prompt at this limit still arrives whole. It equals a wave's DISPATCH_BUDGET
+// (lib/wave-run.js). Measured in tierminator-agent-prompt-findings.md.
+const PROMPT_LIMIT = 7000
 
 const thousands = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+// [{id, length}] for the tasks whose prompt is over PROMPT_LIMIT.
+function overLimit(tasks) {
+  return (Array.isArray(tasks) ? tasks : [])
+    .filter(t => typeof t?.prompt === 'string' && t.prompt.length > PROMPT_LIMIT)
+    .map(t => ({ id: t.id, length: t.prompt.length }))
+}
+
+// The refusal for prompts over PROMPT_LIMIT, or null when there are none. `retry` is what to do once fixed.
+function limitText(tasks, retry = 'Then call ExitPlanMode again.') {
+  const over = overLimit(tasks)
+  if (over.length === 0) return null
+  return (
+    `tierminator: some task prompts are over the limit of ${thousands(PROMPT_LIMIT)} characters. This is a rule, ` +
+    'not a guideline, and a "Keep" line does not lift it: each dispatch carries the whole prompt, and a longer ' +
+    'one does not reach the dispatch intact.\n' +
+    over.map(o => `- ${o.id}: its prompt is ${thousands(o.length)} characters`).join('\n') +
+    '\n\nSplit each into smaller tasks, each with its own prompt under the limit. Keep every instruction in the ' +
+    `prompts; do not move them into a file for the worker to read. ${retry}`
+  )
+}
 
 // The files on the prompt's first "Files to change:" line, or null when it has none.
 function filesToChange(prompt) {
@@ -186,6 +213,9 @@ module.exports = {
   MAX_FILES,
   MAX_PROMPT,
   MAX_REVIEWS,
+  PROMPT_LIMIT,
+  overLimit,
+  limitText,
   MIN_CHAIN,
   OVERLAP_PREFIX,
   serial,

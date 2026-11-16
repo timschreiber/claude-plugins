@@ -113,6 +113,10 @@ are guidelines, so after two reviews the plan goes to the approval dialog either
 or more tasks in which no task gives `after` and no line starts with `Serial:` and a reason; this flag is for
 the whole plan, not one task. An `after`, a `Serial:` line or fewer than 6 tasks clears it.
 
+One limit is a rule, not a guideline: no task's prompt may be over 7,000 characters, because each worker
+is handed its whole task in its prompt (so auto mode sees what it was asked to do). Claude is sent back
+until it splits any task that is over, and a `Keep` line does not lift it.
+
 ### Parallel tasks
 
 The planner decides each task's dependencies before it writes the plan. A task needs an earlier one only if it

@@ -619,6 +619,26 @@ test('H2 denies a plan with a flagged task, and lets it through after a Keep lin
   assert.ok(fs.existsSync(TASKS_FILE()), 'the block is moved')
 })
 
+test('H2 refuses a prompt over the limit every time, even with a Keep line, and counts neither denials nor reviews', () => {
+  planning()
+  const long = planText([task(1), task(2, { prompt: 'Files to change: a.js\n' + 'x'.repeat(7000) + '\nVerify: node --test passes.' })])
+  const file = writePlanFile(long)
+  for (const text of [long, long, long, long, long + '\nKeep T02: it is one change.\n']) {
+    fs.writeFileSync(file, text)
+    const r = hook('h2-gate-exit-plan.js', exitPre(text, file))
+    assert.equal(r.json.hookSpecificOutput.permissionDecision, 'deny')
+    assert.match(denyReason(r), /some task prompts are over the limit of 7,000 characters/)
+    assert.match(denyReason(r), /- T02: its prompt is 7,050 characters/)
+  }
+  assert.equal(state.read(S).denials ?? 0, 0)
+  assert.equal(state.read(S).sizingReviews, undefined)
+  assert.ok(!fs.existsSync(TASKS_FILE()), 'the block is not moved')
+  const fixed = planText([task(1), task(2)])
+  fs.writeFileSync(file, fixed)
+  assert.equal(hook('h2-gate-exit-plan.js', exitPre(fixed, file)).stdout, '')
+  assert.ok(fs.existsSync(TASKS_FILE()))
+})
+
 test('H2 lets an unchanged flagged plan through after two reviews', () => {
   planning()
   const file = writePlanFile(FLAGGED)
@@ -1920,6 +1940,24 @@ test('H5 stop with an invalid plan while drafting blocks with the errors and the
   const last = draftStop(INVALID)
   assert.equal(last.json.decision, undefined)
   assert.match(last.json.systemMessage, /nothing ran/)
+  assert.equal(state.read(S).phase, 'abandoned')
+  assert.ok(!fs.existsSync(draftPlanFile()))
+})
+
+test('H5 stop with a prompt over the limit while drafting blocks, counts a denial, and abandons on the fourth', () => {
+  state.write(S, draftingState())
+  const long = planText([task(1, { prompt: 'Files to change: a.js\n' + 'x'.repeat(7000) + '\nVerify: node --test passes.' })])
+  for (let i = 1; i <= 3; i++) {
+    const r = draftStop(long + `\nKeep T01: try ${i}.\n`)
+    assert.equal(r.json.decision, 'block')
+    assert.match(r.json.reason, /- T01: its prompt is 7,050 characters/)
+    assert.match(r.json.reason, /Then end your turn again with the complete plan as your final message\.$/)
+    assert.ok(!r.json.reason.includes('ExitPlanMode'))
+    assert.equal(state.read(S).denials, i)
+    assert.equal(state.read(S).phase, 'drafting')
+  }
+  const last = draftStop(long)
+  assert.match(last.json.systemMessage, /still over 7000 characters after 3 tries, so nothing ran/)
   assert.equal(state.read(S).phase, 'abandoned')
   assert.ok(!fs.existsSync(draftPlanFile()))
 })

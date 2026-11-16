@@ -131,6 +131,10 @@ costs a commit; an oversized one can stop the run.
 split a flagged task, or keep it and add a line `Keep T03: <why it stays one task>` to the plan, outside
 the task block.
 
+One limit is a rule: no prompt may be over 7,000 characters, since every dispatch carries the whole prompt.
+`ExitPlanMode` is denied while one is, and a `Keep` line does not lift it. Split the task; keep its
+instructions in the prompts rather than in a file for the worker to read.
+
 ## Task prompts
 
 A worker sees only its prompt, the repository and the project's CLAUDE.md, never this plan or this

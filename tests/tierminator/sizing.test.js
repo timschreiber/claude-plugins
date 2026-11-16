@@ -288,3 +288,32 @@ test('reviewText for overlap-only and mixed pending', () => {
       'For a task that shares a file, do as its line says. Keep lines go in the plan, outside the task block. Then call ExitPlanMode again.'
   )
 })
+
+test('overLimit lists the prompts over PROMPT_LIMIT, and limitText refuses them as a rule', () => {
+  const { PROMPT_LIMIT, overLimit, limitText } = sizing
+  assert.equal(PROMPT_LIMIT, 7000)
+  const at = task(1, { prompt: 'x'.repeat(PROMPT_LIMIT) })
+  const over = task(2, { prompt: 'x'.repeat(PROMPT_LIMIT + 1) })
+  const big = task(3, { model: 'opus', effort: 'high', prompt: 'x'.repeat(12345) })
+  assert.deepEqual(overLimit([at, over, big]), [{ id: 'T02', length: 7001 }, { id: 'T03', length: 12345 }])
+  assert.deepEqual(overLimit(null), [])
+  assert.equal(limitText([at, task(4)]), null)
+  const text = limitText([at, over, big])
+  assert.ok(text.startsWith('tierminator: some task prompts are over the limit of 7,000 characters. This is a rule, not a guideline'))
+  assert.ok(text.includes('\n- T02: its prompt is 7,001 characters\n- T03: its prompt is 12,345 characters\n'))
+  assert.ok(!text.includes('T01'))
+  assert.ok(text.includes('do not move them into a file for the worker to read'))
+  assert.ok(text.endsWith('Then call ExitPlanMode again.'))
+  assert.ok(limitText([over], 'Then end your turn.').endsWith('Then end your turn.'))
+})
+
+test('a prompt at PROMPT_LIMIT still arrives whole: its dispatch stays under the measured 9,000 characters', () => {
+  const r = require('../../plugins/tierminator/scripts/lib/run.js')
+  const w = require('../../plugins/tierminator/scripts/lib/wave-run.js')
+  assert.equal(sizing.PROMPT_LIMIT, w.DISPATCH_BUDGET)
+  const t = task(1, { title: 'T'.repeat(100), prompt: 'x'.repeat(sizing.PROMPT_LIMIT) })
+  const s = r.startRun({ tasks: [t], tasksFile: 'f', branch: 'main', planId: '0123456789abcdef' })
+  const retried = r.advance(s, { ok: false, reason: 'Verify failed: ' + 'y'.repeat(300) }).state
+  const text = r.noticeText(s, retried, 'retry', { ok: false, reason: 'Verify failed: ' + 'y'.repeat(300) })
+  assert.ok(text.length < 9000, String(text.length))
+})

@@ -88,6 +88,18 @@ function draftingStop(input, s) {
       'tierminator: the plan opts out of tiered execution, so tierminator will not run it. Implement it yourself now, as the plan says.'
     )
   }
+  // A prompt over the hard limit is handled as an invalid block: sent back, and after MAX_DENIALS nothing runs.
+  const limit = result.ok ? sizing.limitText(result.tasks, 'Then end your turn again with the complete plan as your final message.') : null
+  if (limit !== null) {
+    const denials = (s.denials ?? 0) + 1
+    if (denials > MAX_DENIALS) {
+      resultFile.writeOutcome(input, s, 'no-plan', `a task prompt was still over ${sizing.PROMPT_LIMIT} characters after 3 tries`)
+      state.write(id, { ...s, phase: 'abandoned', denials, resultWritten: true })
+      return emit({ systemMessage: `tierminator: a task prompt in the unattended plan was still over ${sizing.PROMPT_LIMIT} characters after 3 tries, so nothing ran.` })
+    }
+    state.write(id, { ...s, denials })
+    return block(limit)
+  }
   if (result.ok) {
     // A task that may be too large for one worker is sent back to the planner, a couple of times, as H2 does.
     const reviews = s.sizingReviews ?? 0
