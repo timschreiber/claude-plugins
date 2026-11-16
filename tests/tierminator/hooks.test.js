@@ -2311,9 +2311,10 @@ test('the plan and execute skills are the only skills, and only the user can run
     assert.match(skill, /^disable-model-invocation: true$/m)
   }
   const execute = fs.readFileSync(path.join(PLUGIN, 'skills', 'execute', 'SKILL.md'), 'utf8')
-  assert.match(execute, /^argument-hint: "\[plan path \| list number\] \[--from Txx\]"$/m)
+  assert.match(execute, /^argument-hint: "\[plan path \| list number\] \[--from Txx\] \[--max-parallel N\]"$/m)
   const plan = fs.readFileSync(path.join(PLUGIN, 'skills', 'plan', 'SKILL.md'), 'utf8')
-  assert.match(plan, /^argument-hint: "<what to plan>"$/m)
+  assert.match(plan, /^argument-hint: "\[--max-parallel N\] <what to plan>"$/m)
+  assert.ok(plan.includes('without a leading `--max-parallel N`'), 'the skill tells Claude the option is not the request')
 })
 
 test('/tierminator:execute never asks for plan mode', () => {
