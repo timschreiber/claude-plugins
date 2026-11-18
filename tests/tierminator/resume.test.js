@@ -150,6 +150,48 @@ test('a headless --from on a graph plan writes a declined result', () => {
   assert.deepEqual(r.tasksDone, [])
 })
 
+// The session's shell moves with every `cd` Claude runs; a run started from a subdirectory once ran the plan's
+// verify (mvn -q verify) there and halted for want of a pom.xml.
+test('runDir is the project directory or the tree top, never a subdirectory the shell drifted to', () => {
+  const { runDir } = require(path.join(PLUGIN, 'scripts', 'lib', 'execute.js'))
+  const deep = path.join(repo, 'src', 'test', 'java')
+  const pkg = path.join(repo, 'pkg')
+  fs.mkdirSync(deep, { recursive: true })
+  fs.mkdirSync(pkg, { recursive: true })
+  const other = makeRepo(path.join(dir, 'other'))
+  const outside = fs.mkdtempSync(path.join(dir, 'outside-'))
+
+  assert.ok(git.samePath(runDir({ cwd: deep }, {}), repo))
+  assert.equal(runDir({ cwd: repo }, {}), repo)
+  assert.equal(runDir({ cwd: deep }, { CLAUDE_PROJECT_DIR: pkg }), pkg)
+  assert.ok(git.samePath(runDir({ cwd: deep }, { CLAUDE_PROJECT_DIR: other }), repo))
+  assert.ok(git.samePath(runDir({ cwd: deep }, { CLAUDE_PROJECT_DIR: outside }), repo))
+  assert.equal(runDir({ cwd: outside }, { CLAUDE_PROJECT_DIR: pkg }), outside)
+})
+
+test('a run started from a drifted shell saves the project directory as its cwd', () => {
+  const deep = path.join(repo, 'src', 'test', 'java')
+  fs.mkdirSync(deep, { recursive: true })
+  const run = env =>
+    hook(
+      'h1-plan-rules.js',
+      { session_id: S, cwd: deep, permission_mode: 'auto', prompt: `/tierminator:execute "${plan}"` },
+      [],
+      { CLAUDE_CONFIG_DIR: path.join(dir, 'config'), ...env },
+    ).stdout
+
+  writePlan(GRAPH())
+  assert.doesNotMatch(run({ CLAUDE_PROJECT_DIR: '' }), /cannot run|was not started/)
+  assert.ok(git.samePath(state.read(S).cwd, repo))
+
+  state.remove(S)
+  const pkg = path.join(repo, 'pkg')
+  fs.mkdirSync(pkg)
+  writePlan(GRAPH())
+  run({ CLAUDE_PROJECT_DIR: pkg })
+  assert.equal(state.read(S).cwd, pkg)
+})
+
 const report = (status, commit = 'NONE', note = 'did it') => `STATUS: ${status}\nCOMMIT: ${commit}\nVERIFY: PASS\nNOTE: ${note}`
 const h4 = (input, mode) => hook('h4-dispatch.js', input, [mode])
 const agentPre = toolInput => ({ session_id: S, cwd: repo, tool_name: 'Agent', tool_input: toolInput })

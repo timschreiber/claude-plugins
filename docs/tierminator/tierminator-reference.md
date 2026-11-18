@@ -1048,6 +1048,13 @@ The plan's `verify` command runs in the main tree after the picks of a parallel 
 cleanly and still break together. It runs through the platform shell with a bounded output: only the last 4000
 characters are kept.
 
+It runs in the run's `cwd`, which is fixed when the run starts (`runDir()` in `lib/execute.js`). That is the
+session's project directory (`CLAUDE_PROJECT_DIR`, where Claude Code was started) when it is in the same working
+tree as the shell, else the top of that working tree. It is never the shell's own directory, which moves with every
+`cd` Claude runs while planning: a run approved while the shell sat in `src/test/java/...` once ran `mvn -q verify`
+there, found no `pom.xml`, and halted. A plan file path typed to `/tierminator:execute` is still read from the
+shell's directory.
+
 - **Passing** is exit status 0; the notice says so and the run goes on to the next wave.
 - **Failing** halts the run. The halt names the command, its exit status (or that it did not finish) and the
   tail of its output. Nothing repairs it, and nothing is reset: the picks stay on the run branch, each of them a
@@ -1499,7 +1506,7 @@ During a run the file looks like this:
   "planFile": "<path to the approved plan file>",
   "planId": "<the plan's 16-character id>",
   "branch": "main",
-  "cwd": "<the repository's working directory>",
+  "cwd": "<the project directory, or the top of the working tree (see Plan-level verify)>",
   "maxParallel": null,
   "current": {
     "index": 1, "attempt": 2, "tier": "sonnet-high", "tried": ["sonnet-medium"],
@@ -1819,7 +1826,7 @@ file and fails.
 | `tests/tierminator/integrate.test.js` | Integration of a closed wave: picks in id order with a linear history, a conflicting task aborted and set aside, a halting wave, a main tree that moved or is dirty, the plan verify (run once, skipped, failing, output kept to 4000 characters), and the slots removed. |
 | `tests/tierminator/leftovers.test.js` | Finding only tierminator's own leftover worktrees and branches, removing them and reporting what was discarded or could not be removed, and saying nothing when none are left. |
 | `tests/tierminator/git-worktree.test.js` | The worktree helpers of `lib/git.js` in real repositories: path forms, listing, matching tierminator slots and branches, pruning, deleting branches, removing dirty, locked or held worktrees, refusing the main tree, and adding a worktree at a base. |
-| `tests/tierminator/resume.test.js` | `/tierminator:execute` for a graph plan: resuming at the next parallel wave, a done dependency counting wherever it is, an all-committed plan, `--from` refused for a graph plan (and a declined result headless), and a run halted mid-wave not redoing integrated tasks. |
+| `tests/tierminator/resume.test.js` | `/tierminator:execute` for a graph plan: resuming at the next parallel wave, a done dependency counting wherever it is, an all-committed plan, `--from` refused for a graph plan (and a declined result headless), a run started from a shell that drifted into a subdirectory keeping the project directory (or tree top) as its `cwd`, and a run halted mid-wave not redoing integrated tasks. |
 | `tests/tierminator/worker-timeout.test.js` | H9: a worker's Bash call without a timeout gets 600000 and no permission decision, other values are left alone, every tier gets it, and other tools, non-workers and ended or inactive runs print nothing. |
 | `tests/tierminator/rules.test.js` | That `rules/tiering.md` has the dependencies and parallel tasks section, lists `after` in the field table, names `setup` and `verify`, shows an independent task, and no longer has the old dependency line. |
 | `tests/tierminator/sizing.test.js` | The sizing review: the flags, the `Keep` lines that clear them, the overlap flag for tasks that may run at once and name the same file, the serial-plan flag, and the review text. |

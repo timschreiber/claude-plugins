@@ -66,6 +66,22 @@ function parseArgs(rest) {
   return { path: words.length ? words.join(' ') : null, from, maxParallel }
 }
 
+// The directory a run works in, saved as its cwd: the plan's verify runs there, and its Git work starts there.
+// It is the session's project directory (CLAUDE_PROJECT_DIR, where Claude Code was started) when that is in the
+// shell's working tree, else the top of that working tree (as the shell spells it, when the shell is there). It
+// is never the shell's directory as such: that moves
+// with every `cd` Claude runs, and a verify such as `mvn -q verify` started in src/test/java/... fails for want
+// of its build file. A shell outside any repository is returned as it is, for git.problem() to report.
+function runDir(input, env = process.env) {
+  const shell = input?.cwd
+  const top = d => (typeof d === 'string' && d ? git.git(d, ['rev-parse', '--show-toplevel']).stdout || null : null)
+  const tree = top(shell)
+  if (!tree) return shell
+  const project = env.CLAUDE_PROJECT_DIR
+  if (project && git.samePath(top(project), tree)) return project
+  return git.samePath(shell, tree) ? shell : git.toWorktreePath(tree)
+}
+
 function resolvePath(p, cwd) {
   const expanded = p === '~' || /^~[\\/]/.test(p) ? path.join(os.homedir(), p.slice(1)) : p
   return path.resolve(typeof cwd === 'string' && cwd ? cwd : process.cwd(), expanded)
@@ -160,7 +176,6 @@ function graphStartPoint(tasks, committed) {
 // the note says the user wants it run.
 function startPlan(input, rest, opts, seen) {
   const id = input.session_id
-  const cwd = input.cwd
   if (!opts.approved && input.permission_mode === 'plan') {
     return (
       `${PREFIX} a plan cannot be executed in plan mode, because its subagents could not edit anything. ` +
@@ -182,7 +197,8 @@ function startPlan(input, rest, opts, seen) {
     }
     planFile = listed[Number(number) - 1]
   } else {
-    planFile = resolvePath(args.path, cwd)
+    // A path the user typed is read from where the shell is.
+    planFile = resolvePath(args.path, input.cwd)
   }
   let text
   try {
@@ -222,6 +238,7 @@ function startPlan(input, rest, opts, seen) {
     )
   }
 
+  const cwd = runDir(input)
   const problem = git.problem(cwd)
   if (problem) {
     return (
@@ -323,4 +340,4 @@ function recordNotStarted(input, note, seen) {
   return resultFile.writeOutcome(input, null, 'declined', resultFile.reasonOf(note), where)
 }
 
-module.exports = { executePlan, parseArgs, recentPlans, startPoint, graphStartPoint, plansDir }
+module.exports = { executePlan, parseArgs, recentPlans, startPoint, graphStartPoint, plansDir, runDir }
